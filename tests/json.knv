@@ -1,5 +1,7 @@
-(use json/value json object array text->json int->json float->json bool->json null
-     field json->text json->int json->float json->bool json->items null? same? parse json->string)
+(use json/value array bool->json field float->json int->json
+                json json->bool json->float json->int
+                json->items json->string json->text null
+                null? object parse same? text->json)
 
 (defn round-trips? (value)
   (match (parse (as-str (json->string value)))
@@ -14,7 +16,9 @@
                (pair (str "missing") null)
                (pair (str "items")
                      (array (vec (int->json 1)
-                                 (object (vec (pair (str "deep") (array (vec null (bool->json false))))))))))))
+                                 (object (vec (pair (str "deep")
+                                                    (array (vec null
+                                                                (bool->json false))))))))))))
 
 (deftest text-round-trips
   (assert (round-trips? (text->json "quote \" and \\ slash"))))
@@ -28,8 +32,7 @@
 (deftest bool-round-trips
   (assert (round-trips? (bool->json false))))
 
-(deftest null-round-trips
-  (assert (round-trips? null)))
+(deftest null-round-trips (assert (round-trips? null)))
 
 (deftest empty-array-and-object-round-trip
   (assert (round-trips? (array (vec))))
@@ -40,12 +43,17 @@
 
 (deftest fields-read-back
   (let (document (nested-document))
-    (assert (= (json->text (unwrap (field document "name"))) (some (str "ledger"))))
-    (assert (= (json->int (unwrap (field document "count"))) (some 3)))
-    (assert (= (json->float (unwrap (field document "ratio"))) (some 0.5)))
-    (assert (= (json->bool (unwrap (field document "open"))) (some true)))
+    (assert (= (json->text (unwrap (field document "name")))
+               (some (str "ledger"))))
+    (assert (= (json->int (unwrap (field document "count")))
+               (some 3)))
+    (assert (= (json->float (unwrap (field document "ratio")))
+               (some 0.5)))
+    (assert (= (json->bool (unwrap (field document "open")))
+               (some true)))
     (assert (null? (unwrap (field document "missing"))))
-    (assert (= (len (unwrap (json->items (unwrap (field document "items"))))) 2))
+    (assert (= (len (unwrap (json->items (unwrap (field document "items")))))
+               2))
     (assert (none? (field document "absent")))))
 
 (deftest invalid-text-is-refused

@@ -1,10 +1,10 @@
 (module
   "Builds, reads, parses and prints JSON values, over `serde_json::Value`.")
 
-(export json json-error error->message
-        object array text->json int->json float->json bool->json null
-        field json->text json->int json->float json->bool json->items null?
-        same? parse json->string)
+(export array bool->json error->message field float->json
+        int->json json json->bool json->float json->int
+        json->items json->string json->text json-error null
+        null? object parse same? text->json)
 
 (rust-type json "serde_json::Value")
 
@@ -27,23 +27,20 @@
     (fn ((ref str)) json)))
 
 (def int->json
-  (rust "serde_json::Value::from({0})"
-    (fn (int) json)))
+  (rust "serde_json::Value::from({0})" (fn (int) json)))
 
 (def float->json
-  (rust "serde_json::Value::from({0})"
-    (fn (float) json)))
+  (rust "serde_json::Value::from({0})" (fn (float) json)))
 
 (def bool->json
-  (rust "serde_json::Value::Bool({0})"
-    (fn (bool) json)))
+  (rust "serde_json::Value::Bool({0})" (fn (bool) json)))
 
-(def null
-  (rust "serde_json::Value::Null" json))
+(def null (rust "serde_json::Value::Null" json))
 
 (def field
   (rust "{0}.get({1}).cloned()"
-    (fn ((ref json) (ref str)) (option json))))
+    (fn ((ref json) (ref str))
+      (option json))))
 
 (def json->text
   (rust "{0}.as_str().map(|text| text.to_string())"
