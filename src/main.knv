@@ -212,17 +212,16 @@
 
 (defn command-name (arguments word-count)
   (join (collect (map (take (iter (:words arguments))
-                            (the usize (convert word-count)))
+                            (convert word-count))
                       clone))
         " "))
 
 (defn check-shape (arguments route)
   (let (operand-count (- (len (:words arguments))
-                         (the usize (convert (:word-count route))))
+                         (convert (:word-count route)))
         unknown (unknown-flags arguments route))
     (cond
-      ((not= operand-count
-             (the usize (convert (:operands route))))
+      ((not= operand-count (convert (:operands route)))
        (err (str (:name route)
                  " takes "
                  (:operands route)
@@ -247,8 +246,7 @@
 
 (defn operand (arguments route index)
   (clone (at (:words arguments)
-             (+ (the usize (convert (:word-count route)))
-                index))))
+             (+ (convert (:word-count route)) index))))
 
 (type flag
   (fn ((ref arguments) (ref str))

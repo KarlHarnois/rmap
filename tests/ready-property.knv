@@ -22,9 +22,8 @@
 
 (defn choice (items roll)
   (deref (unwrap (get items
-                      (the usize
-                           (convert (pick roll
-                                          (the int (convert (len items))))))))))
+                      (convert (pick roll
+                                     (the int (convert (len items)))))))))
 
 (defn appended (items extra)
   (let (all items) (push! all extra) all))
