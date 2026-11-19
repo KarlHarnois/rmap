@@ -1,5 +1,5 @@
 (use json/value json parse)
-(use process/command ->command command-output run-command)
+(use process/command ->command run-command)
 
 (export command-result run-rmap run-rmap-pair)
 
@@ -21,11 +21,18 @@
     (fn (child)
       (result (pair i32 string) string))))
 
+(def once
+  (rust "{{ static BUILT: std::sync::OnceLock<bool> = std::sync::OnceLock::new(); *BUILT.get_or_init({0}) }}"
+    (fn ((fn () bool)) bool)))
+
+(defn build-succeeds? ()
+  (= (:code (unwrap-ok (run-command (ref (->command :program (str "knave")
+                                                     :args (vec (str "build")))))))
+     0))
+
 (defn built-binary ()
-  (let (build (unwrap-ok (run-command (ref (->command :program (str "knave")
-                                                      :args (vec (str "build")))))))
-    (assert (= (:code build) 0))
-    binary-path))
+  (assert (once build-succeeds?))
+  binary-path)
 
 (defn output->result (output)
   (->command-result :exit-code (:code output)
