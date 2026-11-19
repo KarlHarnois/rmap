@@ -1,0 +1,30 @@
+(module
+  "Names each exit code of the CLI and what it means.")
+
+(export exit-code exit-code->meaning exit-code->number
+        exit-codes)
+
+(defenum exit-code
+  done
+  refused
+  usage
+  database)
+
+(defn exit-codes ()
+  (vec exit-code/done exit-code/refused exit-code/usage
+       exit-code/database))
+
+(defn exit-code->number (code)
+  (match code
+    (done 0)
+    (refused 1)
+    (usage 2)
+    (database 3)))
+
+(defn exit-code->meaning (code)
+  (match code
+    (done "The command ran.")
+    (refused "The ledger refused the command. The error object holds a code and a message.")
+    (usage
+      "The arguments match no command. The error object has the code usage.")
+    (database "The database could not be opened, read or written. The error object has the code database.")))

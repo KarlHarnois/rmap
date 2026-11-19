@@ -11,7 +11,8 @@
                   roadmap-status-names status-names)
 
 (use ledger/refusal blockage refusal refusal->code
-                    refusal->message)
+                    refusal->message refusal-catalog
+                    refusal-description)
 
 (use ledger/core/ready blocked-item readiness)
 (use ledger/core/schema ->new-item new-item)
@@ -45,5 +46,6 @@
         list-roadmaps name-of named new-item new-roadmap
         origin origin-names path-conflict read-log readiness
         ready-items refusal refusal->code refusal->message
-        remove-dep roadmap roadmap-status-names session
-        settings show-item status status-names)
+        refusal-catalog refusal-description remove-dep
+        roadmap roadmap-status-names session settings
+        show-item status status-names)

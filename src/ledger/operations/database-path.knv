@@ -1,7 +1,7 @@
 (module
   "Finds the default ledger database: `ledger.db` in the git common directory.")
 
-(use process/command ->command run-command)
+(use process/command ->command command-output run-command)
 (use ledger/sqlite/connection ->database-error)
 (use ledger/operations/transaction failure)
 
@@ -18,6 +18,9 @@
     ((ok output) (common-dir-of output))
     ((err message)
      (err (failure/database (->database-error :message message))))))
+
+(type common-dir-of
+  (fn (command-output) (result string failure)))
 
 (defn common-dir-of (output)
   (if (= (:code output) 0)

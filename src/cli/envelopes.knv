@@ -10,7 +10,7 @@
 (export blockage-fields conflicts->json dep-envelope
         detail-envelope error-envelope events-envelope
         item-envelope items-envelope readiness-envelope
-        roadmap-envelope roadmaps-envelope)
+        roadmap-envelope roadmaps-envelope schema-version)
 
 (def schema-version 1)
 

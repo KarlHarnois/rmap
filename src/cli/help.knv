@@ -1,0 +1,73 @@
+(module
+  "Describes the CLI as JSON: its commands and flags, its exit codes and its refusal codes.")
+
+(use json/value array bool->json int->json json object
+                text->json)
+
+(use ledger/api refusal-catalog refusal-description)
+
+(use cli/routes flag-spec global-flags presence route
+                routes)
+
+(use cli/exit-codes exit-code->meaning exit-code->number
+                    exit-codes)
+
+(use cli/envelopes schema-version)
+
+(export help)
+
+(def usage
+  "rmap [--db <path>] <command> <operands> [--<flag> <value>]")
+
+(defn help ()
+  (object (vec (pair (str "schema_version") (int->json schema-version))
+               (pair (str "usage") (text->json usage))
+               (pair (str "commands")
+                     (array (collect (map (iter (routes)) route->json))))
+               (pair (str "global_flags")
+                     (array (collect (map (iter (global-flags)) flag->json))))
+               (pair (str "exit_codes")
+                     (array (collect (map (iter (exit-codes))
+                                          exit-code->json))))
+               (pair (str "refusal_codes")
+                     (array (collect (map (iter (refusal-catalog))
+                                          refusal->json)))))))
+
+(type route->json
+  (fn ((ref route)) json))
+
+(defn route->json (route)
+  (object (vec
+            (pair (str "command")
+                  (text->json (as-str (:name route))))
+            (pair (str "operands")
+                  (array (collect (map (iter (:operands route))
+                                    (fn (name) (text->json (as-str name)))))))
+            (pair (str "flags")
+                  (array (collect (map (iter (:flags route)) flag->json)))))))
+
+(type flag->json
+  (fn ((ref flag-spec)) json))
+
+(defn flag->json (spec)
+  (object (vec (pair (str "name")
+                     (text->json (as-str (:name spec))))
+               (pair (str "required")
+                     (bool->json (= (:presence spec) presence/required)))
+               (pair (str "value")
+                     (text->json (as-str (:value spec)))))))
+
+(defn exit-code->json (code)
+  (object (vec (pair (str "code")
+                     (int->json (exit-code->number (deref code))))
+               (pair (str "meaning")
+                     (text->json (exit-code->meaning (deref code)))))))
+
+(type refusal->json
+  (fn ((ref refusal-description)) json))
+
+(defn refusal->json (description)
+  (object (vec (pair (str "code")
+                     (text->json (as-str (:code description))))
+               (pair (str "meaning")
+                     (text->json (as-str (:meaning description)))))))

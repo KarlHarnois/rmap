@@ -1,5 +1,5 @@
 (use json/value json parse)
-(use process/command ->command run-command)
+(use process/command ->command command-output run-command)
 
 (export command-result run-rmap run-rmap-pair)
 
@@ -34,6 +34,8 @@
 (defn built-binary ()
   (assert (once build-succeeds?))
   binary-path)
+
+(type output->result (fn (command-output) command-result))
 
 (defn output->result (output)
   (->command-result :exit-code (:code output)

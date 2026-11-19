@@ -8,6 +8,8 @@
                 refusal->message remove-dep show-item)
 
 (use cli/requests parse-invocation request)
+(use cli/exit-codes exit-code exit-code->number)
+(use cli/help help)
 
 (use cli/envelopes blockage-fields conflicts->json
                    dep-envelope detail-envelope
@@ -15,29 +17,6 @@
                    item-envelope items-envelope
                    readiness-envelope roadmap-envelope
                    roadmaps-envelope)
-
-(def usage-text
-  "usage: rmap [--db <path>] <command>
-  new <name> --manager <session>
-  list
-  ready [--roadmap <name>]
-  log [--item <id>] [--since <event id>]
-  item add --roadmap <name> --title <text> --kind <kind> [--parent <id>] [--after <ids>]
-           [--paths <globs>] [--from <id>] [--origin <origin>] [--priority <n>]
-  item list [--roadmap <name>]
-  item show <id>
-  item claim <id> --session <name>
-  item advance <id> <status> [--kind build --paths <globs>]
-  item close <id>
-  item drop <id> --reason <text>
-  dep add <item> <on>
-  dep rm <item> <on>")
-
-(defenum exit-code
-  done
-  refused
-  usage
-  database)
 
 (defstruct outcome
   :exit-code exit-code
@@ -47,15 +26,8 @@
   (let (outcome (run (command-line-args)))
     (println (json->string (ref (:output outcome))))
     (when (= (:exit-code outcome) exit-code/usage)
-      (eprintln usage-text))
-    (exit (exit-code->number (:exit-code outcome)))))
-
-(defn exit-code->number (code)
-  (match code
-    (done 0)
-    (refused 1)
-    (usage 2)
-    (database 3)))
+      (eprintln "run `rmap help` to list the commands and their flags"))
+    (exit (convert (exit-code->number (:exit-code outcome))))))
 
 (defn run (args)
   (match (parse-invocation args)
@@ -67,6 +39,11 @@
              :output (error-envelope "usage" (as-str message) (vec))))
 
 (defn execute (invocation)
+  (match (:request invocation)
+    (request/help (->outcome :exit-code exit-code/done :output (help)))
+    (_ (execute-on-ledger invocation))))
+
+(defn execute-on-ledger (invocation)
   (match (settings-for (ref invocation))
     ((ok settings)
      (failure-or-done (perform (ref settings)
@@ -90,6 +67,7 @@
 
 (defn perform (settings request)
   (match request
+    (help (ok (help)))
     ((new-roadmap name manager)
      (map-ok (new-roadmap settings name manager)
              roadmap-envelope))

@@ -1,7 +1,8 @@
 (module
   "Splits the command line into words and flags and finds the command's route.")
 
-(use cli/routes route routes)
+(use cli/routes flag-spec global-flags presence route routes
+                word-count)
 
 (export ->arguments arguments check-shape flag operand
         required-flag route-of split-arguments)
@@ -53,28 +54,30 @@
 
 (defn route-matches? (route arguments)
   (= (:name route)
-     (command-name arguments (:word-count route))))
+     (command-name arguments (word-count route))))
 
 (defn command-name (arguments word-count)
-  (join (collect (map (take (iter (:words arguments))
-                            (convert word-count))
+  (join (collect (map (take (iter (:words arguments)) word-count)
                       clone))
         " "))
 
 (defn check-shape (arguments route)
   (let (operand-count (- (len (:words arguments))
-                         (convert (:word-count route)))
-        unknown (unknown-flags arguments route))
+                         (word-count route))
+        expected (len (:operands route))
+        unknown (unknown-flags arguments route)
+        missing (missing-flags arguments route))
     (cond
-      ((not= operand-count (convert (:operands route)))
+      ((not= operand-count expected)
        (err (str (:name route)
-                 " takes "
-                 (:operands route)
-                 " operands, got " operand-count)))
+                 " takes " expected " operands, got "
+                 operand-count)))
       ((not (empty? unknown))
        (err (str (:name route)
                  " does not take --"
                  (join unknown ", --"))))
+      ((not (empty? missing))
+       (err (str (:name route) " needs --" (join missing ", --"))))
       (else (ok (do))))))
 
 (type unknown-flags
@@ -82,16 +85,43 @@
     (vec string)))
 
 (defn unknown-flags (arguments route)
-  (collect (map (filter (iter (:flags arguments))
-                  (fn (entry)
-                    (let-match ((pair name _) entry)
-                      (not (or (= name "db")
-                               (contains? (:flags route) (clone name)))))))
-                (fn (entry) (clone (first entry))))))
+  (let (known (known-flag-names route))
+    (collect (filter (map (iter (:flags arguments))
+                       (fn (entry) (clone (first entry))))
+                     (fn (name)
+                       (not (contains? known (clone name))))))))
+
+(type known-flag-names
+  (fn ((ref route)) (vec string)))
+
+(defn known-flag-names (route)
+  (let (names (flag-names (ref (:flags route))))
+    (for-each (flag-names (ref (global-flags)))
+      (fn (name) (push! names (clone name))))
+    names))
+
+(type flag-names
+  (fn ((ref (vec flag-spec)))
+    (vec string)))
+
+(defn flag-names (specs)
+  (collect (map (iter specs)
+             (fn (spec) (clone (:name spec))))))
+
+(type missing-flags
+  (fn ((ref arguments) (ref route))
+    (vec string)))
+
+(defn missing-flags (arguments route)
+  (collect (map (filter (iter (:flags route))
+                  (fn (spec)
+                    (and (= (:presence spec) presence/required)
+                         (none? (flag arguments (as-str (:name spec)))))))
+                (fn (spec) (clone (:name spec))))))
 
 (defn operand (arguments route index)
   (clone (at (:words arguments)
-             (+ (convert (:word-count route)) index))))
+             (+ (word-count route) index))))
 
 (type flag
   (fn ((ref arguments) (ref str))

@@ -1,0 +1,41 @@
+(use ledger/model ->item-id status)
+
+(use ledger/refusal ->blockage refusal refusal->code
+                    refusal-catalog)
+
+(defn sample-id ()
+  (->item-id :value (str "rm-0001")))
+
+(defn every-refusal ()
+  (vec (refusal/roadmap-not-found (str "road"))
+       (refusal/roadmap-exists (str "road"))
+       (refusal/item-not-found (sample-id))
+       (refusal/parent-not-epic (sample-id))
+       (refusal/parent-in-other-roadmap (sample-id))
+       refusal/epic-has-parent refusal/build-needs-paths
+       refusal/epic-status-computed
+       (refusal/invalid-transition status/open status/merged)
+       (refusal/not-ready (->blockage :blockers (vec) :path-conflicts (vec)))
+       (refusal/paths-conflict (vec))
+       (refusal/cycle (sample-id) (sample-id))
+       (refusal/dep-exists (sample-id) (sample-id))
+       (refusal/dep-not-found (sample-id) (sample-id))))
+
+(defn catalog-codes ()
+  (collect (map (iter (refusal-catalog))
+             (fn (description)
+               (clone (:code description))))))
+
+(deftest the-catalog-describes-every-refusal-code
+  (let (codes (catalog-codes))
+    (for-each (every-refusal)
+      (fn (refused)
+        (assert (contains? codes (str (refusal->code refused))))))))
+
+(deftest the-catalog-describes-each-code-once
+  (let (codes (catalog-codes)
+        unique (catalog-codes))
+    (sort! unique)
+    (dedup! unique)
+    (assert (= (len unique) (len codes)))
+    (assert (= (len codes) (len (every-refusal))))))

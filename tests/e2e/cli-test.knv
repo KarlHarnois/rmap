@@ -1,4 +1,6 @@
-(use json/value field json->int json->items json->text)
+(use json/value copy-of field json->bool json->int
+                json->items json->text)
+
 (use e2e/process command-result run-rmap)
 (use support/scratch scratch-database)
 
@@ -318,3 +320,31 @@
     (assert (= (len (unwrap (json->items (unwrap (field (:output log)
                                                         "events")))))
                2))))
+
+(defn described-command (result name)
+  (-> (:output result)
+      (field "commands")
+      unwrap json->items unwrap iter
+      (find (fn (command)
+              (= (json->text (unwrap (field command "command")))
+                 (some (str name)))))
+      (map-some copy-of)))
+
+(defn required-flag-names (command)
+  (-> (unwrap (json->items (unwrap (field command "flags"))))
+      iter
+      (filter (fn (spec)
+                (= (json->bool (unwrap (field spec "required")))
+                   (some true))))
+      (map (fn (spec)
+             (unwrap (json->text (unwrap (field spec "name"))))))
+      collect))
+
+(deftest help-describes-commands-without-a-database
+  (let (result (run-rmap (str "/nonexistent/rmap/ledger.db") (vec "help"))
+        item-add (unwrap (described-command (ref result) "item add")))
+    (assert (= (:exit-code result) 0))
+    (assert (= (required-flag-names (ref item-add))
+               (vec (str "roadmap")
+                    (str "title")
+                    (str "kind"))))))

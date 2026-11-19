@@ -1,72 +1,109 @@
 (module
-  "Lists each command the CLI accepts, with its operand count and its flags.")
+  "Lists each command the CLI accepts, with its operands and its flags.")
 
-(export ->route route routes)
+(use ledger/api kind-names origin-names status-names)
+
+(export ->route flag-spec global-flags presence route routes
+        word-count)
+
+(defenum presence
+  required
+  optional)
+
+(defstruct flag-spec
+  :name string
+  :presence presence
+  :value string)
 
 (defstruct route
   :name string
-  :word-count int
-  :operands int
-  :flags (vec string))
+  :operands (vec string)
+  :flags (vec flag-spec))
+
+(defn required (name value)
+  (->flag-spec :name (str name)
+               :presence presence/required
+               :value (str value)))
+
+(defn optional (name value)
+  (->flag-spec :name (str name)
+               :presence presence/optional
+               :value (str value)))
+
+(type choices
+  (where ((a copy))
+    (fn ((ref (vec (pair a (ref str)))))
+      string)))
+
+(defn choices (names)
+  (join (collect (map (iter names)
+                   (fn (entry)
+                     (let-match ((pair _ name) (deref entry))
+                       name))))
+        "|"))
+
+(type word-count
+  (fn ((ref route)) usize))
+
+(defn word-count (route)
+  (len (collect (split (as-str (:name route)) " "))))
+
+(defn global-flags ()
+  (vec (optional "db" "<path>")))
+
+(defn operands (names)
+  (collect (map (iter names) str)))
 
 (defn routes ()
-  (vec (->route :name (str "new")
-                :word-count 1
-                :operands 1
-                :flags (vec (str "manager")))
+  (vec (->route :name (str "help")
+                :operands (vec)
+                :flags (vec))
+       (->route :name (str "new")
+                :operands (operands (vec "name"))
+                :flags (vec (required "manager" "<session>")))
        (->route :name (str "list")
-                :word-count 1
-                :operands 0
+                :operands (vec)
                 :flags (vec))
        (->route :name (str "ready")
-                :word-count 1
-                :operands 0
-                :flags (vec (str "roadmap")))
+                :operands (vec)
+                :flags (vec (optional "roadmap" "<name>")))
        (->route :name (str "log")
-                :word-count 1
-                :operands 0
-                :flags (vec (str "item") (str "since")))
+                :operands (vec)
+                :flags (vec (optional "item" "<id>")
+                            (optional "since" "<event id>")))
        (->route :name (str "item add")
-                :word-count 2
-                :operands 0
-                :flags (vec (str "roadmap")
-                            (str "title")
-                            (str "kind")
-                            (str "parent")
-                            (str "after")
-                            (str "paths")
-                            (str "from")
-                            (str "origin")
-                            (str "priority")))
+                :operands (vec)
+                :flags (vec (required "roadmap" "<name>")
+                            (required "title" "<text>")
+                            (required "kind" (choices kind-names))
+                            (optional "parent" "<epic id>")
+                            (optional "after" "<ids, comma-separated>")
+                            (optional "paths" "<globs, comma-separated>")
+                            (optional "from" "<id>")
+                            (optional "origin" (choices origin-names))
+                            (optional "priority" "<whole number>")))
        (->route :name (str "item list")
-                :word-count 2
-                :operands 0
-                :flags (vec (str "roadmap")))
+                :operands (vec)
+                :flags (vec (optional "roadmap" "<name>")))
        (->route :name (str "item show")
-                :word-count 2
-                :operands 1
+                :operands (operands (vec "id"))
                 :flags (vec))
        (->route :name (str "item claim")
-                :word-count 2
-                :operands 1
-                :flags (vec (str "session")))
+                :operands (operands (vec "id"))
+                :flags (vec (required "session" "<name>")))
        (->route :name (str "item advance")
-                :word-count 2
-                :operands 2
-                :flags (vec (str "kind") (str "paths")))
+                :operands (vec (str "id") (choices status-names))
+                :flags (vec (optional "kind" "build")
+                            (optional "paths" "<globs, comma-separated>")))
        (->route :name (str "item close")
-                :word-count 2
-                :operands 1
+                :operands (operands (vec "id"))
                 :flags (vec))
        (->route :name (str "item drop")
-                :word-count 2
-                :operands 1
-                :flags (vec (str "reason")))
+                :operands (operands (vec "id"))
+                :flags (vec (required "reason" "<text>")))
        (->route :name (str "dep add")
-                :word-count 2
-                :operands 2
+                :operands (operands (vec "item" "on"))
                 :flags (vec))
        (->route :name (str "dep rm")
-                :word-count 2
-                :operands 2
+                :operands (operands (vec "item" "on"))
                 :flags (vec))))

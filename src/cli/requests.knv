@@ -21,6 +21,7 @@
   :request request)
 
 (defenum request
+  help
   (new-roadmap string session)
   list-roadmaps
   (ready (option string))
@@ -51,6 +52,7 @@
   (match (as-str (:name route))
     ("new"
      (new-roadmap-request arguments (operand arguments route 0)))
+    ("help" (ok request/help))
     ("list" (ok request/list-roadmaps))
     ("ready" (ok (request/ready (flag arguments "roadmap"))))
     ("log" (log-request arguments))
