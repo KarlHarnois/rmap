@@ -1,6 +1,6 @@
 # rmap
 
-**Keep every ledger rule inside `src/ledger/`.**
+**The CLI only parses arguments, calls `ledger/api` and prints the result.** NEVER decide in the CLI whether a ledger change is allowed.
 
 **Put only the Rust calls that Knave cannot make in a `rust` template.** Write the logic around those calls in Knave.
 
