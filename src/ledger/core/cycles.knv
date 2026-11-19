@@ -12,27 +12,56 @@
     bool))
 
 (defn closes-cycle? (deps item on)
-  (or (= item on) (reaches? deps on item)))
+  (or (= item on)
+      (reaches? (blocking-edges deps) on item)))
+
+(type blocking-edges
+  (fn ((ref (vec dep))) (vec dep)))
+
+(defn blocking-edges (deps)
+  (collect (map (filter (iter deps)
+                  (fn (dep)
+                    (= (:type dep) dep-type/blocks)))
+                clone)))
 
 (type reaches?
-  (fn ((ref (vec dep))
-       (ref item-id)
-       (ref item-id))
+  (fn ((vec dep) (ref item-id) (ref item-id))
     bool))
 
-(defn reaches? (deps from target)
-  (or (= from target)
-      (any? (successors deps from)
-        (fn (next) (reaches? deps next target)))))
+(defn reaches? (edges from target)
+  (loop (frontier (vec (clone from))
+         visited (vec))
+    (cond
+      ((empty? frontier) false)
+      ((contains? frontier (clone target)) true)
+      (else (let (seen (joined visited (ref frontier)))
+              (recur (next-frontier (ref edges)
+                                    (ref frontier)
+                                    (ref seen))
+                     seen))))))
 
-(type successors
-  (fn ((ref (vec dep)) (ref item-id))
+(type next-frontier
+  (fn ((ref (vec dep))
+       (ref (vec item-id))
+       (ref (vec item-id)))
     (vec item-id)))
 
-(defn successors (deps from)
-  (-> deps iter
-      (filter (fn (dep)
-                (and (= (:type dep) dep-type/blocks)
-                     (= (ref (:item dep)) from))))
-      (map (fn (dep) (clone (:on dep))))
-      collect))
+(defn next-frontier (edges frontier seen)
+  (let (next (vec))
+    (for-each edges
+      (fn (dep)
+        (when (and (contains? frontier (clone (:item dep)))
+                   (not (contains? seen (clone (:on dep))))
+                   (not (contains? (ref next) (clone (:on dep)))))
+          (push! next (clone (:on dep))))))
+    next))
+
+(type joined
+  (fn ((vec item-id) (ref (vec item-id)))
+    (vec item-id)))
+
+(defn joined (visited frontier)
+  (let (all visited)
+    (for-each frontier
+      (fn (id) (push! all (clone id))))
+    all))

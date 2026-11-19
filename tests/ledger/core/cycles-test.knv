@@ -27,3 +27,28 @@
 (deftest a-reversed-chain-edge-is-not-a-cycle
   (assert (not (closes? (vec (blocks-dep "rm-000a" "rm-000b"))
                         "rm-000a" "rm-000c"))))
+
+(def layer-count 30)
+
+(defn layer-id (layer side) (str "rm-" layer "-" side))
+
+(defn layered-deps ()
+  (let (deps (vec))
+    (for-each (range 1 layer-count)
+      (fn (layer)
+        (for-each (vec "a" "b")
+          (fn (side)
+            (push! deps
+                   (blocks-dep (as-str (layer-id layer side))
+                               (as-str (layer-id (dec layer) "a"))))
+            (push! deps
+                   (blocks-dep (as-str (layer-id layer side))
+                               (as-str (layer-id (dec layer) "b"))))))))
+    deps))
+
+(deftest a-deep-layered-graph-is-searched-once-per-item
+  (let (deps (layered-deps)
+        top (layer-id (dec layer-count) "a")
+        bottom (layer-id 0 "a"))
+    (assert (not (closes? deps "rm-new" (as-str top))))
+    (assert (closes? deps (as-str bottom) (as-str top)))))
