@@ -1,0 +1,51 @@
+(module
+  "Reads typed values out of the command line's flags.")
+
+(use ledger/api ->glob ->item-id ->new-item ->session
+                ->settings named)
+
+(use cli/arguments ->arguments flag required-flag)
+
+(export list-flag list-flag-globs named-flag
+        optional-named-flag optional-number)
+
+(defn optional-number (arguments name fallback)
+  (match (flag arguments name)
+    ((some text) (text->number (as-str text) name))
+    (none (ok fallback))))
+
+(defn text->number (text name)
+  (match (the (result int (parse-error int))
+              (parse text))
+    ((ok number) (ok number))
+    ((err _)
+     (err (str "--" name " takes a whole number, got " text)))))
+
+(defn named-flag (arguments name names)
+  (let-try (text (required-flag arguments name))
+    (text->named (as-str text) name names)))
+
+(defn optional-named-flag (arguments name names fallback)
+  (match (flag arguments name)
+    ((some text) (text->named (as-str text) name names))
+    (none (ok fallback))))
+
+(defn text->named (text name names)
+  (ok-or (named names text)
+         (str "--" name " does not accept " text)))
+
+(defn list-flag (arguments name)
+  (match (flag arguments name)
+    ((some text) (comma-separated (as-str text)))
+    (none (vec))))
+
+(defn comma-separated (text)
+  (collect (map (filter (split text ",")
+                  (fn (part)
+                    (not (empty? (trim (deref part))))))
+                (fn (part) (str (trim part))))))
+
+(defn list-flag-globs (arguments)
+  (collect (map (iter (list-flag arguments "paths"))
+             (fn (pattern)
+               (->glob :pattern (clone pattern))))))

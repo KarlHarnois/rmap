@@ -1,0 +1,76 @@
+(module
+  "Adds and removes `blocks` dependencies.")
+
+(use json/value object text->json)
+
+(use ledger/model ->dep ->glob ->item ->item-id ->item-path
+                  ->roadmap ->roadmap-id ->session dep
+                  dep-type event-type snapshot)
+
+(use ledger/refusal refusal)
+
+(use ledger/core/schema ->new-item check-dep-removal
+                        check-new-dep)
+
+(use ledger/sqlite/connection connection)
+(use ledger/sqlite/deps delete-dep insert-dep)
+(use ledger/sqlite/events ->event-filter ->new-event)
+(use ledger/sqlite/store load-snapshot)
+
+(use ledger/operations/context cli-actor existing-item
+                               failure in-transaction record
+                               settings)
+
+(export add-dep remove-dep)
+
+(defn add-dep (settings item on)
+  (change-dep settings
+              (->dep :item item :on on :type dep-type/blocks)
+              event-type/dep-added))
+
+(defn remove-dep (settings item on)
+  (change-dep settings
+              (->dep :item item :on on :type dep-type/blocks)
+              event-type/dep-removed))
+
+(defn change-dep (settings dep type)
+  (in-transaction settings
+    (fn (connection) (write-dep connection settings dep type))))
+
+(type write-dep
+  (fn ((ref connection) (ref settings) dep event-type)
+    (result dep failure)))
+
+(defn write-dep (connection settings dep type)
+  (let-try (snapshot (load-snapshot connection)
+            _ (check-dep-change (ref snapshot) (ref dep) type)
+            _ (write-dep-change connection (ref dep) type)
+            owner (existing-item (ref snapshot)
+                                 (ref (:item dep)))
+            _ (record connection settings
+                      (str cli-actor)
+                      (some (clone (:roadmap-id owner)))
+                      (some (clone (:item dep)))
+                      type
+                      (object (vec (pair (str "on")
+                                         (text->json (as-str (:value (:on dep)))))))))
+    (ok (clone dep))))
+
+(type check-dep-change
+  (fn ((ref snapshot) (ref dep) event-type)
+    (result unit refusal)))
+
+(defn check-dep-change (snapshot dep type)
+  (match type
+    (dep-added (check-new-dep snapshot
+                              (ref (:item dep))
+                              (ref (:on dep))))
+    (_ (check-dep-removal snapshot
+                          (ref (:item dep))
+                          (ref (:on dep))))))
+
+(defn write-dep-change (connection dep type)
+  (let-try (changed (match type
+                      (dep-added (insert-dep connection dep))
+                      (_ (delete-dep connection dep))))
+    (ok changed)))

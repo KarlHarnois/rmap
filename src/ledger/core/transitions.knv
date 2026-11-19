@@ -1,0 +1,88 @@
+(module
+  "Holds the table of allowed status transitions.")
+
+(use ledger/model kind status)
+
+(export command transition transitions)
+
+(defenum command
+  claim
+  advance
+  advance-to-build
+  close
+  drop)
+
+(defstruct transition
+  :from status
+  :to status
+  :command command
+  :kinds (vec kind))
+
+(defn work-kinds ()
+  (vec kind/research kind/design kind/build))
+
+(defn transitions ()
+  (vec (->transition :from status/open
+                     :to status/dispatched
+                     :command command/claim
+                     :kinds (work-kinds))
+       (->transition :from status/dispatched
+                     :to status/open
+                     :command command/advance
+                     :kinds (work-kinds))
+       (->transition :from status/dispatched
+                     :to status/reported
+                     :command command/advance
+                     :kinds (vec kind/research kind/design))
+       (->transition :from status/dispatched
+                     :to status/in-review
+                     :command command/advance
+                     :kinds (vec kind/build))
+       (->transition :from status/reported
+                     :to status/dispatched
+                     :command command/advance-to-build
+                     :kinds (vec kind/research kind/design))
+       (->transition :from status/in-review
+                     :to status/fixing
+                     :command command/advance
+                     :kinds (vec kind/build))
+       (->transition :from status/in-review
+                     :to status/merging
+                     :command command/advance
+                     :kinds (vec kind/build))
+       (->transition :from status/fixing
+                     :to status/in-review
+                     :command command/advance
+                     :kinds (vec kind/build))
+       (->transition :from status/merging
+                     :to status/fixing
+                     :command command/advance
+                     :kinds (vec kind/build))
+       (->transition :from status/merging
+                     :to status/merged
+                     :command command/close
+                     :kinds (vec kind/build))
+       (->transition :from status/open
+                     :to status/dropped
+                     :command command/drop
+                     :kinds (work-kinds))
+       (->transition :from status/dispatched
+                     :to status/dropped
+                     :command command/drop
+                     :kinds (work-kinds))
+       (->transition :from status/reported
+                     :to status/dropped
+                     :command command/drop
+                     :kinds (work-kinds))
+       (->transition :from status/in-review
+                     :to status/dropped
+                     :command command/drop
+                     :kinds (work-kinds))
+       (->transition :from status/fixing
+                     :to status/dropped
+                     :command command/drop
+                     :kinds (work-kinds))
+       (->transition :from status/merging
+                     :to status/dropped
+                     :command command/drop
+                     :kinds (work-kinds))))

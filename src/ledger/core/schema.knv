@@ -5,7 +5,7 @@
                   roadmap-id snapshot)
 
 (use ledger/refusal refusal)
-(use ledger/core/ready find-item)
+(use ledger/core/statuses find-item)
 (use ledger/core/cycles closes-cycle?)
 
 (export ->new-item check-dep-removal check-new-dep

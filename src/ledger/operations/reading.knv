@@ -1,0 +1,83 @@
+(module
+  "Reads ready items, items and events.")
+
+(use ledger/model ->dep ->glob ->item ->item-id ->item-path
+                  ->roadmap ->roadmap-id ->session dep event
+                  glob item item-id)
+
+(use ledger/core/ready readiness readiness-of scope)
+(use ledger/core/statuses with-computed-status)
+(use ledger/core/locks globs-of)
+(use ledger/core/schema ->new-item)
+
+(use ledger/sqlite/events ->event-filter ->new-event
+                          events-matching)
+
+(use ledger/sqlite/store load-snapshot)
+
+(use ledger/operations/context connect existing-item failure
+                               scope-named settings)
+
+(export item-detail list-items read-log ready-items
+        show-item)
+
+(defstruct item-detail
+  :item item
+  :deps (vec dep)
+  :globs (vec glob))
+
+(type ready-items
+  (fn ((ref settings) (option string))
+    (result readiness failure)))
+
+(defn ready-items (settings roadmap)
+  (let-try (connection (connect settings)
+            scope (scope-named (ref connection) (ref roadmap))
+            snapshot (load-snapshot (ref connection)))
+    (ok (readiness-of (ref snapshot) (ref scope)))))
+
+(type read-log
+  (fn ((ref settings) (option item-id) int)
+    (result (vec event) failure)))
+
+(defn read-log (settings item after-id)
+  (let-try (connection (connect settings)
+            events (events-matching (ref connection)
+                                    (ref (->event-filter :item-id item
+                                                         :after-id after-id))))
+    (ok events)))
+
+(type list-items
+  (fn ((ref settings) (option string))
+    (result (vec item) failure)))
+
+(defn list-items (settings roadmap)
+  (let-try (connection (connect settings)
+            scope (scope-named (ref connection) (ref roadmap))
+            snapshot (load-snapshot (ref connection)))
+    (ok (collect (map (filter (iter (:items snapshot))
+                        (fn (item) (in-scope? item (ref scope))))
+                      (fn (item)
+                        (with-computed-status (ref snapshot) item)))))))
+
+(type in-scope?
+  (fn ((ref item) (ref scope)) bool))
+
+(defn in-scope? (item scope)
+  (match scope
+    (every-roadmap true)
+    ((one-roadmap id) (= (ref (:roadmap-id item)) id))))
+
+(type show-item
+  (fn ((ref settings) item-id)
+    (result item-detail failure)))
+
+(defn show-item (settings id)
+  (let-try (connection (connect settings)
+            snapshot (load-snapshot (ref connection))
+            item (existing-item (ref snapshot) (ref id)))
+    (ok (->item-detail :item (with-computed-status (ref snapshot) (ref item))
+                       :deps (collect (map (filter (iter (:deps snapshot))
+                                             (fn (dep) (= (:item dep) id)))
+                                           clone))
+                       :globs (globs-of (ref snapshot) (ref id))))))

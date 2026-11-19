@@ -1,0 +1,118 @@
+(module
+  "Claims, advances, closes and drops items.")
+
+(use ledger/model ->dep ->glob ->item ->item-id ->item-path
+                  ->roadmap ->roadmap-id ->session glob item
+                  item-id snapshot status)
+
+(use ledger/core/states move moved)
+(use ledger/core/moves build-globs check-move-in)
+(use ledger/core/schema ->new-item)
+(use ledger/sqlite/connection connection)
+(use ledger/sqlite/items update-item)
+(use ledger/sqlite/events ->event-filter ->new-event)
+(use ledger/sqlite/store load-snapshot)
+
+(use ledger/operations/context cli-actor existing-item
+                               failure in-transaction now
+                               record settings)
+
+(use ledger/operations/adding insert-globs)
+
+(use ledger/operations/move-events move->event-type
+                                   move-payload)
+
+(export advance-item claim-item close-item drop-item
+        kind-change)
+
+(defenum kind-change
+  keep-kind
+  (become-build (vec glob)))
+
+(defstruct applied-move
+  :before item
+  :after item
+  :move move
+  :globs (vec glob)
+  :actor string)
+
+(defn claim-item (settings id session)
+  (perform-move settings id
+                (move/claim (clone session))
+                (clone (:name session))))
+
+(defn advance-item (settings id target change)
+  (perform-move settings id
+                (advance-move target change)
+                (str cli-actor)))
+
+(defn advance-move (target change)
+  (match change
+    (keep-kind (move/advance target))
+    ((become-build globs) (build-move target globs))))
+
+(defn build-move (target globs)
+  (if (= target status/dispatched)
+    (move/advance-to-build globs)
+    (move/advance target)))
+
+(defn close-item (settings id)
+  (perform-move settings id move/close (str cli-actor)))
+
+(defn drop-item (settings id reason)
+  (perform-move settings id
+                (move/drop reason)
+                (str cli-actor)))
+
+(defn perform-move (settings id move actor)
+  (in-transaction settings
+    (fn (connection)
+      (apply-move connection settings id move actor))))
+
+(type apply-move
+  (fn ((ref connection) (ref settings) item-id move string)
+    (result item failure)))
+
+(defn apply-move (connection settings id move actor)
+  (let-try (snapshot (load-snapshot connection)
+            item (existing-item (ref snapshot) (ref id))
+            _ (check-move-in (ref snapshot)
+                             (ref item)
+                             (ref move))
+            at (now connection settings))
+    (store-move connection settings
+                (->applied-move :before (clone item)
+                                :after (moved (ref item) (ref move) (ref at))
+                                :globs (new-build-globs (ref snapshot)
+                                                        (ref item)
+                                                        (ref move))
+                                :move move
+                                :actor actor))))
+
+(type store-move
+  (fn ((ref connection) (ref settings) applied-move)
+    (result item failure)))
+
+(defn store-move (connection settings applied)
+  (let-try (_ (update-item connection (ref (:after applied)))
+            _ (insert-globs connection
+                            (ref (:id (:after applied)))
+                            (ref (:globs applied)))
+            _ (record connection settings
+                      (clone (:actor applied))
+                      (some (clone (:roadmap-id (:after applied))))
+                      (some (clone (:id (:after applied))))
+                      (move->event-type (ref (:move applied)))
+                      (move-payload (ref (:before applied))
+                                    (ref (:after applied))
+                                    (ref (:move applied)))))
+    (ok (clone (:after applied)))))
+
+(type new-build-globs
+  (fn ((ref snapshot) (ref item) (ref move))
+    (vec glob)))
+
+(defn new-build-globs (snapshot item move)
+  (match move
+    ((advance-to-build globs) (build-globs snapshot item globs))
+    (_ (vec))))

@@ -1,0 +1,49 @@
+(module
+  "Names the event a move records and builds its payload.")
+
+(use json/value json object text->json)
+
+(use ledger/model ->dep ->glob ->item ->item-id ->item-path
+                  ->roadmap ->roadmap-id ->session
+                  event-type item)
+
+(use ledger/names kind-names name-of status-names)
+(use ledger/core/states move)
+(use ledger/core/schema ->new-item)
+(use ledger/sqlite/events ->event-filter ->new-event)
+
+(export move->event-type move-payload)
+
+(type move->event-type
+  (fn ((ref move)) event-type))
+
+(defn move->event-type (move)
+  (match move
+    ((claim _) event-type/item-claimed)
+    ((advance _) event-type/item-advanced)
+    ((advance-to-build _) event-type/item-advanced)
+    (close event-type/item-closed)
+    ((drop _) event-type/item-dropped)))
+
+(type move-payload
+  (fn ((ref item) (ref item) (ref move))
+    json))
+
+(defn move-payload (before after move)
+  (object (vec (pair (str "from")
+                     (text->json (name-of status-names (:status before))))
+               (pair (str "to")
+                     (text->json (name-of status-names (:status after))))
+               (pair (str "kind")
+                     (text->json (name-of kind-names (:kind after))))
+               (pair (str "detail")
+                     (text->json (as-str (move-detail move)))))))
+
+(type move-detail
+  (fn ((ref move)) string))
+
+(defn move-detail (move)
+  (match move
+    ((claim session) (clone (:name session)))
+    ((drop reason) (clone reason))
+    (_ (str ""))))

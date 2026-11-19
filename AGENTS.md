@@ -6,14 +6,16 @@
 
 **Code outside `src/ledger/` MUST use only `ledger/api`.** Tests in `tests/` MAY also use `ledger/core/*` and `ledger/sqlite/*` to test those modules directly.
 
-**NEVER put a ledger rule in `src/main.knv`.** `src/main.knv` parses arguments, calls `ledger/api` and prints JSON through `json/value`.
+**NEVER put a ledger rule in `src/main.knv` or `src/cli/`.** They parse arguments, call `ledger/api` and print JSON through `json/value`.
 
 **NEVER import `ledger/sqlite/*` from `ledger/core/*`.** The core is pure: it reads a snapshot and returns values or refusals.
 
 | Path | Holds |
 | --- | --- |
 | `src/json/value.knv` | The bindings over `serde_json::Value`. |
-| `src/ledger/api.knv` | The public ledger functions. Each write runs in one `BEGIN IMMEDIATE` transaction and appends its `events` row in that transaction. |
+| `src/main.knv`, `src/cli/` | The `rmap` CLI. |
+| `src/ledger/api.knv` | The public ledger functions, re-exported from `src/ledger/operations/`. |
+| `src/ledger/operations/` | The ledger operations. Each write runs in one `BEGIN IMMEDIATE` transaction and appends its `events` row in that transaction. |
 | `src/ledger/model.knv`, `names.knv`, `refusal.knv` | The ledger values, the text of each enum case, and the refusal codes. |
 | `src/ledger/core/` | The pure ledger rules. |
 | `src/ledger/sqlite/` | The connection, the migrations runner and one module per table. |
@@ -41,5 +43,7 @@
 **If you change a command, its JSON output or its exit codes, update `docs/cli.md` in the same commit.**
 
 `knave test` builds the `rmap` binary itself, because the CLI and claim-race tests run it.
+
+**Keep every file outside `tests/` under 150 lines.** If a file passes 150 lines, split it into modules by responsibility.
 
 **If the same check still fails after three fixes, stop and show the failure to the user.**

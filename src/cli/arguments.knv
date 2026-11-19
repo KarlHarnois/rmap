@@ -1,0 +1,109 @@
+(module
+  "Splits the command line into words and flags and finds the command's route.")
+
+(use ledger/api ->glob ->item-id ->new-item ->session
+                ->settings)
+
+(use cli/routes ->route route routes)
+
+(export ->arguments arguments check-shape flag operand
+        required-flag route-of split-arguments)
+
+(defstruct arguments
+  :words (vec string)
+  :flags (vec (pair string string)))
+
+(defn split-arguments (args)
+  (loop (index 0
+         words (vec)
+         flags (vec))
+    (cond
+      ((>= index (len args))
+       (ok (->arguments :words words :flags flags)))
+      ((flag-name? (at args index))
+       (let-try (value (flag-value (ref args) index))
+         (recur (+ index 2)
+                words
+                (appended flags
+                          (pair (str (flag-name (at args index)))
+                                value)))))
+      (else (recur (inc index)
+                   (appended words (clone (at args index)))
+                   flags)))))
+
+(defn flag-name? (arg)
+  (starts-with? (as-str arg) "--"))
+
+(defn flag-name (arg)
+  (subs (as-str arg) 2 (len arg)))
+
+(defn flag-value (args index)
+  (match (get args (inc index))
+    ((some value) (ok (clone value)))
+    (none (err (str (at args index) " needs a value")))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))
+
+(defn route-of (arguments)
+  (ok-or (map-some (find (iter (routes))
+                     (fn (route) (route-matches? route arguments)))
+                   clone)
+         (str "unknown command: " (join (:words arguments) " "))))
+
+(type route-matches?
+  (fn ((ref route) (ref arguments)) bool))
+
+(defn route-matches? (route arguments)
+  (= (:name route)
+     (command-name arguments (:word-count route))))
+
+(defn command-name (arguments word-count)
+  (join (collect (map (take (iter (:words arguments))
+                            (convert word-count))
+                      clone))
+        " "))
+
+(defn check-shape (arguments route)
+  (let (operand-count (- (len (:words arguments))
+                         (convert (:word-count route)))
+        unknown (unknown-flags arguments route))
+    (cond
+      ((not= operand-count (convert (:operands route)))
+       (err (str (:name route)
+                 " takes "
+                 (:operands route)
+                 " operands, got " operand-count)))
+      ((not (empty? unknown))
+       (err (str (:name route)
+                 " does not take --"
+                 (join unknown ", --"))))
+      (else (ok (do))))))
+
+(type unknown-flags
+  (fn ((ref arguments) (ref route))
+    (vec string)))
+
+(defn unknown-flags (arguments route)
+  (collect (map (filter (iter (:flags arguments))
+                  (fn (entry)
+                    (let-match ((pair name _) entry)
+                      (not (or (= name "db")
+                               (contains? (:flags route) (clone name)))))))
+                (fn (entry) (clone (first entry))))))
+
+(defn operand (arguments route index)
+  (clone (at (:words arguments)
+             (+ (convert (:word-count route)) index))))
+
+(type flag
+  (fn ((ref arguments) (ref str))
+    (option string)))
+
+(defn flag (arguments name)
+  (map-some (find (iter (:flags arguments))
+              (fn (entry) (= (first entry) name)))
+            (fn (entry) (clone (second entry)))))
+
+(defn required-flag (arguments name)
+  (ok-or (flag arguments name) (str "--" name " is required")))

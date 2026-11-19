@@ -1,0 +1,59 @@
+(module
+  "Finds items in a snapshot and computes the status an epic shows.")
+
+(use ledger/model item item-id kind snapshot status)
+
+(export effective-status find-item merged?
+        with-computed-status)
+
+(type find-item
+  (fn ((ref snapshot) (ref item-id))
+    (option item)))
+
+(defn find-item (snapshot id)
+  (-> (:items snapshot)
+      iter
+      (find (fn (item) (= (ref (:id item)) id)))
+      (map-some clone)))
+
+(defn merged? (snapshot id)
+  (match (find-item snapshot id)
+    ((some item)
+     (= (effective-status snapshot item) status/merged))
+    (none false)))
+
+(type effective-status
+  (fn ((ref snapshot) (ref item)) status))
+
+(defn effective-status (snapshot item)
+  (match (:kind item)
+    (epic (epic-status snapshot (ref (:id item))))
+    (_ (:status item))))
+
+(defn epic-status (snapshot epic)
+  (let (children (children-of snapshot epic))
+    (if (and (not (empty? children))
+             (every? (iter children) finished?))
+      status/merged status/open)))
+
+(type finished? (fn ((ref item)) bool))
+
+(defn finished? (item)
+  (or (= (:status item) status/merged)
+      (= (:status item) status/dropped)))
+
+(defn children-of (snapshot epic)
+  (-> (:items snapshot)
+      iter
+      (filter (fn (item)
+                (= (ref (:parent item))
+                   (ref (some (clone epic))))))
+      (map clone)
+      collect))
+
+(type with-computed-status
+  (fn ((ref snapshot) (ref item)) item))
+
+(defn with-computed-status (snapshot item)
+  (assoc (clone item)
+         :status (effective-status snapshot item)))

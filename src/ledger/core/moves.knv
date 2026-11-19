@@ -4,10 +4,10 @@
 (use ledger/model glob item snapshot)
 (use ledger/refusal refusal)
 (use ledger/core/states check-move move)
+(use ledger/core/ready blockage-of ready?)
 
-(use ledger/core/ready blockage-of
-                       conflicts-with-active-builds globs-of
-                       ready?)
+(use ledger/core/locks conflicts-with-active-builds
+                       globs-of)
 
 (export build-globs check-move-in)
 

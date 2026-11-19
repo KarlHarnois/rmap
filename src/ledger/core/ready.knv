@@ -1,18 +1,20 @@
 (module
-  "Computes epic status, blockers, path conflicts and which items can start.")
+  "Computes which items can start and what blocks the others.")
 
 (use ledger/model ->path-conflict claim decision-id dep-type
-                  glob item item-id kind path-conflict
-                  roadmap-id snapshot status)
+                  item item-id kind roadmap-id snapshot
+                  status)
 
 (use ledger/refusal ->blockage blockage)
-(use ledger/core/paths conflict?)
+(use ledger/core/statuses merged?)
+
+(use ledger/core/locks conflicts-with-active-builds
+                       globs-of)
+
 (use ledger/core/order ordered)
 
 (export blockage-of blocked-item blocking-decisions
-        conflicts-with-active-builds effective-status
-        find-item globs-of readiness readiness-of ready?
-        scope with-computed-status)
+        readiness readiness-of ready? scope)
 
 (defenum scope
   every-roadmap
@@ -103,121 +105,3 @@
                 (not (merged? snapshot (ref (:on dep))))))
       (map (fn (dep) (clone (:on dep))))
       collect))
-
-(defn merged? (snapshot id)
-  (match (find-item snapshot id)
-    ((some item)
-     (= (effective-status snapshot item) status/merged))
-    (none false)))
-
-(type find-item
-  (fn ((ref snapshot) (ref item-id))
-    (option item)))
-
-(defn find-item (snapshot id)
-  (-> (:items snapshot)
-      iter
-      (find (fn (item) (= (ref (:id item)) id)))
-      (map-some clone)))
-
-(type effective-status
-  (fn ((ref snapshot) (ref item)) status))
-
-(defn effective-status (snapshot item)
-  (match (:kind item)
-    (epic (epic-status snapshot (ref (:id item))))
-    (_ (:status item))))
-
-(defn epic-status (snapshot epic)
-  (let (children (children-of snapshot epic))
-    (if (and (not (empty? children))
-             (every? (iter children) finished?))
-      status/merged status/open)))
-
-(type finished? (fn ((ref item)) bool))
-
-(defn finished? (item)
-  (or (= (:status item) status/merged)
-      (= (:status item) status/dropped)))
-
-(defn children-of (snapshot epic)
-  (-> (:items snapshot)
-      iter
-      (filter (fn (item)
-                (= (ref (:parent item))
-                   (ref (some (clone epic))))))
-      (map clone)
-      collect))
-
-(type globs-of
-  (fn ((ref snapshot) (ref item-id))
-    (vec glob)))
-
-(defn globs-of (snapshot id)
-  (-> (:paths snapshot)
-      iter
-      (filter (fn (path) (= (ref (:item path)) id)))
-      (map (fn (path) (clone (:glob path))))
-      collect))
-
-(type conflicts-with-active-builds
-  (fn ((ref snapshot)
-       (ref item-id)
-       (ref (vec glob)))
-    (vec path-conflict)))
-
-(defn conflicts-with-active-builds (snapshot id globs)
-  (-> (:paths snapshot)
-      iter
-      (filter (fn (path)
-                (and (not= (ref (:item path)) id)
-                     (active-build-id? snapshot (ref (:item path))))))
-      (map (fn (path)
-             (conflicts-with-path globs
-                                  (ref (:item path))
-                                  (ref (:glob path)))))
-      collect flatten-conflicts))
-
-(defn conflicts-with-path (globs other-id other-glob)
-  (-> globs iter
-      (filter (fn (glob) (conflict? glob other-glob)))
-      (map (fn (glob)
-             (->path-conflict :with (clone other-id)
-                              :glob (clone glob)
-                              :other-glob (clone other-glob))))
-      collect))
-
-(type flatten-conflicts
-  (fn ((vec (vec path-conflict)))
-    (vec path-conflict)))
-
-(defn flatten-conflicts (groups)
-  (let (all (vec))
-    (for-each groups
-      (fn (group)
-        (for-each group
-          (fn (conflict)
-            (push! all (clone conflict))))))
-    all))
-
-(defn active-build-id? (snapshot id)
-  (match (find-item snapshot id)
-    ((some item) (active-build? (ref item)))
-    (none false)))
-
-(type active-build?
-  (fn ((ref item)) bool))
-
-(defn active-build? (item)
-  (and (= (:kind item) kind/build)
-       (contains? (vec status/dispatched status/reported
-                       status/in-review status/fixing
-                       status/merging)
-                  (:status item))))
-
-(type with-computed-status
-  (fn ((ref snapshot) (ref item)) item))
-
-(defn with-computed-status (snapshot item)
-  (assoc (clone item)
-         :status (effective-status snapshot item)))

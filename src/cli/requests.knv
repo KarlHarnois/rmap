@@ -1,0 +1,137 @@
+(module
+  "Turns the command line into a request for the ledger.")
+
+(use ledger/api ->glob ->item-id ->new-item ->session
+                ->settings item-id kind-change kind-names
+                named new-item origin origin-names session
+                status status-names)
+
+(use cli/routes ->route route)
+
+(use cli/arguments ->arguments arguments check-shape flag
+                   operand required-flag route-of
+                   split-arguments)
+
+(use cli/flags list-flag list-flag-globs named-flag
+               optional-named-flag optional-number)
+
+(export ->invocation parse-invocation request)
+
+(defstruct invocation
+  :database (option string)
+  :request request)
+
+(defenum request
+  (new-roadmap string session)
+  list-roadmaps
+  (ready (option string))
+  (log (option item-id) int)
+  (add-item string new-item)
+  (list-items (option string))
+  (show-item item-id)
+  (claim item-id session)
+  (advance item-id status kind-change)
+  (close item-id)
+  (drop item-id string)
+  (add-dep item-id item-id)
+  (remove-dep item-id item-id))
+
+(defn parse-invocation (args)
+  (let-try (arguments (split-arguments args)
+            route (route-of (ref arguments))
+            _ (check-shape (ref arguments) (ref route))
+            request (build-request (ref route) (ref arguments)))
+    (ok (->invocation :database (flag (ref arguments) "db")
+                      :request request))))
+
+(type build-request
+  (fn ((ref route) (ref arguments))
+    (result request string)))
+
+(defn build-request (route arguments)
+  (match (as-str (:name route))
+    ("new"
+     (new-roadmap-request arguments (operand arguments route 0)))
+    ("list" (ok request/list-roadmaps))
+    ("ready" (ok (request/ready (flag arguments "roadmap"))))
+    ("log" (log-request arguments))
+    ("item add" (add-item-request arguments))
+    ("item list"
+     (ok (request/list-items (flag arguments "roadmap"))))
+    ("item show"
+     (ok (request/show-item (text->id (operand arguments route 0)))))
+    ("item claim"
+     (claim-request arguments (operand arguments route 0)))
+    ("item advance"
+     (advance-request arguments
+                      (operand arguments route 0)
+                      (operand arguments route 1)))
+    ("item close"
+     (ok (request/close (text->id (operand arguments route 0)))))
+    ("item drop"
+     (drop-request arguments (operand arguments route 0)))
+    ("dep add"
+     (ok (request/add-dep (text->id (operand arguments route 0))
+                          (text->id (operand arguments route 1)))))
+    (_ (ok (request/remove-dep (text->id (operand arguments route 0))
+                               (text->id (operand arguments route 1)))))))
+
+(defn text->id (text) (->item-id :value text))
+
+(defn new-roadmap-request (arguments name)
+  (let-try (manager (required-flag arguments "manager"))
+    (ok (request/new-roadmap name (->session :name manager)))))
+
+(defn log-request (arguments)
+  (let-try (since (optional-number arguments "since" 0))
+    (ok (request/log (map-some (flag arguments "item") text->id)
+                     since))))
+
+(defn add-item-request (arguments)
+  (let-try (roadmap (required-flag arguments "roadmap")
+            title (required-flag arguments "title")
+            kind (named-flag arguments "kind" kind-names)
+            origin (optional-named-flag arguments "origin"
+                                        origin-names
+                                        origin/planned)
+            priority (optional-number arguments "priority" 0))
+    (ok (request/add-item
+          roadmap
+          (->new-item :parent (map-some (flag arguments "parent") text->id)
+                      :title title
+                      :kind kind
+                      :origin origin
+                      :priority priority
+                      :globs (list-flag-globs arguments)
+                      :after (collect (map (iter (list-flag arguments "after"))
+                                        (fn (text) (text->id (clone text)))))
+                      :from (map-some (flag arguments "from") text->id))))))
+
+(defn claim-request (arguments id)
+  (let-try (session (required-flag arguments "session"))
+    (ok (request/claim (text->id id) (->session :name session)))))
+
+(defn drop-request (arguments id)
+  (let-try (reason (required-flag arguments "reason"))
+    (ok (request/drop (text->id id) reason))))
+
+(defn advance-request (arguments id status-text)
+  (let-try (target (ok-or (named status-names (as-str status-text))
+                          (str "unknown status: " status-text))
+            change (kind-change-of arguments))
+    (ok (request/advance (text->id id) target change))))
+
+(defn kind-change-of (arguments)
+  (match (flag arguments "kind")
+    ((some kind) (build-change arguments (as-str kind)))
+    (none (unchanged-kind arguments))))
+
+(defn build-change (arguments kind)
+  (if (= kind "build")
+    (ok (kind-change/become-build (list-flag-globs arguments)))
+    (err (str "--kind takes only build, got " kind))))
+
+(defn unchanged-kind (arguments)
+  (if (some? (flag arguments "paths"))
+    (err (str "--paths needs --kind build"))
+    (ok kind-change/keep-kind)))

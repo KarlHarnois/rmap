@@ -1,0 +1,103 @@
+(module
+  "Wraps command results and errors in the JSON object the CLI prints.")
+
+(use json/value array int->json json object text->json)
+
+(use ledger/api ->glob ->item-id ->new-item ->session
+                ->settings item-detail item-id)
+
+(use cli/objects dep->json event->json glob->json item->json
+                 roadmap->json)
+
+(export blockage-fields conflicts->json dep-envelope
+        detail-envelope error-envelope events-envelope
+        item-envelope items-envelope readiness-envelope
+        roadmap-envelope roadmaps-envelope)
+
+(def schema-version 1)
+
+(defn envelope (key value)
+  (object (vec (pair (str "schema_version") (int->json schema-version))
+               (pair (str key) value))))
+
+(defn error-envelope (code message details)
+  (let (fields details)
+    (push! fields
+           (pair (str "code") (text->json code)))
+    (push! fields
+           (pair (str "message") (text->json message)))
+    (envelope "error" (object fields))))
+
+(defn roadmap-envelope (roadmap)
+  (envelope "roadmap" (roadmap->json (ref roadmap))))
+
+(defn roadmaps-envelope (roadmaps)
+  (envelope "roadmaps"
+            (array (collect (map (iter roadmaps) roadmap->json)))))
+
+(defn item-envelope (item)
+  (envelope "item" (item->json (ref item))))
+
+(defn items-envelope (items)
+  (envelope "items"
+            (array (collect (map (iter items) item->json)))))
+
+(defn events-envelope (events)
+  (envelope "events"
+            (array (collect (map (iter events) event->json)))))
+
+(defn dep-envelope (dep)
+  (envelope "dep" (dep->json (ref dep))))
+
+(type detail-envelope (fn (item-detail) json))
+
+(defn detail-envelope (detail)
+  (object (vec (pair (str "schema_version") (int->json schema-version))
+               (pair (str "item")
+                     (item->json (ref (:item detail))))
+               (pair (str "deps")
+                     (array (collect (map (iter (:deps detail)) dep->json))))
+               (pair (str "paths")
+                     (array (collect (map (iter (:globs detail))
+                                          glob->json)))))))
+
+(defn readiness-envelope (readiness)
+  (object (vec (pair (str "schema_version") (int->json schema-version))
+               (pair (str "ready")
+                     (array (collect (map (iter (:ready readiness))
+                                          item->json))))
+               (pair (str "blocked")
+                     (array (collect (map (iter (:blocked readiness))
+                                          blocked->json)))))))
+
+(defn blocked->json (blocked)
+  (let (fields (blockage-fields (ref (:blockage blocked))))
+    (push! fields
+           (pair (str "item")
+                 (item->json (ref (:item blocked)))))
+    (object fields)))
+
+(defn blockage-fields (blockage)
+  (vec (pair (str "blockers")
+             (ids->json (ref (:blockers blockage))))
+       (pair (str "path_conflicts")
+             (conflicts->json (ref (:path-conflicts blockage))))))
+
+(type ids->json
+  (fn ((ref (vec item-id))) json))
+
+(defn ids->json (ids)
+  (array (collect (map (iter ids)
+                    (fn (id)
+                      (text->json (as-str (:value id))))))))
+
+(defn conflicts->json (conflicts)
+  (array (collect (map (iter conflicts) conflict->json))))
+
+(defn conflict->json (conflict)
+  (object (vec (pair (str "with")
+                     (text->json (as-str (:value (:with conflict)))))
+               (pair (str "glob")
+                     (glob->json (ref (:glob conflict))))
+               (pair (str "other_glob")
+                     (glob->json (ref (:other-glob conflict)))))))

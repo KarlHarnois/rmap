@@ -1,0 +1,75 @@
+(module
+  "Lists each command the CLI accepts, with its operand count and its flags.")
+
+(use ledger/api ->glob ->item-id ->new-item ->session
+                ->settings)
+
+(export ->route route routes)
+
+(defstruct route
+  :name string
+  :word-count int
+  :operands int
+  :flags (vec string))
+
+(defn routes ()
+  (vec (->route :name (str "new")
+                :word-count 1
+                :operands 1
+                :flags (vec (str "manager")))
+       (->route :name (str "list")
+                :word-count 1
+                :operands 0
+                :flags (vec))
+       (->route :name (str "ready")
+                :word-count 1
+                :operands 0
+                :flags (vec (str "roadmap")))
+       (->route :name (str "log")
+                :word-count 1
+                :operands 0
+                :flags (vec (str "item") (str "since")))
+       (->route :name (str "item add")
+                :word-count 2
+                :operands 0
+                :flags (vec (str "roadmap")
+                            (str "title")
+                            (str "kind")
+                            (str "parent")
+                            (str "after")
+                            (str "paths")
+                            (str "from")
+                            (str "origin")
+                            (str "priority")))
+       (->route :name (str "item list")
+                :word-count 2
+                :operands 0
+                :flags (vec (str "roadmap")))
+       (->route :name (str "item show")
+                :word-count 2
+                :operands 1
+                :flags (vec))
+       (->route :name (str "item claim")
+                :word-count 2
+                :operands 1
+                :flags (vec (str "session")))
+       (->route :name (str "item advance")
+                :word-count 2
+                :operands 2
+                :flags (vec (str "kind") (str "paths")))
+       (->route :name (str "item close")
+                :word-count 2
+                :operands 1
+                :flags (vec))
+       (->route :name (str "item drop")
+                :word-count 2
+                :operands 1
+                :flags (vec (str "reason")))
+       (->route :name (str "dep add")
+                :word-count 2
+                :operands 2
+                :flags (vec))
+       (->route :name (str "dep rm")
+                :word-count 2
+                :operands 2
+                :flags (vec))))
