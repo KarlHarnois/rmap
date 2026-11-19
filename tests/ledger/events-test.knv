@@ -1,0 +1,38 @@
+(use json/value copy-of field json->items json->text)
+(use ledger/model ->session kind status)
+(use ledger/core/move move)
+(use ledger/events ->item-move item-moved)
+(use support/items glob-of work-item)
+
+(defn moved-payload (from to move)
+  (let (draft (item-moved (ref
+                            (->item-move
+                              :before (work-item "rm-0001" kind/research from)
+                              :after (work-item "rm-0001" kind/research to)
+                              :move move))))
+    (copy-of (ref (:payload draft)))))
+
+(defn text-field (payload name)
+  (json->text (unwrap (field (ref payload) name))))
+
+(deftest a-claim-records-the-session-it-dispatches-to
+  (let (payload (moved-payload status/open status/dispatched
+                               (move/claim (->session :name (str "worker-7")))))
+    (assert (= (text-field payload "session")
+               (some (str "worker-7"))))
+    (assert (= (text-field payload "to")
+               (some (str "dispatched"))))))
+
+(deftest a-drop-records-its-reason
+  (assert (= (text-field (moved-payload status/open
+                                        status/dropped
+                                        (move/drop (str "obsolete")))
+                         "reason")
+             (some (str "obsolete")))))
+
+(deftest a-new-build-records-the-paths-it-locks
+  (let (payload (moved-payload status/reported
+                               status/dispatched
+                               (move/advance-to-build (vec (glob-of "src/*")))))
+    (assert (= (len (unwrap (json->items (unwrap (field payload "paths")))))
+               1))))

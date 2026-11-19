@@ -28,14 +28,13 @@
 (defn create-roadmap (transaction name manager)
   (let-try (_ (check-name-free (ref (:connection transaction))
                                (as-str name))
-            id (fresh-id (ref (:connection transaction)))
-            created-at (now transaction))
+            id (fresh-id (ref (:connection transaction))))
     (store-roadmap transaction
                    (->roadmap :id (->roadmap-id :value id)
                               :name name
                               :manager manager
                               :status roadmap-status/active
-                              :created-at created-at))))
+                              :created-at (now transaction)))))
 
 (type store-roadmap
   (fn ((ref transaction) roadmap)

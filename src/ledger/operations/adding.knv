@@ -37,13 +37,12 @@
             _ (check-new-item (ref snapshot)
                               (ref roadmap-id)
                               (ref request))
-            id (fresh-id (ref (:connection transaction)))
-            created-at (now transaction))
+            id (fresh-id (ref (:connection transaction))))
     (store-item transaction
                 (request->item (ref request)
                                (->item-stamp :id (->item-id :value id)
                                              :roadmap-id roadmap-id
-                                             :created-at created-at))
+                                             :created-at (now transaction)))
                 (ref request))))
 
 (type store-item
@@ -58,7 +57,7 @@
                             (ref (:globs request)))
             _ (insert-deps (ref (:connection transaction))
                            (ref (draft-deps (ref item) request)))
-            _ (record transaction (item-added (ref item))))
+            _ (record transaction (item-added (ref item) request)))
     (ok item)))
 
 (type request->item

@@ -18,6 +18,7 @@
 
 (defstruct invocation
   :database (option string)
+  :actor (option string)
   :request request)
 
 (defenum request
@@ -42,6 +43,7 @@
             _ (check-shape (ref arguments) (ref route))
             request (build-request (ref route) (ref arguments)))
     (ok (->invocation :database (flag (ref arguments) "db")
+                      :actor (flag (ref arguments) "actor")
                       :request request))))
 
 (type build-request

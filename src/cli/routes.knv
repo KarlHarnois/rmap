@@ -75,7 +75,7 @@
   (collect (map (split text " ") str)))
 
 (defn global-flags ()
-  (vec (optional "db" "<path>")))
+  (vec (optional "db" "<path>") (optional "actor" "<name>")))
 
 (defn operands (names)
   (collect (map (iter names) str)))

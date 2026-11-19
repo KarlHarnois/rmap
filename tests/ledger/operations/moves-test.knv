@@ -1,6 +1,6 @@
 (use ledger/api ->advancement advance-item failure kind
-                kind-change readiness ready-items refusal
-                show-item status)
+                kind-change read-log readiness ready-items
+                refusal show-item status)
 
 (use support/ledger added-id claimed globs-of-patterns
                     item-draft scratch-ledger)
@@ -68,3 +68,10 @@
                                                            (globs-of-patterns (vec
                                                                                 "docs/**")))))
                (err (failure/refused refusal/invalid-kind-change))))))
+
+(deftest every-event-records-the-settings-actor
+  (let (settings (scratch-ledger "actor-recorded")
+        research (reported-research (ref settings) (vec)))
+    (assert (every? (iter (unwrap-ok (read-log (ref settings) none 0)))
+              (fn (event)
+                (= (:actor event) (str "tester")))))))

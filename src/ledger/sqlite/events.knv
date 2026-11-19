@@ -5,8 +5,8 @@
                 text->json)
 
 (use ledger/model ->event ->item-id ->roadmap-id ->timestamp
-                  event event-type item-id roadmap-id
-                  timestamp)
+                  event event-draft event-stamp item-id
+                  roadmap-id)
 
 (use ledger/names event-type-names name-of)
 
@@ -17,35 +17,29 @@
 (use ledger/sqlite/rows int-cell named-cell
                         optional-text-cell text-cell)
 
-(export ->event-filter ->new-event append-event event-filter
-        events-matching new-event)
-
-(defstruct new-event
-  :at timestamp
-  :actor string
-  :roadmap-id (option roadmap-id)
-  :item-id (option item-id)
-  :type event-type
-  :payload json)
+(export ->event-filter append-event event-filter
+        events-matching)
 
 (defstruct event-filter
   :item-id (option item-id)
   :after-id int)
 
 (type append-event
-  (fn ((ref connection) (ref new-event))
+  (fn ((ref connection)
+       (ref event-stamp)
+       (ref event-draft))
     (result int database-error)))
 
-(defn append-event (connection event)
+(defn append-event (connection stamp draft)
   (execute connection
            "INSERT INTO events (at, actor, roadmap_id, item_id, type, payload_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
-           (ref (vec (text->json (as-str (:value (:at event))))
-                     (text->json (as-str (:actor event)))
-                     (optional-roadmap->json (ref (:roadmap-id event)))
-                     (optional-item->json (ref (:item-id event)))
-                     (text->json (name-of event-type-names (:type event)))
+           (ref (vec (text->json (as-str (:value (:at stamp))))
+                     (text->json (as-str (:actor stamp)))
+                     (optional-roadmap->json (ref (:roadmap-id draft)))
+                     (optional-item->json (ref (:item-id draft)))
+                     (text->json (name-of event-type-names (:type draft)))
                      (text->json (as-str (json->string (ref (:payload
-                                                              event)))))))))
+                                                              draft)))))))))
 
 (type optional-roadmap->json
   (fn ((ref (option roadmap-id))) json))

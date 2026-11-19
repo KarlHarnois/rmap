@@ -1,0 +1,8 @@
+(module
+  "Reads the environment variables of the running process.")
+
+(export variable)
+
+(def variable
+  (rust "std::env::var({0}).ok().filter(|value| !value.is_empty())"
+    (fn ((ref str)) (option string))))

@@ -2,9 +2,7 @@
   "Claims, advances, closes and drops items, each in one transaction.")
 
 (use ledger/model item item-id)
-
-(use ledger/events ->item-move cli-actor item-move
-                   item-moved)
+(use ledger/events ->item-move item-move item-moved)
 
 (use ledger/core/move advancement->move move moved
                       new-globs)
@@ -22,55 +20,39 @@
 
 (export advance-item claim-item close-item drop-item)
 
-(defstruct move-request
-  :item item-id
-  :move move
-  :actor string)
-
 (defn claim-item (settings id session)
-  (perform-move settings
-                (->move-request :item id
-                                :move (move/claim (clone session))
-                                :actor (clone (:name session)))))
+  (perform-move settings id (move/claim (clone session))))
 
 (defn advance-item (settings id advancement)
   (match (advancement->move advancement)
-    ((ok move)
-     (perform-move settings
-                   (->move-request :item id :move move :actor (str cli-actor))))
+    ((ok move) (perform-move settings id move))
     ((err refused) (err (failure/refused refused)))))
 
 (defn close-item (settings id)
-  (perform-move settings
-                (->move-request :item id
-                                :move move/close
-                                :actor (str cli-actor))))
+  (perform-move settings id move/close))
 
 (defn drop-item (settings id reason)
-  (perform-move settings
-                (->move-request :item id
-                                :move (move/drop reason)
-                                :actor (str cli-actor))))
+  (perform-move settings id (move/drop reason)))
 
-(defn perform-move (settings request)
+(defn perform-move (settings id move)
   (in-transaction settings
-    (fn (transaction) (apply-move transaction request))))
+    (fn (transaction)
+      (apply-move transaction (ref id) move))))
 
 (type apply-move
-  (fn ((ref transaction) move-request)
+  (fn ((ref transaction) (ref item-id) move)
     (result item failure)))
 
-(defn apply-move (transaction request)
-  (let-match ((move-request :item id :move requested :actor actor) request)
-    (let-try (snapshot (load-snapshot (ref (:connection transaction)))
-              item (existing (ref snapshot) (ref id))
-              move (approved-move (ref snapshot) (ref item) requested)
-              at (now transaction))
-      (store-move transaction
-                  (->item-move :before (clone item)
-                               :after (moved (ref item) (ref move) (ref at))
-                               :move move
-                               :actor actor)))))
+(defn apply-move (transaction id requested)
+  (let-try (snapshot (load-snapshot (ref (:connection transaction)))
+            item (existing (ref snapshot) id)
+            move (approved-move (ref snapshot) (ref item) requested))
+    (store-move transaction
+                (->item-move :before (clone item)
+                             :after (moved (ref item)
+                                           (ref move)
+                                           (ref (now transaction)))
+                             :move move))))
 
 (type store-move
   (fn ((ref transaction) item-move)

@@ -3,14 +3,14 @@
 
 (use ledger/model timestamp)
 (use ledger/failure failure)
-(use ledger/events event-draft)
+(use ledger/model ->event-stamp event-draft event-stamp)
 
 (use ledger/sqlite/connection begin begin-read connection
                               database-error finish open)
 
 (use ledger/sqlite/migrations migrate)
 (use ledger/sqlite/migration-sources migration-sources)
-(use ledger/sqlite/events ->new-event append-event)
+(use ledger/sqlite/events append-event)
 (use ledger/sqlite/store database-now)
 
 (export ->settings clock connect in-read-transaction
@@ -22,11 +22,12 @@
 
 (defstruct settings
   :database-path string
-  :clock clock)
+  :clock clock
+  :actor string)
 
 (defstruct transaction
   :connection connection
-  :clock clock)
+  :stamp event-stamp)
 
 (defn connect (settings)
   (let-try (connection (open (as-str (:database-path settings)))
@@ -64,38 +65,38 @@
 
 (defn run-transaction (settings start work)
   (let-try (connection (connect settings)
-            _ (start (ref connection)))
+            _ (start (ref connection))
+            at (moment (ref connection)
+                       (ref (:clock settings))))
     (let (transaction (->transaction :connection connection
-                                     :clock (clone (:clock settings))))
+                                     :stamp (->event-stamp :at at
+                                                           :actor (clone (:actor
+                                                                           settings)))))
       (let-try (outcome (finish (ref (:connection transaction))
                                 (work (ref transaction))))
         outcome))))
 
-(type now
-  (fn ((ref transaction))
+(type moment
+  (fn ((ref connection) (ref clock))
     (result timestamp failure)))
 
-(defn now (transaction)
-  (match (ref (:clock transaction))
-    (system (let-try (at (database-now (ref (:connection transaction))))
-              (ok at)))
+(defn moment (connection clock)
+  (match clock
+    (system (let-try (at (database-now connection)) (ok at)))
     ((fixed at) (ok (clone at)))))
 
-(defn record (transaction draft)
-  (let-try (at (now transaction)
-            _ (append-event (ref (:connection transaction))
-                            (ref (draft->event draft at))))
-    (ok (do))))
+(type now
+  (fn ((ref transaction)) timestamp))
 
-(defn draft->event (draft at)
-  (let-match ((event-draft :actor actor
-                           :roadmap-id roadmap-id
-                           :item-id item-id
-                           :type type
-                           :payload payload) draft)
-    (->new-event :at at
-                 :actor actor
-                 :roadmap-id roadmap-id
-                 :item-id item-id
-                 :type type
-                 :payload payload)))
+(defn now (transaction)
+  (clone (:at (:stamp transaction))))
+
+(type record
+  (fn ((ref transaction) event-draft)
+    (result unit failure)))
+
+(defn record (transaction draft)
+  (let-try (_ (append-event (ref (:connection transaction))
+                            (ref (:stamp transaction))
+                            (ref draft)))
+    (ok (do))))
