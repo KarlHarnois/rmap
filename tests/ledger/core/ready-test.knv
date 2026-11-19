@@ -1,7 +1,8 @@
 (use ledger/model claim dep dep-type glob item item-id kind
                   snapshot status)
 
-(use ledger/core/ready readiness readiness-of scope)
+(use ledger/core/ready readiness readiness-of)
+(use ledger/core/snapshot scope)
 (use ledger/core/paths conflict?)
 
 (use support/items blocks-dep child-of claimed epic-item

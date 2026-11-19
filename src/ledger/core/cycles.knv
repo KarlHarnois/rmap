@@ -1,7 +1,8 @@
 (module
   "Decides whether a new `blocks` edge would close a cycle.")
 
-(use ledger/model dep dep-type item-id)
+(use ledger/model dep item-id)
+(use ledger/core/snapshot blocks?)
 
 (export closes-cycle?)
 
@@ -20,8 +21,7 @@
 
 (defn blocking-edges (deps)
   (collect (map (filter (iter deps)
-                  (fn (dep)
-                    (= (:type dep) dep-type/blocks)))
+                  (fn (dep) (blocks? dep)))
                 clone)))
 
 (type reaches?

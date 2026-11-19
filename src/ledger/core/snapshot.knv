@@ -1,0 +1,74 @@
+(module
+  "Answers questions about one snapshot of the ledger: which item has an id, what it depends on, which globs it holds, and which items a scope covers.")
+
+(use ledger/model dep dep-type glob item item-id roadmap-id
+                  snapshot)
+
+(use ledger/refusal refusal)
+
+(export blocked-by blocks? deps-of existing find-item
+        globs-of in-scope? scope)
+
+(defenum scope
+  every-roadmap
+  (one-roadmap roadmap-id))
+
+(type find-item
+  (fn ((ref snapshot) (ref item-id))
+    (option item)))
+
+(defn find-item (snapshot id)
+  (-> (:items snapshot)
+      iter
+      (find (fn (item) (= (ref (:id item)) id)))
+      (map-some clone)))
+
+(type existing
+  (fn ((ref snapshot) (ref item-id))
+    (result item refusal)))
+
+(defn existing (snapshot id)
+  (ok-or (find-item snapshot id)
+         (refusal/item-not-found (clone id))))
+
+(type globs-of
+  (fn ((ref snapshot) (ref item-id))
+    (vec glob)))
+
+(defn globs-of (snapshot id)
+  (-> (:paths snapshot)
+      iter
+      (filter (fn (path) (= (ref (:item path)) id)))
+      (map (fn (path) (clone (:glob path))))
+      collect))
+
+(type deps-of
+  (fn ((ref snapshot) (ref item-id))
+    (vec dep)))
+
+(defn deps-of (snapshot id)
+  (collect (map (filter (iter (:deps snapshot))
+                  (fn (dep) (= (ref (:item dep)) id)))
+                clone)))
+
+(type blocks? (fn ((ref dep)) bool))
+
+(defn blocks? (dep)
+  (= (:type dep) dep-type/blocks))
+
+(type blocked-by
+  (fn ((ref snapshot) (ref item-id))
+    (vec item-id)))
+
+(defn blocked-by (snapshot id)
+  (collect (map (filter (iter (deps-of snapshot id))
+                  (fn (dep) (blocks? dep)))
+                (fn (dep) (clone (:on dep))))))
+
+(type in-scope?
+  (fn ((ref item) (ref scope)) bool))
+
+(defn in-scope? (item scope)
+  (match scope
+    (every-roadmap true)
+    ((one-roadmap id) (= (ref (:roadmap-id item)) id))))

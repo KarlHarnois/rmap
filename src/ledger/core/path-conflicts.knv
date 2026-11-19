@@ -2,23 +2,12 @@
   "Finds the path conflicts between an item's globs and the paths active builds hold.")
 
 (use ledger/model ->path-conflict glob item-id item-path
-                  path-conflict snapshot)
+                  path-conflict)
 
 (use ledger/core/paths conflict?)
 (use ledger/core/index active-paths ledger-index)
 
-(export conflicts-with-active-builds globs-of)
-
-(type globs-of
-  (fn ((ref snapshot) (ref item-id))
-    (vec glob)))
-
-(defn globs-of (snapshot id)
-  (-> (:paths snapshot)
-      iter
-      (filter (fn (path) (= (ref (:item path)) id)))
-      (map (fn (path) (clone (:glob path))))
-      collect))
+(export conflicts-with-active-builds)
 
 (type conflicts-with-active-builds
   (fn ((ref ledger-index)

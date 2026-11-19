@@ -2,9 +2,11 @@
   "Reads ready items, items and events.")
 
 (use ledger/model dep event glob item item-id)
-(use ledger/core/ready readiness readiness-of scope)
+(use ledger/core/ready readiness readiness-of)
 (use ledger/core/index index-of with-shown-status)
-(use ledger/core/locks globs-of)
+
+(use ledger/core/snapshot deps-of existing globs-of
+                          in-scope?)
 
 (use ledger/sqlite/events ->event-filter event-filter
                           events-matching)
@@ -15,7 +17,7 @@
                                    in-read-transaction
                                    settings)
 
-(use ledger/operations/lookups existing-item scope-named)
+(use ledger/operations/lookups scope-named)
 (use ledger/sqlite/connection connection)
 
 (export item-detail list-items read-log ready-items
@@ -90,14 +92,6 @@
                   (fn (item)
                     (with-shown-status (ref index) item))))))
 
-(type in-scope?
-  (fn ((ref item) (ref scope)) bool))
-
-(defn in-scope? (item scope)
-  (match scope
-    (every-roadmap true)
-    ((one-roadmap id) (= (ref (:roadmap-id item)) id))))
-
 (type show-item
   (fn ((ref settings) item-id)
     (result item-detail failure)))
@@ -114,11 +108,8 @@
 
 (defn detail-within (connection id)
   (let-try (snapshot (load-snapshot connection)
-            item (existing-item (ref snapshot) id))
+            item (existing (ref snapshot) id))
     (ok (->item-detail :item (with-shown-status (ref (index-of (ref snapshot)))
                                                 (ref item))
-                       :deps (collect (map (filter (iter (:deps snapshot))
-                                             (fn (dep)
-                                               (= (ref (:item dep)) id)))
-                                           clone))
+                       :deps (deps-of (ref snapshot) id)
                        :globs (globs-of (ref snapshot) id)))))

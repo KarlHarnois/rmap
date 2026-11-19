@@ -1,11 +1,11 @@
 (module
   "Checks a new item and a new or removed dependency against the ledger's rules.")
 
-(use ledger/model dep-type glob item item-id kind origin
-                  roadmap-id snapshot)
+(use ledger/model glob item item-id kind origin roadmap-id
+                  snapshot)
 
 (use ledger/refusal refusal)
-(use ledger/core/statuses find-item)
+(use ledger/core/snapshot blocks? existing find-item)
 (use ledger/core/cycles closes-cycle?)
 
 (export ->new-item check-dep-removal check-new-dep
@@ -73,10 +73,6 @@
        (err (refusal/parent-in-other-roadmap (clone (:id parent)))))
       (else (ok (do))))))
 
-(defn existing (snapshot id)
-  (ok-or (find-item snapshot id)
-         (refusal/item-not-found (clone id))))
-
 (defn check-all-exist (snapshot ids)
   (match (find (iter ids)
            (fn (id)
@@ -116,7 +112,7 @@
 (defn blocks-edge? (snapshot item on)
   (any? (iter (:deps snapshot))
     (fn (dep)
-      (and (= (:type dep) dep-type/blocks)
+      (and (blocks? dep)
            (= (ref (:item dep)) item)
            (= (ref (:on dep)) on)))))
 

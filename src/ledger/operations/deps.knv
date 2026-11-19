@@ -10,7 +10,7 @@
 (use ledger/operations/transaction failure in-transaction
                                    record transaction)
 
-(use ledger/operations/lookups existing-item)
+(use ledger/core/snapshot existing)
 (use ledger/events dep-changed)
 
 (export add-dep remove-dep)
@@ -39,8 +39,8 @@
             _ (write-dep-change (ref (:connection transaction))
                                 (ref dep)
                                 type)
-            owner (existing-item (ref snapshot)
-                                 (ref (:item dep)))
+            owner (existing (ref snapshot)
+                            (ref (:item dep)))
             _ (record transaction
                       (dep-changed (ref owner) (ref dep) type)))
     (ok (clone dep))))

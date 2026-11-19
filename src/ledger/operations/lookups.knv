@@ -3,13 +3,12 @@
 
 (use ledger/model roadmap-id)
 (use ledger/refusal refusal)
-(use ledger/core/ready scope)
-(use ledger/core/statuses find-item)
+(use ledger/core/snapshot scope)
 (use ledger/sqlite/connection connection)
 (use ledger/sqlite/roadmaps roadmap-named)
 (use ledger/operations/transaction failure)
 
-(export existing-item roadmap-id-named scope-named)
+(export roadmap-id-named scope-named)
 
 (type roadmap-id-named
   (fn ((ref connection) (ref str))
@@ -27,7 +26,3 @@
      (map-ok (roadmap-id-named connection (as-str present))
        (fn (id) (scope/one-roadmap id))))
     (none (ok scope/every-roadmap))))
-
-(defn existing-item (snapshot id)
-  (ok-or (find-item snapshot id)
-         (failure/refused (refusal/item-not-found (clone id)))))

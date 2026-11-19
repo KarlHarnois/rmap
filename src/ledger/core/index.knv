@@ -4,7 +4,7 @@
 (use ledger/model item item-id item-path kind snapshot
                   status)
 
-(use ledger/core/statuses shown-status-of)
+(use ledger/core/epics shown-status-of)
 (use ledger/core/phases active? delivered?)
 
 (export active-paths delivered-id? index-of indexed-status

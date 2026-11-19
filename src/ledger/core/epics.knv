@@ -1,20 +1,10 @@
 (module
-  "Finds items in a snapshot and computes the status an epic shows from its children.")
+  "Computes the status an item shows: its own, or for an epic, the status its children give it.")
 
-(use ledger/model item item-id kind snapshot status)
+(use ledger/model item kind status)
 (use ledger/core/phases finished?)
 
-(export epic-status find-item shown-status-of)
-
-(type find-item
-  (fn ((ref snapshot) (ref item-id))
-    (option item)))
-
-(defn find-item (snapshot id)
-  (-> (:items snapshot)
-      iter
-      (find (fn (item) (= (ref (:id item)) id)))
-      (map-some clone)))
+(export epic-status shown-status-of)
 
 (type shown-status-of
   (fn ((ref item) (option (ref (vec status))))

@@ -1,26 +1,23 @@
 (module
   "Computes which items can start and what blocks the others.")
 
-(use ledger/model claim decision-id dep-type item item-id
-                  kind path-conflict roadmap-id snapshot
-                  status)
+(use ledger/model claim decision-id item kind path-conflict
+                  snapshot status)
 
 (use ledger/refusal ->blockage blockage)
 
 (use ledger/core/index delivered-id? index-of indexed-status
                        ledger-index)
 
-(use ledger/core/locks conflicts-with-active-builds
-                       globs-of)
+(use ledger/core/path-conflicts conflicts-with-active-builds)
+
+(use ledger/core/snapshot blocked-by globs-of in-scope?
+                          scope)
 
 (use ledger/core/order ordered)
 
 (export blockage-of blocked-item blocking-decisions
-        readiness readiness-of scope unblocked?)
-
-(defenum scope
-  every-roadmap
-  (one-roadmap roadmap-id))
+        readiness readiness-of unblocked?)
 
 (defstruct blocked-item
   :item item
@@ -47,14 +44,6 @@
                                                                      item))))))
     (->readiness :ready (ordered (startable-items (ref assessed)))
                  :blocked (waiting-items assessed))))
-
-(type in-scope?
-  (fn ((ref item) (ref scope)) bool))
-
-(defn in-scope? (item scope)
-  (match scope
-    (every-roadmap true)
-    ((one-roadmap id) (= (ref (:roadmap-id item)) id))))
 
 (type candidate? (fn ((ref item)) bool))
 
@@ -105,7 +94,7 @@
     blockage))
 
 (defn blockage-of (snapshot index item)
-  (let (blocking (blocking-targets snapshot item))
+  (let (blocking (blocked-by snapshot (ref (:id item))))
     (->blockage :blockers (collect (map (filter (iter blocking)
                                           (fn (id) (waiting-on? index id)))
                                         clone))
@@ -113,19 +102,6 @@
                                                   (fn (id) (dropped? index id)))
                                                 clone))
                 :path-conflicts (build-conflicts snapshot index item))))
-
-(type blocking-targets
-  (fn ((ref snapshot) (ref item))
-    (vec item-id)))
-
-(defn blocking-targets (snapshot item)
-  (-> (:deps snapshot)
-      iter
-      (filter (fn (dep)
-                (and (= (:type dep) dep-type/blocks)
-                     (= (:item dep) (:id item)))))
-      (map (fn (dep) (clone (:on dep))))
-      collect))
 
 (defn waiting-on? (index id)
   (not (or (delivered-id? index id) (dropped? index id))))

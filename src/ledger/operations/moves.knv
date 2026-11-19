@@ -16,7 +16,7 @@
 (use ledger/operations/transaction failure in-transaction
                                    now record transaction)
 
-(use ledger/operations/lookups existing-item)
+(use ledger/core/snapshot existing)
 (use ledger/sqlite/item-paths replace-globs)
 
 (export advance-item claim-item close-item drop-item)
@@ -62,7 +62,7 @@
 (defn apply-move (transaction request)
   (let-match ((move-request :item id :move requested :actor actor) request)
     (let-try (snapshot (load-snapshot (ref (:connection transaction)))
-              item (existing-item (ref snapshot) (ref id))
+              item (existing (ref snapshot) (ref id))
               move (approved-move (ref snapshot) (ref item) requested)
               at (now transaction))
       (store-move transaction
