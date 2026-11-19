@@ -28,35 +28,25 @@
                         check-new-dep check-new-item
                         new-item)
 
-(use ledger/adapters/driven/sqlite/connection begin commit
-                                              connection
-                                              database-error
-                                              git-common-dir
-                                              open rollback)
+(use ledger/sqlite/connection begin commit connection
+                              database-error git-common-dir
+                              open rollback)
 
-(use ledger/adapters/driven/sqlite/migrations migrate)
-(use ledger/adapters/driven/sqlite/migration-sources migration-sources)
+(use ledger/sqlite/migrations migrate)
+(use ledger/sqlite/migration-sources migration-sources)
 
-(use ledger/adapters/driven/sqlite/roadmaps all-roadmaps
-                                            insert-roadmap
-                                            roadmap-named)
+(use ledger/sqlite/roadmaps all-roadmaps insert-roadmap
+                            roadmap-named)
 
-(use ledger/adapters/driven/sqlite/items insert-item
-                                         update-item)
+(use ledger/sqlite/items insert-item update-item)
+(use ledger/sqlite/deps delete-dep insert-dep)
+(use ledger/sqlite/item-paths insert-item-path)
 
-(use ledger/adapters/driven/sqlite/deps delete-dep
-                                        insert-dep)
+(use ledger/sqlite/events ->event-filter ->new-event
+                          append-event events-matching)
 
-(use ledger/adapters/driven/sqlite/item-paths insert-item-path)
-
-(use ledger/adapters/driven/sqlite/events ->event-filter
-                                          ->new-event
-                                          append-event
-                                          events-matching)
-
-(use ledger/adapters/driven/sqlite/store database-now
-                                         fresh-id
-                                         load-snapshot)
+(use ledger/sqlite/store database-now fresh-id
+                         load-snapshot)
 
 (export ->glob ->item-id ->new-item ->session ->settings
         add-dep add-item advance-item blockage blocked-item

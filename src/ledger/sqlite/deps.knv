@@ -4,10 +4,8 @@
 (use json/value json text->json)
 (use ledger/model ->dep ->item-id dep)
 (use ledger/names dep-type-names name-of)
-(use ledger/adapters/driven/sqlite/connection execute query)
-
-(use ledger/adapters/driven/sqlite/rows named-cell
-                                        text-cell)
+(use ledger/sqlite/connection execute query)
+(use ledger/sqlite/rows named-cell text-cell)
 
 (export all-deps delete-dep insert-dep)
 

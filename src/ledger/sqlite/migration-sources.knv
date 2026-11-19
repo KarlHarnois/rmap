@@ -1,7 +1,7 @@
 (module
   "Holds the SQL of each migration, generated from `migrations/` by `knave task embed-migrations`.")
 
-(use ledger/adapters/driven/sqlite/migrations ->migration)
+(use ledger/sqlite/migrations ->migration)
 
 (export migration-sources)
 

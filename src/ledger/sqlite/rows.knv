@@ -3,7 +3,7 @@
 
 (use json/value json->int json->text)
 (use ledger/names named)
-(use ledger/adapters/driven/sqlite/connection ->database-error)
+(use ledger/sqlite/connection ->database-error)
 
 (export int-cell named-cell optional-text-cell single-row
         text-cell)

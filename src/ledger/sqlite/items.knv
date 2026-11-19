@@ -9,13 +9,11 @@
 (use ledger/names kind-names name-of origin-names
                   status-names)
 
-(use ledger/adapters/driven/sqlite/connection connection
-                                              database-error
-                                              execute query)
+(use ledger/sqlite/connection connection database-error
+                              execute query)
 
-(use ledger/adapters/driven/sqlite/rows int-cell named-cell
-                                        optional-text-cell
-                                        text-cell)
+(use ledger/sqlite/rows int-cell named-cell
+                        optional-text-cell text-cell)
 
 (export all-items insert-item update-item)
 

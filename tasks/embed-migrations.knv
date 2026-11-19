@@ -4,7 +4,7 @@
 (def migrations-directory "migrations")
 
 (def sources-module
-  "src/ledger/adapters/driven/sqlite/migration-sources.knv")
+  "src/ledger/sqlite/migration-sources.knv")
 
 (def migration-files
   (rust "(|| -> Result<Vec<String>, String> {{ let mut names: Vec<String> = std::fs::read_dir({0}).map_err(|failure| failure.to_string())?.filter_map(|entry| entry.ok()).map(|entry| entry.file_name().to_string_lossy().to_string()).filter(|name| name.ends_with(\".sql\")).collect(); names.sort(); Ok(names) }})()"
@@ -45,7 +45,7 @@
 
 (defn module-text (forms)
   (str "(module\n  \"Holds the SQL of each migration, generated from `migrations/` by `knave task embed-migrations`.\")\n\n"
-       "(use ledger/adapters/driven/sqlite/migrations ->migration)\n\n"
+       "(use ledger/sqlite/migrations ->migration)\n\n"
        "(export migration-sources)\n\n"
        "(defn migration-sources ()\n  (vec "
        (trim (as-str (join forms "\n")))

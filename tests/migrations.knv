@@ -1,13 +1,10 @@
 (use json/value text->json)
+(use ledger/sqlite/connection execute open query)
 
-(use ledger/adapters/driven/sqlite/connection execute open
-                                              query)
+(use ledger/sqlite/migrations ->migration migrate
+                              schema-version)
 
-(use ledger/adapters/driven/sqlite/migrations ->migration
-                                              migrate
-                                              schema-version)
-
-(use ledger/adapters/driven/sqlite/migration-sources migration-sources)
+(use ledger/sqlite/migration-sources migration-sources)
 (use support/process scratch-database)
 
 (def fixture-migration

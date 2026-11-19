@@ -1,11 +1,10 @@
 (module
   "Applies pending migrations in version order and records each version in `PRAGMA user_version`.")
 
-(use ledger/adapters/driven/sqlite/rows int-cell single-row)
+(use ledger/sqlite/rows int-cell single-row)
 
-(use ledger/adapters/driven/sqlite/connection in-write-transaction
-                                              query
-                                              run-batch)
+(use ledger/sqlite/connection in-write-transaction query
+                              run-batch)
 
 (export ->migration migrate migration schema-version)
 

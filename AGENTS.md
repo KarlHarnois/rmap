@@ -4,11 +4,11 @@
 
 ## Boundaries
 
-**Code outside `src/ledger/` MUST use only `ledger/api`.** Tests in `tests/` MAY also use `ledger/core/*` and `ledger/adapters/*` to test those modules directly.
+**Code outside `src/ledger/` MUST use only `ledger/api`.** Tests in `tests/` MAY also use `ledger/core/*` and `ledger/sqlite/*` to test those modules directly.
 
 **NEVER put a ledger rule in `src/main.knv`.** `src/main.knv` parses arguments, calls `ledger/api` and prints JSON through `json/value`.
 
-**NEVER import `ledger/adapters/*` from `ledger/core/*`.** The core is pure: it reads a snapshot and returns values or refusals.
+**NEVER import `ledger/sqlite/*` from `ledger/core/*`.** The core is pure: it reads a snapshot and returns values or refusals.
 
 | Path | Holds |
 | --- | --- |
@@ -16,7 +16,7 @@
 | `src/ledger/api.knv` | The public ledger functions. Each write runs in one `BEGIN IMMEDIATE` transaction and appends its `events` row in that transaction. |
 | `src/ledger/model.knv`, `names.knv`, `refusal.knv` | The ledger values, the text of each enum case, and the refusal codes. |
 | `src/ledger/core/` | The pure ledger rules. |
-| `src/ledger/adapters/driven/sqlite/` | The connection, the migrations runner and one module per table. |
+| `src/ledger/sqlite/` | The connection, the migrations runner and one module per table. |
 | `migrations/` | The numbered `.sql` migrations. |
 | `docs/cli.md` | Every command, its JSON output and its exit codes. |
 
@@ -28,7 +28,7 @@
 
 ## Migrations
 
-**To change the schema, add the next numbered file to `migrations/`, then run `knave task embed-migrations`.** The task writes `src/ledger/adapters/driven/sqlite/migration-sources.knv`.
+**To change the schema, add the next numbered file to `migrations/`, then run `knave task embed-migrations`.** The task writes `src/ledger/sqlite/migration-sources.knv`.
 
 **NEVER edit a committed migration file:** a database that already applied the file skips the edit.
 

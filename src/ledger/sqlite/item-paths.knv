@@ -4,11 +4,10 @@
 (use json/value text->json)
 (use ledger/model ->glob ->item-id ->item-path item-path)
 
-(use ledger/adapters/driven/sqlite/connection connection
-                                              database-error
-                                              execute query)
+(use ledger/sqlite/connection connection database-error
+                              execute query)
 
-(use ledger/adapters/driven/sqlite/rows text-cell)
+(use ledger/sqlite/rows text-cell)
 
 (export all-item-paths insert-item-path)
 
