@@ -1,0 +1,52 @@
+(use json/value json object array text->json int->json float->json bool->json null
+     field json->text json->int json->float json->bool json->items null? same? parse json->string)
+
+(defn round-trips? (value)
+  (match (parse (as-str (json->string value)))
+    ((ok parsed) (same? parsed value))
+    ((err _) false)))
+
+(defn nested-document ()
+  (object (vec (pair (str "name") (text->json "ledger"))
+               (pair (str "count") (int->json 3))
+               (pair (str "ratio") (float->json 0.5))
+               (pair (str "open") (bool->json true))
+               (pair (str "missing") null)
+               (pair (str "items")
+                     (array (vec (int->json 1)
+                                 (object (vec (pair (str "deep") (array (vec null (bool->json false))))))))))))
+
+(deftest text-round-trips
+  (assert (round-trips? (text->json "quote \" and \\ slash"))))
+
+(deftest int-round-trips
+  (assert (round-trips? (int->json -42))))
+
+(deftest float-round-trips
+  (assert (round-trips? (float->json 2.25))))
+
+(deftest bool-round-trips
+  (assert (round-trips? (bool->json false))))
+
+(deftest null-round-trips
+  (assert (round-trips? null)))
+
+(deftest empty-array-and-object-round-trip
+  (assert (round-trips? (array (vec))))
+  (assert (round-trips? (object (vec)))))
+
+(deftest nested-objects-and-arrays-round-trip
+  (assert (round-trips? (nested-document))))
+
+(deftest fields-read-back
+  (let (document (nested-document))
+    (assert (= (json->text (unwrap (field document "name"))) (some (str "ledger"))))
+    (assert (= (json->int (unwrap (field document "count"))) (some 3)))
+    (assert (= (json->float (unwrap (field document "ratio"))) (some 0.5)))
+    (assert (= (json->bool (unwrap (field document "open"))) (some true)))
+    (assert (null? (unwrap (field document "missing"))))
+    (assert (= (len (unwrap (json->items (unwrap (field document "items"))))) 2))
+    (assert (none? (field document "absent")))))
+
+(deftest invalid-text-is-refused
+  (assert (err? (parse "{not json"))))
