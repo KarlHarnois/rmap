@@ -1,5 +1,5 @@
 (use json/value field json->text)
-(use e2e/process run-rmap run-rmap-pair)
+(use e2e/process run-rmap run-rmap-pair run-rmap-together)
 (use support/scratch scratch-database)
 
 (def rounds 20)
@@ -45,3 +45,17 @@
         (assert (= (winners (ref database)
                             (add-research (ref database)))
                    1))))))
+
+(def fresh-rounds 5)
+
+(def first-users 6)
+
+(defn all-succeed-on-a-fresh-database? (round)
+  (let (database (scratch-database (as-str (str "fresh-race-" round))))
+    (every? (iter (run-rmap-together database (vec "list") first-users))
+      (fn (code) (= (deref code) 0)))))
+
+(deftest processes-first-using-a-new-database-at-once-all-succeed
+  (for-each (range 0 fresh-rounds)
+    (fn (round)
+      (assert (all-succeed-on-a-fresh-database? round)))))

@@ -22,15 +22,31 @@
 
 (defn open (path)
   (let-try (connection (map-err (open-raw path) message->error)
-            _ (query (ref connection)
-                     "PRAGMA journal_mode = WAL"
-                     (ref (vec)))
             _ (run-batch (ref connection)
                          (as-str (str "PRAGMA busy_timeout = "
                                       busy-timeout-milliseconds
-                                      ";\n"
-                                      "PRAGMA foreign_keys = ON;"))))
+                                      ";")))
+            _ (switch-to-wal (ref connection))
+            _ (run-batch (ref connection) "PRAGMA foreign_keys = ON;"))
     (ok connection)))
+
+(def wal-switch-attempts 100)
+
+(def wal-switch-pause-milliseconds 20)
+
+(def pause
+  (rust "std::thread::sleep(std::time::Duration::from_millis({0}))"
+    (fn (u64) unit)))
+
+(defn switch-to-wal (connection)
+  (loop (attempt 1)
+    (let (outcome (query connection "PRAGMA journal_mode = WAL" (ref (vec))))
+      (cond
+        ((ok? outcome) (ok (do)))
+        ((< attempt wal-switch-attempts)
+         (pause wal-switch-pause-milliseconds)
+         (recur (inc attempt)))
+        (else (map-ok outcome (fn (_) (do))))))))
 
 (defn message->error (message)
   (->database-error :message message))

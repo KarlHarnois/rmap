@@ -1,7 +1,8 @@
 (use json/value json parse)
 (use process/command ->command command-output run-command)
 
-(export command-result run-rmap run-rmap-pair)
+(export command-result run-rmap run-rmap-pair
+        run-rmap-together)
 
 (defstruct command-result
   :exit-code i32
@@ -68,3 +69,24 @@
     (for-each args
       (fn (arg) (push! all (str arg))))
     all))
+
+(type run-rmap-together
+  (fn (string (vec (ref str)) int)
+    (vec i32)))
+
+(defn run-rmap-together (database args copies)
+  (let (children (vec))
+    (for-each (range 0 copies)
+      (fn (_)
+        (push! children
+               (spawned (rmap-command (clone database) (clone args))))))
+    (waited-codes children)))
+
+(defn waited-codes (children)
+  (let (pending children
+        codes (vec))
+    (for-each (range 0 (len pending))
+      (fn (_)
+        (push! codes
+               (:exit-code (waited->result (unwrap-ok (wait-raw (unwrap (pop! pending)))))))))
+    codes))

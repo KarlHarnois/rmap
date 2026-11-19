@@ -3,7 +3,8 @@
 
 (use ledger/sqlite/rows int-cell single-row)
 
-(use ledger/sqlite/connection in-write-transaction query
+(use ledger/sqlite/connection connection database-error
+                              in-write-transaction query
                               run-batch)
 
 (export ->migration migrate migration schema-version)
@@ -13,6 +14,15 @@
   :sql string)
 
 (defn migrate (connection migrations)
+  (in-write-transaction connection
+    (fn (locked)
+      (apply-pending-after-version locked migrations))))
+
+(type apply-pending-after-version
+  (fn ((ref connection) (ref (vec migration)))
+    (result unit database-error)))
+
+(defn apply-pending-after-version (connection migrations)
   (let-try (current (schema-version connection))
     (apply-pending connection
                    (pending-after migrations current))))
@@ -39,10 +49,8 @@
       (ok (do)))))
 
 (defn apply-one (connection migration)
-  (in-write-transaction connection
-    (fn (open-connection)
-      (run-batch open-connection
-                 (as-str (str (:sql migration)
-                              "\nPRAGMA user_version = "
-                              (:version migration)
-                              ";"))))))
+  (run-batch connection
+             (as-str (str (:sql migration)
+                          "\nPRAGMA user_version = "
+                          (:version migration)
+                          ";"))))
