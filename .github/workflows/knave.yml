@@ -42,9 +42,15 @@ jobs:
             echo "$long"
             exit 1
           fi
+      - name: Keep code outside the ledger on its api
+        run: |
+          if git ls-files '*.knv' ':!:src/ledger/' ':!:tests/' | xargs grep -n '^(use ledger/' | grep -v ':(use ledger/api[ )]'; then
+            echo "Code outside src/ledger/ must import only ledger/api."
+            exit 1
+          fi
       - name: Keep the ledger core free of SQLite
         run: |
-          if grep -rn '(use ledger/sqlite' src/ledger/core; then
+          if grep -rn '^(use ledger/sqlite' src/ledger/core; then
             echo "src/ledger/core must not import ledger/sqlite: the core stays pure."
             exit 1
           fi

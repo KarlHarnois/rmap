@@ -1,6 +1,6 @@
 # rmap
 
-**Code outside `src/ledger/` MUST use only `ledger/api`.** A test MAY also import the ledger module it tests.
+**Code outside `src/ledger/` MUST use only `ledger/api`.** Tests are exempt.
 
 **Keep every ledger rule inside `src/ledger/`.**
 
