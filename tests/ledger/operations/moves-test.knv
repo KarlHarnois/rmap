@@ -1,6 +1,6 @@
 (use ledger/api ->advancement advance-item failure kind
-                kind-change read-log readiness ready-items
-                refusal show-item status)
+                kind-change read-log ready-items refusal
+                show-item status)
 
 (use support/ledger added-id claimed globs-of-patterns
                     item-draft scratch-ledger)

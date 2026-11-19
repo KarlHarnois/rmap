@@ -1,7 +1,7 @@
 (module
   "Loads the ledger snapshot and makes fresh ids and timestamps from the database.")
 
-(use json/value text->json)
+(use ledger/sqlite/values text->sql)
 (use ledger/model ->snapshot ->timestamp)
 (use ledger/sqlite/connection database-failure query)
 (use ledger/sqlite/rows single-row text-cell)
@@ -39,7 +39,7 @@
 (defn id-taken? (connection candidate)
   (let-try (rows (query connection
                         "SELECT id FROM items WHERE id = ?1 UNION SELECT id FROM roadmaps WHERE id = ?1"
-                        (ref (vec (text->json candidate)))))
+                        (ref (vec (text->sql candidate)))))
     (ok (not (empty? rows)))))
 
 (defn database-now (connection)

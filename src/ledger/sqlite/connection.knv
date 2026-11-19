@@ -1,8 +1,7 @@
 (module
-  "Opens the ledger database and runs SQL with JSON values as parameters and cells.")
+  "Opens the ledger database and runs SQL with SQLite values as parameters and cells.")
 
-(use ledger/sqlite/values json->sql-value sql-value
-                          sql-value->json)
+(use ledger/sqlite/values sql-value)
 
 (export ->database-error begin begin-read connection
         database-error database-failure database-problem
@@ -82,9 +81,7 @@
       (result int (pair bool string)))))
 
 (defn execute (connection sql parameters)
-  (map-err (execute-raw connection sql
-                        (ref (json->sql-values parameters)))
-           raw->error))
+  (map-err (execute-raw connection sql parameters) raw->error))
 
 (def query-raw
   (rust "(|| -> Result<Vec<Vec<rusqlite::types::Value>>, (bool, String)> {{ let mut statement = {0}.prepare({1}).map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string()))?; let width = statement.column_count(); let rows = statement.query_map(rusqlite::params_from_iter({2}.iter()), |row| (0..width).map(|index| row.get::<_, rusqlite::types::Value>(index)).collect::<Result<Vec<_>, _>>()).map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string()))?; rows.collect::<Result<Vec<_>, _>>().map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string())) }})()"
@@ -95,18 +92,7 @@
               (pair bool string)))))
 
 (defn query (connection sql parameters)
-  (map-ok (map-err (query-raw connection sql
-                              (ref (json->sql-values parameters)))
-                   raw->error)
-          rows->json))
-
-(defn json->sql-values (parameters)
-  (collect (map (iter parameters) json->sql-value)))
-
-(defn rows->json (rows)
-  (collect (map (iter rows)
-             (fn (row)
-               (collect (map (iter row) sql-value->json))))))
+  (map-err (query-raw connection sql parameters) raw->error))
 
 (type in-write-transaction
   (where (a)

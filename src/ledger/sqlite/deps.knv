@@ -1,11 +1,13 @@
 (module
   "Reads and writes the `deps` table.")
 
-(use json/value json text->json)
+(use ledger/sqlite/values sql-value text->sql)
 (use ledger/model ->dep ->item-id dep)
 (use ledger/names dep-type-names name-of)
 (use ledger/sqlite/connection execute query)
-(use ledger/sqlite/rows named-cell text-cell)
+
+(use ledger/sqlite/rows named-cell rows->values text-cell
+                        try-each)
 
 (export all-deps delete-dep insert-dep insert-deps)
 
@@ -20,29 +22,18 @@
            (ref (dep->row dep))))
 
 (type dep->row
-  (fn ((ref dep)) (vec json)))
+  (fn ((ref dep)) (vec sql-value)))
 
 (defn dep->row (dep)
-  (vec (text->json (as-str (:value (:item dep))))
-       (text->json (as-str (:value (:on dep))))
-       (text->json (name-of dep-type-names (:type dep)))))
+  (vec (text->sql (as-str (:value (:item dep))))
+       (text->sql (as-str (:value (:on dep))))
+       (text->sql (name-of dep-type-names (:type dep)))))
 
 (defn all-deps (connection)
   (let-try (rows (query connection
                         "SELECT item_id, on_id, type FROM deps ORDER BY item_id, on_id"
                         (ref (vec))))
-    (rows->deps rows)))
-
-(defn rows->deps (rows)
-  (loop (index 0
-         deps (vec))
-    (if (< index (len rows))
-      (let-try (dep (row->dep (at rows index)))
-        (recur (inc index) (appended deps dep)))
-      (ok deps))))
-
-(defn appended (items extra)
-  (let (all items) (push! all extra) all))
+    (rows->values (ref rows) row->dep)))
 
 (defn row->dep (row)
   (let-try (item (text-cell row 0)
@@ -53,8 +44,5 @@
                :type type))))
 
 (defn insert-deps (connection deps)
-  (loop (index 0)
-    (if (< index (len deps))
-      (let-try (_ (insert-dep connection (at deps index)))
-        (recur (inc index)))
-      (ok (do)))))
+  (try-each deps
+    (fn (dep) (insert-dep connection dep))))

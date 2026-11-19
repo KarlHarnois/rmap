@@ -1,8 +1,8 @@
 (use ledger/model ->timestamp)
 
-(use ledger/api ->glob ->item-id ->new-item ->session
-                ->settings add-item claim-item clock glob
-                item-id kind new-roadmap origin settings)
+(use ledger/api ->glob ->new-item ->session ->settings
+                add-item claim-item clock glob kind
+                new-roadmap origin settings)
 
 (use support/scratch scratch-database)
 

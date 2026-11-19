@@ -1,7 +1,7 @@
 (module
   "Reads and writes the `item_paths` table.")
 
-(use json/value text->json)
+(use ledger/sqlite/values text->sql)
 
 (use ledger/model ->glob ->item-id ->item-path glob item-id
                   item-path)
@@ -9,7 +9,7 @@
 (use ledger/sqlite/connection connection database-error
                               execute query)
 
-(use ledger/sqlite/rows text-cell)
+(use ledger/sqlite/rows rows->values text-cell try-each)
 
 (export all-item-paths insert-globs replace-globs)
 
@@ -20,26 +20,15 @@
 (defn insert-item-path (connection path)
   (execute connection
            "INSERT INTO item_paths (item_id, glob) VALUES (?1, ?2)"
-           (ref (vec (text->json (as-str (:value (:item path))))
-                     (text->json (as-str (:pattern (:glob path))))))))
+           (ref (vec (text->sql (as-str (:value (:item path))))
+                     (text->sql (as-str (:pattern (:glob path))))))))
 
 (defn all-item-paths (connection)
   (let-try (rows (query
                    connection
                    "SELECT item_id, glob FROM item_paths ORDER BY item_id, glob"
                    (ref (vec))))
-    (rows->paths rows)))
-
-(defn rows->paths (rows)
-  (loop (index 0
-         paths (vec))
-    (if (< index (len rows))
-      (let-try (path (row->path (at rows index)))
-        (recur (inc index) (appended paths path)))
-      (ok paths))))
-
-(defn appended (items extra)
-  (let (all items) (push! all extra) all))
+    (rows->values (ref rows) row->path)))
 
 (defn row->path (row)
   (let-try (item (text-cell row 0)
@@ -48,14 +37,11 @@
                      :glob (->glob :pattern pattern)))))
 
 (defn insert-globs (connection id globs)
-  (loop (index 0)
-    (if (< index (len globs))
-      (let-try (_ (insert-item-path connection
-                                    (ref (->item-path
-                                           :item (clone id)
-                                           :glob (clone (at globs index))))))
-        (recur (inc index)))
-      (ok (do)))))
+  (try-each globs
+    (fn (glob)
+      (insert-item-path connection
+                        (ref (->item-path :item (clone id)
+                                          :glob (clone glob)))))))
 
 (type replace-globs
   (fn ((ref connection)
@@ -66,5 +52,5 @@
 (defn replace-globs (connection id globs)
   (let-try (_ (execute connection
                        "DELETE FROM item_paths WHERE item_id = ?1"
-                       (ref (vec (text->json (as-str (:value id)))))))
+                       (ref (vec (text->sql (as-str (:value id)))))))
     (insert-globs connection id globs)))

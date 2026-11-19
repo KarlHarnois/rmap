@@ -1,7 +1,7 @@
 (module
   "Applies pending migrations in version order and records each version in `PRAGMA user_version`.")
 
-(use ledger/sqlite/rows int-cell single-row)
+(use ledger/sqlite/rows int-cell single-row try-each)
 
 (use ledger/sqlite/connection connection database-error
                               database-failure
@@ -45,11 +45,8 @@
     pending))
 
 (defn apply-pending (connection pending)
-  (loop (index 0)
-    (if (< index (len pending))
-      (let-try (_ (apply-one connection (at pending index)))
-        (recur (inc index)))
-      (ok (do)))))
+  (try-each pending
+    (fn (migration) (apply-one connection migration))))
 
 (defn apply-one (connection migration)
   (run-batch connection

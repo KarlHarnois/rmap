@@ -1,10 +1,10 @@
 (module
   "Reads and writes the `items` table.")
 
-(use json/value int->json json text->json)
+(use ledger/sqlite/values int->sql sql-value text->sql)
 
 (use ledger/model ->item ->item-id ->roadmap-id ->session
-                  ->timestamp claim item item-id)
+                  ->timestamp claim item item-id timestamp)
 
 (use ledger/names kind-names name-of origin-names
                   status-names)
@@ -13,7 +13,8 @@
                               execute query)
 
 (use ledger/sqlite/rows int-cell named-cell
-                        optional-text-cell text-cell)
+                        optional-text-cell rows->values
+                        text-cell)
 
 (export all-items insert-item update-item)
 
@@ -29,17 +30,17 @@
            (as-str (str
                      "INSERT INTO items (" columns
                      ") VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"))
-           (ref (vec (text->json (as-str (:value (:id item))))
-                     (text->json (as-str (:value (:roadmap-id item))))
-                     (optional-id->json (ref (:parent item)))
-                     (text->json (as-str (:title item)))
-                     (text->json (name-of kind-names (:kind item)))
-                     (text->json (name-of status-names (:status item)))
-                     (text->json (name-of origin-names (:origin item)))
-                     (int->json (:priority item))
-                     (claim->json (ref (:claim item)))
-                     (text->json (as-str (:value (:created-at item))))
-                     (optional-timestamp->json item)))))
+           (ref (vec (text->sql (as-str (:value (:id item))))
+                     (text->sql (as-str (:value (:roadmap-id item))))
+                     (optional-id->sql (ref (:parent item)))
+                     (text->sql (as-str (:title item)))
+                     (text->sql (name-of kind-names (:kind item)))
+                     (text->sql (name-of status-names (:status item)))
+                     (text->sql (name-of origin-names (:origin item)))
+                     (int->sql (:priority item))
+                     (claim->sql (ref (:claim item)))
+                     (text->sql (as-str (:value (:created-at item))))
+                     (closed-at->sql (ref (:closed-at item)))))))
 
 (type update-item
   (fn ((ref connection) (ref item))
@@ -48,47 +49,40 @@
 (defn update-item (connection item)
   (execute connection
            "UPDATE items SET kind = ?2, status = ?3, claimed_by = ?4, closed_at = ?5 WHERE id = ?1"
-           (ref (vec (text->json (as-str (:value (:id item))))
-                     (text->json (name-of kind-names (:kind item)))
-                     (text->json (name-of status-names (:status item)))
-                     (claim->json (ref (:claim item)))
-                     (optional-timestamp->json item)))))
+           (ref (vec (text->sql (as-str (:value (:id item))))
+                     (text->sql (name-of kind-names (:kind item)))
+                     (text->sql (name-of status-names (:status item)))
+                     (claim->sql (ref (:claim item)))
+                     (closed-at->sql (ref (:closed-at item)))))))
 
-(type optional-id->json
-  (fn ((ref (option item-id))) json))
+(type optional-id->sql
+  (fn ((ref (option item-id))) sql-value))
 
-(defn optional-id->json (id)
+(defn optional-id->sql (id)
   (match id
-    ((some present) (text->json (as-str (:value present))))
-    (none json/null)))
+    ((some present) (text->sql (as-str (:value present))))
+    (none sql-value/null)))
 
-(defn claim->json (claim)
+(defn claim->sql (claim)
   (match claim
-    ((claimed-by session) (text->json (as-str (:name session))))
-    (unclaimed json/null)))
+    ((claimed-by session) (text->sql (as-str (:name session))))
+    (unclaimed sql-value/null)))
 
-(defn optional-timestamp->json (item)
-  (match (ref (:closed-at item))
-    ((some closed-at) (text->json (as-str (:value closed-at))))
-    (none json/null)))
+(type closed-at->sql
+  (fn ((ref (option timestamp)))
+    sql-value))
+
+(defn closed-at->sql (closed-at)
+  (match closed-at
+    ((some at) (text->sql (as-str (:value at))))
+    (none sql-value/null)))
 
 (defn all-items (connection)
   (let-try (rows (query connection
                         (as-str (str "SELECT " columns
                                      " FROM items ORDER BY created_at, id"))
                         (ref (vec))))
-    (rows->items rows)))
-
-(defn rows->items (rows)
-  (loop (index 0
-         items (vec))
-    (if (< index (len rows))
-      (let-try (item (row->item (at rows index)))
-        (recur (inc index) (appended items item)))
-      (ok items))))
-
-(defn appended (items extra)
-  (let (all items) (push! all extra) all))
+    (rows->values (ref rows) row->item)))
 
 (defn row->item (row)
   (let-try (id (text-cell row 0)

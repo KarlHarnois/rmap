@@ -1,38 +1,75 @@
 (module
-  "Reads typed cells out of a query's rows of JSON values.")
+  "Reads typed cells out of query rows and runs a step over every value until one fails.")
 
-(use json/value json->int json->text)
 (use ledger/names named)
-(use ledger/sqlite/connection database-failure)
 
-(export int-cell named-cell optional-text-cell single-row
-        text-cell)
+(use ledger/sqlite/connection database-error
+                              database-failure)
+
+(use ledger/sqlite/values sql-value)
+
+(export int-cell named-cell optional-text-cell rows->values
+        single-row text-cell try-each)
 
 (defn single-row (rows)
   (ok-or (first rows)
-         (cell-error (str "the query returned no row"))))
-
-(defn cell-error (message) (database-failure message))
+         (database-failure (str "the query returned no row"))))
 
 (defn raw-cell (row index)
   (ok-or (get row index)
-         (cell-error (str "a row has no column " index))))
+         (database-failure (str "a row has no column " index))))
 
 (defn text-cell (row index)
   (let-try (cell (raw-cell row index))
-    (ok-or (json->text cell)
-           (cell-error (str "column " index " is not text")))))
+    (match cell
+      ((text content) (ok (clone content)))
+      (_ (err (database-failure (str "column " index " is not text")))))))
 
 (defn int-cell (row index)
   (let-try (cell (raw-cell row index))
-    (ok-or (json->int cell)
-           (cell-error (str "column " index " is not an integer")))))
+    (match cell
+      ((integer number) (ok (deref number)))
+      (_ (err (database-failure (str "column " index " is not an integer")))))))
 
 (defn optional-text-cell (row index)
   (let-try (cell (raw-cell row index))
-    (ok (json->text cell))))
+    (match cell
+      ((text content) (ok (some (clone content))))
+      (_ (ok none)))))
 
 (defn named-cell (row index names)
   (let-try (text (text-cell row index))
     (ok-or (named names (as-str text))
-           (cell-error (str "column " index " holds an unknown name: " text)))))
+           (database-failure
+             (str "column " index " holds an unknown name: " text)))))
+
+(type rows->values
+  (where (a)
+    (fn ((ref (vec (vec sql-value)))
+         (fn ((ref (vec sql-value)))
+           (result a database-error)))
+      (result (vec a) database-error))))
+
+(defn rows->values (rows row->value)
+  (loop (index 0
+         values (vec))
+    (if (< index (len rows))
+      (let-try (value (row->value (at rows index)))
+        (recur (inc index) (appended values value)))
+      (ok values))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))
+
+(type try-each
+  (where (a b)
+    (fn ((ref (vec a))
+         (fn ((ref a)) (result b database-error)))
+      (result unit database-error))))
+
+(defn try-each (values step)
+  (loop (index 0)
+    (if (< index (len values))
+      (let-try (_ (step (at values index)))
+        (recur (inc index)))
+      (ok (do)))))

@@ -1,4 +1,4 @@
-(use json/value text->json)
+(use ledger/sqlite/values text->sql)
 (use ledger/sqlite/connection execute open query)
 
 (use ledger/sqlite/migrations ->migration migrate
@@ -45,10 +45,10 @@
     (unwrap-ok (migrate (ref connection) (migration-sources)))
     (unwrap-ok (execute (ref connection)
                         "INSERT INTO roadmaps (id, name, manager_session, created_at) VALUES (?1, ?2, ?3, ?4)"
-                        (ref (vec (text->json "rm-0001")
-                                  (text->json "kept")
-                                  (text->json "m1")
-                                  (text->json "2026-01-01")))))
+                        (ref (vec (text->sql "rm-0001")
+                                  (text->sql "kept")
+                                  (text->sql "m1")
+                                  (text->sql "2026-01-01")))))
     (let (extended (migration-sources))
       (push! extended
              (->migration :version 2
