@@ -2,8 +2,9 @@
   "Finds items in a snapshot and computes the status an epic shows from its children.")
 
 (use ledger/model item item-id kind snapshot status)
+(use ledger/core/phases finished?)
 
-(export epic-status find-item finished? shown-status-of)
+(export epic-status find-item shown-status-of)
 
 (type find-item
   (fn ((ref snapshot) (ref item-id))
@@ -14,9 +15,6 @@
       iter
       (find (fn (item) (= (ref (:id item)) id)))
       (map-some clone)))
-
-(defn finished? (status)
-  (or (= status status/merged) (= status status/dropped)))
 
 (type shown-status-of
   (fn ((ref item) (option (ref (vec status))))

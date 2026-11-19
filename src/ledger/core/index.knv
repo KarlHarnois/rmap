@@ -5,9 +5,10 @@
                   status)
 
 (use ledger/core/statuses shown-status-of)
+(use ledger/core/phases active? delivered?)
 
-(export active-paths index-of indexed-status ledger-index
-        with-shown-status)
+(export active-paths delivered-id? index-of indexed-status
+        ledger-index with-shown-status)
 
 (defstruct ledger-index
   :items (hash-map string item)
@@ -105,10 +106,7 @@
 
 (defn active-build? (item)
   (and (= (:kind item) kind/build)
-       (contains? (vec status/dispatched status/reported
-                       status/in-review status/fixing
-                       status/merging)
-                  (:status item))))
+       (active? (:status item))))
 
 (type indexed-status
   (fn ((ref ledger-index) (ref item-id))
@@ -130,3 +128,15 @@
   (assoc (clone item)
          :status (unwrap-or (indexed-status index (ref (:id item)))
                             (:status item))))
+
+(type delivered-id?
+  (fn ((ref ledger-index) (ref item-id))
+    bool))
+
+(defn delivered-id? (index id)
+  (match (get (:items index)
+              (as-str (:value id)))
+    ((some item)
+     (delivered? (:kind item)
+                 (unwrap-or (indexed-status index id) (:status item))))
+    (none false)))

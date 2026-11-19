@@ -2,10 +2,13 @@
   "Computes which items can start and what blocks the others.")
 
 (use ledger/model claim decision-id dep-type item item-id
-                  kind roadmap-id snapshot status)
+                  kind path-conflict roadmap-id snapshot
+                  status)
 
 (use ledger/refusal ->blockage blockage)
-(use ledger/core/index index-of indexed-status ledger-index)
+
+(use ledger/core/index delivered-id? index-of indexed-status
+                       ledger-index)
 
 (use ledger/core/locks conflicts-with-active-builds
                        globs-of)
@@ -87,6 +90,7 @@
 
 (defn unblocked? (blockage)
   (and (empty? (:blockers blockage))
+       (empty? (:dropped-blockers blockage))
        (empty? (:path-conflicts blockage))))
 
 (type blocking-decisions
@@ -101,26 +105,43 @@
     blockage))
 
 (defn blockage-of (snapshot index item)
-  (->blockage :blockers (blockers-of snapshot index item)
-              :path-conflicts (conflicts-with-active-builds
-                                index
-                                (ref (:id item))
-                                (ref (globs-of snapshot (ref (:id item)))))))
+  (let (blocking (blocking-targets snapshot item))
+    (->blockage :blockers (collect (map (filter (iter blocking)
+                                          (fn (id) (waiting-on? index id)))
+                                        clone))
+                :dropped-blockers (collect (map (filter (iter blocking)
+                                                  (fn (id) (dropped? index id)))
+                                                clone))
+                :path-conflicts (build-conflicts snapshot index item))))
 
-(type blockers-of
-  (fn ((ref snapshot)
-       (ref ledger-index)
-       (ref item))
+(type blocking-targets
+  (fn ((ref snapshot) (ref item))
     (vec item-id)))
 
-(defn blockers-of (snapshot index item)
+(defn blocking-targets (snapshot item)
   (-> (:deps snapshot)
       iter
       (filter (fn (dep)
                 (and (= (:type dep) dep-type/blocks)
                      (= (:item dep) (:id item)))))
-      (filter (fn (dep)
-                (not= (indexed-status index (ref (:on dep)))
-                      (some status/merged))))
       (map (fn (dep) (clone (:on dep))))
       collect))
+
+(defn waiting-on? (index id)
+  (not (or (delivered-id? index id) (dropped? index id))))
+
+(defn dropped? (index id)
+  (= (indexed-status index id) (some status/dropped)))
+
+(type build-conflicts
+  (fn ((ref snapshot)
+       (ref ledger-index)
+       (ref item))
+    (vec path-conflict)))
+
+(defn build-conflicts (snapshot index item)
+  (if (= (:kind item) kind/build)
+    (conflicts-with-active-builds index
+                                  (ref (:id item))
+                                  (ref (globs-of snapshot (ref (:id item)))))
+    (vec)))

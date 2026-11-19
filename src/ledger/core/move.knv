@@ -2,6 +2,7 @@
   "Names each move an item can make and computes the item a move leaves.")
 
 (use ledger/refusal refusal)
+(use ledger/core/phases finished?)
 
 (use ledger/model claim glob item kind session status
                   timestamp)
@@ -97,6 +98,6 @@
     (_ (:kind item))))
 
 (defn closed-at-after (item target now)
-  (if (or (= target status/merged) (= target status/dropped))
+  (if (finished? target)
     (some (clone now))
     (clone (:closed-at item))))

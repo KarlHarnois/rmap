@@ -10,6 +10,7 @@
 
 (defstruct blockage
   :blockers (vec item-id)
+  :dropped-blockers (vec item-id)
   :path-conflicts (vec path-conflict))
 
 (defenum refusal
@@ -112,7 +113,7 @@
        (described "invalid-transition"
                   "The transition table has no such move for this item.")
        (described "not-ready"
-                  "The item is blocked or path-conflicted. The error lists blockers and path_conflicts.")
+                  "The item is blocked or path-conflicted. The error lists blockers, dropped_blockers and path_conflicts.")
        (described "path-conflict"
                   "The build's paths conflict with an active build. The error lists path_conflicts.")
        (described "cycle"

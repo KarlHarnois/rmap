@@ -16,7 +16,9 @@
        refusal/epic-status-computed
        refusal/invalid-kind-change
        (refusal/invalid-transition status/open status/merged)
-       (refusal/not-ready (->blockage :blockers (vec) :path-conflicts (vec)))
+       (refusal/not-ready (->blockage :blockers (vec)
+                                      :dropped-blockers (vec)
+                                      :path-conflicts (vec)))
        (refusal/paths-conflict (vec))
        (refusal/cycle (sample-id) (sample-id))
        (refusal/dep-exists (sample-id) (sample-id))

@@ -9,6 +9,7 @@
 
 (use ledger/core/ready blockage-of unblocked?)
 (use ledger/core/index index-of)
+(use ledger/core/phases unfinished-statuses)
 (use ledger/core/schema distinct)
 
 (use ledger/core/locks conflicts-with-active-builds
@@ -51,12 +52,12 @@
                     :steps (vec (pair status/merging status/merged)))
        (->allowance :command command/drop
                     :kinds (work-kinds)
-                    :steps (vec (pair status/open status/dropped)
-                                (pair status/dispatched status/dropped)
-                                (pair status/reported status/dropped)
-                                (pair status/in-review status/dropped)
-                                (pair status/fixing status/dropped)
-                                (pair status/merging status/dropped)))))
+                    :steps (steps-to-dropped))))
+
+(defn steps-to-dropped ()
+  (collect (map (iter (unfinished-statuses))
+             (fn (status)
+               (pair (deref status) status/dropped)))))
 
 (defn approved-move (snapshot item move)
   (let (resolved (with-stored-globs snapshot item move))

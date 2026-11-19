@@ -78,6 +78,8 @@
 (defn blockage-fields (blockage)
   (vec (pair (str "blockers")
              (ids->json (ref (:blockers blockage))))
+       (pair (str "dropped_blockers")
+             (ids->json (ref (:dropped-blockers blockage))))
        (pair (str "path_conflicts")
              (conflicts->json (ref (:path-conflicts blockage))))))
 

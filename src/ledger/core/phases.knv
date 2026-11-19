@@ -1,0 +1,42 @@
+(module
+  "Groups each status into a phase of work and says when an item has delivered.")
+
+(use ledger/model kind status)
+(use ledger/names status-names)
+
+(export active? delivered? finished? phase
+        unfinished-statuses)
+
+(defenum phase
+  waiting
+  active
+  finished)
+
+(defn phase-of (status)
+  (match status
+    (open phase/waiting)
+    (dispatched phase/active)
+    (reported phase/active)
+    (in-review phase/active)
+    (fixing phase/active)
+    (merging phase/active)
+    (merged phase/finished)
+    (dropped phase/finished)))
+
+(defn finished? (status)
+  (= (phase-of status) phase/finished))
+
+(defn active? (status)
+  (= (phase-of status) phase/active))
+
+(defn delivered? (kind status)
+  (match kind
+    (research (= status status/reported))
+    (design (= status status/reported))
+    (_ (= status status/merged))))
+
+(defn unfinished-statuses ()
+  (collect (filter (map (iter status-names)
+                     (fn (entry) (first (deref entry))))
+                   (fn (status)
+                     (not (finished? (deref status)))))))

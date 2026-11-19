@@ -5,7 +5,8 @@
 (use ledger/core/paths conflict?)
 
 (use support/items blocks-dep child-of claimed epic-item
-                   path-of snapshot-of statuses work-item)
+                   id-of path-of snapshot-of statuses
+                   work-item)
 
 (defn ready-ids (snapshot)
   (-> (:ready (readiness-of (ref snapshot) (ref scope/every-roadmap)))
@@ -94,6 +95,40 @@
   (assert (= (ready-ids (snapshot-of
                           (vec (work-item "rm-0001" kind/build status/open)
                                (work-item "rm-0002" kind/build status/merged))
+                          (vec)
+                          (vec (path-of "rm-0001" "src/a/x.rs")
+                               (path-of "rm-0002" "src/a/**"))))
+             (vec (str "rm-0001")))))
+
+(deftest a-reported-research-item-releases-its-dependents
+  (assert (= (ready-ids (snapshot-of
+                          (vec
+                            (work-item "rm-0001" kind/design status/open)
+                            (work-item "rm-0002" kind/research status/reported))
+                          (vec (blocks-dep "rm-0001" "rm-0002"))
+                          (vec)))
+             (vec (str "rm-0001")))))
+
+(deftest a-dropped-blocker-is-reported-apart-from-waiting-blockers
+  (let (readiness (readiness-of
+                    (ref (snapshot-of
+                           (vec (work-item "rm-0001" kind/design status/open)
+                                (work-item "rm-0002" kind/build status/dropped)
+                                (work-item "rm-0003" kind/build status/fixing))
+                           (vec (blocks-dep "rm-0001" "rm-0002")
+                                (blocks-dep "rm-0001" "rm-0003"))
+                           (vec)))
+                    (ref scope/every-roadmap))
+        blockage (clone (:blockage (unwrap (first (:blocked readiness))))))
+    (assert (= (:dropped-blockers blockage)
+               (vec (id-of "rm-0002"))))
+    (assert (= (:blockers blockage)
+               (vec (id-of "rm-0003"))))))
+
+(deftest a-research-item-ignores-paths-an-active-build-holds
+  (assert (= (ready-ids (snapshot-of
+                          (vec (work-item "rm-0001" kind/research status/open)
+                               (work-item "rm-0002" kind/build status/fixing))
                           (vec)
                           (vec (path-of "rm-0001" "src/a/x.rs")
                                (path-of "rm-0002" "src/a/**"))))
@@ -214,9 +249,10 @@
   (fn ((ref snapshot) (ref item)) bool))
 
 (defn target-done? (snapshot target)
-  (if (= (:kind target) kind/epic)
-    (epic-done? snapshot (ref (:id target)))
-    (= (:status target) status/merged)))
+  (match (:kind target)
+    (epic (epic-done? snapshot (ref (:id target))))
+    (build (= (:status target) status/merged))
+    (_ (= (:status target) status/reported))))
 
 (type epic-done?
   (fn ((ref snapshot) (ref item-id)) bool))
@@ -277,7 +313,8 @@
        (= (:status item) status/open)
        (= (:claim item) claim/unclaimed)
        (blockers-done? snapshot item)
-       (paths-free? snapshot item)))
+       (or (not= (:kind item) kind/build)
+           (paths-free? snapshot item))))
 
 (defn agrees-with-oracle? (seed)
   (let (snapshot (generated-snapshot seed)
