@@ -95,15 +95,16 @@
             priority (optional-number arguments "priority"))
     (ok (request/add-item
           roadmap
-          (->new-item :parent (map-some (flag arguments "parent") text->id)
-                      :title title
-                      :kind kind
-                      :origin (unwrap-or origin origin/planned)
-                      :priority (unwrap-or priority 0)
-                      :globs (list-flag-globs arguments)
-                      :after (collect (map (iter (list-flag arguments "after"))
-                                        (fn (text) (text->id (clone text)))))
-                      :from (map-some (flag arguments "from") text->id))))))
+          (->new-item
+            :parent (map-some (flag arguments "parent") text->id)
+            :title title
+            :kind kind
+            :origin (unwrap-or origin origin/planned)
+            :priority (unwrap-or priority 0)
+            :globs (list-flag-globs arguments)
+            :blocked-by (collect (map (iter (list-flag arguments "after"))
+                                   (fn (text) (text->id (clone text)))))
+            :discovered-from (map-some (flag arguments "from") text->id))))))
 
 (defn claim-request (arguments id)
   (let-try (session (required-flag arguments "session"))

@@ -38,8 +38,8 @@
               :origin origin/planned
               :priority 0
               :globs globs
-              :after (vec)
-              :from none))
+              :blocked-by (vec)
+              :discovered-from none))
 
 (defn added-id (settings draft)
   (clone (:id (unwrap-ok (add-item settings (str roadmap-name) draft)))))

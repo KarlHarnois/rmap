@@ -61,9 +61,10 @@
                           (pair (str "paths")
                                 (globs->json (ref (:globs request))))
                           (pair (str "blocked_by")
-                                (ids->json (ref (:after request))))
+                                (ids->json (ref (:blocked-by request))))
                           (pair (str "discovered_from")
-                                (optional-id->json (ref (:from request))))))))
+                                (optional-id->json (ref (:discovered-from
+                                                          request))))))))
 
 (type dep-changed
   (fn ((ref item) (ref dep) dep-change)

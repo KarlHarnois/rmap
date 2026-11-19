@@ -86,12 +86,12 @@
     (vec dep)))
 
 (defn draft-deps (item request)
-  (let (deps (collect (map (iter (:after request))
+  (let (deps (collect (map (iter (:blocked-by request))
                         (fn (on)
                           (->dep :item (clone (:id item))
                                  :on (clone on)
                                  :type dep-type/blocks)))))
-    (match (ref (:from request))
+    (match (ref (:discovered-from request))
       ((some from)
        (push! deps
               (->dep :item (clone (:id item))

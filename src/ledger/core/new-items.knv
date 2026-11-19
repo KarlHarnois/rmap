@@ -17,15 +17,16 @@
   :origin origin
   :priority int
   :globs (vec glob)
-  :after (vec item-id)
-  :from (option item-id))
+  :blocked-by (vec item-id)
+  :discovered-from (option item-id))
 
 (defn check-new-item (snapshot roadmap-id request)
   (let-try (_ (check-epic-has-no-parent request)
             _ (check-build-has-globs request)
             _ (check-parent snapshot roadmap-id request)
-            _ (check-all-exist snapshot (ref (:after request))))
-    (check-optional-exists snapshot (ref (:from request)))))
+            _ (check-all-exist snapshot (ref (:blocked-by request))))
+    (check-optional-exists snapshot
+                           (ref (:discovered-from request)))))
 
 (type check-epic-has-no-parent
   (fn ((ref new-item))
@@ -103,5 +104,7 @@
 
 (defn normalized (request)
   (let (globs (distinct (ref (:globs request)))
-        after (distinct (ref (:after request))))
-    (-> request (assoc :globs globs) (assoc :after after))))
+        blockers (distinct (ref (:blocked-by request))))
+    (-> request
+        (assoc :globs globs)
+        (assoc :blocked-by blockers))))

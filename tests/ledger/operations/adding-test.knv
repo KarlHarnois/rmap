@@ -8,7 +8,7 @@
         blocker (added-id (ref settings)
                           (item-draft kind/research (vec)))
         draft (assoc (item-draft kind/research (vec))
-                     :after (vec (clone blocker) (clone blocker)))
+                     :blocked-by (vec (clone blocker) (clone blocker)))
         blocked (added-id (ref settings) draft))
     (assert (= (len (:deps (unwrap-ok (show-item (ref settings) blocked))))
                1))))
