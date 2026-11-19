@@ -16,10 +16,6 @@
     (fn ((ref str) (ref str))
       (result unit string))))
 
-(def quoted
-  (rust "format!(\"{{:?}}\", {0})"
-    (fn ((ref str)) string)))
-
 (defn version-of (file-name)
   (let (parts (collect (split (as-str file-name) "-")))
     (-> parts first
@@ -40,7 +36,7 @@
                   (fn (failure) (str failure))))
     (ok (str "       (->migration :version " version
              " :sql (str "
-             (quoted (as-str sql))
+             (pr-str sql)
              "))"))))
 
 (defn module-text (forms)
