@@ -3,7 +3,7 @@
 
 (use ledger/model dep event glob item item-id)
 (use ledger/core/ready readiness readiness-of scope)
-(use ledger/core/statuses with-computed-status)
+(use ledger/core/index index-of with-shown-status)
 (use ledger/core/locks globs-of)
 (use ledger/sqlite/events ->event-filter events-matching)
 (use ledger/sqlite/store load-snapshot)
@@ -47,10 +47,14 @@
   (let-try (connection (connect settings)
             scope (scope-named (ref connection) (ref roadmap))
             snapshot (load-snapshot (ref connection)))
-    (ok (collect (map (filter (iter (:items snapshot))
-                        (fn (item) (in-scope? item (ref scope))))
-                      (fn (item)
-                        (with-computed-status (ref snapshot) item)))))))
+    (ok (shown-items (ref snapshot) (ref scope)))))
+
+(defn shown-items (snapshot scope)
+  (let (index (index-of snapshot))
+    (collect (map (filter (iter (:items snapshot))
+                    (fn (item) (in-scope? item scope)))
+                  (fn (item)
+                    (with-shown-status (ref index) item))))))
 
 (type in-scope?
   (fn ((ref item) (ref scope)) bool))
@@ -68,7 +72,8 @@
   (let-try (connection (connect settings)
             snapshot (load-snapshot (ref connection))
             item (existing-item (ref snapshot) (ref id)))
-    (ok (->item-detail :item (with-computed-status (ref snapshot) (ref item))
+    (ok (->item-detail :item (with-shown-status (ref (index-of (ref snapshot)))
+                                                (ref item))
                        :deps (collect (map (filter (iter (:deps snapshot))
                                              (fn (dep) (= (:item dep) id)))
                                            clone))

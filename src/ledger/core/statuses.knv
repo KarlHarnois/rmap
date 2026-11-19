@@ -1,10 +1,9 @@
 (module
-  "Finds items in a snapshot and computes the status an epic shows.")
+  "Finds items in a snapshot and computes the status an epic shows from its children.")
 
 (use ledger/model item item-id kind snapshot status)
 
-(export effective-status find-item merged?
-        with-computed-status)
+(export epic-status find-item finished? shown-status-of)
 
 (type find-item
   (fn ((ref snapshot) (ref item-id))
@@ -16,44 +15,28 @@
       (find (fn (item) (= (ref (:id item)) id)))
       (map-some clone)))
 
-(defn merged? (snapshot id)
-  (match (find-item snapshot id)
-    ((some item)
-     (= (effective-status snapshot item) status/merged))
-    (none false)))
+(defn finished? (status)
+  (or (= status status/merged) (= status status/dropped)))
 
-(type effective-status
-  (fn ((ref snapshot) (ref item)) status))
+(type shown-status-of
+  (fn ((ref item) (option (ref (vec status))))
+    status))
 
-(defn effective-status (snapshot item)
+(defn shown-status-of (item children)
   (match (:kind item)
-    (epic (epic-status snapshot (ref (:id item))))
+    (epic (epic-status children))
     (_ (:status item))))
 
-(defn epic-status (snapshot epic)
-  (let (children (children-of snapshot epic))
-    (if (and (not (empty? children))
-             (every? (iter children) finished?))
-      status/merged status/open)))
+(type epic-status
+  (fn ((option (ref (vec status))))
+    status))
 
-(type finished? (fn ((ref item)) bool))
+(defn epic-status (children)
+  (match children
+    ((some statuses) (status-of-children statuses))
+    (none status/open)))
 
-(defn finished? (item)
-  (or (= (:status item) status/merged)
-      (= (:status item) status/dropped)))
-
-(defn children-of (snapshot epic)
-  (-> (:items snapshot)
-      iter
-      (filter (fn (item)
-                (= (ref (:parent item))
-                   (ref (some (clone epic))))))
-      (map clone)
-      collect))
-
-(type with-computed-status
-  (fn ((ref snapshot) (ref item)) item))
-
-(defn with-computed-status (snapshot item)
-  (assoc (clone item)
-         :status (effective-status snapshot item)))
+(defn status-of-children (statuses)
+  (if (every? (iter statuses)
+        (fn (status) (finished? (deref status))))
+    status/merged status/open))

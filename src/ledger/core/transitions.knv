@@ -7,7 +7,8 @@
 (use ledger/core/move command move move->command
                       move->target)
 
-(use ledger/core/ready blockage-of ready?)
+(use ledger/core/ready blockage-of unblocked?)
+(use ledger/core/index index-of)
 
 (use ledger/core/locks conflicts-with-active-builds
                        globs-of)
@@ -109,9 +110,10 @@
     (_ (ok (do)))))
 
 (defn check-ready (snapshot item)
-  (if (ready? snapshot item)
-    (ok (do))
-    (err (refusal/not-ready (blockage-of snapshot item)))))
+  (let (blockage (blockage-of snapshot (ref (index-of snapshot)) item))
+    (if (unblocked? (ref blockage))
+      (ok (do))
+      (err (refusal/not-ready blockage)))))
 
 (type check-free-globs
   (fn ((ref snapshot)
@@ -120,7 +122,7 @@
     (result unit refusal)))
 
 (defn check-free-globs (snapshot item globs)
-  (let (conflicts (conflicts-with-active-builds snapshot
+  (let (conflicts (conflicts-with-active-builds (ref (index-of snapshot))
                                                 (ref (:id item))
                                                 globs))
     (cond

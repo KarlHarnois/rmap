@@ -1,11 +1,11 @@
 (module
-  "Finds the path conflicts between an item's globs and the active builds.")
+  "Finds the path conflicts between an item's globs and the paths active builds hold.")
 
-(use ledger/model ->path-conflict glob item item-id kind
-                  path-conflict snapshot status)
+(use ledger/model ->path-conflict glob item-id item-path
+                  path-conflict snapshot)
 
 (use ledger/core/paths conflict?)
-(use ledger/core/statuses find-item)
+(use ledger/core/index active-paths ledger-index)
 
 (export conflicts-with-active-builds globs-of)
 
@@ -21,56 +21,26 @@
       collect))
 
 (type conflicts-with-active-builds
-  (fn ((ref snapshot)
+  (fn ((ref ledger-index)
        (ref item-id)
        (ref (vec glob)))
     (vec path-conflict)))
 
-(defn conflicts-with-active-builds (snapshot id globs)
-  (-> (:paths snapshot)
-      iter
-      (filter (fn (path)
-                (and (not= (ref (:item path)) id)
-                     (active-build-id? snapshot (ref (:item path))))))
-      (map (fn (path)
-             (conflicts-with-path globs
-                                  (ref (:item path))
-                                  (ref (:glob path)))))
-      collect flatten-conflicts))
+(defn conflicts-with-active-builds (index id globs)
+  (let (conflicts (vec))
+    (for-each (active-paths index)
+      (fn (held)
+        (when (not= (ref (:item held)) id)
+          (for-each globs
+            (fn (glob)
+              (when (conflict? glob (ref (:glob held)))
+                (push! conflicts (held-conflict held (clone glob)))))))))
+    conflicts))
 
-(defn conflicts-with-path (globs other-id other-glob)
-  (-> globs iter
-      (filter (fn (glob) (conflict? glob other-glob)))
-      (map (fn (glob)
-             (->path-conflict :with (clone other-id)
-                              :glob (clone glob)
-                              :other-glob (clone other-glob))))
-      collect))
+(type held-conflict
+  (fn ((ref item-path) glob) path-conflict))
 
-(type flatten-conflicts
-  (fn ((vec (vec path-conflict)))
-    (vec path-conflict)))
-
-(defn flatten-conflicts (groups)
-  (let (all (vec))
-    (for-each groups
-      (fn (group)
-        (for-each group
-          (fn (conflict)
-            (push! all (clone conflict))))))
-    all))
-
-(defn active-build-id? (snapshot id)
-  (match (find-item snapshot id)
-    ((some item) (active-build? (ref item)))
-    (none false)))
-
-(type active-build?
-  (fn ((ref item)) bool))
-
-(defn active-build? (item)
-  (and (= (:kind item) kind/build)
-       (contains? (vec status/dispatched status/reported
-                       status/in-review status/fixing
-                       status/merging)
-                  (:status item))))
+(defn held-conflict (held glob)
+  (->path-conflict :with (clone (:item held))
+                   :glob glob
+                   :other-glob (clone (:glob held))))

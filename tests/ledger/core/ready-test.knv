@@ -218,6 +218,9 @@
     (epic-done? snapshot (ref (:id target)))
     (= (:status target) status/merged)))
 
+(type epic-done?
+  (fn ((ref snapshot) (ref item-id)) bool))
+
 (defn epic-done? (snapshot epic)
   (let (children (collect (filter (iter (:items snapshot))
                             (fn (item)

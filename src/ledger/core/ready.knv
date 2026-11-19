@@ -5,7 +5,7 @@
                   kind roadmap-id snapshot status)
 
 (use ledger/refusal ->blockage blockage)
-(use ledger/core/statuses merged?)
+(use ledger/core/index index-of indexed-status ledger-index)
 
 (use ledger/core/locks conflicts-with-active-builds
                        globs-of)
@@ -13,7 +13,7 @@
 (use ledger/core/order ordered)
 
 (export blockage-of blocked-item blocking-decisions
-        readiness readiness-of ready? scope)
+        readiness readiness-of scope unblocked?)
 
 (defenum scope
   every-roadmap
@@ -27,18 +27,23 @@
   :ready (vec item)
   :blocked (vec blocked-item))
 
-(defn readiness-of (snapshot scope)
-  (let (candidates (candidates-in snapshot scope))
-    (->readiness :ready (ordered (ready-among snapshot (ref candidates)))
-                 :blocked (blocked-among snapshot (ref candidates)))))
+(type readiness-of
+  (fn ((ref snapshot) (ref scope))
+    readiness))
 
-(defn candidates-in (snapshot scope)
-  (-> (:items snapshot)
-      iter
-      (filter (fn (item)
-                (and (candidate? item) (in-scope? item scope))))
-      (map clone)
-      collect))
+(defn readiness-of (snapshot scope)
+  (let (index (index-of snapshot)
+        assessed (collect (map
+                            (filter (iter (:items snapshot))
+                              (fn (item)
+                                (and (candidate? item) (in-scope? item scope))))
+                            (fn (item)
+                              (->blocked-item :item (clone item)
+                                              :blockage (blockage-of snapshot
+                                                                     (ref index)
+                                                                     item))))))
+    (->readiness :ready (ordered (startable-items (ref assessed)))
+                 :blocked (waiting-items assessed))))
 
 (type in-scope?
   (fn ((ref item) (ref scope)) bool))
@@ -55,24 +60,30 @@
        (= (:status item) status/open)
        (= (:claim item) claim/unclaimed)))
 
-(defn ready-among (snapshot candidates)
-  (-> candidates iter
-      (filter (fn (item) (ready? snapshot item)))
-      (map clone)
-      collect))
+(type startable-items
+  (fn ((ref (vec blocked-item)))
+    (vec item)))
 
-(defn blocked-among (snapshot candidates)
-  (-> candidates iter
-      (filter (fn (item) (not (ready? snapshot item))))
-      (map (fn (item)
-             (->blocked-item :item (clone item)
-                             :blockage (blockage-of snapshot item))))
-      collect))
+(defn startable-items (assessed)
+  (collect (map (filter (iter assessed)
+                  (fn (entry) (startable? entry)))
+                (fn (entry) (clone (:item entry))))))
 
-(defn ready? (snapshot item)
-  (and (candidate? item)
-       (unblocked? (blockage-of snapshot item))
-       (empty? (blocking-decisions item))))
+(type waiting-items
+  (fn ((vec blocked-item))
+    (vec blocked-item)))
+
+(defn waiting-items (assessed)
+  (collect (map (filter (iter assessed)
+                  (fn (entry) (not (startable? entry))))
+                clone)))
+
+(type startable?
+  (fn ((ref blocked-item)) bool))
+
+(defn startable? (entry)
+  (and (unblocked? (ref (:blockage entry)))
+       (empty? (blocking-decisions (ref (:item entry))))))
 
 (defn unblocked? (blockage)
   (and (empty? (:blockers blockage))
@@ -83,24 +94,33 @@
 
 (defn blocking-decisions (_item) (vec))
 
-(defn blockage-of (snapshot item)
-  (->blockage :blockers (blockers-of snapshot item)
+(type blockage-of
+  (fn ((ref snapshot)
+       (ref ledger-index)
+       (ref item))
+    blockage))
+
+(defn blockage-of (snapshot index item)
+  (->blockage :blockers (blockers-of snapshot index item)
               :path-conflicts (conflicts-with-active-builds
-                                snapshot
+                                index
                                 (ref (:id item))
                                 (ref (globs-of snapshot (ref (:id item)))))))
 
 (type blockers-of
-  (fn ((ref snapshot) (ref item))
+  (fn ((ref snapshot)
+       (ref ledger-index)
+       (ref item))
     (vec item-id)))
 
-(defn blockers-of (snapshot item)
+(defn blockers-of (snapshot index item)
   (-> (:deps snapshot)
       iter
       (filter (fn (dep)
                 (and (= (:type dep) dep-type/blocks)
                      (= (:item dep) (:id item)))))
       (filter (fn (dep)
-                (not (merged? snapshot (ref (:on dep))))))
+                (not= (indexed-status index (ref (:on dep)))
+                      (some status/merged))))
       (map (fn (dep) (clone (:on dep))))
       collect))
