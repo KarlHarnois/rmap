@@ -12,11 +12,12 @@
 (use ledger/core/statuses find-item)
 (use ledger/core/schema ->new-item)
 
-(use ledger/sqlite/connection begin commit connection
-                              database-error git-common-dir
-                              open rollback)
+(use ledger/sqlite/connection ->database-error begin commit
+                              connection database-error open
+                              rollback)
 
 (use ledger/sqlite/migrations migrate)
+(use process/command ->command run-command)
 (use ledger/sqlite/migration-sources migration-sources)
 (use ledger/sqlite/roadmaps roadmap-named)
 
@@ -54,6 +55,24 @@
   (database database-error))
 
 (def cli-actor "cli")
+
+(defn git-common-dir-lookup ()
+  (->command :program (str "git")
+             :args (vec (str "rev-parse")
+                        (str "--path-format=absolute")
+                        (str "--git-common-dir"))))
+
+(defn git-common-dir ()
+  (match (run-command (ref (git-common-dir-lookup)))
+    ((ok output) (common-dir-of output))
+    ((err message)
+     (err (failure/database (->database-error :message message))))))
+
+(defn common-dir-of (output)
+  (if (= (:code output) 0)
+    (ok (str (trim (as-str (:stdout output)))))
+    (err (failure/database (->database-error :message (str (trim (as-str (:stderr
+                                                                           output)))))))))
 
 (type default-database-path
   (fn () (result string failure)))

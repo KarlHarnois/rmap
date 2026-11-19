@@ -1,0 +1,42 @@
+(module
+  "Converts between JSON values and the values SQLite stores.")
+
+(use json/value float->json int->json json json->float
+                json->int json->string)
+
+(export json->sql-value sql-value sql-value->json)
+
+(defenum sql-value
+  (rust "rusqlite::types::Value")
+  null
+  (integer int)
+  (real float)
+  (text string)
+  (blob (vec u8)))
+
+(def bytes->text
+  (rust "String::from_utf8_lossy({0}).to_string()"
+    (fn ((ref (vec u8))) string)))
+
+(defn json->sql-value (value)
+  (match value
+    (null sql-value/null)
+    ((bool flag) (sql-value/integer (flag->integer flag)))
+    ((number _) (number->sql-value value))
+    ((string text) (sql-value/text (clone text)))
+    (_ (sql-value/text (json->string value)))))
+
+(defn flag->integer (flag) (if flag 1 0))
+
+(defn number->sql-value (value)
+  (match (json->int value)
+    ((some whole) (sql-value/integer whole))
+    (none (sql-value/real (unwrap-or (json->float value) 0.0)))))
+
+(defn sql-value->json (value)
+  (match value
+    (null json/null)
+    ((integer number) (int->json number))
+    ((real number) (float->json number))
+    ((text content) (json/string (clone content)))
+    ((blob bytes) (json/string (bytes->text bytes)))))
