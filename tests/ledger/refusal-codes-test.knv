@@ -1,7 +1,6 @@
 (use ledger/model ->blockage ->item-id status)
-
-(use ledger/refusal refusal refusal-catalog
-                    refusal-code-text)
+(use ledger/refusal refusal)
+(use ledger/refusal-codes refusal-catalog refusal-code-text)
 
 (defn sample-id ()
   (->item-id :value (str "rm-0001")))

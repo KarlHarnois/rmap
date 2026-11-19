@@ -10,8 +10,10 @@
                   name-of named origin-names
                   roadmap-status-names status-names)
 
-(use ledger/refusal refusal refusal->message refusal-catalog
-                    refusal-code-text refusal-description)
+(use ledger/refusal refusal refusal->message)
+
+(use ledger/refusal-codes refusal-catalog refusal-code-text
+                          refusal-description)
 
 (use ledger/core/ready blocked-item readiness)
 (use ledger/core/schema ->new-item new-item)
