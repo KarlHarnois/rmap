@@ -1,7 +1,6 @@
 (use json/value field json->text)
-
-(use support/process run-rmap run-rmap-pair
-                     scratch-database)
+(use e2e/process run-rmap run-rmap-pair)
+(use support/scratch scratch-database)
 
 (def rounds 20)
 

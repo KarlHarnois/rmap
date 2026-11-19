@@ -28,6 +28,14 @@
 
 **If `knave build` and `knave test` both pass without a `type` line, delete the line.**
 
+## Tests
+
+**Put the tests of `src/<path>.knv` in `tests/<path>-test.knv`.** NEVER drop the `-test` suffix: a test file at its source path collides with the source module.
+
+**Put the tests that run the `rmap` binary in `tests/e2e/`.**
+
+**Put a helper that tests share in `tests/support/`, and a fixture file in `tests/fixtures/`.**
+
 ## Migrations
 
 **To change the schema, add the next numbered file to `migrations/`, then run `knave task embed-migrations`.** The task writes `src/ledger/sqlite/migration-sources.knv`.

@@ -5,7 +5,7 @@
                               schema-version)
 
 (use ledger/sqlite/migration-sources migration-sources)
-(use support/process scratch-database)
+(use support/scratch scratch-database)
 
 (def fixture-migration
   "tests/fixtures/0002-add-item-notes.sql")

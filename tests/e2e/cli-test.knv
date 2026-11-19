@@ -1,7 +1,6 @@
 (use json/value field json->int json->items json->text)
-
-(use support/process command-result run-rmap
-                     scratch-database)
+(use e2e/process command-result run-rmap)
+(use support/scratch scratch-database)
 
 (defn rmap (database args)
   (run-rmap (clone database) args))
