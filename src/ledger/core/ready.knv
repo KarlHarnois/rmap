@@ -1,10 +1,8 @@
 (module
   "Computes which items can start and what blocks the others.")
 
-(use ledger/model claim decision-id item kind path-conflict
-                  snapshot status)
-
-(use ledger/refusal ->blockage blockage)
+(use ledger/model ->blockage blockage claim decision-id item
+                  kind path-conflict snapshot status)
 
 (use ledger/core/index delivered-id? index-of indexed-status
                        ledger-index)

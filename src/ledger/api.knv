@@ -1,8 +1,8 @@
 (module
   "The ledger's public functions. Code outside `src/ledger/` calls only these.")
 
-(use ledger/model ->glob ->item-id ->session claim dep
-                  dep-type event event-type glob item
+(use ledger/model ->glob ->item-id ->session blockage claim
+                  dep dep-type event event-type glob item
                   item-id kind origin path-conflict roadmap
                   session status)
 
@@ -10,9 +10,8 @@
                   name-of named origin-names
                   roadmap-status-names status-names)
 
-(use ledger/refusal blockage refusal refusal->code
-                    refusal->message refusal-catalog
-                    refusal-description)
+(use ledger/refusal refusal refusal->message refusal-catalog
+                    refusal-code-text refusal-description)
 
 (use ledger/core/ready blocked-item readiness)
 (use ledger/core/schema ->new-item new-item)
@@ -45,7 +44,7 @@
         item-id kind kind-change kind-names list-items
         list-roadmaps name-of named new-item new-roadmap
         origin origin-names path-conflict read-log readiness
-        ready-items refusal refusal->code refusal->message
-        refusal-catalog refusal-description remove-dep
+        ready-items refusal refusal->message refusal-catalog
+        refusal-code-text refusal-description remove-dep
         roadmap roadmap-status-names session settings
         show-item status status-names)

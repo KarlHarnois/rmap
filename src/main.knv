@@ -4,8 +4,9 @@
                 claim-item clock close-item
                 default-database-path drop-item failure
                 list-items list-roadmaps new-roadmap
-                read-log ready-items refusal refusal->code
-                refusal->message remove-dep show-item)
+                read-log ready-items refusal
+                refusal->message refusal-code-text
+                remove-dep show-item)
 
 (use cli/requests parse-invocation request)
 (use cli/exit-codes exit-code exit-code->number)
@@ -99,7 +100,7 @@
   (match failure
     ((failure/refused refusal)
      (->outcome :exit-code exit-code/refused
-                :output (error-envelope (refusal->code (ref refusal))
+                :output (error-envelope (refusal-code-text (ref refusal))
                                         (as-str (refusal->message (ref
                                                                     refusal)))
                                         (refusal-details (ref refusal)))))

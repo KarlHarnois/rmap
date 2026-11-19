@@ -1,17 +1,11 @@
 (module
-  "Names each ledger refusal, with its stable code and a sentence for the user.")
+  "Names each ledger refusal, its stable code, what the code means, and a sentence for the user.")
 
-(use ledger/model item-id path-conflict status)
+(use ledger/model blockage item-id path-conflict status)
 (use ledger/names name-of status-names)
 
-(export ->blockage blockage refusal refusal->code
-        refusal->message refusal-catalog
-        refusal-description)
-
-(defstruct blockage
-  :blockers (vec item-id)
-  :dropped-blockers (vec item-id)
-  :path-conflicts (vec path-conflict))
+(export refusal refusal->message refusal-catalog
+        refusal-code-text refusal-description)
 
 (defenum refusal
   (roadmap-not-found string)
@@ -30,23 +24,106 @@
   (dep-exists item-id item-id)
   (dep-not-found item-id item-id))
 
-(defn refusal->code (failure)
-  (match failure
-    ((roadmap-not-found _) "roadmap-not-found")
-    ((roadmap-exists _) "roadmap-exists")
-    ((item-not-found _) "item-not-found")
-    ((parent-not-epic _) "parent-not-epic")
-    ((parent-in-other-roadmap _) "parent-in-other-roadmap")
-    (epic-has-parent "epic-has-parent")
-    (build-needs-paths "build-needs-paths")
-    (epic-status-computed "epic-status-computed")
-    (invalid-kind-change "invalid-kind-change")
-    ((invalid-transition _ _) "invalid-transition")
-    ((not-ready _) "not-ready")
-    ((paths-conflict _) "path-conflict")
-    ((cycle _ _) "cycle")
-    ((dep-exists _ _) "dep-exists")
-    ((dep-not-found _ _) "dep-not-found")))
+(defenum refusal-code
+  roadmap-not-found
+  roadmap-exists
+  item-not-found
+  parent-not-epic
+  parent-in-other-roadmap
+  epic-has-parent
+  build-needs-paths
+  epic-status-computed
+  invalid-kind-change
+  invalid-transition
+  not-ready
+  path-conflict
+  cycle
+  dep-exists
+  dep-not-found)
+
+(defstruct refusal-description
+  :code string
+  :meaning string)
+
+(defn code-of (refused)
+  (match refused
+    ((refusal/roadmap-not-found _)
+     refusal-code/roadmap-not-found)
+    ((refusal/roadmap-exists _) refusal-code/roadmap-exists)
+    ((refusal/item-not-found _) refusal-code/item-not-found)
+    ((refusal/parent-not-epic _) refusal-code/parent-not-epic)
+    ((refusal/parent-in-other-roadmap _)
+     refusal-code/parent-in-other-roadmap)
+    (refusal/epic-has-parent refusal-code/epic-has-parent)
+    (refusal/build-needs-paths refusal-code/build-needs-paths)
+    (refusal/epic-status-computed refusal-code/epic-status-computed)
+    (refusal/invalid-kind-change refusal-code/invalid-kind-change)
+    ((refusal/invalid-transition _ _)
+     refusal-code/invalid-transition)
+    ((refusal/not-ready _) refusal-code/not-ready)
+    ((refusal/paths-conflict _) refusal-code/path-conflict)
+    ((refusal/cycle _ _) refusal-code/cycle)
+    ((refusal/dep-exists _ _) refusal-code/dep-exists)
+    ((refusal/dep-not-found _ _) refusal-code/dep-not-found)))
+
+(defn described (code meaning)
+  (->refusal-description :code (str code)
+                         :meaning (str meaning)))
+
+(defn description-of (code)
+  (match code
+    (roadmap-not-found (described "roadmap-not-found"
+                                  "No roadmap has that name."))
+    (roadmap-exists (described "roadmap-exists"
+                               "A roadmap already has that name."))
+    (item-not-found (described "item-not-found" "No item has that id."))
+    (parent-not-epic (described "parent-not-epic" "The parent is not an epic."))
+    (parent-in-other-roadmap (described
+                               "parent-in-other-roadmap"
+                               "The parent belongs to another roadmap."))
+    (epic-has-parent (described "epic-has-parent"
+                                "An epic cannot have a parent."))
+    (build-needs-paths (described "build-needs-paths"
+                                  "A build needs at least one path."))
+    (epic-status-computed (described "epic-status-computed"
+                                     "An epic's status comes from its children, so no command moves it."))
+    (invalid-kind-change (described "invalid-kind-change"
+                                    "Only an advance to dispatched can turn an item into a build."))
+    (invalid-transition (described "invalid-transition"
+                                   "The transition table has no such move for this item."))
+    (not-ready (described "not-ready"
+                          "The item is blocked or path-conflicted. The error lists blockers, dropped_blockers and path_conflicts."))
+    (path-conflict (described "path-conflict"
+                              "The build's paths conflict with an active build. The error lists path_conflicts."))
+    (cycle (described
+             "cycle"
+             "The dependency would close a cycle of blocks dependencies."))
+    (dep-exists (described "dep-exists"
+                           "The blocks dependency already exists."))
+    (dep-not-found (described "dep-not-found"
+                              "No such blocks dependency exists."))))
+
+(defn refusal-code-text (refused)
+  (clone (:code (description-of (code-of refused)))))
+
+(defn refusal-catalog ()
+  (collect (map (iter (vec refusal-code/roadmap-not-found
+                           refusal-code/roadmap-exists
+                           refusal-code/item-not-found
+                           refusal-code/parent-not-epic
+                           refusal-code/parent-in-other-roadmap
+                           refusal-code/epic-has-parent
+                           refusal-code/build-needs-paths
+                           refusal-code/epic-status-computed
+                           refusal-code/invalid-kind-change
+                           refusal-code/invalid-transition
+                           refusal-code/not-ready
+                           refusal-code/path-conflict
+                           refusal-code/cycle
+                           refusal-code/dep-exists
+                           refusal-code/dep-not-found))
+                (fn (code)
+                  (description-of (deref code))))))
 
 (defn refusal->message (failure)
   (match failure
@@ -83,42 +160,3 @@
      (str (:value item) " already depends on " (:value on)))
     ((dep-not-found item on)
      (str (:value item) " does not depend on " (:value on)))))
-
-(defstruct refusal-description
-  :code string
-  :meaning string)
-
-(defn described (code meaning)
-  (->refusal-description :code (str code)
-                         :meaning (str meaning)))
-
-(defn refusal-catalog ()
-  (vec (described "roadmap-not-found" "No roadmap has that name.")
-       (described "roadmap-exists"
-                  "A roadmap already has that name.")
-       (described "item-not-found" "No item has that id.")
-       (described "parent-not-epic" "The parent is not an epic.")
-       (described "parent-in-other-roadmap"
-                  "The parent belongs to another roadmap.")
-       (described "epic-has-parent"
-                  "An epic cannot have a parent.")
-       (described "build-needs-paths"
-                  "A build needs at least one path.")
-       (described
-         "epic-status-computed"
-         "An epic's status comes from its children, so no command moves it.")
-       (described
-         "invalid-kind-change"
-         "Only an advance to dispatched can turn an item into a build.")
-       (described "invalid-transition"
-                  "The transition table has no such move for this item.")
-       (described "not-ready"
-                  "The item is blocked or path-conflicted. The error lists blockers, dropped_blockers and path_conflicts.")
-       (described "path-conflict"
-                  "The build's paths conflict with an active build. The error lists path_conflicts.")
-       (described "cycle"
-                  "The dependency would close a cycle of blocks dependencies.")
-       (described "dep-exists"
-                  "The blocks dependency already exists.")
-       (described "dep-not-found"
-                  "No such blocks dependency exists.")))

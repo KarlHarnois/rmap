@@ -1,11 +1,11 @@
 (module
   "Holds the ledger's values: roadmaps, items, dependencies, paths, events and refusals.")
 
-(export ->dep ->event ->glob ->item ->item-id ->item-path
-        ->path-conflict ->roadmap ->roadmap-id ->session
-        ->snapshot ->timestamp claim decision-id dep
-        dep-type event event-type glob item item-id
-        item-path kind origin path-conflict roadmap
+(export ->blockage ->dep ->event ->glob ->item ->item-id
+        ->item-path ->path-conflict ->roadmap ->roadmap-id
+        ->session ->snapshot ->timestamp blockage claim
+        decision-id dep dep-type event event-type glob item
+        item-id item-path kind origin path-conflict roadmap
         roadmap-id roadmap-status session snapshot status
         timestamp)
 
@@ -96,6 +96,11 @@
   :items (vec item)
   :deps (vec dep)
   :paths (vec item-path))
+
+(defstruct blockage
+  :blockers (vec item-id)
+  :dropped-blockers (vec item-id)
+  :path-conflicts (vec path-conflict))
 
 (defstruct path-conflict
   :with item-id

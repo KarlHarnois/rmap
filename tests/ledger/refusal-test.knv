@@ -1,7 +1,7 @@
-(use ledger/model ->item-id status)
+(use ledger/model ->blockage ->item-id status)
 
-(use ledger/refusal ->blockage refusal refusal->code
-                    refusal-catalog)
+(use ledger/refusal refusal refusal-catalog
+                    refusal-code-text)
 
 (defn sample-id ()
   (->item-id :value (str "rm-0001")))
@@ -33,7 +33,7 @@
   (let (codes (catalog-codes))
     (for-each (every-refusal)
       (fn (refused)
-        (assert (contains? codes (str (refusal->code refused))))))))
+        (assert (contains? codes (refusal-code-text refused)))))))
 
 (deftest the-catalog-describes-each-code-once
   (let (codes (catalog-codes)
