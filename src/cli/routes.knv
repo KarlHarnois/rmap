@@ -3,8 +3,8 @@
 
 (use ledger/api kind-names origin-names status-names)
 
-(export ->route flag-spec global-flags presence route routes
-        word-count)
+(export ->route flag-spec global-flags presence route
+        route-name routes subcommand word-count)
 
 (defenum presence
   required
@@ -15,8 +15,25 @@
   :presence presence
   :value string)
 
+(defenum subcommand
+  help
+  new
+  list
+  ready
+  log
+  item-add
+  item-list
+  item-show
+  item-claim
+  item-advance
+  item-close
+  item-drop
+  dep-add
+  dep-rm)
+
 (defstruct route
-  :name string
+  :subcommand subcommand
+  :words (vec string)
   :operands (vec string)
   :flags (vec flag-spec))
 
@@ -46,7 +63,16 @@
   (fn ((ref route)) usize))
 
 (defn word-count (route)
-  (len (collect (split (as-str (:name route)) " "))))
+  (len (:words route)))
+
+(type route-name
+  (fn ((ref route)) string))
+
+(defn route-name (route)
+  (join (:words route) " "))
+
+(defn words (text)
+  (collect (map (split text " ") str)))
 
 (defn global-flags ()
   (vec (optional "db" "<path>")))
@@ -55,23 +81,29 @@
   (collect (map (iter names) str)))
 
 (defn routes ()
-  (vec (->route :name (str "help")
+  (vec (->route :subcommand subcommand/help
+                :words (words "help")
                 :operands (vec)
                 :flags (vec))
-       (->route :name (str "new")
+       (->route :subcommand subcommand/new
+                :words (words "new")
                 :operands (operands (vec "name"))
                 :flags (vec (required "manager" "<session>")))
-       (->route :name (str "list")
+       (->route :subcommand subcommand/list
+                :words (words "list")
                 :operands (vec)
                 :flags (vec))
-       (->route :name (str "ready")
+       (->route :subcommand subcommand/ready
+                :words (words "ready")
                 :operands (vec)
                 :flags (vec (optional "roadmap" "<name>")))
-       (->route :name (str "log")
+       (->route :subcommand subcommand/log
+                :words (words "log")
                 :operands (vec)
                 :flags (vec (optional "item" "<id>")
                             (optional "since" "<event id>")))
-       (->route :name (str "item add")
+       (->route :subcommand subcommand/item-add
+                :words (words "item add")
                 :operands (vec)
                 :flags (vec (required "roadmap" "<name>")
                             (required "title" "<text>")
@@ -82,28 +114,36 @@
                             (optional "from" "<id>")
                             (optional "origin" (choices origin-names))
                             (optional "priority" "<whole number>")))
-       (->route :name (str "item list")
+       (->route :subcommand subcommand/item-list
+                :words (words "item list")
                 :operands (vec)
                 :flags (vec (optional "roadmap" "<name>")))
-       (->route :name (str "item show")
+       (->route :subcommand subcommand/item-show
+                :words (words "item show")
                 :operands (operands (vec "id"))
                 :flags (vec))
-       (->route :name (str "item claim")
+       (->route :subcommand subcommand/item-claim
+                :words (words "item claim")
                 :operands (operands (vec "id"))
                 :flags (vec (required "session" "<name>")))
-       (->route :name (str "item advance")
+       (->route :subcommand subcommand/item-advance
+                :words (words "item advance")
                 :operands (vec (str "id") (choices status-names))
                 :flags (vec (optional "kind" "build")
                             (optional "paths" "<globs, comma-separated>")))
-       (->route :name (str "item close")
+       (->route :subcommand subcommand/item-close
+                :words (words "item close")
                 :operands (operands (vec "id"))
                 :flags (vec))
-       (->route :name (str "item drop")
+       (->route :subcommand subcommand/item-drop
+                :words (words "item drop")
                 :operands (operands (vec "id"))
                 :flags (vec (required "reason" "<text>")))
-       (->route :name (str "dep add")
+       (->route :subcommand subcommand/dep-add
+                :words (words "dep add")
                 :operands (operands (vec "item" "on"))
                 :flags (vec))
-       (->route :name (str "dep rm")
+       (->route :subcommand subcommand/dep-rm
+                :words (words "dep rm")
                 :operands (operands (vec "item" "on"))
                 :flags (vec))))

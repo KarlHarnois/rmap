@@ -7,7 +7,7 @@
 (use ledger/api refusal-catalog refusal-description)
 
 (use cli/routes flag-spec global-flags presence route
-                routes)
+                route-name routes)
 
 (use cli/exit-codes exit-code->meaning exit-code->number
                     exit-codes)
@@ -39,7 +39,7 @@
 (defn route->json (route)
   (object (vec
             (pair (str "command")
-                  (text->json (as-str (:name route))))
+                  (text->json (as-str (route-name route))))
             (pair (str "operands")
                   (array (collect (map (iter (:operands route))
                                     (fn (name) (text->json (as-str name)))))))

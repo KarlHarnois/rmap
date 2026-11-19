@@ -6,7 +6,7 @@
                 named new-item origin origin-names session
                 status-names)
 
-(use cli/routes route)
+(use cli/routes route subcommand)
 
 (use cli/arguments arguments check-shape flag operand
                    required-flag route-of split-arguments)
@@ -49,33 +49,30 @@
     (result request string)))
 
 (defn build-request (route arguments)
-  (match (as-str (:name route))
-    ("new"
-     (new-roadmap-request arguments (operand arguments route 0)))
-    ("help" (ok request/help))
-    ("list" (ok request/list-roadmaps))
-    ("ready" (ok (request/ready (flag arguments "roadmap"))))
-    ("log" (log-request arguments))
-    ("item add" (add-item-request arguments))
-    ("item list"
-     (ok (request/list-items (flag arguments "roadmap"))))
-    ("item show"
-     (ok (request/show-item (text->id (operand arguments route 0)))))
-    ("item claim"
-     (claim-request arguments (operand arguments route 0)))
-    ("item advance"
-     (advance-request arguments
-                      (operand arguments route 0)
-                      (operand arguments route 1)))
-    ("item close"
-     (ok (request/close (text->id (operand arguments route 0)))))
-    ("item drop"
-     (drop-request arguments (operand arguments route 0)))
-    ("dep add"
-     (ok (request/add-dep (text->id (operand arguments route 0))
-                          (text->id (operand arguments route 1)))))
-    (_ (ok (request/remove-dep (text->id (operand arguments route 0))
-                               (text->id (operand arguments route 1)))))))
+  (match (:subcommand route)
+    (subcommand/help (ok request/help))
+    (subcommand/new (new-roadmap-request arguments (operand arguments route 0)))
+    (subcommand/list (ok request/list-roadmaps))
+    (subcommand/ready (ok (request/ready (flag arguments "roadmap"))))
+    (subcommand/log (log-request arguments))
+    (subcommand/item-add (add-item-request arguments))
+    (subcommand/item-list (ok (request/list-items (flag arguments "roadmap"))))
+    (subcommand/item-show (ok (request/show-item
+                                (text->id (operand arguments route 0)))))
+    (subcommand/item-claim (claim-request arguments
+                                          (operand arguments route 0)))
+    (subcommand/item-advance (advance-request arguments
+                                              (operand arguments route 0)
+                                              (operand arguments route 1)))
+    (subcommand/item-close (ok (request/close (text->id
+                                                (operand arguments route 0)))))
+    (subcommand/item-drop (drop-request arguments (operand arguments route 0)))
+    (subcommand/dep-add (ok (request/add-dep
+                              (text->id (operand arguments route 0))
+                              (text->id (operand arguments route 1)))))
+    (subcommand/dep-rm (ok (request/remove-dep
+                             (text->id (operand arguments route 0))
+                             (text->id (operand arguments route 1)))))))
 
 (defn text->id (text) (->item-id :value text))
 

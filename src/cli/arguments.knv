@@ -1,8 +1,8 @@
 (module
   "Splits the command line into words and flags and finds the command's route.")
 
-(use cli/routes flag-spec global-flags presence route routes
-                word-count)
+(use cli/routes flag-spec global-flags presence route
+                route-name routes word-count)
 
 (export ->arguments arguments check-shape flag operand
         required-flag route-of split-arguments)
@@ -53,13 +53,14 @@
   (fn ((ref route) (ref arguments)) bool))
 
 (defn route-matches? (route arguments)
-  (= (:name route)
-     (command-name arguments (word-count route))))
+  (= (collect (map (take (iter (:words arguments))
+                         (word-count route))
+                   clone))
+     (clone (:words route))))
 
-(defn command-name (arguments word-count)
-  (join (collect (map (take (iter (:words arguments)) word-count)
-                      clone))
-        " "))
+(type check-shape
+  (fn ((ref arguments) (ref route))
+    (result unit string)))
 
 (defn check-shape (arguments route)
   (let (operand-count (- (len (:words arguments))
@@ -69,15 +70,15 @@
         missing (missing-flags arguments route))
     (cond
       ((not= operand-count expected)
-       (err (str (:name route)
+       (err (str (route-name route)
                  " takes " expected " operands, got "
                  operand-count)))
       ((not (empty? unknown))
-       (err (str (:name route)
+       (err (str (route-name route)
                  " does not take --"
                  (join unknown ", --"))))
       ((not (empty? missing))
-       (err (str (:name route) " needs --" (join missing ", --"))))
+       (err (str (route-name route) " needs --" (join missing ", --"))))
       (else (ok (do))))))
 
 (type unknown-flags
@@ -118,6 +119,10 @@
                     (and (= (:presence spec) presence/required)
                          (none? (flag arguments (as-str (:name spec)))))))
                 (fn (spec) (clone (:name spec))))))
+
+(type operand
+  (fn ((ref arguments) (ref route) usize)
+    string))
 
 (defn operand (arguments route index)
   (clone (at (:words arguments)
