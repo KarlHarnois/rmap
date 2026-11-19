@@ -1,8 +1,6 @@
 (module
   "Decides when two path globs lock the same files.")
 
-(use ledger/model glob)
-
 (export conflict?)
 
 (defn wildcard? (character)

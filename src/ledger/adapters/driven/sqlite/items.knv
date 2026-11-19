@@ -1,0 +1,124 @@
+(module
+  "Reads and writes the `items` table.")
+
+(use json/value int->json json null text->json)
+
+(use ledger/model ->item ->item-id ->roadmap-id ->session
+                  ->timestamp claim item item-id)
+
+(use ledger/names kind-names name-of origin-names
+                  status-names)
+
+(use ledger/adapters/driven/sqlite/connection connection
+                                              database-error
+                                              execute query)
+
+(use ledger/adapters/driven/sqlite/rows int-cell named-cell
+                                        optional-text-cell
+                                        text-cell)
+
+(export all-items insert-item update-item)
+
+(def columns
+  "id, roadmap_id, parent_id, title, kind, status, origin, priority, claimed_by, created_at, closed_at")
+
+(type insert-item
+  (fn ((ref connection) (ref item))
+    (result int database-error)))
+
+(defn insert-item (connection item)
+  (execute connection
+           (as-str (str
+                     "INSERT INTO items (" columns
+                     ") VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"))
+           (ref (vec (text->json (as-str (:value (:id item))))
+                     (text->json (as-str (:value (:roadmap-id item))))
+                     (optional-id->json (ref (:parent item)))
+                     (text->json (as-str (:title item)))
+                     (text->json (name-of kind-names (:kind item)))
+                     (text->json (name-of status-names (:status item)))
+                     (text->json (name-of origin-names (:origin item)))
+                     (int->json (:priority item))
+                     (claim->json (ref (:claim item)))
+                     (text->json (as-str (:value (:created-at item))))
+                     (optional-timestamp->json item)))))
+
+(type update-item
+  (fn ((ref connection) (ref item))
+    (result int database-error)))
+
+(defn update-item (connection item)
+  (execute connection
+           "UPDATE items SET kind = ?2, status = ?3, claimed_by = ?4, closed_at = ?5 WHERE id = ?1"
+           (ref (vec (text->json (as-str (:value (:id item))))
+                     (text->json (name-of kind-names (:kind item)))
+                     (text->json (name-of status-names (:status item)))
+                     (claim->json (ref (:claim item)))
+                     (optional-timestamp->json item)))))
+
+(type optional-id->json
+  (fn ((ref (option item-id))) json))
+
+(defn optional-id->json (id)
+  (match id
+    ((some present) (text->json (as-str (:value present))))
+    (none null)))
+
+(defn claim->json (claim)
+  (match claim
+    ((claimed-by session) (text->json (as-str (:name session))))
+    (unclaimed null)))
+
+(defn optional-timestamp->json (item)
+  (match (ref (:closed-at item))
+    ((some closed-at) (text->json (as-str (:value closed-at))))
+    (none null)))
+
+(defn all-items (connection)
+  (let-try (rows (query connection
+                        (as-str (str "SELECT " columns
+                                     " FROM items ORDER BY created_at, id"))
+                        (ref (vec))))
+    (rows->items rows)))
+
+(defn rows->items (rows)
+  (loop (index 0
+         items (vec))
+    (if (< index (len rows))
+      (let-try (item (row->item (at rows index)))
+        (recur (inc index) (appended items item)))
+      (ok items))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))
+
+(defn row->item (row)
+  (let-try (id (text-cell row 0)
+            roadmap-id (text-cell row 1)
+            parent (optional-text-cell row 2)
+            title (text-cell row 3)
+            kind (named-cell row 4 kind-names)
+            status (named-cell row 5 status-names)
+            origin (named-cell row 6 origin-names)
+            priority (int-cell row 7)
+            claimed-by (optional-text-cell row 8)
+            created-at (text-cell row 9)
+            closed-at (optional-text-cell row 10))
+    (ok (->item :id (->item-id :value id)
+                :roadmap-id (->roadmap-id :value roadmap-id)
+                :parent (map-some parent
+                          (fn (value) (->item-id :value value)))
+                :title title
+                :kind kind
+                :status status
+                :origin origin
+                :priority priority
+                :claim (text->claim claimed-by)
+                :created-at (->timestamp :value created-at)
+                :closed-at (map-some closed-at
+                             (fn (value) (->timestamp :value value)))))))
+
+(defn text->claim (claimed-by)
+  (match claimed-by
+    ((some name) (claim/claimed-by (->session :name name)))
+    (none claim/unclaimed)))

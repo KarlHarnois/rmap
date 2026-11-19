@@ -1,0 +1,110 @@
+(module
+  "Appends to and reads the `events` table.")
+
+(use json/value int->json json json->string null parse
+                text->json)
+
+(use ledger/model ->event ->item-id ->roadmap-id ->timestamp
+                  event event-type item-id roadmap-id
+                  timestamp)
+
+(use ledger/names event-type-names name-of)
+
+(use ledger/adapters/driven/sqlite/connection ->database-error
+                                              connection
+                                              database-error
+                                              execute query)
+
+(use ledger/adapters/driven/sqlite/rows int-cell named-cell
+                                        optional-text-cell
+                                        text-cell)
+
+(export ->event-filter ->new-event append-event event-filter
+        events-matching new-event)
+
+(defstruct new-event
+  :at timestamp
+  :actor string
+  :roadmap-id (option roadmap-id)
+  :item-id (option item-id)
+  :type event-type
+  :payload json)
+
+(defstruct event-filter
+  :item-id (option item-id)
+  :after-id int)
+
+(type append-event
+  (fn ((ref connection) (ref new-event))
+    (result int database-error)))
+
+(defn append-event (connection event)
+  (execute connection
+           "INSERT INTO events (at, actor, roadmap_id, item_id, type, payload_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+           (ref (vec (text->json (as-str (:value (:at event))))
+                     (text->json (as-str (:actor event)))
+                     (optional-roadmap->json (ref (:roadmap-id event)))
+                     (optional-item->json (ref (:item-id event)))
+                     (text->json (name-of event-type-names (:type event)))
+                     (text->json (as-str (json->string (ref (:payload
+                                                              event)))))))))
+
+(type optional-roadmap->json
+  (fn ((ref (option roadmap-id))) json))
+
+(defn optional-roadmap->json (id)
+  (match id
+    ((some present) (text->json (as-str (:value present))))
+    (none null)))
+
+(type optional-item->json
+  (fn ((ref (option item-id))) json))
+
+(defn optional-item->json (id)
+  (match id
+    ((some present) (text->json (as-str (:value present))))
+    (none null)))
+
+(type events-matching
+  (fn ((ref connection) (ref event-filter))
+    (result (vec event) database-error)))
+
+(defn events-matching (connection filter)
+  (let-try (rows (query connection
+                        "SELECT id, at, actor, roadmap_id, item_id, type, payload_json FROM events WHERE (?1 IS NULL OR item_id = ?1) AND id > ?2 ORDER BY id"
+                        (ref (vec (optional-item->json (ref (:item-id filter)))
+                                  (int->json (:after-id filter))))))
+    (rows->events rows)))
+
+(defn rows->events (rows)
+  (loop (index 0
+         events (vec))
+    (if (< index (len rows))
+      (let-try (event (row->event (at rows index)))
+        (recur (inc index) (appended events event)))
+      (ok events))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))
+
+(defn row->event (row)
+  (let-try (id (int-cell row 0)
+            at (text-cell row 1)
+            actor (text-cell row 2)
+            roadmap-id (optional-text-cell row 3)
+            item-id (optional-text-cell row 4)
+            type (named-cell row 5 event-type-names)
+            payload-text (text-cell row 6)
+            payload (map-err (parse (as-str payload-text))
+                      (fn (_)
+                        (->database-error
+                          :message (str "event " id " holds invalid JSON")))))
+    (ok (->event :id id
+                 :at (->timestamp :value at)
+                 :actor actor
+                 :roadmap-id (map-some roadmap-id
+                               (fn (value) (->roadmap-id :value value)))
+                 :item-id (map-some item-id
+                            (fn (value) (->item-id :value value)))
+                 :type type
+                 :payload payload))))

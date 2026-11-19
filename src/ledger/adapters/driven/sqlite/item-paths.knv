@@ -1,0 +1,47 @@
+(module
+  "Reads and writes the `item_paths` table.")
+
+(use json/value text->json)
+(use ledger/model ->glob ->item-id ->item-path item-path)
+
+(use ledger/adapters/driven/sqlite/connection connection
+                                              database-error
+                                              execute query)
+
+(use ledger/adapters/driven/sqlite/rows text-cell)
+
+(export all-item-paths insert-item-path)
+
+(type insert-item-path
+  (fn ((ref connection) (ref item-path))
+    (result int database-error)))
+
+(defn insert-item-path (connection path)
+  (execute connection
+           "INSERT OR IGNORE INTO item_paths (item_id, glob) VALUES (?1, ?2)"
+           (ref (vec (text->json (as-str (:value (:item path))))
+                     (text->json (as-str (:pattern (:glob path))))))))
+
+(defn all-item-paths (connection)
+  (let-try (rows (query
+                   connection
+                   "SELECT item_id, glob FROM item_paths ORDER BY item_id, glob"
+                   (ref (vec))))
+    (rows->paths rows)))
+
+(defn rows->paths (rows)
+  (loop (index 0
+         paths (vec))
+    (if (< index (len rows))
+      (let-try (path (row->path (at rows index)))
+        (recur (inc index) (appended paths path)))
+      (ok paths))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))
+
+(defn row->path (row)
+  (let-try (item (text-cell row 0)
+            pattern (text-cell row 1))
+    (ok (->item-path :item (->item-id :value item)
+                     :glob (->glob :pattern pattern)))))

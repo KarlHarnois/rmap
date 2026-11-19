@@ -1,18 +1,18 @@
 (module
   "Builds, reads, parses and prints JSON values, over `serde_json::Value`.")
 
-(export array bool->json error->message field float->json
-        int->json json json->bool json->float json->int
-        json->items json->string json->text json-error null
-        null? object parse same? text->json)
+(export array bool->json copy-of error->message field
+        float->json int->json json json->bool json->float
+        json->int json->items json->string json->text
+        json-error null null? object parse same? text->json)
 
 (rust-type json "serde_json::Value")
 
 (defstruct json-error
-  :message string)
+  :cause string)
 
 (defn error->message (failure)
-  (str "invalid JSON: " (:message failure)))
+  (str "invalid JSON: " (:cause failure)))
 
 (def object
   (rust "serde_json::Value::Object({0}.into_iter().collect())"
@@ -76,8 +76,12 @@
 
 (defn parse (text)
   (map-err (parse-raw text)
-    (fn (message) (->json-error :message message))))
+    (fn (message) (->json-error :cause message))))
 
 (def json->string
   (rust "{0}.to_string()"
     (fn ((ref json)) string)))
+
+(def copy-of
+  (rust "{0}.clone()"
+    (fn ((ref json)) json)))

@@ -1,0 +1,39 @@
+(module
+  "Reads typed cells out of a query's rows of JSON values.")
+
+(use json/value json->int json->text)
+(use ledger/names named)
+(use ledger/adapters/driven/sqlite/connection ->database-error)
+
+(export int-cell named-cell optional-text-cell single-row
+        text-cell)
+
+(defn single-row (rows)
+  (ok-or (first rows)
+         (cell-error (str "the query returned no row"))))
+
+(defn cell-error (message)
+  (->database-error :message message))
+
+(defn raw-cell (row index)
+  (ok-or (get row index)
+         (cell-error (str "a row has no column " index))))
+
+(defn text-cell (row index)
+  (let-try (cell (raw-cell row index))
+    (ok-or (json->text cell)
+           (cell-error (str "column " index " is not text")))))
+
+(defn int-cell (row index)
+  (let-try (cell (raw-cell row index))
+    (ok-or (json->int cell)
+           (cell-error (str "column " index " is not an integer")))))
+
+(defn optional-text-cell (row index)
+  (let-try (cell (raw-cell row index))
+    (ok (json->text cell))))
+
+(defn named-cell (row index names)
+  (let-try (text (text-cell row index))
+    (ok-or (named names (as-str text))
+           (cell-error (str "column " index " holds an unknown name: " text)))))

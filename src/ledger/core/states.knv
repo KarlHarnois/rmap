@@ -114,6 +114,10 @@
     (move/close status/merged)
     ((move/drop _) status/dropped)))
 
+(type check-move
+  (fn ((ref item) (ref move))
+    (result unit refusal)))
+
 (defn check-move (item move)
   (cond
     ((= (:kind item) kind/epic)
@@ -158,6 +162,9 @@
   (if (= target status/open)
     claim/unclaimed
     (clone (:claim item))))
+
+(type kind-after
+  (fn ((ref item) (ref move)) kind))
 
 (defn kind-after (item move)
   (match move

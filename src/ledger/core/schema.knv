@@ -1,7 +1,7 @@
 (module
   "Checks a new item and a new or removed dependency against the ledger's rules.")
 
-(use ledger/model dep dep-type glob item item-id kind origin
+(use ledger/model dep-type glob item item-id kind origin
                   roadmap-id snapshot)
 
 (use ledger/refusal refusal)
@@ -12,7 +12,6 @@
         check-new-item new-item)
 
 (defstruct new-item
-  :roadmap-id roadmap-id
   :parent (option item-id)
   :title string
   :kind kind
@@ -22,12 +21,16 @@
   :after (vec item-id)
   :from (option item-id))
 
-(defn check-new-item (snapshot request)
+(defn check-new-item (snapshot roadmap-id request)
   (let-try (_ (check-epic-has-no-parent request)
             _ (check-build-has-globs request)
-            _ (check-parent snapshot request)
+            _ (check-parent snapshot roadmap-id request)
             _ (check-all-exist snapshot (ref (:after request))))
     (check-optional-exists snapshot (ref (:from request)))))
+
+(type check-epic-has-no-parent
+  (fn ((ref new-item))
+    (result unit refusal)))
 
 (defn check-epic-has-no-parent (request)
   (if (and (= (:kind request) kind/epic)
@@ -35,24 +38,38 @@
     (err refusal/epic-has-parent)
     (ok (do))))
 
+(type check-build-has-globs
+  (fn ((ref new-item))
+    (result unit refusal)))
+
 (defn check-build-has-globs (request)
   (if (and (= (:kind request) kind/build)
            (empty? (:globs request)))
     (err refusal/build-needs-paths)
     (ok (do))))
 
-(defn check-parent (snapshot request)
+(type check-parent
+  (fn ((ref snapshot)
+       (ref roadmap-id)
+       (ref new-item))
+    (result unit refusal)))
+
+(defn check-parent (snapshot roadmap-id request)
   (match (:parent request)
     ((some parent-id)
-     (check-parent-item (existing snapshot parent-id) request))
+     (check-parent-item (existing snapshot parent-id) roadmap-id))
     (none (ok (do)))))
 
-(defn check-parent-item (found request)
+(type check-parent-item
+  (fn ((result item refusal) (ref roadmap-id))
+    (result unit refusal)))
+
+(defn check-parent-item (found roadmap-id)
   (let-try (parent found)
     (cond
       ((not= (:kind parent) kind/epic)
        (err (refusal/parent-not-epic (clone (:id parent)))))
-      ((not= (:roadmap-id parent) (:roadmap-id request))
+      ((not= (ref (:roadmap-id parent)) roadmap-id)
        (err (refusal/parent-in-other-roadmap (clone (:id parent)))))
       (else (ok (do))))))
 
@@ -89,6 +106,12 @@
   (if (blocks-edge? snapshot item on)
     (ok (do))
     (err (refusal/dep-not-found (clone item) (clone on)))))
+
+(type blocks-edge?
+  (fn ((ref snapshot)
+       (ref item-id)
+       (ref item-id))
+    bool))
 
 (defn blocks-edge? (snapshot item on)
   (any? (iter (:deps snapshot))

@@ -1,0 +1,55 @@
+(module
+  "Reads and writes the `deps` table.")
+
+(use json/value json text->json)
+(use ledger/model ->dep ->item-id dep)
+(use ledger/names dep-type-names name-of)
+(use ledger/adapters/driven/sqlite/connection execute query)
+
+(use ledger/adapters/driven/sqlite/rows named-cell
+                                        text-cell)
+
+(export all-deps delete-dep insert-dep)
+
+(defn insert-dep (connection dep)
+  (execute connection
+           "INSERT INTO deps (item_id, on_id, type) VALUES (?1, ?2, ?3)"
+           (ref (dep->row dep))))
+
+(defn delete-dep (connection dep)
+  (execute connection
+           "DELETE FROM deps WHERE item_id = ?1 AND on_id = ?2 AND type = ?3"
+           (ref (dep->row dep))))
+
+(type dep->row
+  (fn ((ref dep)) (vec json)))
+
+(defn dep->row (dep)
+  (vec (text->json (as-str (:value (:item dep))))
+       (text->json (as-str (:value (:on dep))))
+       (text->json (name-of dep-type-names (:type dep)))))
+
+(defn all-deps (connection)
+  (let-try (rows (query connection
+                        "SELECT item_id, on_id, type FROM deps ORDER BY item_id, on_id"
+                        (ref (vec))))
+    (rows->deps rows)))
+
+(defn rows->deps (rows)
+  (loop (index 0
+         deps (vec))
+    (if (< index (len rows))
+      (let-try (dep (row->dep (at rows index)))
+        (recur (inc index) (appended deps dep)))
+      (ok deps))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))
+
+(defn row->dep (row)
+  (let-try (item (text-cell row 0)
+            on (text-cell row 1)
+            type (named-cell row 2 dep-type-names))
+    (ok (->dep :item (->item-id :value item)
+               :on (->item-id :value on)
+               :type type))))

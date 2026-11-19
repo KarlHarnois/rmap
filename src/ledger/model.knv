@@ -1,12 +1,15 @@
 (module
   "Holds the ledger's values: roadmaps, items, dependencies, paths, events and refusals.")
 
-(export ->dep ->glob ->item ->item-id ->item-path
+(export ->dep ->event ->glob ->item ->item-id ->item-path
         ->path-conflict ->roadmap ->roadmap-id ->session
         ->snapshot ->timestamp claim decision-id dep
-        dep-type glob item item-id item-path kind origin
-        path-conflict roadmap roadmap-id roadmap-status
-        session snapshot status timestamp)
+        dep-type event event-type glob item item-id
+        item-path kind origin path-conflict roadmap
+        roadmap-id roadmap-status session snapshot status
+        timestamp)
+
+(use json/value json)
 
 (defstruct roadmap-id
   :value string)
@@ -98,3 +101,22 @@
   :with item-id
   :glob glob
   :other-glob glob)
+
+(defenum event-type
+  roadmap-created
+  item-added
+  item-claimed
+  item-advanced
+  item-closed
+  item-dropped
+  dep-added
+  dep-removed)
+
+(defstruct event
+  :id int
+  :at timestamp
+  :actor string
+  :roadmap-id (option roadmap-id)
+  :item-id (option item-id)
+  :type event-type
+  :payload json)

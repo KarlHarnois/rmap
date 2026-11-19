@@ -1,0 +1,49 @@
+(module
+  "Applies pending migrations in version order and records each version in `PRAGMA user_version`.")
+
+(use ledger/adapters/driven/sqlite/rows int-cell single-row)
+
+(use ledger/adapters/driven/sqlite/connection in-write-transaction
+                                              query
+                                              run-batch)
+
+(export ->migration migrate migration schema-version)
+
+(defstruct migration
+  :version int
+  :sql string)
+
+(defn migrate (connection migrations)
+  (let-try (current (schema-version connection))
+    (apply-pending connection
+                   (pending-after migrations current))))
+
+(defn schema-version (connection)
+  (let-try (rows (query connection "PRAGMA user_version" (ref (vec)))
+            row (single-row (ref rows)))
+    (int-cell row 0)))
+
+(defn pending-after (migrations current)
+  (let (pending (-> migrations iter
+                    (filter (fn (migration)
+                              (> (:version migration) current)))
+                    (map clone)
+                    collect))
+    (sort-by! pending :version)
+    pending))
+
+(defn apply-pending (connection pending)
+  (loop (index 0)
+    (if (< index (len pending))
+      (let-try (_ (apply-one connection (at pending index)))
+        (recur (inc index)))
+      (ok (do)))))
+
+(defn apply-one (connection migration)
+  (in-write-transaction connection
+    (fn (open-connection)
+      (run-batch open-connection
+                 (as-str (str (:sql migration)
+                              "\nPRAGMA user_version = "
+                              (:version migration)
+                              ";"))))))

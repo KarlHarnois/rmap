@@ -1,1 +1,642 @@
-(defn main () (println "rmap"))
+(use json/value array copy-of int->json json json->string
+                null object text->json)
+
+(use ledger/api ->glob ->item-id ->new-item ->session
+                ->settings add-dep add-item advance-item
+                claim claim-item clock close-item
+                default-database-path dep dep-type-names
+                drop-item event event-type-names failure
+                item item-detail item-id kind-change
+                kind-names list-items list-roadmaps name-of
+                named new-item new-roadmap origin
+                origin-names read-log ready-items refusal
+                refusal->code refusal->message remove-dep
+                roadmap roadmap-status-names session
+                show-item status status-names)
+
+(def schema-version 1)
+
+(def usage-text
+  "usage: rmap [--db <path>] <command>
+  new <name> --manager <session>
+  list
+  ready [--roadmap <name>]
+  log [--item <id>] [--since <event id>]
+  item add --roadmap <name> --title <text> --kind <kind> [--parent <id>] [--after <ids>]
+           [--paths <globs>] [--from <id>] [--origin <origin>] [--priority <n>]
+  item list [--roadmap <name>]
+  item show <id>
+  item claim <id> --session <name>
+  item advance <id> <status> [--kind build --paths <globs>]
+  item close <id>
+  item drop <id> --reason <text>
+  dep add <item> <on>
+  dep rm <item> <on>")
+
+(defenum exit-code
+  done
+  refused
+  usage
+  database)
+
+(defstruct outcome
+  :exit-code exit-code
+  :output json)
+
+(defn main ()
+  (let (outcome (run (command-line-args)))
+    (println (json->string (ref (:output outcome))))
+    (when (= (:exit-code outcome) exit-code/usage)
+      (eprintln usage-text))
+    (exit (exit-code->number (:exit-code outcome)))))
+
+(defn exit-code->number (code)
+  (match code
+    (done 0)
+    (refused 1)
+    (usage 2)
+    (database 3)))
+
+(defn run (args)
+  (match (parse-invocation args)
+    ((ok invocation) (execute invocation))
+    ((err message) (usage-outcome message))))
+
+(defn usage-outcome (message)
+  (->outcome :exit-code exit-code/usage
+             :output (error-envelope "usage" (as-str message) (vec))))
+
+(defstruct invocation
+  :database (option string)
+  :request request)
+
+(defenum request
+  (new-roadmap string session)
+  list-roadmaps
+  (ready (option string))
+  (log (option item-id) int)
+  (add-item string new-item)
+  (list-items (option string))
+  (show-item item-id)
+  (claim item-id session)
+  (advance item-id status kind-change)
+  (close item-id)
+  (drop item-id string)
+  (add-dep item-id item-id)
+  (remove-dep item-id item-id))
+
+(defstruct arguments
+  :words (vec string)
+  :flags (vec (pair string string)))
+
+(defstruct route
+  :name string
+  :word-count int
+  :operands int
+  :flags (vec string))
+
+(defn routes ()
+  (vec (->route :name (str "new")
+                :word-count 1
+                :operands 1
+                :flags (vec (str "manager")))
+       (->route :name (str "list")
+                :word-count 1
+                :operands 0
+                :flags (vec))
+       (->route :name (str "ready")
+                :word-count 1
+                :operands 0
+                :flags (vec (str "roadmap")))
+       (->route :name (str "log")
+                :word-count 1
+                :operands 0
+                :flags (vec (str "item") (str "since")))
+       (->route :name (str "item add")
+                :word-count 2
+                :operands 0
+                :flags (vec (str "roadmap")
+                            (str "title")
+                            (str "kind")
+                            (str "parent")
+                            (str "after")
+                            (str "paths")
+                            (str "from")
+                            (str "origin")
+                            (str "priority")))
+       (->route :name (str "item list")
+                :word-count 2
+                :operands 0
+                :flags (vec (str "roadmap")))
+       (->route :name (str "item show")
+                :word-count 2
+                :operands 1
+                :flags (vec))
+       (->route :name (str "item claim")
+                :word-count 2
+                :operands 1
+                :flags (vec (str "session")))
+       (->route :name (str "item advance")
+                :word-count 2
+                :operands 2
+                :flags (vec (str "kind") (str "paths")))
+       (->route :name (str "item close")
+                :word-count 2
+                :operands 1
+                :flags (vec))
+       (->route :name (str "item drop")
+                :word-count 2
+                :operands 1
+                :flags (vec (str "reason")))
+       (->route :name (str "dep add")
+                :word-count 2
+                :operands 2
+                :flags (vec))
+       (->route :name (str "dep rm")
+                :word-count 2
+                :operands 2
+                :flags (vec))))
+
+(defn parse-invocation (args)
+  (let-try (arguments (split-arguments args)
+            route (route-of (ref arguments))
+            _ (check-shape (ref arguments) (ref route))
+            request (build-request (ref route) (ref arguments)))
+    (ok (->invocation :database (flag (ref arguments) "db")
+                      :request request))))
+
+(defn split-arguments (args)
+  (loop (index 0
+         words (vec)
+         flags (vec))
+    (cond
+      ((>= index (len args))
+       (ok (->arguments :words words :flags flags)))
+      ((flag-name? (at args index))
+       (let-try (value (flag-value (ref args) index))
+         (recur (+ index 2)
+                words
+                (appended flags
+                          (pair (str (flag-name (at args index)))
+                                value)))))
+      (else (recur (inc index)
+                   (appended words (clone (at args index)))
+                   flags)))))
+
+(defn flag-name? (arg)
+  (starts-with? (as-str arg) "--"))
+
+(defn flag-name (arg)
+  (subs (as-str arg) 2 (len arg)))
+
+(defn flag-value (args index)
+  (match (get args (inc index))
+    ((some value) (ok (clone value)))
+    (none (err (str (at args index) " needs a value")))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))
+
+(defn route-of (arguments)
+  (ok-or (map-some (find (iter (routes))
+                     (fn (route) (route-matches? route arguments)))
+                   clone)
+         (str "unknown command: " (join (:words arguments) " "))))
+
+(type route-matches?
+  (fn ((ref route) (ref arguments)) bool))
+
+(defn route-matches? (route arguments)
+  (= (:name route)
+     (command-name arguments (:word-count route))))
+
+(defn command-name (arguments word-count)
+  (join (collect (map (take (iter (:words arguments))
+                            (the usize (convert word-count)))
+                      clone))
+        " "))
+
+(defn check-shape (arguments route)
+  (let (operand-count (- (len (:words arguments))
+                         (the usize (convert (:word-count route))))
+        unknown (unknown-flags arguments route))
+    (cond
+      ((not= operand-count
+             (the usize (convert (:operands route))))
+       (err (str (:name route)
+                 " takes "
+                 (:operands route)
+                 " operands, got " operand-count)))
+      ((not (empty? unknown))
+       (err (str (:name route)
+                 " does not take --"
+                 (join unknown ", --"))))
+      (else (ok (do))))))
+
+(type unknown-flags
+  (fn ((ref arguments) (ref route))
+    (vec string)))
+
+(defn unknown-flags (arguments route)
+  (collect (map (filter (iter (:flags arguments))
+                  (fn (entry)
+                    (let-match ((pair name _) entry)
+                      (not (or (= name "db")
+                               (contains? (:flags route) (clone name)))))))
+                (fn (entry) (clone (first entry))))))
+
+(defn operand (arguments route index)
+  (clone (at (:words arguments)
+             (+ (the usize (convert (:word-count route)))
+                index))))
+
+(type flag
+  (fn ((ref arguments) (ref str))
+    (option string)))
+
+(defn flag (arguments name)
+  (map-some (find (iter (:flags arguments))
+              (fn (entry) (= (first entry) name)))
+            (fn (entry) (clone (second entry)))))
+
+(defn required-flag (arguments name)
+  (ok-or (flag arguments name) (str "--" name " is required")))
+
+(type build-request
+  (fn ((ref route) (ref arguments))
+    (result request string)))
+
+(defn build-request (route arguments)
+  (match (as-str (:name route))
+    ("new"
+     (new-roadmap-request arguments (operand arguments route 0)))
+    ("list" (ok request/list-roadmaps))
+    ("ready" (ok (request/ready (flag arguments "roadmap"))))
+    ("log" (log-request arguments))
+    ("item add" (add-item-request arguments))
+    ("item list"
+     (ok (request/list-items (flag arguments "roadmap"))))
+    ("item show"
+     (ok (request/show-item (text->id (operand arguments route 0)))))
+    ("item claim"
+     (claim-request arguments (operand arguments route 0)))
+    ("item advance"
+     (advance-request arguments
+                      (operand arguments route 0)
+                      (operand arguments route 1)))
+    ("item close"
+     (ok (request/close (text->id (operand arguments route 0)))))
+    ("item drop"
+     (drop-request arguments (operand arguments route 0)))
+    ("dep add"
+     (ok (request/add-dep (text->id (operand arguments route 0))
+                          (text->id (operand arguments route 1)))))
+    (_ (ok (request/remove-dep (text->id (operand arguments route 0))
+                               (text->id (operand arguments route 1)))))))
+
+(defn text->id (text) (->item-id :value text))
+
+(defn new-roadmap-request (arguments name)
+  (let-try (manager (required-flag arguments "manager"))
+    (ok (request/new-roadmap name (->session :name manager)))))
+
+(defn log-request (arguments)
+  (let-try (since (optional-number arguments "since" 0))
+    (ok (request/log (map-some (flag arguments "item") text->id)
+                     since))))
+
+(defn optional-number (arguments name fallback)
+  (match (flag arguments name)
+    ((some text) (text->number (as-str text) name))
+    (none (ok fallback))))
+
+(defn text->number (text name)
+  (match (the (result int (parse-error int))
+              (parse text))
+    ((ok number) (ok number))
+    ((err _)
+     (err (str "--" name " takes a whole number, got " text)))))
+
+(defn add-item-request (arguments)
+  (let-try (roadmap (required-flag arguments "roadmap")
+            title (required-flag arguments "title")
+            kind (named-flag arguments "kind" kind-names)
+            origin (optional-named-flag arguments "origin"
+                                        origin-names
+                                        origin/planned)
+            priority (optional-number arguments "priority" 0))
+    (ok (request/add-item
+          roadmap
+          (->new-item :parent (map-some (flag arguments "parent") text->id)
+                      :title title
+                      :kind kind
+                      :origin origin
+                      :priority priority
+                      :globs (list-flag-globs arguments)
+                      :after (collect (map (iter (list-flag arguments "after"))
+                                        (fn (text) (text->id (clone text)))))
+                      :from (map-some (flag arguments "from") text->id))))))
+
+(defn named-flag (arguments name names)
+  (let-try (text (required-flag arguments name))
+    (text->named (as-str text) name names)))
+
+(defn optional-named-flag (arguments name names fallback)
+  (match (flag arguments name)
+    ((some text) (text->named (as-str text) name names))
+    (none (ok fallback))))
+
+(defn text->named (text name names)
+  (ok-or (named names text)
+         (str "--" name " does not accept " text)))
+
+(defn list-flag (arguments name)
+  (match (flag arguments name)
+    ((some text) (comma-separated (as-str text)))
+    (none (vec))))
+
+(defn comma-separated (text)
+  (collect (map (filter (split text ",")
+                  (fn (part)
+                    (not (empty? (trim (deref part))))))
+                (fn (part) (str (trim part))))))
+
+(defn list-flag-globs (arguments)
+  (collect (map (iter (list-flag arguments "paths"))
+             (fn (pattern)
+               (->glob :pattern (clone pattern))))))
+
+(defn claim-request (arguments id)
+  (let-try (session (required-flag arguments "session"))
+    (ok (request/claim (text->id id) (->session :name session)))))
+
+(defn drop-request (arguments id)
+  (let-try (reason (required-flag arguments "reason"))
+    (ok (request/drop (text->id id) reason))))
+
+(defn advance-request (arguments id status-text)
+  (let-try (target (ok-or (named status-names (as-str status-text))
+                          (str "unknown status: " status-text))
+            change (kind-change-of arguments))
+    (ok (request/advance (text->id id) target change))))
+
+(defn kind-change-of (arguments)
+  (match (flag arguments "kind")
+    ((some kind) (build-change arguments (as-str kind)))
+    (none (unchanged-kind arguments))))
+
+(defn build-change (arguments kind)
+  (if (= kind "build")
+    (ok (kind-change/become-build (list-flag-globs arguments)))
+    (err (str "--kind takes only build, got " kind))))
+
+(defn unchanged-kind (arguments)
+  (if (some? (flag arguments "paths"))
+    (err (str "--paths needs --kind build"))
+    (ok kind-change/keep-kind)))
+
+(defn execute (invocation)
+  (match (settings-for (ref invocation))
+    ((ok settings)
+     (failure-or-done (perform (ref settings)
+                               (clone (:request invocation)))))
+    ((err failure) (failure->outcome failure))))
+
+(defn settings-for (invocation)
+  (let-try (path (database-path (ref (:database invocation))))
+    (ok (->settings :database-path path :clock clock/system))))
+
+(defn database-path (database)
+  (match database
+    ((some path) (ok (clone path)))
+    (none (default-database-path))))
+
+(defn failure-or-done (result)
+  (match result
+    ((ok output)
+     (->outcome :exit-code exit-code/done :output output))
+    ((err failure) (failure->outcome failure))))
+
+(defn perform (settings request)
+  (match request
+    ((new-roadmap name manager)
+     (map-ok (new-roadmap settings name manager)
+             roadmap-envelope))
+    (list-roadmaps (map-ok (list-roadmaps settings) roadmaps-envelope))
+    ((ready roadmap)
+     (map-ok (ready-items settings roadmap) readiness-envelope))
+    ((log item since)
+     (map-ok (read-log settings item since) events-envelope))
+    ((add-item roadmap draft)
+     (map-ok (add-item settings roadmap draft) item-envelope))
+    ((list-items roadmap)
+     (map-ok (list-items settings roadmap) items-envelope))
+    ((show-item id)
+     (map-ok (show-item settings id) detail-envelope))
+    ((claim id session)
+     (map-ok (claim-item settings id session) item-envelope))
+    ((advance id target change)
+     (map-ok (advance-item settings id target change)
+             item-envelope))
+    ((close id) (map-ok (close-item settings id) item-envelope))
+    ((drop id reason)
+     (map-ok (drop-item settings id reason) item-envelope))
+    ((add-dep item on)
+     (map-ok (add-dep settings item on) dep-envelope))
+    ((remove-dep item on)
+     (map-ok (remove-dep settings item on) dep-envelope))))
+
+(defn failure->outcome (failure)
+  (match failure
+    ((failure/refused refusal)
+     (->outcome :exit-code exit-code/refused
+                :output (error-envelope (refusal->code (ref refusal))
+                                        (as-str (refusal->message (ref
+                                                                    refusal)))
+                                        (refusal-details (ref refusal)))))
+    ((failure/database problem)
+     (->outcome :exit-code exit-code/database
+                :output (error-envelope "database"
+                                        (as-str (:message problem))
+                                        (vec))))))
+
+(defn refusal-details (refusal)
+  (match refusal
+    ((not-ready blockage) (blockage-fields blockage))
+    ((paths-conflict conflicts)
+     (vec (pair (str "path_conflicts") (conflicts->json conflicts))))
+    (_ (vec))))
+
+(defn envelope (key value)
+  (object (vec (pair (str "schema_version") (int->json schema-version))
+               (pair (str key) value))))
+
+(defn error-envelope (code message details)
+  (let (fields details)
+    (push! fields
+           (pair (str "code") (text->json code)))
+    (push! fields
+           (pair (str "message") (text->json message)))
+    (envelope "error" (object fields))))
+
+(defn roadmap-envelope (roadmap)
+  (envelope "roadmap" (roadmap->json (ref roadmap))))
+
+(defn roadmaps-envelope (roadmaps)
+  (envelope "roadmaps"
+            (array (collect (map (iter roadmaps) roadmap->json)))))
+
+(defn item-envelope (item)
+  (envelope "item" (item->json (ref item))))
+
+(defn items-envelope (items)
+  (envelope "items"
+            (array (collect (map (iter items) item->json)))))
+
+(defn events-envelope (events)
+  (envelope "events"
+            (array (collect (map (iter events) event->json)))))
+
+(defn dep-envelope (dep)
+  (envelope "dep" (dep->json (ref dep))))
+
+(type detail-envelope (fn (item-detail) json))
+
+(defn detail-envelope (detail)
+  (object (vec (pair (str "schema_version") (int->json schema-version))
+               (pair (str "item")
+                     (item->json (ref (:item detail))))
+               (pair (str "deps")
+                     (array (collect (map (iter (:deps detail)) dep->json))))
+               (pair (str "paths")
+                     (array (collect (map (iter (:globs detail))
+                                          glob->json)))))))
+
+(defn readiness-envelope (readiness)
+  (object (vec (pair (str "schema_version") (int->json schema-version))
+               (pair (str "ready")
+                     (array (collect (map (iter (:ready readiness))
+                                          item->json))))
+               (pair (str "blocked")
+                     (array (collect (map (iter (:blocked readiness))
+                                          blocked->json)))))))
+
+(defn blocked->json (blocked)
+  (let (fields (blockage-fields (ref (:blockage blocked))))
+    (push! fields
+           (pair (str "item")
+                 (item->json (ref (:item blocked)))))
+    (object fields)))
+
+(defn blockage-fields (blockage)
+  (vec (pair (str "blockers")
+             (ids->json (ref (:blockers blockage))))
+       (pair (str "path_conflicts")
+             (conflicts->json (ref (:path-conflicts blockage))))))
+
+(type ids->json
+  (fn ((ref (vec item-id))) json))
+
+(defn ids->json (ids)
+  (array (collect (map (iter ids)
+                    (fn (id)
+                      (text->json (as-str (:value id))))))))
+
+(defn conflicts->json (conflicts)
+  (array (collect (map (iter conflicts) conflict->json))))
+
+(defn conflict->json (conflict)
+  (object (vec (pair (str "with")
+                     (text->json (as-str (:value (:with conflict)))))
+               (pair (str "glob")
+                     (glob->json (ref (:glob conflict))))
+               (pair (str "other_glob")
+                     (glob->json (ref (:other-glob conflict)))))))
+
+(defn glob->json (glob)
+  (text->json (as-str (:pattern glob))))
+
+(defn optional-text->json (text)
+  (match text
+    ((some present) (text->json (as-str present)))
+    (none null)))
+
+(type roadmap->json
+  (fn ((ref roadmap)) json))
+
+(defn roadmap->json (roadmap)
+  (object (vec (pair (str "id")
+                     (text->json (as-str (:value (:id roadmap)))))
+               (pair (str "name")
+                     (text->json (as-str (:name roadmap))))
+               (pair (str "manager")
+                     (text->json (as-str (:name (:manager roadmap)))))
+               (pair (str "status")
+                     (text->json (name-of roadmap-status-names
+                                          (:status roadmap))))
+               (pair (str "created_at")
+                     (text->json (as-str (:value (:created-at roadmap))))))))
+
+(type item->json (fn ((ref item)) json))
+
+(defn item->json (item)
+  (object (vec (pair (str "id")
+                     (text->json (as-str (:value (:id item)))))
+               (pair (str "roadmap_id")
+                     (text->json (as-str (:value (:roadmap-id item)))))
+               (pair (str "parent_id")
+                     (optional-text->json (map-some (clone (:parent item))
+                                            (fn (id) (clone (:value id))))))
+               (pair (str "title")
+                     (text->json (as-str (:title item))))
+               (pair (str "kind")
+                     (text->json (name-of kind-names (:kind item))))
+               (pair (str "status")
+                     (text->json (name-of status-names (:status item))))
+               (pair (str "origin")
+                     (text->json (name-of origin-names (:origin item))))
+               (pair (str "priority")
+                     (int->json (:priority item)))
+               (pair (str "claimed_by")
+                     (claim->json (ref (:claim item))))
+               (pair (str "created_at")
+                     (text->json (as-str (:value (:created-at item)))))
+               (pair (str "closed_at")
+                     (optional-text->json (map-some (clone (:closed-at item))
+                                            (fn (at) (clone (:value at)))))))))
+
+(defn claim->json (claim)
+  (match claim
+    ((claimed-by session) (text->json (as-str (:name session))))
+    (unclaimed null)))
+
+(type event->json
+  (fn ((ref event)) json))
+
+(defn event->json (event)
+  (object (vec (pair (str "id")
+                     (int->json (:id event)))
+               (pair (str "at")
+                     (text->json (as-str (:value (:at event)))))
+               (pair (str "actor")
+                     (text->json (as-str (:actor event))))
+               (pair (str "roadmap_id")
+                     (optional-text->json (map-some (clone (:roadmap-id event))
+                                            (fn (id) (clone (:value id))))))
+               (pair (str "item_id")
+                     (optional-text->json (map-some (clone (:item-id event))
+                                            (fn (id) (clone (:value id))))))
+               (pair (str "type")
+                     (text->json (name-of event-type-names (:type event))))
+               (pair (str "payload")
+                     (copy-of (ref (:payload event)))))))
+
+(type dep->json (fn ((ref dep)) json))
+
+(defn dep->json (dep)
+  (object (vec (pair (str "item")
+                     (text->json (as-str (:value (:item dep)))))
+               (pair (str "on")
+                     (text->json (as-str (:value (:on dep)))))
+               (pair (str "type")
+                     (text->json (name-of dep-type-names (:type dep)))))))

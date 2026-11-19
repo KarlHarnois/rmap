@@ -1,0 +1,77 @@
+(module
+  "Reads and writes the `roadmaps` table.")
+
+(use json/value text->json)
+
+(use ledger/model ->roadmap ->roadmap-id ->session
+                  ->timestamp roadmap)
+
+(use ledger/names name-of roadmap-status-names)
+
+(use ledger/adapters/driven/sqlite/connection connection
+                                              database-error
+                                              execute query)
+
+(use ledger/adapters/driven/sqlite/rows named-cell
+                                        text-cell)
+
+(export all-roadmaps insert-roadmap roadmap-named)
+
+(def columns
+  "id, name, manager_session, status, created_at")
+
+(type insert-roadmap
+  (fn ((ref connection) (ref roadmap))
+    (result int database-error)))
+
+(defn insert-roadmap (connection roadmap)
+  (execute connection
+           (as-str (str "INSERT INTO roadmaps (" columns
+                        ") VALUES (?1, ?2, ?3, ?4, ?5)"))
+           (ref (vec (text->json (as-str (:value (:id roadmap))))
+                     (text->json (as-str (:name roadmap)))
+                     (text->json (as-str (:name (:manager roadmap))))
+                     (text->json (name-of roadmap-status-names
+                                          (:status roadmap)))
+                     (text->json (as-str (:value (:created-at roadmap))))))))
+
+(defn all-roadmaps (connection)
+  (let-try (rows (query connection
+                        (as-str (str "SELECT " columns
+                                     " FROM roadmaps ORDER BY created_at, id"))
+                        (ref (vec))))
+    (rows->roadmaps rows)))
+
+(defn roadmap-named (connection name)
+  (let-try (rows (query connection
+                        (as-str (str "SELECT " columns
+                                     " FROM roadmaps WHERE name = ?1"))
+                        (ref (vec (text->json name))))
+            roadmaps (rows->roadmaps rows))
+    (ok (first-owned roadmaps))))
+
+(defn first-owned (items)
+  (map-some (first items) clone))
+
+(defn rows->roadmaps (rows)
+  (loop (index 0
+         roadmaps (vec))
+    (if (< index (len rows))
+      (let-try (roadmap (row->roadmap (at rows index)))
+        (recur (inc index) (appended roadmaps roadmap)))
+      (ok roadmaps))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))
+
+(defn row->roadmap (row)
+  (let-try (id (text-cell row 0)
+            name (text-cell row 1)
+            manager (text-cell row 2)
+            status (named-cell row 3 roadmap-status-names)
+            created-at (text-cell row 4))
+    (ok (->roadmap :id (->roadmap-id :value id)
+                   :name name
+                   :manager (->session :name manager)
+                   :status status
+                   :created-at (->timestamp :value created-at)))))

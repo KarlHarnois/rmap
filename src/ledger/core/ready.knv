@@ -12,7 +12,7 @@
 (export blockage-of blocked-item blocking-decisions
         conflicts-with-active-builds effective-status
         find-item globs-of readiness readiness-of ready?
-        scope)
+        scope with-computed-status)
 
 (defenum scope
   every-roadmap
@@ -47,6 +47,8 @@
     (every-roadmap true)
     ((one-roadmap id) (= (ref (:roadmap-id item)) id))))
 
+(type candidate? (fn ((ref item)) bool))
+
 (defn candidate? (item)
   (and (not= (:kind item) kind/epic)
        (= (:status item) status/open)
@@ -78,7 +80,7 @@
 (type blocking-decisions
   (fn ((ref item)) (vec decision-id)))
 
-(defn blocking-decisions (item) (vec))
+(defn blocking-decisions (_item) (vec))
 
 (defn blockage-of (snapshot item)
   (->blockage :blockers (blockers-of snapshot item)
@@ -117,6 +119,9 @@
       iter
       (find (fn (item) (= (ref (:id item)) id)))
       (map-some clone)))
+
+(type effective-status
+  (fn ((ref snapshot) (ref item)) status))
 
 (defn effective-status (snapshot item)
   (match (:kind item)
@@ -200,9 +205,19 @@
     ((some item) (active-build? (ref item)))
     (none false)))
 
+(type active-build?
+  (fn ((ref item)) bool))
+
 (defn active-build? (item)
   (and (= (:kind item) kind/build)
        (contains? (vec status/dispatched status/reported
                        status/in-review status/fixing
                        status/merging)
                   (:status item))))
+
+(type with-computed-status
+  (fn ((ref snapshot) (ref item)) item))
+
+(defn with-computed-status (snapshot item)
+  (assoc (clone item)
+         :status (effective-status snapshot item)))

@@ -1,0 +1,92 @@
+(module
+  "Opens the ledger database and runs SQL with JSON values as parameters and cells.")
+
+(use json/value json)
+
+(export ->database-error begin commit connection
+        database-error execute git-common-dir
+        in-write-transaction open query rollback run-batch)
+
+(rust-type connection "rusqlite::Connection")
+
+(defstruct database-error
+  :message string)
+
+(def busy-timeout-milliseconds 5000)
+
+(def open-raw
+  (rust "(|| -> Result<rusqlite::Connection, String> {{ let connection = rusqlite::Connection::open({0}).map_err(|failure| failure.to_string())?; connection.pragma_update(None, \"journal_mode\", \"WAL\").map_err(|failure| failure.to_string())?; connection.busy_timeout(std::time::Duration::from_millis({1})).map_err(|failure| failure.to_string())?; connection.pragma_update(None, \"foreign_keys\", \"ON\").map_err(|failure| failure.to_string())?; Ok(connection) }})()"
+    (fn ((ref str) u64)
+      (result connection string))))
+
+(defn open (path)
+  (-> (open-raw path busy-timeout-milliseconds)
+      (map-err message->error)))
+
+(defn message->error (message)
+  (->database-error :message message))
+
+(def run-batch-raw
+  (rust "{0}.execute_batch({1}).map_err(|failure| failure.to_string())"
+    (fn ((ref connection) (ref str))
+      (result unit string))))
+
+(defn run-batch (connection sql)
+  (map-err (run-batch-raw connection sql) message->error))
+
+(def execute-raw
+  (rust "(|| -> Result<i64, String> {{ let parameters: Vec<rusqlite::types::Value> = {2}.iter().map(|value| match value {{ serde_json::Value::Null => rusqlite::types::Value::Null, serde_json::Value::Bool(flag) => rusqlite::types::Value::Integer(*flag as i64), serde_json::Value::Number(number) => number.as_i64().map(rusqlite::types::Value::Integer).unwrap_or_else(|| rusqlite::types::Value::Real(number.as_f64().unwrap_or(0.0))), serde_json::Value::String(text) => rusqlite::types::Value::Text(text.clone()), other => rusqlite::types::Value::Text(other.to_string()) }}).collect(); let changed = {0}.execute({1}, rusqlite::params_from_iter(parameters)).map_err(|failure| failure.to_string())?; Ok(changed as i64) }})()"
+    (fn ((ref connection)
+         (ref str)
+         (ref (vec json)))
+      (result int string))))
+
+(defn execute (connection sql parameters)
+  (map-err (execute-raw connection sql parameters)
+           message->error))
+
+(def query-raw
+  (rust "(|| -> Result<Vec<Vec<serde_json::Value>>, String> {{ let parameters: Vec<rusqlite::types::Value> = {2}.iter().map(|value| match value {{ serde_json::Value::Null => rusqlite::types::Value::Null, serde_json::Value::Bool(flag) => rusqlite::types::Value::Integer(*flag as i64), serde_json::Value::Number(number) => number.as_i64().map(rusqlite::types::Value::Integer).unwrap_or_else(|| rusqlite::types::Value::Real(number.as_f64().unwrap_or(0.0))), serde_json::Value::String(text) => rusqlite::types::Value::Text(text.clone()), other => rusqlite::types::Value::Text(other.to_string()) }}).collect(); let mut statement = {0}.prepare({1}).map_err(|failure| failure.to_string())?; let width = statement.column_count(); let rows = statement.query_map(rusqlite::params_from_iter(parameters), |row| (0..width).map(|index| row.get::<_, rusqlite::types::Value>(index).map(|cell| match cell {{ rusqlite::types::Value::Null => serde_json::Value::Null, rusqlite::types::Value::Integer(number) => serde_json::Value::from(number), rusqlite::types::Value::Real(number) => serde_json::Value::from(number), rusqlite::types::Value::Text(text) => serde_json::Value::String(text), rusqlite::types::Value::Blob(bytes) => serde_json::Value::String(String::from_utf8_lossy(&bytes).to_string()) }})).collect::<Result<Vec<_>, _>>()).map_err(|failure| failure.to_string())?; rows.collect::<Result<Vec<_>, _>>().map_err(|failure| failure.to_string()) }})()"
+    (fn ((ref connection)
+         (ref str)
+         (ref (vec json)))
+      (result (vec (vec json)) string))))
+
+(defn query (connection sql parameters)
+  (map-err (query-raw connection sql parameters)
+           message->error))
+
+(type in-write-transaction
+  (where (a)
+    (fn ((ref connection)
+         (fn ((ref connection))
+           (result a database-error)))
+      (result a database-error))))
+
+(defn in-write-transaction (connection work)
+  (let-try (_ (begin connection))
+    (finish-transaction connection (work connection))))
+
+(defn finish-transaction (connection outcome)
+  (match outcome
+    ((ok value) (map-ok (commit connection) (fn (_) value)))
+    ((err failure) (rollback-after connection failure))))
+
+(defn begin (connection)
+  (run-batch connection "BEGIN IMMEDIATE"))
+
+(defn rollback (connection)
+  (run-batch connection "ROLLBACK"))
+
+(defn commit (connection) (run-batch connection "COMMIT"))
+
+(defn rollback-after (connection failure)
+  (match (rollback connection)
+    (_ (err failure))))
+
+(def git-common-dir-raw
+  (rust "(|| -> Result<String, String> {{ let output = std::process::Command::new(\"git\").args([\"rev-parse\", \"--path-format=absolute\", \"--git-common-dir\"]).output().map_err(|failure| failure.to_string())?; if !output.status.success() {{ return Err(String::from_utf8_lossy(&output.stderr).trim().to_string()); }} Ok(String::from_utf8_lossy(&output.stdout).trim().to_string()) }})()"
+    (fn () (result string string))))
+
+(defn git-common-dir ()
+  (map-err (git-common-dir-raw) message->error))

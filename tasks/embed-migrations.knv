@@ -1,0 +1,73 @@
+(module
+  "Writes the migration-sources module from the numbered `.sql` files in `migrations/`.")
+
+(def migrations-directory "migrations")
+
+(def sources-module
+  "src/ledger/adapters/driven/sqlite/migration-sources.knv")
+
+(def migration-files
+  (rust "(|| -> Result<Vec<String>, String> {{ let mut names: Vec<String> = std::fs::read_dir({0}).map_err(|failure| failure.to_string())?.filter_map(|entry| entry.ok()).map(|entry| entry.file_name().to_string_lossy().to_string()).filter(|name| name.ends_with(\".sql\")).collect(); names.sort(); Ok(names) }})()"
+    (fn ((ref str))
+      (result (vec string) string))))
+
+(def write-file
+  (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
+    (fn ((ref str) (ref str))
+      (result unit string))))
+
+(def quoted
+  (rust "format!(\"{{:?}}\", {0})"
+    (fn ((ref str)) string)))
+
+(defn version-of (file-name)
+  (let (parts (collect (split (as-str file-name) "-")))
+    (-> parts first
+        (then-some (fn (digits)
+                     (digits->version (deref digits))))
+        (ok-or (str "a migration file name must start with its number: "
+                    file-name)))))
+
+(defn digits->version (digits)
+  (match (the (result int (parse-error int))
+              (parse digits))
+    ((ok number) (some number))
+    ((err _) none)))
+
+(defn migration-form (file-name)
+  (let-try (version (version-of file-name)
+            sql (map-err (slurp (str migrations-directory "/" file-name))
+                  (fn (failure) (str failure))))
+    (ok (str "       (->migration :version " version
+             " :sql (str "
+             (quoted (as-str sql))
+             "))"))))
+
+(defn module-text (forms)
+  (str "(module\n  \"Holds the SQL of each migration, generated from `migrations/` by `knave task embed-migrations`.\")\n\n"
+       "(use ledger/adapters/driven/sqlite/migrations ->migration)\n\n"
+       "(export migration-sources)\n\n"
+       "(defn migration-sources ()\n  (vec "
+       (trim (as-str (join forms "\n")))
+       "))\n"))
+
+(defn embed ()
+  (let-try (files (migration-files migrations-directory)
+            forms (collect-forms files))
+    (write-file sources-module (as-str (module-text forms)))))
+
+(defn collect-forms (files)
+  (loop (index 0
+         forms (vec))
+    (if (< index (len files))
+      (let-try (form (migration-form (at files index)))
+        (recur (inc index) (appended forms form)))
+      (ok forms))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))
+
+(deftask embed-migrations ()
+  (match (embed)
+    ((ok _) (println (str "wrote " sources-module)))
+    ((err failure) (eprintln failure) (exit 1))))

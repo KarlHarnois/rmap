@@ -28,6 +28,12 @@
   (let (chosen (build-globs snapshot item globs))
     (check-free-globs snapshot item (ref chosen))))
 
+(type check-free-globs
+  (fn ((ref snapshot)
+       (ref item)
+       (ref (vec glob)))
+    (result unit refusal)))
+
 (defn check-free-globs (snapshot item globs)
   (let (conflicts (conflicts-with-active-builds snapshot
                                                 (ref (:id item))
@@ -36,6 +42,12 @@
       ((empty? globs) (err refusal/build-needs-paths))
       ((empty? conflicts) (ok (do)))
       (else (err (refusal/paths-conflict conflicts))))))
+
+(type build-globs
+  (fn ((ref snapshot)
+       (ref item)
+       (ref (vec glob)))
+    (vec glob)))
 
 (defn build-globs (snapshot item globs)
   (if (empty? globs)
