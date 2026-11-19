@@ -74,3 +74,10 @@ jobs:
           fi
       - name: Test
         run: knave test
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - name: Build the flake
+        run: nix build --print-build-logs
