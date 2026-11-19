@@ -14,6 +14,7 @@
        (refusal/parent-in-other-roadmap (sample-id))
        refusal/epic-has-parent refusal/build-needs-paths
        refusal/epic-status-computed
+       refusal/invalid-kind-change
        (refusal/invalid-transition status/open status/merged)
        (refusal/not-ready (->blockage :blockers (vec) :path-conflicts (vec)))
        (refusal/paths-conflict (vec))

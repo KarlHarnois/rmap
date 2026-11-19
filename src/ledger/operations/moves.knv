@@ -33,10 +33,11 @@
                                 :actor (clone (:name session)))))
 
 (defn advance-item (settings id advancement)
-  (perform-move settings
-                (->move-request :item id
-                                :move (advancement->move advancement)
-                                :actor (str cli-actor))))
+  (match (advancement->move advancement)
+    ((ok move)
+     (perform-move settings
+                   (->move-request :item id :move move :actor (str cli-actor))))
+    ((err refused) (err (failure/refused refused)))))
 
 (defn close-item (settings id)
   (perform-move settings

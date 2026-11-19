@@ -1,5 +1,6 @@
-(use ledger/api ->advancement advance-item kind kind-change
-                readiness ready-items show-item status)
+(use ledger/api ->advancement advance-item failure kind
+                kind-change readiness ready-items refusal
+                show-item status)
 
 (use support/ledger added-id claimed globs-of-patterns
                     item-draft scratch-ledger)
@@ -56,3 +57,14 @@
                                (vec "docs/**"))))
     (assert (= (len (:ready (unwrap-ok (ready-items (ref settings) none))))
                1))))
+
+(deftest a-kind-change-is-refused-unless-the-item-advances-to-dispatched
+  (let (settings (scratch-ledger "kind-change-needs-dispatch")
+        research (reported-research (ref settings) (vec "src/a/**")))
+    (assert (= (advance-item (ref settings)
+                             (clone research)
+                             (->advancement :to status/dropped
+                                            :kind-change (kind-change/become-build
+                                                           (globs-of-patterns (vec
+                                                                                "docs/**")))))
+               (err (failure/refused refusal/invalid-kind-change))))))

@@ -21,6 +21,7 @@
   epic-has-parent
   build-needs-paths
   epic-status-computed
+  invalid-kind-change
   (invalid-transition status status)
   (not-ready blockage)
   (paths-conflict (vec path-conflict))
@@ -38,6 +39,7 @@
     (epic-has-parent "epic-has-parent")
     (build-needs-paths "build-needs-paths")
     (epic-status-computed "epic-status-computed")
+    (invalid-kind-change "invalid-kind-change")
     ((invalid-transition _ _) "invalid-transition")
     ((not-ready _) "not-ready")
     ((paths-conflict _) "path-conflict")
@@ -62,6 +64,7 @@
     (build-needs-paths (str "a build item needs at least one path"))
     (epic-status-computed (str
                             "an epic's status is computed from its children"))
+    (invalid-kind-change (str "only an advance to dispatched can turn an item into a build"))
     ((invalid-transition from to)
      (str "an item cannot move from "
           (name-of status-names from)
@@ -103,6 +106,9 @@
        (described
          "epic-status-computed"
          "An epic's status comes from its children, so no command moves it.")
+       (described
+         "invalid-kind-change"
+         "Only an advance to dispatched can turn an item into a build.")
        (described "invalid-transition"
                   "The transition table has no such move for this item.")
        (described "not-ready"

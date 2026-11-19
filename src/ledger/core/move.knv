@@ -1,6 +1,8 @@
 (module
   "Names each move an item can make and computes the item a move leaves.")
 
+(use ledger/refusal refusal)
+
 (use ledger/model claim glob item kind session status
                   timestamp)
 
@@ -33,13 +35,13 @@
 (defn advancement->move (advancement)
   (let-match ((advancement :to target :kind-change change) advancement)
     (match change
-      (keep-kind (move/advance target))
+      (keep-kind (ok (move/advance target)))
       ((become-build globs) (build-move target globs)))))
 
 (defn build-move (target globs)
   (if (= target status/dispatched)
-    (move/advance-to-build globs)
-    (move/advance target)))
+    (ok (move/advance-to-build globs))
+    (err refusal/invalid-kind-change)))
 
 (defn move->command (move)
   (match move
