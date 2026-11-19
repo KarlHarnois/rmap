@@ -1,0 +1,34 @@
+(module
+  "Reads which items can start and what blocks the others.")
+
+(use ledger/core/ready readiness readiness-of)
+(use ledger/sqlite/events ->event-filter)
+(use ledger/sqlite/snapshot load-snapshot)
+
+(use ledger/operations/transaction in-read-transaction
+                                   settings)
+
+(use ledger/failure failure)
+(use ledger/operations/lookups scope-named)
+(use ledger/sqlite/connection connection)
+
+(export ready-items)
+
+(type ready-items
+  (fn ((ref settings) (option string))
+    (result readiness failure)))
+
+(defn ready-items (settings roadmap)
+  (in-read-transaction settings
+    (fn (transaction)
+      (readiness-within (ref (:connection transaction))
+                        (ref roadmap)))))
+
+(type readiness-within
+  (fn ((ref connection) (ref (option string)))
+    (result readiness failure)))
+
+(defn readiness-within (connection roadmap)
+  (let-try (scope (scope-named connection roadmap)
+            snapshot (load-snapshot connection))
+    (ok (readiness-of (ref snapshot) (ref scope)))))

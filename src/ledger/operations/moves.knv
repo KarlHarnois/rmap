@@ -9,7 +9,7 @@
 
 (use ledger/core/transitions approved-move)
 (use ledger/sqlite/items update-item)
-(use ledger/sqlite/store load-snapshot)
+(use ledger/sqlite/snapshot load-snapshot)
 
 (use ledger/operations/transaction in-transaction now record
                                    transaction)

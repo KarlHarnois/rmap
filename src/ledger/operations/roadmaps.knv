@@ -10,7 +10,7 @@
 (use ledger/sqlite/roadmaps all-roadmaps insert-roadmap
                             roadmap-named)
 
-(use ledger/sqlite/store fresh-id)
+(use ledger/sqlite/generated fresh-id)
 
 (use ledger/operations/transaction in-read-transaction
                                    in-transaction now record

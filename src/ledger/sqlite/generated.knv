@@ -1,21 +1,12 @@
 (module
-  "Loads the ledger snapshot and makes fresh ids and timestamps from the database.")
+  "Asks the database for the values it generates: fresh item ids and the current time.")
 
 (use ledger/sqlite/values text->sql)
-(use ledger/model ->snapshot ->timestamp)
+(use ledger/model ->timestamp)
 (use ledger/sqlite/connection database-failure query)
 (use ledger/sqlite/rows single-row text-cell)
-(use ledger/sqlite/items all-items)
-(use ledger/sqlite/deps all-deps)
-(use ledger/sqlite/item-paths all-item-paths)
 
-(export database-now fresh-id load-snapshot)
-
-(defn load-snapshot (connection)
-  (let-try (items (all-items connection)
-            deps (all-deps connection)
-            paths (all-item-paths connection))
-    (ok (->snapshot :items items :deps deps :globs paths))))
+(export database-now fresh-id)
 
 (def id-attempts 1000)
 

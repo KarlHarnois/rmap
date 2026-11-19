@@ -1,17 +1,14 @@
 (module
-  "Reads ready items, items and events.")
+  "Lists items and shows one item with its dependencies and globs.")
 
-(use ledger/model dep event glob item item-id)
-(use ledger/core/ready readiness readiness-of)
+(use ledger/model dep glob item item-id)
 (use ledger/core/index index-of with-shown-status)
 
 (use ledger/core/snapshot deps-of existing globs-of
                           in-scope?)
 
-(use ledger/sqlite/events ->event-filter event-filter
-                          events-matching)
-
-(use ledger/sqlite/store load-snapshot)
+(use ledger/sqlite/events ->event-filter)
+(use ledger/sqlite/snapshot load-snapshot)
 
 (use ledger/operations/transaction in-read-transaction
                                    settings)
@@ -20,51 +17,12 @@
 (use ledger/operations/lookups scope-named)
 (use ledger/sqlite/connection connection)
 
-(export item-detail list-items read-log ready-items
-        show-item)
+(export item-detail list-items show-item)
 
 (defstruct item-detail
   :item item
   :deps (vec dep)
   :globs (vec glob))
-
-(type ready-items
-  (fn ((ref settings) (option string))
-    (result readiness failure)))
-
-(defn ready-items (settings roadmap)
-  (in-read-transaction settings
-    (fn (transaction)
-      (readiness-within (ref (:connection transaction))
-                        (ref roadmap)))))
-
-(type readiness-within
-  (fn ((ref connection) (ref (option string)))
-    (result readiness failure)))
-
-(defn readiness-within (connection roadmap)
-  (let-try (scope (scope-named connection roadmap)
-            snapshot (load-snapshot connection))
-    (ok (readiness-of (ref snapshot) (ref scope)))))
-
-(type read-log
-  (fn ((ref settings) (option item-id) int)
-    (result (vec event) failure)))
-
-(defn read-log (settings item after-id)
-  (in-read-transaction settings
-    (fn (transaction)
-      (events-within (ref (:connection transaction))
-                     (ref (->event-filter :item-id (clone item)
-                                          :after-id after-id))))))
-
-(type events-within
-  (fn ((ref connection) (ref event-filter))
-    (result (vec event) failure)))
-
-(defn events-within (connection filter)
-  (let-try (events (events-matching connection filter))
-    (ok events)))
 
 (type list-items
   (fn ((ref settings) (option string))

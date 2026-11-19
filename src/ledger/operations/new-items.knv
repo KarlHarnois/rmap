@@ -10,7 +10,8 @@
 (use ledger/sqlite/items insert-item)
 (use ledger/sqlite/deps insert-deps)
 (use ledger/sqlite/item-paths insert-globs)
-(use ledger/sqlite/store fresh-id load-snapshot)
+(use ledger/sqlite/snapshot load-snapshot)
+(use ledger/sqlite/generated fresh-id)
 
 (use ledger/operations/transaction in-transaction now record
                                    transaction)
@@ -18,7 +19,6 @@
 (use ledger/failure failure)
 (use ledger/operations/lookups roadmap-id-named)
 (use ledger/events item-added)
-(use ledger/model item-id roadmap-id timestamp)
 
 (export add-item)
 

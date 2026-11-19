@@ -4,7 +4,7 @@
 (use ledger/model ->dep dep dep-type)
 (use ledger/core/deps check-dep-change dep-change)
 (use ledger/sqlite/deps delete-dep insert-dep)
-(use ledger/sqlite/store load-snapshot)
+(use ledger/sqlite/snapshot load-snapshot)
 
 (use ledger/operations/transaction in-transaction record
                                    transaction)

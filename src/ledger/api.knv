@@ -24,12 +24,13 @@
 
 (use ledger/failure failure failure-code failure-message)
 (use ledger/operations/roadmaps list-roadmaps new-roadmap)
+(use ledger/operations/readiness ready-items)
+(use ledger/operations/log read-log)
 
-(use ledger/operations/reading item-detail list-items
-                               read-log ready-items
-                               show-item)
+(use ledger/operations/items item-detail list-items
+                             show-item)
 
-(use ledger/operations/adding add-item)
+(use ledger/operations/new-items add-item)
 
 (use ledger/operations/moves advance-item claim-item
                              close-item drop-item)

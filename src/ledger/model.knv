@@ -1,5 +1,5 @@
 (module
-  "Holds the ledger's values: roadmaps, items, dependencies, paths, events and refusals.")
+  "Holds the ledger's values: roadmaps, items, dependencies, globs, blockages and events.")
 
 (export ->blockage ->dep ->event ->event-draft ->event-stamp
         ->glob ->item ->item-glob ->item-id ->path-conflict
