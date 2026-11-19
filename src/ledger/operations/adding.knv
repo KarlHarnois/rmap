@@ -4,7 +4,7 @@
 (use ledger/model ->dep ->item ->item-id claim dep dep-type
                   item item-id roadmap-id status timestamp)
 
-(use ledger/core/schema check-new-item new-item)
+(use ledger/core/schema check-new-item new-item normalized)
 (use ledger/sqlite/items insert-item)
 (use ledger/sqlite/deps insert-deps)
 (use ledger/sqlite/item-paths insert-globs)
@@ -27,7 +27,7 @@
 (defn add-item (settings roadmap request)
   (in-transaction settings
     (fn (transaction)
-      (insert-new-item transaction roadmap request))))
+      (insert-new-item transaction roadmap (normalized request)))))
 
 (defn insert-new-item (transaction roadmap request)
   (let-try (roadmap-id (roadmap-id-named (ref (:connection transaction))

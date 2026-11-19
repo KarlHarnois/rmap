@@ -9,6 +9,7 @@
 
 (use ledger/core/ready blockage-of unblocked?)
 (use ledger/core/index index-of)
+(use ledger/core/schema distinct)
 
 (use ledger/core/locks conflicts-with-active-builds
                        globs-of)
@@ -74,9 +75,9 @@
     (vec glob)))
 
 (defn globs-or-stored (snapshot item globs)
-  (if (empty? globs)
-    (globs-of snapshot (ref (:id item)))
-    globs))
+  (distinct (ref (if (empty? globs)
+                   (globs-of snapshot (ref (:id item)))
+                   globs))))
 
 (type check-table
   (fn ((ref item) (ref move))

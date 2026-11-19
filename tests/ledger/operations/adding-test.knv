@@ -1,0 +1,22 @@
+(use ledger/api kind show-item)
+
+(use support/ledger added-id globs-of-patterns item-draft
+                    scratch-ledger)
+
+(deftest repeated-blockers-are-stored-once
+  (let (settings (scratch-ledger "repeated-blockers")
+        blocker (added-id (ref settings)
+                          (item-draft kind/research (vec)))
+        draft (assoc (item-draft kind/research (vec))
+                     :after (vec (clone blocker) (clone blocker)))
+        blocked (added-id (ref settings) draft))
+    (assert (= (len (:deps (unwrap-ok (show-item (ref settings) blocked))))
+               1))))
+
+(deftest repeated-paths-are-stored-once
+  (let (settings (scratch-ledger "repeated-paths")
+        build (added-id (ref settings)
+                        (item-draft kind/build
+                                    (globs-of-patterns (vec "src/*" "src/*")))))
+    (assert (= (len (:globs (unwrap-ok (show-item (ref settings) build))))
+               1))))

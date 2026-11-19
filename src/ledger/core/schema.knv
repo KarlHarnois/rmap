@@ -9,7 +9,7 @@
 (use ledger/core/cycles closes-cycle?)
 
 (export ->new-item check-dep-removal check-new-dep
-        check-new-item new-item)
+        check-new-item distinct new-item normalized)
 
 (defstruct new-item
   :parent (option item-id)
@@ -119,3 +119,22 @@
       (and (= (:type dep) dep-type/blocks)
            (= (ref (:item dep)) item)
            (= (ref (:on dep)) on)))))
+
+(type distinct
+  (where ((a clone partial-eq))
+    (fn ((ref (vec a))) (vec a))))
+
+(defn distinct (values)
+  (let (unique (vec))
+    (for-each values
+      (fn (value)
+        (when (not (contains? (ref unique) (clone value)))
+          (push! unique (clone value)))))
+    unique))
+
+(type normalized (fn (new-item) new-item))
+
+(defn normalized (request)
+  (let (globs (distinct (ref (:globs request)))
+        after (distinct (ref (:after request))))
+    (-> request (assoc :globs globs) (assoc :after after))))

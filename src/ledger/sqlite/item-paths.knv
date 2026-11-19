@@ -19,7 +19,7 @@
 
 (defn insert-item-path (connection path)
   (execute connection
-           "INSERT OR IGNORE INTO item_paths (item_id, glob) VALUES (?1, ?2)"
+           "INSERT INTO item_paths (item_id, glob) VALUES (?1, ?2)"
            (ref (vec (text->json (as-str (:value (:item path))))
                      (text->json (as-str (:pattern (:glob path))))))))
 
