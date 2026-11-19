@@ -7,11 +7,11 @@
 (use ledger/model claim glob item kind session status
                   timestamp)
 
-(export ->advancement advancement advancement->move command
-        kind-change move move->command move->target moved
-        new-globs)
+(export ->advancement advancement advancement->move
+        kind-change move move-type move-type-of moved
+        new-globs target-status)
 
-(defenum command
+(defenum move-type
   claim
   advance
   advance-to-build
@@ -44,15 +44,15 @@
     (ok (move/advance-to-build globs))
     (err refusal/invalid-kind-change)))
 
-(defn move->command (move)
+(defn move-type-of (move)
   (match move
-    ((move/claim _) command/claim)
-    ((move/advance _) command/advance)
-    ((move/advance-to-build _) command/advance-to-build)
-    (move/close command/close)
-    ((move/drop _) command/drop)))
+    ((move/claim _) move-type/claim)
+    ((move/advance _) move-type/advance)
+    ((move/advance-to-build _) move-type/advance-to-build)
+    (move/close move-type/close)
+    ((move/drop _) move-type/drop)))
 
-(defn move->target (move)
+(defn target-status (move)
   (match move
     ((move/claim _) status/dispatched)
     ((move/advance target) target)
@@ -70,7 +70,7 @@
     item))
 
 (defn moved (item move now)
-  (let (target (move->target move))
+  (let (target (target-status move))
     (-> (clone item)
         (assoc :status target)
         (assoc :claim (claim-after item move))

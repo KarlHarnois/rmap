@@ -4,8 +4,8 @@
 (use ledger/model glob item kind snapshot status)
 (use ledger/refusal refusal)
 
-(use ledger/core/move command move move->command
-                      move->target)
+(use ledger/core/move move move-type move-type-of
+                      target-status)
 
 (use ledger/core/ready blockage-of unblocked?)
 (use ledger/core/index index-of)
@@ -17,7 +17,7 @@
 (export approved-move)
 
 (defstruct allowance
-  :command command
+  :move-type move-type
   :kinds (vec kind)
   :steps (vec (pair status status)))
 
@@ -27,29 +27,29 @@
 (defn reporting-kinds () (vec kind/research kind/design))
 
 (defn allowances ()
-  (vec (->allowance :command command/claim
+  (vec (->allowance :move-type move-type/claim
                     :kinds (work-kinds)
                     :steps (vec (pair status/open status/dispatched)))
-       (->allowance :command command/advance
+       (->allowance :move-type move-type/advance
                     :kinds (work-kinds)
                     :steps (vec (pair status/dispatched status/open)))
-       (->allowance :command command/advance
+       (->allowance :move-type move-type/advance
                     :kinds (reporting-kinds)
                     :steps (vec (pair status/dispatched status/reported)))
-       (->allowance :command command/advance
+       (->allowance :move-type move-type/advance
                     :kinds (vec kind/build)
                     :steps (vec (pair status/dispatched status/in-review)
                                 (pair status/in-review status/fixing)
                                 (pair status/in-review status/merging)
                                 (pair status/fixing status/in-review)
                                 (pair status/merging status/fixing)))
-       (->allowance :command command/advance-to-build
+       (->allowance :move-type move-type/advance-to-build
                     :kinds (reporting-kinds)
                     :steps (vec (pair status/reported status/dispatched)))
-       (->allowance :command command/close
+       (->allowance :move-type move-type/close
                     :kinds (vec kind/build)
                     :steps (vec (pair status/merging status/merged)))
-       (->allowance :command command/drop
+       (->allowance :move-type move-type/drop
                     :kinds (work-kinds)
                     :steps (steps-to-dropped))))
 
@@ -89,17 +89,17 @@
      (err refusal/epic-status-computed))
     ((allowed? item move) (ok (do)))
     (else (err (refusal/invalid-transition (:status item)
-                                           (move->target move))))))
+                                           (target-status move))))))
 
 (type allowed?
   (fn ((ref item) (ref move)) bool))
 
 (defn allowed? (item move)
-  (let (command (move->command move)
-        step (pair (:status item) (move->target move)))
+  (let (type (move-type-of move)
+        step (pair (:status item) (target-status move)))
     (any? (allowances)
       (fn (allowance)
-        (and (= (:command allowance) command)
+        (and (= (:move-type allowance) type)
              (contains? (:kinds allowance) (:kind item))
              (contains? (:steps allowance) step))))))
 

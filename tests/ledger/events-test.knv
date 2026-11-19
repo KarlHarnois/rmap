@@ -1,12 +1,12 @@
 (use json/value copy-of field json->items json->text)
 (use ledger/model ->session kind status)
 (use ledger/core/move move)
-(use ledger/events ->item-move item-moved)
+(use ledger/events ->applied-move item-moved)
 (use support/items glob-of work-item)
 
 (defn moved-payload (from to move)
   (let (draft (item-moved (ref
-                            (->item-move
+                            (->applied-move
                               :before (work-item "rm-0001" kind/research from)
                               :after (work-item "rm-0001" kind/research to)
                               :move move))))

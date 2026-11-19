@@ -2,7 +2,7 @@
   "Claims, advances, closes and drops items, each in one transaction.")
 
 (use ledger/model item item-id)
-(use ledger/events ->item-move item-move item-moved)
+(use ledger/events ->applied-move applied-move item-moved)
 
 (use ledger/core/move advancement->move move moved
                       new-globs)
@@ -48,32 +48,32 @@
             item (existing (ref snapshot) id)
             move (approved-move (ref snapshot) (ref item) requested))
     (store-move transaction
-                (->item-move :before (clone item)
-                             :after (moved (ref item)
-                                           (ref move)
-                                           (ref (now transaction)))
-                             :move move))))
+                (->applied-move :before (clone item)
+                                :after (moved (ref item)
+                                              (ref move)
+                                              (ref (now transaction)))
+                                :move move))))
 
 (type store-move
-  (fn ((ref transaction) item-move)
+  (fn ((ref transaction) applied-move)
     (result item failure)))
 
-(defn store-move (transaction change)
+(defn store-move (transaction applied)
   (let-try (_ (update-item (ref (:connection transaction))
-                           (ref (:after change)))
-            _ (store-globs transaction (ref change))
-            _ (record transaction (item-moved (ref change))))
-    (ok (clone (:after change)))))
+                           (ref (:after applied)))
+            _ (store-globs transaction (ref applied))
+            _ (record transaction (item-moved (ref applied))))
+    (ok (clone (:after applied)))))
 
 (type store-globs
-  (fn ((ref transaction) (ref item-move))
+  (fn ((ref transaction) (ref applied-move))
     (result unit failure)))
 
-(defn store-globs (transaction change)
-  (match (new-globs (ref (:move change)))
+(defn store-globs (transaction applied)
+  (match (new-globs (ref (:move applied)))
     ((some globs)
      (let-try (_ (replace-globs (ref (:connection transaction))
-                                (ref (:id (:after change)))
+                                (ref (:id (:after applied)))
                                 (ref globs)))
        (ok (do))))
     (none (ok (do)))))

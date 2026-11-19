@@ -17,10 +17,10 @@
 (use ledger/core/new-items new-item)
 (use ledger/core/deps dep-change)
 
-(export ->item-move dep-changed item-added item-move
+(export ->applied-move applied-move dep-changed item-added
         item-moved roadmap-created)
 
-(defstruct item-move
+(defstruct applied-move
   :before item
   :after item
   :move move)
@@ -82,13 +82,13 @@
     (remove event-type/dep-removed)))
 
 (type item-moved
-  (fn ((ref item-move)) event-draft))
+  (fn ((ref applied-move)) event-draft))
 
-(defn item-moved (change)
-  (->event-draft :roadmap-id (some (clone (:roadmap-id (:after change))))
-                 :item-id (some (clone (:id (:after change))))
-                 :type (event-type-of (ref (:move change)))
-                 :payload (object (move-fields change))))
+(defn item-moved (applied)
+  (->event-draft :roadmap-id (some (clone (:roadmap-id (:after applied))))
+                 :item-id (some (clone (:id (:after applied))))
+                 :type (event-type-of (ref (:move applied)))
+                 :payload (object (move-fields applied))))
 
 (defn event-type-of (move)
   (match move
@@ -99,21 +99,22 @@
     ((drop _) event-type/item-dropped)))
 
 (type move-fields
-  (fn ((ref item-move))
+  (fn ((ref applied-move))
     (vec (pair string json))))
 
-(defn move-fields (change)
-  (let (fields (detail-fields (ref (:move change))))
+(defn move-fields (applied)
+  (let (fields (detail-fields (ref (:move applied))))
     (push! fields
            (pair (str "from")
                  (text->json (name-of status-names
-                                      (:status (:before change))))))
+                                      (:status (:before applied))))))
     (push! fields
            (pair (str "to")
-                 (text->json (name-of status-names (:status (:after change))))))
+                 (text->json (name-of status-names
+                                      (:status (:after applied))))))
     (push! fields
            (pair (str "kind")
-                 (text->json (name-of kind-names (:kind (:after change))))))
+                 (text->json (name-of kind-names (:kind (:after applied))))))
     fields))
 
 (type detail-fields
