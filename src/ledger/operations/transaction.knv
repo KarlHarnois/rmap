@@ -5,16 +5,17 @@
 (use ledger/refusal refusal)
 (use ledger/events event-draft)
 
-(use ledger/sqlite/connection begin commit connection
-                              database-error open rollback)
+(use ledger/sqlite/connection begin begin-read commit
+                              connection database-error open
+                              rollback)
 
 (use ledger/sqlite/migrations migrate)
 (use ledger/sqlite/migration-sources migration-sources)
 (use ledger/sqlite/events ->new-event append-event)
 (use ledger/sqlite/store database-now)
 
-(export ->settings clock connect failure in-transaction now
-        record settings transaction)
+(export ->settings clock connect failure in-read-transaction
+        in-transaction now record settings transaction)
 
 (defenum clock
   system
@@ -45,8 +46,30 @@
       (result a failure))))
 
 (defn in-transaction (settings work)
+  (run-transaction settings begin work))
+
+(type in-read-transaction
+  (where (a)
+    (fn ((ref settings)
+         (fn ((ref transaction))
+           (result a failure)))
+      (result a failure))))
+
+(defn in-read-transaction (settings work)
+  (run-transaction settings begin-read work))
+
+(type run-transaction
+  (where (a)
+    (fn ((ref settings)
+         (fn ((ref connection))
+           (result unit database-error))
+         (fn ((ref transaction))
+           (result a failure)))
+      (result a failure))))
+
+(defn run-transaction (settings start work)
   (let-try (connection (connect settings)
-            _ (begin (ref connection)))
+            _ (start (ref connection)))
     (let (transaction (->transaction :connection connection
                                      :clock (clone (:clock settings))))
       (finish (ref (:connection transaction))

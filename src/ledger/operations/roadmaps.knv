@@ -12,7 +12,8 @@
 
 (use ledger/sqlite/store fresh-id)
 
-(use ledger/operations/transaction connect failure
+(use ledger/operations/transaction failure
+                                   in-read-transaction
                                    in-transaction now record
                                    settings transaction)
 
@@ -62,6 +63,14 @@
     (result (vec roadmap) failure)))
 
 (defn list-roadmaps (settings)
-  (let-try (connection (connect settings)
-            roadmaps (all-roadmaps (ref connection)))
+  (in-read-transaction settings
+    (fn (transaction)
+      (roadmaps-within (ref (:connection transaction))))))
+
+(type roadmaps-within
+  (fn ((ref connection))
+    (result (vec roadmap) failure)))
+
+(defn roadmaps-within (connection)
+  (let-try (roadmaps (all-roadmaps connection))
     (ok roadmaps)))

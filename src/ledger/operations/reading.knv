@@ -5,10 +5,18 @@
 (use ledger/core/ready readiness readiness-of scope)
 (use ledger/core/index index-of with-shown-status)
 (use ledger/core/locks globs-of)
-(use ledger/sqlite/events ->event-filter events-matching)
+
+(use ledger/sqlite/events ->event-filter event-filter
+                          events-matching)
+
 (use ledger/sqlite/store load-snapshot)
-(use ledger/operations/transaction connect failure settings)
+
+(use ledger/operations/transaction failure
+                                   in-read-transaction
+                                   settings)
+
 (use ledger/operations/lookups existing-item scope-named)
+(use ledger/sqlite/connection connection)
 
 (export item-detail list-items read-log ready-items
         show-item)
@@ -23,9 +31,18 @@
     (result readiness failure)))
 
 (defn ready-items (settings roadmap)
-  (let-try (connection (connect settings)
-            scope (scope-named (ref connection) (ref roadmap))
-            snapshot (load-snapshot (ref connection)))
+  (in-read-transaction settings
+    (fn (transaction)
+      (readiness-within (ref (:connection transaction))
+                        (ref roadmap)))))
+
+(type readiness-within
+  (fn ((ref connection) (ref (option string)))
+    (result readiness failure)))
+
+(defn readiness-within (connection roadmap)
+  (let-try (scope (scope-named connection roadmap)
+            snapshot (load-snapshot connection))
     (ok (readiness-of (ref snapshot) (ref scope)))))
 
 (type read-log
@@ -33,10 +50,18 @@
     (result (vec event) failure)))
 
 (defn read-log (settings item after-id)
-  (let-try (connection (connect settings)
-            events (events-matching (ref connection)
-                                    (ref (->event-filter :item-id item
-                                                         :after-id after-id))))
+  (in-read-transaction settings
+    (fn (transaction)
+      (events-within (ref (:connection transaction))
+                     (ref (->event-filter :item-id (clone item)
+                                          :after-id after-id))))))
+
+(type events-within
+  (fn ((ref connection) (ref event-filter))
+    (result (vec event) failure)))
+
+(defn events-within (connection filter)
+  (let-try (events (events-matching connection filter))
     (ok events)))
 
 (type list-items
@@ -44,9 +69,18 @@
     (result (vec item) failure)))
 
 (defn list-items (settings roadmap)
-  (let-try (connection (connect settings)
-            scope (scope-named (ref connection) (ref roadmap))
-            snapshot (load-snapshot (ref connection)))
+  (in-read-transaction settings
+    (fn (transaction)
+      (items-within (ref (:connection transaction))
+                    (ref roadmap)))))
+
+(type items-within
+  (fn ((ref connection) (ref (option string)))
+    (result (vec item) failure)))
+
+(defn items-within (connection roadmap)
+  (let-try (scope (scope-named connection roadmap)
+            snapshot (load-snapshot connection))
     (ok (shown-items (ref snapshot) (ref scope)))))
 
 (defn shown-items (snapshot scope)
@@ -69,12 +103,22 @@
     (result item-detail failure)))
 
 (defn show-item (settings id)
-  (let-try (connection (connect settings)
-            snapshot (load-snapshot (ref connection))
-            item (existing-item (ref snapshot) (ref id)))
+  (in-read-transaction settings
+    (fn (transaction)
+      (detail-within (ref (:connection transaction))
+                     (ref id)))))
+
+(type detail-within
+  (fn ((ref connection) (ref item-id))
+    (result item-detail failure)))
+
+(defn detail-within (connection id)
+  (let-try (snapshot (load-snapshot connection)
+            item (existing-item (ref snapshot) id))
     (ok (->item-detail :item (with-shown-status (ref (index-of (ref snapshot)))
                                                 (ref item))
                        :deps (collect (map (filter (iter (:deps snapshot))
-                                             (fn (dep) (= (:item dep) id)))
+                                             (fn (dep)
+                                               (= (ref (:item dep)) id)))
                                            clone))
-                       :globs (globs-of (ref snapshot) (ref id))))))
+                       :globs (globs-of (ref snapshot) id)))))

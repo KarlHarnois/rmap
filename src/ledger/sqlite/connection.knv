@@ -4,7 +4,7 @@
 (use ledger/sqlite/values json->sql-value sql-value
                           sql-value->json)
 
-(export ->database-error begin commit connection
+(export ->database-error begin begin-read commit connection
         database-error execute in-write-transaction open
         query rollback run-batch)
 
@@ -107,6 +107,9 @@
   (match outcome
     ((ok value) (map-ok (commit connection) (fn (_) value)))
     ((err failure) (rollback-after connection failure))))
+
+(defn begin-read (connection)
+  (run-batch connection "BEGIN"))
 
 (defn begin (connection)
   (run-batch connection "BEGIN IMMEDIATE"))
