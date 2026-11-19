@@ -6,8 +6,8 @@
                   item-id kind origin path-conflict roadmap
                   session status)
 
-(use ledger/names dep-type-names event-type-names kind-names
-                  name-of named origin-names
+(use ledger/names case-name case-named dep-type-names
+                  event-type-names kind-names origin-names
                   roadmap-status-names status-names)
 
 (use ledger/refusal refusal refusal->message)
@@ -39,15 +39,15 @@
 
 (export ->advancement ->glob ->item-id ->new-item ->session
         ->settings add-dep add-item advance-item advancement
-        blockage blocked-item claim claim-item clock
-        close-item default-database-path dep dep-type
-        dep-type-names drop-item event event-type
-        event-type-names failure failure-code
+        blockage blocked-item case-name case-named claim
+        claim-item clock close-item default-database-path
+        dep dep-type dep-type-names drop-item event
+        event-type event-type-names failure failure-code
         failure-message glob item item-detail item-id kind
         kind-change kind-names list-items list-roadmaps
-        name-of named new-item new-roadmap origin
-        origin-names path-conflict read-log readiness
-        ready-items refusal refusal->message refusal-catalog
-        refusal-code-text refusal-description remove-dep
-        roadmap roadmap-status-names session settings
-        show-item status status-names)
+        new-item new-roadmap origin origin-names
+        path-conflict read-log readiness ready-items refusal
+        refusal->message refusal-catalog refusal-code-text
+        refusal-description remove-dep roadmap
+        roadmap-status-names session settings show-item
+        status status-names)

@@ -3,7 +3,7 @@
 
 (use ledger/sqlite/values sql-value text->sql)
 (use ledger/model ->dep ->item-id dep)
-(use ledger/names dep-type-names name-of)
+(use ledger/names case-name dep-type-names)
 (use ledger/sqlite/connection execute query)
 
 (use ledger/sqlite/rows named-cell rows->values text-cell
@@ -27,7 +27,7 @@
 (defn dep->row (dep)
   (vec (text->sql (as-str (:value (:item dep))))
        (text->sql (as-str (:value (:on dep))))
-       (text->sql (name-of dep-type-names (:type dep)))))
+       (text->sql (case-name dep-type-names (:type dep)))))
 
 (defn all-deps (connection)
   (let-try (rows (query connection

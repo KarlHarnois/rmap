@@ -1,7 +1,7 @@
 (module
   "Reads typed values out of the command line's flags.")
 
-(use ledger/api ->glob named)
+(use ledger/api ->glob case-named)
 (use cli/arguments flag required-flag)
 
 (export list-flag list-flag-globs named-flag
@@ -31,7 +31,7 @@
     (none (ok none))))
 
 (defn text->named (text name names)
-  (ok-or (named names text)
+  (ok-or (case-named names text)
          (str "--" name " does not accept " text)))
 
 (defn list-flag (arguments name)

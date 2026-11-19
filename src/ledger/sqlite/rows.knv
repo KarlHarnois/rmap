@@ -1,7 +1,7 @@
 (module
   "Reads typed cells out of query rows and runs a step over every value until one fails.")
 
-(use ledger/names named)
+(use ledger/names case-named)
 
 (use ledger/sqlite/connection database-error
                               database-failure)
@@ -39,7 +39,7 @@
 
 (defn named-cell (row index names)
   (let-try (text (text-cell row index))
-    (ok-or (named names (as-str text))
+    (ok-or (case-named names (as-str text))
            (database-failure
              (str "column " index " holds an unknown name: " text)))))
 

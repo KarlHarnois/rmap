@@ -4,8 +4,8 @@
 (use ledger/model dep-type event-type kind origin
                   roadmap-status status)
 
-(export dep-type-names event-type-names kind-names name-of
-        named origin-names roadmap-status-names
+(export case-name case-named dep-type-names event-type-names
+        kind-names origin-names roadmap-status-names
         status-names)
 
 (def roadmap-status-names
@@ -48,7 +48,7 @@
        (pair event-type/dep-added "dep-added")
        (pair event-type/dep-removed "dep-removed")))
 
-(defn name-of (names value)
+(defn case-name (names value)
   (-> names iter
       (find (fn (entry)
               (let-match ((pair case _) (deref entry))
@@ -58,7 +58,7 @@
                     name)))
       (unwrap-or "")))
 
-(defn named (names text)
+(defn case-named (names text)
   (-> names iter
       (find (fn (entry)
               (let-match ((pair _ name) (deref entry))

@@ -6,7 +6,7 @@
 (use ledger/model ->event-draft dep event-draft event-type
                   item roadmap)
 
-(use ledger/names kind-names name-of origin-names
+(use ledger/names case-name kind-names origin-names
                   status-names)
 
 (use ledger/core/move move)
@@ -47,24 +47,24 @@
     :roadmap-id (some (clone (:roadmap-id item)))
     :item-id (some (clone (:id item)))
     :type event-type/item-added
-    :payload (object (vec (pair (str "title")
-                                (text->json (as-str (:title item))))
-                          (pair (str "kind")
-                                (text->json (name-of kind-names (:kind item))))
-                          (pair (str "origin")
-                                (text->json (name-of origin-names
-                                                     (:origin item))))
-                          (pair (str "priority")
-                                (int->json (:priority item)))
-                          (pair (str "parent_id")
-                                (optional-id->json (ref (:parent item))))
-                          (pair (str "paths")
-                                (globs->json (ref (:globs request))))
-                          (pair (str "blocked_by")
-                                (ids->json (ref (:blocked-by request))))
-                          (pair (str "discovered_from")
-                                (optional-id->json (ref (:discovered-from
-                                                          request))))))))
+    :payload (object
+               (vec (pair (str "title")
+                          (text->json (as-str (:title item))))
+                    (pair (str "kind")
+                          (text->json (case-name kind-names (:kind item))))
+                    (pair (str "origin")
+                          (text->json (case-name origin-names (:origin item))))
+                    (pair (str "priority")
+                          (int->json (:priority item)))
+                    (pair (str "parent_id")
+                          (optional-id->json (ref (:parent item))))
+                    (pair (str "paths")
+                          (globs->json (ref (:globs request))))
+                    (pair (str "blocked_by")
+                          (ids->json (ref (:blocked-by request))))
+                    (pair (str "discovered_from")
+                          (optional-id->json (ref (:discovered-from
+                                                    request))))))))
 
 (type dep-changed
   (fn ((ref item) (ref dep) dep-change)
@@ -107,15 +107,15 @@
   (let (fields (detail-fields (ref (:move applied))))
     (push! fields
            (pair (str "from")
-                 (text->json (name-of status-names
-                                      (:status (:before applied))))))
+                 (text->json (case-name status-names
+                                        (:status (:before applied))))))
     (push! fields
            (pair (str "to")
-                 (text->json (name-of status-names
-                                      (:status (:after applied))))))
+                 (text->json (case-name status-names
+                                        (:status (:after applied))))))
     (push! fields
            (pair (str "kind")
-                 (text->json (name-of kind-names (:kind (:after applied))))))
+                 (text->json (case-name kind-names (:kind (:after applied))))))
     fields))
 
 (type detail-fields

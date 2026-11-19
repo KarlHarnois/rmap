@@ -1,0 +1,37 @@
+(use ledger/names case-name case-named dep-type-names
+                  event-type-names kind-names origin-names
+                  roadmap-status-names status-names)
+
+(type round-trips?
+  (where ((a copy partial-eq))
+    (fn ((ref (vec (pair a (ref str)))))
+      bool)))
+
+(defn round-trips? (names)
+  (every? (iter names)
+    (fn (entry)
+      (let-match ((pair case name) (deref entry))
+        (and (not (empty? name))
+             (= (case-named names name) (some case))
+             (= (count (filter (iter names)
+                         (fn (other)
+                           (= (second (deref other)) name))))
+                1))))))
+
+(deftest every-kind-has-one-name
+  (assert (round-trips? (ref kind-names))))
+
+(deftest every-status-has-one-name
+  (assert (round-trips? (ref status-names))))
+
+(deftest every-origin-has-one-name
+  (assert (round-trips? (ref origin-names))))
+
+(deftest every-roadmap-status-has-one-name
+  (assert (round-trips? (ref roadmap-status-names))))
+
+(deftest every-dep-type-has-one-name
+  (assert (round-trips? (ref dep-type-names))))
+
+(deftest every-event-type-has-one-name
+  (assert (round-trips? (ref event-type-names))))

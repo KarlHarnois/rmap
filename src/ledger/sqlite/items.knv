@@ -6,7 +6,7 @@
 (use ledger/model ->item ->item-id ->roadmap-id ->session
                   ->timestamp claim item item-id timestamp)
 
-(use ledger/names kind-names name-of origin-names
+(use ledger/names case-name kind-names origin-names
                   status-names)
 
 (use ledger/sqlite/connection connection database-error
@@ -34,9 +34,9 @@
                      (text->sql (as-str (:value (:roadmap-id item))))
                      (optional-id->sql (ref (:parent item)))
                      (text->sql (as-str (:title item)))
-                     (text->sql (name-of kind-names (:kind item)))
-                     (text->sql (name-of status-names (:status item)))
-                     (text->sql (name-of origin-names (:origin item)))
+                     (text->sql (case-name kind-names (:kind item)))
+                     (text->sql (case-name status-names (:status item)))
+                     (text->sql (case-name origin-names (:origin item)))
                      (int->sql (:priority item))
                      (claim->sql (ref (:claim item)))
                      (text->sql (as-str (:value (:created-at item))))
@@ -50,8 +50,8 @@
   (execute connection
            "UPDATE items SET kind = ?2, status = ?3, claimed_by = ?4, closed_at = ?5 WHERE id = ?1"
            (ref (vec (text->sql (as-str (:value (:id item))))
-                     (text->sql (name-of kind-names (:kind item)))
-                     (text->sql (name-of status-names (:status item)))
+                     (text->sql (case-name kind-names (:kind item)))
+                     (text->sql (case-name status-names (:status item)))
                      (claim->sql (ref (:claim item)))
                      (closed-at->sql (ref (:closed-at item)))))))
 

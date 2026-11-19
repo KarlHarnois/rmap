@@ -6,7 +6,7 @@
 (use ledger/model ->roadmap ->roadmap-id ->session
                   ->timestamp roadmap)
 
-(use ledger/names name-of roadmap-status-names)
+(use ledger/names case-name roadmap-status-names)
 
 (use ledger/sqlite/connection connection database-error
                               execute query)
@@ -29,8 +29,8 @@
            (ref (vec (text->sql (as-str (:value (:id roadmap))))
                      (text->sql (as-str (:name roadmap)))
                      (text->sql (as-str (:name (:manager roadmap))))
-                     (text->sql (name-of roadmap-status-names
-                                         (:status roadmap)))
+                     (text->sql (case-name roadmap-status-names
+                                           (:status roadmap)))
                      (text->sql (as-str (:value (:created-at roadmap))))))))
 
 (defn all-roadmaps (connection)

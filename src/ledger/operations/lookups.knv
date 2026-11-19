@@ -1,5 +1,5 @@
 (module
-  "Finds a roadmap or an item the caller named, or refuses when none exists.")
+  "Finds a roadmap or an item the caller case-named, or refuses when none exists.")
 
 (use ledger/model roadmap-id)
 (use ledger/refusal refusal)

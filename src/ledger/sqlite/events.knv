@@ -8,7 +8,7 @@
                   event event-draft event-stamp item-id
                   roadmap-id)
 
-(use ledger/names event-type-names name-of)
+(use ledger/names case-name event-type-names)
 
 (use ledger/sqlite/connection connection database-error
                               database-failure execute
@@ -38,7 +38,7 @@
                      (text->sql (as-str (:actor stamp)))
                      (optional-roadmap->sql (ref (:roadmap-id draft)))
                      (optional-item->sql (ref (:item-id draft)))
-                     (text->sql (name-of event-type-names (:type draft)))
+                     (text->sql (case-name event-type-names (:type draft)))
                      (text->sql (as-str (json->string (ref (:payload
                                                              draft)))))))))
 

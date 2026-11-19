@@ -2,9 +2,9 @@
   "Turns the command line into a request for the ledger.")
 
 (use ledger/api ->advancement ->item-id ->new-item ->session
-                advancement item-id kind-change kind-names
-                named new-item origin origin-names session
-                status-names)
+                advancement case-named item-id kind-change
+                kind-names new-item origin origin-names
+                session status-names)
 
 (use cli/routes route subcommand)
 
@@ -115,7 +115,7 @@
     (ok (request/drop (text->id id) reason))))
 
 (defn advance-request (arguments id status-text)
-  (let-try (target (ok-or (named status-names (as-str status-text))
+  (let-try (target (ok-or (case-named status-names (as-str status-text))
                           (str "unknown status: " status-text))
             change (kind-change-of arguments))
     (ok (request/advance (text->id id)

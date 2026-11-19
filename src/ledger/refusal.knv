@@ -2,7 +2,7 @@
   "Names each ledger refusal and gives it a sentence for the user.")
 
 (use ledger/model blockage item-id path-conflict status)
-(use ledger/names name-of status-names)
+(use ledger/names case-name status-names)
 
 (export refusal refusal->message)
 
@@ -25,9 +25,10 @@
 
 (defn refusal->message (failure)
   (match failure
-    ((roadmap-not-found name) (str "no roadmap is named " name))
+    ((roadmap-not-found name)
+     (str "no roadmap is case-named " name))
     ((roadmap-exists name)
-     (str "a roadmap named " name " already exists"))
+     (str "a roadmap case-named " name " already exists"))
     ((item-not-found id)
      (str "no item has the id " (:value id)))
     ((parent-not-epic id)
@@ -43,9 +44,9 @@
     (invalid-kind-change (str "only an advance to dispatched can turn an item into a build"))
     ((invalid-transition from to)
      (str "an item cannot move from "
-          (name-of status-names from)
+          (case-name status-names from)
           " to "
-          (name-of status-names to)))
+          (case-name status-names to)))
     ((not-ready _) (str "the item is not ready"))
     ((paths-conflict _)
      (str "the paths conflict with an active build"))
