@@ -6,21 +6,27 @@
 
 (use ledger/sqlite/migration-sources migration-sources)
 (use support/scratch scratch-database)
+(use files/directory file-names-ending-with)
 
 (def fixture-migration
   "tests/fixtures/0002-add-item-notes.sql")
 
-(defn embedded-sql (version)
-  (-> (migration-sources)
-      iter
-      (find (fn (migration)
-              (= (:version migration) version)))
-      (map-some (fn (migration)
-                  (clone (:sql migration))))))
+(defn embedded-files ()
+  (let (files (collect (map (iter (migration-sources))
+                         (fn (migration)
+                           (clone (:file migration))))))
+    (sort! files)
+    files))
 
-(deftest embedded-migrations-match-the-sql-files
-  (assert (= (embedded-sql 1)
-             (some (unwrap-ok (slurp "migrations/0001-init.sql"))))))
+(deftest every-migration-file-is-embedded
+  (assert (= (embedded-files)
+             (unwrap-ok (file-names-ending-with "migrations" ".sql")))))
+
+(deftest each-embedded-migration-matches-its-file
+  (for-each (migration-sources)
+    (fn (migration)
+      (assert (= (clone (:sql migration))
+                 (unwrap-ok (slurp (str "migrations/" (:file migration)))))))))
 
 (defn opened (name)
   (unwrap-ok (open (as-str (scratch-database name)))))
@@ -46,6 +52,7 @@
     (let (extended (migration-sources))
       (push! extended
              (->migration :version 2
+                          :file (str "0002-add-item-notes.sql")
                           :sql (unwrap-ok (slurp fixture-migration))))
       (unwrap-ok (migrate (ref connection) extended)))
     (assert (= (unwrap-ok (schema-version (ref connection)))
@@ -58,3 +65,12 @@
     (unwrap-ok (migrate (ref connection) (migration-sources)))
     (assert (= (unwrap-ok (schema-version (ref connection)))
                1))))
+
+(deftest migrations-that-share-a-version-are-refused
+  (let (connection (opened "shared-version")
+        clashing (migration-sources))
+    (push! clashing
+           (->migration :version 1
+                        :file (str "0001-other.sql")
+                        :sql (str "SELECT 1;")))
+    (assert (err? (migrate (ref connection) clashing)))))

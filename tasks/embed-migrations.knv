@@ -6,28 +6,8 @@
 (def sources-module
   "src/ledger/sqlite/migration-sources.knv")
 
-(def directory-entries
-  (rust "std::fs::read_dir({0}).map(|entries| entries.filter_map(|entry| entry.ok()).map(|entry| entry.file_name().to_string_lossy().to_string()).collect::<Vec<String>>()).map_err(|failure| failure.to_string())"
-    (fn ((ref str))
-      (result (vec string) string))))
-
-(defn migration-files (directory)
-  (map-ok (directory-entries directory)
-    (fn (names)
-      (let (files (collect (map (filter (iter names)
-                                  (fn (name) (ends-with-sql? name)))
-                                clone)))
-        (sort! files)
-        files))))
-
-(def sql-extension ".sql")
-
-(defn ends-with-sql? (name)
-  (let (size (len name)
-        extension-size (len sql-extension))
-    (and (>= size extension-size)
-         (= (subs (as-str name) (- size extension-size) size)
-            sql-extension))))
+(use files/directory file-names-ending-with)
+(use process/command ->command run-command)
 
 (def write-file
   (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
@@ -52,8 +32,9 @@
   (let-try (version (version-of file-name)
             sql (map-err (slurp (str migrations-directory "/" file-name))
                   (fn (failure) (str failure))))
-    (ok (str "       (->migration :version " version
-             " :sql (str "
+    (ok (str "(->migration :version " version " :file (str "
+             (pr-str file-name)
+             ")" " :sql (str "
              (pr-str sql)
              "))"))))
 
@@ -62,13 +43,25 @@
        "(use ledger/sqlite/migrations ->migration)\n\n"
        "(export migration-sources)\n\n"
        "(defn migration-sources ()\n  (vec "
-       (trim (as-str (join forms "\n")))
+       (join forms "\n")
        "))\n"))
 
 (defn embed ()
-  (let-try (files (migration-files migrations-directory)
-            forms (collect-forms files))
-    (write-file sources-module (as-str (module-text forms)))))
+  (let-try (files (file-names-ending-with migrations-directory ".sql")
+            forms (collect-forms files)
+            _ (write-file sources-module (as-str (module-text forms))))
+    (formatted sources-module)))
+
+(defn formatted (path)
+  (match (run-command (ref (->command :program (str "knave")
+                                      :args (vec (str "fmt") (str path)))))
+    ((ok output) (formatting-outcome output))
+    ((err message) (err message))))
+
+(defn formatting-outcome (output)
+  (if (= (:code output) 0)
+    (ok (do))
+    (err (clone (:stderr output)))))
 
 (defn collect-forms (files)
   (loop (index 0

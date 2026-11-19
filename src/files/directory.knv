@@ -1,0 +1,25 @@
+(module
+  "Lists the names of the files in a directory.")
+
+(export file-names-ending-with)
+
+(def entry-names
+  (rust "std::fs::read_dir({0}).map(|entries| entries.filter_map(|entry| entry.ok()).map(|entry| entry.file_name().to_string_lossy().to_string()).collect::<Vec<String>>()).map_err(|failure| failure.to_string())"
+    (fn ((ref str))
+      (result (vec string) string))))
+
+(defn file-names-ending-with (directory extension)
+  (map-ok (entry-names directory)
+    (fn (names)
+      (let (matching (collect (map (filter (iter names)
+                                     (fn (name) (ends-with? name extension)))
+                                   clone)))
+        (sort! matching)
+        matching))))
+
+(defn ends-with? (name extension)
+  (let (size (len name)
+        extension-size (len extension))
+    (and (>= size extension-size)
+         (= (subs (as-str name) (- size extension-size) size)
+            extension))))
