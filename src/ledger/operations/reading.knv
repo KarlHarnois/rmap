@@ -13,10 +13,10 @@
 
 (use ledger/sqlite/store load-snapshot)
 
-(use ledger/operations/transaction failure
-                                   in-read-transaction
+(use ledger/operations/transaction in-read-transaction
                                    settings)
 
+(use ledger/failure failure)
 (use ledger/operations/lookups scope-named)
 (use ledger/sqlite/connection connection)
 

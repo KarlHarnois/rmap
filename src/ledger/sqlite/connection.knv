@@ -4,24 +4,30 @@
 (use ledger/sqlite/values json->sql-value sql-value
                           sql-value->json)
 
-(export ->database-error begin begin-read commit connection
-        database-error execute in-write-transaction open
-        query rollback run-batch)
+(export ->database-error begin begin-read connection
+        database-error database-failure database-problem
+        execute finish in-write-transaction open query
+        run-batch)
 
 (rust-type connection "rusqlite::Connection")
 
+(defenum database-problem
+  busy
+  failed)
+
 (defstruct database-error
+  :problem database-problem
   :message string)
 
 (def busy-timeout-milliseconds 5000)
 
 (def open-raw
-  (rust "rusqlite::Connection::open({0}).map_err(|failure| failure.to_string())"
+  (rust "rusqlite::Connection::open({0}).map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string()))"
     (fn ((ref str))
-      (result connection string))))
+      (result connection (pair bool string)))))
 
 (defn open (path)
-  (let-try (connection (map-err (open-raw path) message->error)
+  (let-try (connection (map-err (open-raw path) raw->error)
             _ (run-batch (ref connection)
                          (as-str (str "PRAGMA busy_timeout = "
                                       busy-timeout-milliseconds
@@ -48,40 +54,50 @@
          (recur (inc attempt)))
         (else (map-ok outcome (fn (_) (do))))))))
 
-(defn message->error (message)
-  (->database-error :message message))
+(defn raw->error (raw)
+  (let-match ((pair locked message) raw)
+    (->database-error :problem (problem-of locked)
+                      :message message)))
+
+(defn database-failure (message)
+  (->database-error :problem database-problem/failed
+                    :message message))
+
+(defn problem-of (locked)
+  (if locked database-problem/busy database-problem/failed))
 
 (def run-batch-raw
-  (rust "{0}.execute_batch({1}).map_err(|failure| failure.to_string())"
+  (rust "{0}.execute_batch({1}).map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string()))"
     (fn ((ref connection) (ref str))
-      (result unit string))))
+      (result unit (pair bool string)))))
 
 (defn run-batch (connection sql)
-  (map-err (run-batch-raw connection sql) message->error))
+  (map-err (run-batch-raw connection sql) raw->error))
 
 (def execute-raw
-  (rust "{0}.execute({1}, rusqlite::params_from_iter({2}.iter())).map(|changed| changed as i64).map_err(|failure| failure.to_string())"
+  (rust "{0}.execute({1}, rusqlite::params_from_iter({2}.iter())).map(|changed| changed as i64).map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string()))"
     (fn ((ref connection)
          (ref str)
          (ref (vec sql-value)))
-      (result int string))))
+      (result int (pair bool string)))))
 
 (defn execute (connection sql parameters)
   (map-err (execute-raw connection sql
                         (ref (json->sql-values parameters)))
-           message->error))
+           raw->error))
 
 (def query-raw
-  (rust "(|| -> Result<Vec<Vec<rusqlite::types::Value>>, String> {{ let mut statement = {0}.prepare({1}).map_err(|failure| failure.to_string())?; let width = statement.column_count(); let rows = statement.query_map(rusqlite::params_from_iter({2}.iter()), |row| (0..width).map(|index| row.get::<_, rusqlite::types::Value>(index)).collect::<Result<Vec<_>, _>>()).map_err(|failure| failure.to_string())?; rows.collect::<Result<Vec<_>, _>>().map_err(|failure| failure.to_string()) }})()"
+  (rust "(|| -> Result<Vec<Vec<rusqlite::types::Value>>, (bool, String)> {{ let mut statement = {0}.prepare({1}).map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string()))?; let width = statement.column_count(); let rows = statement.query_map(rusqlite::params_from_iter({2}.iter()), |row| (0..width).map(|index| row.get::<_, rusqlite::types::Value>(index)).collect::<Result<Vec<_>, _>>()).map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string()))?; rows.collect::<Result<Vec<_>, _>>().map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string())) }})()"
     (fn ((ref connection)
          (ref str)
          (ref (vec sql-value)))
-      (result (vec (vec sql-value)) string))))
+      (result (vec (vec sql-value))
+              (pair bool string)))))
 
 (defn query (connection sql parameters)
   (map-ok (map-err (query-raw connection sql
                               (ref (json->sql-values parameters)))
-                   message->error)
+                   raw->error)
           rows->json))
 
 (defn json->sql-values (parameters)
@@ -100,13 +116,25 @@
       (result a database-error))))
 
 (defn in-write-transaction (connection work)
-  (let-try (_ (begin connection))
-    (finish-transaction connection (work connection))))
+  (let-try (_ (begin connection)
+            outcome (finish connection (work connection)))
+    outcome))
 
-(defn finish-transaction (connection outcome)
+(type finish
+  (where (a e)
+    (fn ((ref connection) (result a e))
+      (result (result a e) database-error))))
+
+(defn finish (connection outcome)
   (match outcome
-    ((ok value) (map-ok (commit connection) (fn (_) value)))
-    ((err failure) (rollback-after connection failure))))
+    ((ok value)
+     (map-ok (commit connection)
+       (fn (_) (ok value))))
+    ((err failure) (rolled-back connection failure))))
+
+(defn rolled-back (connection failure)
+  (match (rollback connection)
+    (_ (ok (err failure)))))
 
 (defn begin-read (connection)
   (run-batch connection "BEGIN"))
@@ -118,7 +146,3 @@
   (run-batch connection "ROLLBACK"))
 
 (defn commit (connection) (run-batch connection "COMMIT"))
-
-(defn rollback-after (connection failure)
-  (match (rollback connection)
-    (_ (err failure))))

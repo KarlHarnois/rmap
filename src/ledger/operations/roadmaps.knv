@@ -12,11 +12,11 @@
 
 (use ledger/sqlite/store fresh-id)
 
-(use ledger/operations/transaction failure
-                                   in-read-transaction
+(use ledger/operations/transaction in-read-transaction
                                    in-transaction now record
                                    settings transaction)
 
+(use ledger/failure failure)
 (use ledger/events roadmap-created)
 
 (export list-roadmaps new-roadmap)

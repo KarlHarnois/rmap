@@ -1,0 +1,25 @@
+(use ledger/failure failure failure-code)
+(use ledger/refusal refusal)
+
+(use ledger/sqlite/connection ->database-error
+                              database-problem)
+
+(deftest a-refusal-reports-its-refusal-code
+  (assert (= (failure-code (failure/refused refusal/epic-has-parent))
+             (str "epic-has-parent"))))
+
+(deftest a-lock-timeout-reports-busy
+  (assert (= (failure-code (failure/database (->database-error
+                                               :problem database-problem/busy
+                                               :message (str "locked"))))
+             (str "busy"))))
+
+(deftest any-other-database-error-reports-database
+  (assert (= (failure-code (failure/database (->database-error
+                                               :problem database-problem/failed
+                                               :message (str "corrupt"))))
+             (str "database"))))
+
+(deftest a-missing-repository-reports-no-repository
+  (assert (= (failure-code (failure/no-repository (str "not a git repository")))
+             (str "no-repository"))))

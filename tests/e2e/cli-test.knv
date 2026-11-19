@@ -1,3 +1,5 @@
+(use ledger/sqlite/connection open run-batch)
+
 (use json/value copy-of field json->bool json->int
                 json->items json->text)
 
@@ -348,3 +350,11 @@
                (vec (str "roadmap")
                     (str "title")
                     (str "kind"))))))
+
+(deftest a-write-that-waits-out-the-lock-reports-busy
+  (let (database (ledger "busy")
+        holder (unwrap-ok (open (as-str database))))
+    (unwrap-ok (run-batch (ref holder) "BEGIN IMMEDIATE"))
+    (let (result (rmap database (vec "new" "other" "--manager" "m2")))
+      (assert (= (:exit-code result) 3))
+      (assert (= (error-code (ref result)) "busy")))))

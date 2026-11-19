@@ -13,9 +13,10 @@
 (use ledger/sqlite/items update-item)
 (use ledger/sqlite/store load-snapshot)
 
-(use ledger/operations/transaction failure in-transaction
-                                   now record transaction)
+(use ledger/operations/transaction in-transaction now record
+                                   transaction)
 
+(use ledger/failure failure)
 (use ledger/core/snapshot existing)
 (use ledger/sqlite/item-paths replace-globs)
 

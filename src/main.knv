@@ -3,10 +3,9 @@
 (use ledger/api ->settings add-dep add-item advance-item
                 claim-item clock close-item
                 default-database-path drop-item failure
-                list-items list-roadmaps new-roadmap
-                read-log ready-items refusal
-                refusal->message refusal-code-text
-                remove-dep show-item)
+                failure-code failure-message list-items
+                list-roadmaps new-roadmap read-log
+                ready-items refusal remove-dep show-item)
 
 (use cli/requests parse-invocation request)
 (use cli/exit-codes exit-code exit-code->number)
@@ -26,8 +25,6 @@
 (defn main ()
   (let (outcome (run (command-line-args)))
     (println (json->string (ref (:output outcome))))
-    (when (= (:exit-code outcome) exit-code/usage)
-      (eprintln "run `rmap help` to list the commands and their flags"))
     (exit (convert (exit-code->number (:exit-code outcome))))))
 
 (defn run (args)
@@ -37,7 +34,10 @@
 
 (defn usage-outcome (message)
   (->outcome :exit-code exit-code/usage
-             :output (error-envelope "usage" (as-str message) (vec))))
+             :output (error-envelope "usage"
+                                     (as-str (str message
+                                                  "; run `rmap help` to list the commands"))
+                                     (vec))))
 
 (defn execute (invocation)
   (match (:request invocation)
@@ -97,18 +97,21 @@
      (map-ok (remove-dep settings item on) dep-envelope))))
 
 (defn failure->outcome (failure)
+  (->outcome :exit-code (failure-exit-code (ref failure))
+             :output (error-envelope (as-str (failure-code (ref failure)))
+                                     (as-str (failure-message (ref failure)))
+                                     (failure-details (ref failure)))))
+
+(defn failure-exit-code (failure)
   (match failure
-    ((failure/refused refusal)
-     (->outcome :exit-code exit-code/refused
-                :output (error-envelope (refusal-code-text (ref refusal))
-                                        (as-str (refusal->message (ref
-                                                                    refusal)))
-                                        (refusal-details (ref refusal)))))
-    ((failure/database problem)
-     (->outcome :exit-code exit-code/database
-                :output (error-envelope "database"
-                                        (as-str (:message problem))
-                                        (vec))))))
+    ((failure/refused _) exit-code/refused)
+    ((failure/no-repository _) exit-code/usage)
+    ((failure/database _) exit-code/database)))
+
+(defn failure-details (failure)
+  (match failure
+    ((failure/refused refusal) (refusal-details refusal))
+    (_ (vec))))
 
 (defn refusal-details (refusal)
   (match refusal

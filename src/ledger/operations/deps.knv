@@ -7,9 +7,10 @@
 (use ledger/sqlite/deps delete-dep insert-dep)
 (use ledger/sqlite/store load-snapshot)
 
-(use ledger/operations/transaction failure in-transaction
-                                   record transaction)
+(use ledger/operations/transaction in-transaction record
+                                   transaction)
 
+(use ledger/failure failure)
 (use ledger/core/snapshot existing)
 (use ledger/events dep-changed)
 

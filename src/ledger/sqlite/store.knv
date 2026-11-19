@@ -3,7 +3,7 @@
 
 (use json/value text->json)
 (use ledger/model ->snapshot ->timestamp)
-(use ledger/sqlite/connection ->database-error query)
+(use ledger/sqlite/connection database-failure query)
 (use ledger/sqlite/rows single-row text-cell)
 (use ledger/sqlite/items all-items)
 (use ledger/sqlite/deps all-deps)
@@ -26,9 +26,8 @@
       (cond
         ((not taken) (ok candidate))
         ((< attempt id-attempts) (recur (inc attempt)))
-        (else (err (->database-error :message (str "no free id after "
-                                                   id-attempts
-                                                   " attempts"))))))))
+        (else (err (database-failure
+                     (str "no free id after " id-attempts " attempts"))))))))
 
 (defn random-id (connection)
   (let-try (rows (query connection

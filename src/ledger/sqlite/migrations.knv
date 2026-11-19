@@ -3,8 +3,8 @@
 
 (use ledger/sqlite/rows int-cell single-row)
 
-(use ledger/sqlite/connection ->database-error connection
-                              database-error
+(use ledger/sqlite/connection connection database-error
+                              database-failure
                               in-write-transaction query
                               run-batch)
 
@@ -66,8 +66,8 @@
   (match (find (iter migrations)
            (fn (migration) (shares-version? migrations migration)))
     ((some migration)
-     (err (->database-error :message (str "two migrations share version "
-                                          (:version migration)))))
+     (err (database-failure (str "two migrations share version "
+                                 (:version migration)))))
     (none (ok (do)))))
 
 (defn shares-version? (migrations migration)

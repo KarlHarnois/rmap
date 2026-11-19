@@ -2,19 +2,18 @@
   "Opens the ledger and runs each write in one transaction that also records its event.")
 
 (use ledger/model timestamp)
-(use ledger/refusal refusal)
+(use ledger/failure failure)
 (use ledger/events event-draft)
 
-(use ledger/sqlite/connection begin begin-read commit
-                              connection database-error open
-                              rollback)
+(use ledger/sqlite/connection begin begin-read connection
+                              database-error finish open)
 
 (use ledger/sqlite/migrations migrate)
 (use ledger/sqlite/migration-sources migration-sources)
 (use ledger/sqlite/events ->new-event append-event)
 (use ledger/sqlite/store database-now)
 
-(export ->settings clock connect failure in-read-transaction
+(export ->settings clock connect in-read-transaction
         in-transaction now record settings transaction)
 
 (defenum clock
@@ -28,10 +27,6 @@
 (defstruct transaction
   :connection connection
   :clock clock)
-
-(defenum failure
-  (refused refusal)
-  (database database-error))
 
 (defn connect (settings)
   (let-try (connection (open (as-str (:database-path settings)))
@@ -72,20 +67,9 @@
             _ (start (ref connection)))
     (let (transaction (->transaction :connection connection
                                      :clock (clone (:clock settings))))
-      (finish (ref (:connection transaction))
-              (work (ref transaction))))))
-
-(type finish
-  (where (a)
-    (fn ((ref connection) (result a failure))
-      (result a failure))))
-
-(defn finish (connection outcome)
-  (match outcome
-    ((ok value) (let-try (_ (commit connection)) (ok value)))
-    ((err failure)
-     (match (rollback connection)
-       (_ (err failure))))))
+      (let-try (outcome (finish (ref (:connection transaction))
+                                (work (ref transaction))))
+        outcome))))
 
 (type now
   (fn ((ref transaction))

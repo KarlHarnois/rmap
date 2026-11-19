@@ -10,8 +10,9 @@
 
 (use ledger/names event-type-names name-of)
 
-(use ledger/sqlite/connection ->database-error connection
-                              database-error execute query)
+(use ledger/sqlite/connection connection database-error
+                              database-failure execute
+                              query)
 
 (use ledger/sqlite/rows int-cell named-cell
                         optional-text-cell text-cell)
@@ -94,8 +95,8 @@
             payload-text (text-cell row 6)
             payload (map-err (parse (as-str payload-text))
                       (fn (_)
-                        (->database-error
-                          :message (str "event " id " holds invalid JSON")))))
+                        (database-failure (str "event " id
+                                               " holds invalid JSON")))))
     (ok (->event :id id
                  :at (->timestamp :value at)
                  :actor actor

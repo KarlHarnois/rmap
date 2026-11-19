@@ -17,12 +17,12 @@
 
 (use ledger/core/ready blocked-item readiness)
 (use ledger/core/schema ->new-item new-item)
-(use ledger/sqlite/connection database-error)
 (use ledger/operations/database-path default-database-path)
 
-(use ledger/operations/transaction ->settings clock failure
+(use ledger/operations/transaction ->settings clock
                                    settings)
 
+(use ledger/failure failure failure-code failure-message)
 (use ledger/operations/roadmaps list-roadmaps new-roadmap)
 
 (use ledger/operations/reading item-detail list-items
@@ -40,12 +40,13 @@
 (export ->advancement ->glob ->item-id ->new-item ->session
         ->settings add-dep add-item advance-item advancement
         blockage blocked-item claim claim-item clock
-        close-item database-error default-database-path dep
-        dep-type dep-type-names drop-item event event-type
-        event-type-names failure glob item item-detail
-        item-id kind kind-change kind-names list-items
-        list-roadmaps name-of named new-item new-roadmap
-        origin origin-names path-conflict read-log readiness
+        close-item default-database-path dep dep-type
+        dep-type-names drop-item event event-type
+        event-type-names failure failure-code
+        failure-message glob item item-detail item-id kind
+        kind-change kind-names list-items list-roadmaps
+        name-of named new-item new-roadmap origin
+        origin-names path-conflict read-log readiness
         ready-items refusal refusal->message refusal-catalog
         refusal-code-text refusal-description remove-dep
         roadmap roadmap-status-names session settings

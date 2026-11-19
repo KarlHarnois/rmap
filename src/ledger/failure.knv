@@ -1,0 +1,36 @@
+(module
+  "Names each way a ledger operation can fail, with its stable code and a message for the user.")
+
+(use ledger/refusal refusal refusal->message)
+(use ledger/refusal-codes refusal-code-text)
+
+(use ledger/sqlite/connection database-error
+                              database-problem)
+
+(export failure failure-code failure-message)
+
+(defenum failure
+  (refused refusal)
+  (database database-error)
+  (no-repository string))
+
+(defn failure-code (failure)
+  (match failure
+    ((refused refusal) (refusal-code-text refusal))
+    ((database problem) (database-code problem))
+    ((no-repository _) (str "no-repository"))))
+
+(type database-code
+  (fn ((ref database-error)) string))
+
+(defn database-code (problem)
+  (match (:problem problem)
+    (busy (str "busy"))
+    (failed (str "database"))))
+
+(defn failure-message (failure)
+  (match failure
+    ((refused refusal) (refusal->message refusal))
+    ((database problem) (clone (:message problem)))
+    ((no-repository detail)
+     (str "rmap needs a git repository or --db: " detail))))

@@ -6,7 +6,7 @@
 (use ledger/core/snapshot scope)
 (use ledger/sqlite/connection connection)
 (use ledger/sqlite/roadmaps roadmap-named)
-(use ledger/operations/transaction failure)
+(use ledger/failure failure)
 
 (export roadmap-id-named scope-named)
 
