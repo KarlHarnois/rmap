@@ -1,88 +1,129 @@
 (module
-  "Holds the table of allowed status transitions.")
+  "Decides whether a move is a legal transition for an item in the ledger.")
 
-(use ledger/model kind status)
+(use ledger/model glob item kind snapshot status)
+(use ledger/refusal refusal)
 
-(export command transition transitions)
+(use ledger/core/move command move move->command
+                      move->target)
 
-(defenum command
-  claim
-  advance
-  advance-to-build
-  close
-  drop)
+(use ledger/core/ready blockage-of ready?)
 
-(defstruct transition
-  :from status
-  :to status
+(use ledger/core/locks conflicts-with-active-builds
+                       globs-of)
+
+(export approved-move)
+
+(defstruct allowance
   :command command
-  :kinds (vec kind))
+  :kinds (vec kind)
+  :steps (vec (pair status status)))
 
 (defn work-kinds ()
   (vec kind/research kind/design kind/build))
 
-(defn transitions ()
-  (vec (->transition :from status/open
-                     :to status/dispatched
-                     :command command/claim
-                     :kinds (work-kinds))
-       (->transition :from status/dispatched
-                     :to status/open
-                     :command command/advance
-                     :kinds (work-kinds))
-       (->transition :from status/dispatched
-                     :to status/reported
-                     :command command/advance
-                     :kinds (vec kind/research kind/design))
-       (->transition :from status/dispatched
-                     :to status/in-review
-                     :command command/advance
-                     :kinds (vec kind/build))
-       (->transition :from status/reported
-                     :to status/dispatched
-                     :command command/advance-to-build
-                     :kinds (vec kind/research kind/design))
-       (->transition :from status/in-review
-                     :to status/fixing
-                     :command command/advance
-                     :kinds (vec kind/build))
-       (->transition :from status/in-review
-                     :to status/merging
-                     :command command/advance
-                     :kinds (vec kind/build))
-       (->transition :from status/fixing
-                     :to status/in-review
-                     :command command/advance
-                     :kinds (vec kind/build))
-       (->transition :from status/merging
-                     :to status/fixing
-                     :command command/advance
-                     :kinds (vec kind/build))
-       (->transition :from status/merging
-                     :to status/merged
-                     :command command/close
-                     :kinds (vec kind/build))
-       (->transition :from status/open
-                     :to status/dropped
-                     :command command/drop
-                     :kinds (work-kinds))
-       (->transition :from status/dispatched
-                     :to status/dropped
-                     :command command/drop
-                     :kinds (work-kinds))
-       (->transition :from status/reported
-                     :to status/dropped
-                     :command command/drop
-                     :kinds (work-kinds))
-       (->transition :from status/in-review
-                     :to status/dropped
-                     :command command/drop
-                     :kinds (work-kinds))
-       (->transition :from status/fixing
-                     :to status/dropped
-                     :command command/drop
-                     :kinds (work-kinds))
-       (->transition :from status/merging
-                     :to status/dropped
-                     :command command/drop
-                     :kinds (work-kinds))))
+(defn reporting-kinds () (vec kind/research kind/design))
+
+(defn allowances ()
+  (vec (->allowance :command command/claim
+                    :kinds (work-kinds)
+                    :steps (vec (pair status/open status/dispatched)))
+       (->allowance :command command/advance
+                    :kinds (work-kinds)
+                    :steps (vec (pair status/dispatched status/open)))
+       (->allowance :command command/advance
+                    :kinds (reporting-kinds)
+                    :steps (vec (pair status/dispatched status/reported)))
+       (->allowance :command command/advance
+                    :kinds (vec kind/build)
+                    :steps (vec (pair status/dispatched status/in-review)
+                                (pair status/in-review status/fixing)
+                                (pair status/in-review status/merging)
+                                (pair status/fixing status/in-review)
+                                (pair status/merging status/fixing)))
+       (->allowance :command command/advance-to-build
+                    :kinds (reporting-kinds)
+                    :steps (vec (pair status/reported status/dispatched)))
+       (->allowance :command command/close
+                    :kinds (vec kind/build)
+                    :steps (vec (pair status/merging status/merged)))
+       (->allowance :command command/drop
+                    :kinds (work-kinds)
+                    :steps (vec (pair status/open status/dropped)
+                                (pair status/dispatched status/dropped)
+                                (pair status/reported status/dropped)
+                                (pair status/in-review status/dropped)
+                                (pair status/fixing status/dropped)
+                                (pair status/merging status/dropped)))))
+
+(defn approved-move (snapshot item move)
+  (let (resolved (with-stored-globs snapshot item move))
+    (let-try (_ (check-table item (ref resolved))
+              _ (check-ledger snapshot item (ref resolved)))
+      (ok resolved))))
+
+(defn with-stored-globs (snapshot item move)
+  (match move
+    ((move/advance-to-build globs)
+     (move/advance-to-build (globs-or-stored snapshot item globs)))
+    (other other)))
+
+(type globs-or-stored
+  (fn ((ref snapshot) (ref item) (vec glob))
+    (vec glob)))
+
+(defn globs-or-stored (snapshot item globs)
+  (if (empty? globs)
+    (globs-of snapshot (ref (:id item)))
+    globs))
+
+(type check-table
+  (fn ((ref item) (ref move))
+    (result unit refusal)))
+
+(defn check-table (item move)
+  (cond
+    ((= (:kind item) kind/epic)
+     (err refusal/epic-status-computed))
+    ((allowed? item move) (ok (do)))
+    (else (err (refusal/invalid-transition (:status item)
+                                           (move->target move))))))
+
+(type allowed?
+  (fn ((ref item) (ref move)) bool))
+
+(defn allowed? (item move)
+  (let (command (move->command move)
+        step (pair (:status item) (move->target move)))
+    (any? (allowances)
+      (fn (allowance)
+        (and (= (:command allowance) command)
+             (contains? (:kinds allowance) (:kind item))
+             (contains? (:steps allowance) step))))))
+
+(defn check-ledger (snapshot item move)
+  (match move
+    ((move/claim _) (check-ready snapshot item))
+    ((move/advance-to-build globs)
+     (check-free-globs snapshot item globs))
+    (_ (ok (do)))))
+
+(defn check-ready (snapshot item)
+  (if (ready? snapshot item)
+    (ok (do))
+    (err (refusal/not-ready (blockage-of snapshot item)))))
+
+(type check-free-globs
+  (fn ((ref snapshot)
+       (ref item)
+       (ref (vec glob)))
+    (result unit refusal)))
+
+(defn check-free-globs (snapshot item globs)
+  (let (conflicts (conflicts-with-active-builds snapshot
+                                                (ref (:id item))
+                                                globs))
+    (cond
+      ((empty? globs) (err refusal/build-needs-paths))
+      ((empty? conflicts) (ok (do)))
+      (else (err (refusal/paths-conflict conflicts))))))

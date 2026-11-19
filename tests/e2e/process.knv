@@ -27,7 +27,8 @@
 
 (defn build-succeeds? ()
   (= (:code (unwrap-ok (run-command (ref (->command :program (str "knave")
-                                                     :args (vec (str "build")))))))
+                                                    :args (vec (str
+                                                                 "build")))))))
      0))
 
 (defn built-binary ()

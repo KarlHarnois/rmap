@@ -3,8 +3,7 @@
 
 (use json/value copy-of int->json json object text->json)
 
-(use ledger/api ->glob ->item-id ->new-item ->session
-                ->settings claim dep dep-type-names event
+(use ledger/api claim dep dep-type-names event
                 event-type-names item kind-names name-of
                 origin-names roadmap roadmap-status-names
                 status-names)

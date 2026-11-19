@@ -1,22 +1,14 @@
 (module
   "Reads ready items, items and events.")
 
-(use ledger/model ->dep ->glob ->item ->item-id ->item-path
-                  ->roadmap ->roadmap-id ->session dep event
-                  glob item item-id)
-
+(use ledger/model dep event glob item item-id)
 (use ledger/core/ready readiness readiness-of scope)
 (use ledger/core/statuses with-computed-status)
 (use ledger/core/locks globs-of)
-(use ledger/core/schema ->new-item)
-
-(use ledger/sqlite/events ->event-filter ->new-event
-                          events-matching)
-
+(use ledger/sqlite/events ->event-filter events-matching)
 (use ledger/sqlite/store load-snapshot)
-
-(use ledger/operations/context connect existing-item failure
-                               scope-named settings)
+(use ledger/operations/transaction connect failure settings)
+(use ledger/operations/lookups existing-item scope-named)
 
 (export item-detail list-items read-log ready-items
         show-item)

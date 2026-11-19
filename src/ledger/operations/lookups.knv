@@ -1,0 +1,33 @@
+(module
+  "Finds a roadmap or an item the caller named, or refuses when none exists.")
+
+(use ledger/model roadmap-id)
+(use ledger/refusal refusal)
+(use ledger/core/ready scope)
+(use ledger/core/statuses find-item)
+(use ledger/sqlite/connection connection)
+(use ledger/sqlite/roadmaps roadmap-named)
+(use ledger/operations/transaction failure)
+
+(export existing-item roadmap-id-named scope-named)
+
+(type roadmap-id-named
+  (fn ((ref connection) (ref str))
+    (result roadmap-id failure)))
+
+(defn roadmap-id-named (connection name)
+  (let-try (found (roadmap-named connection name))
+    (match found
+      ((some roadmap) (ok (clone (:id roadmap))))
+      (none (err (failure/refused (refusal/roadmap-not-found (str name))))))))
+
+(defn scope-named (connection name)
+  (match name
+    ((some present)
+     (map-ok (roadmap-id-named connection (as-str present))
+       (fn (id) (scope/one-roadmap id))))
+    (none (ok scope/every-roadmap))))
+
+(defn existing-item (snapshot id)
+  (ok-or (find-item snapshot id)
+         (failure/refused (refusal/item-not-found (clone id)))))

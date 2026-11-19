@@ -1,29 +1,17 @@
 (module
   "Adds and removes `blocks` dependencies.")
 
-(use json/value object text->json)
-
-(use ledger/model ->dep ->glob ->item ->item-id ->item-path
-                  ->roadmap ->roadmap-id ->session dep
-                  dep-type event-type snapshot)
-
+(use ledger/model ->dep dep dep-type event-type snapshot)
 (use ledger/refusal refusal)
-
-(use ledger/core/schema ->new-item check-dep-removal
-                        check-new-dep)
-
+(use ledger/core/schema check-dep-removal check-new-dep)
 (use ledger/sqlite/deps delete-dep insert-dep)
-(use ledger/sqlite/events ->event-filter ->new-event)
 (use ledger/sqlite/store load-snapshot)
 
-(use ledger/operations/context cli-actor existing-item
-                               failure in-transaction
-                               record)
+(use ledger/operations/transaction failure in-transaction
+                                   record transaction)
 
-(use ledger/operations/context ->event-draft event-draft
-                               transaction)
-
-(use ledger/model item)
+(use ledger/operations/lookups existing-item)
+(use ledger/events dep-changed)
 
 (export add-dep remove-dep)
 
@@ -56,18 +44,6 @@
             _ (record transaction
                       (dep-changed (ref owner) (ref dep) type)))
     (ok (clone dep))))
-
-(type dep-changed
-  (fn ((ref item) (ref dep) event-type)
-    event-draft))
-
-(defn dep-changed (owner dep type)
-  (->event-draft :actor (str cli-actor)
-                 :roadmap-id (some (clone (:roadmap-id owner)))
-                 :item-id (some (clone (:item dep)))
-                 :type type
-                 :payload (object (vec (pair (str "on")
-                                             (text->json (as-str (:value (:on dep)))))))))
 
 (type check-dep-change
   (fn ((ref snapshot) (ref dep) event-type)

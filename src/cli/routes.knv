@@ -1,9 +1,6 @@
 (module
   "Lists each command the CLI accepts, with its operand count and its flags.")
 
-(use ledger/api ->glob ->item-id ->new-item ->session
-                ->settings)
-
 (export ->route route routes)
 
 (defstruct route

@@ -1,16 +1,15 @@
 (module
   "Turns the command line into a request for the ledger.")
 
-(use ledger/api ->advancement ->glob ->item-id ->new-item
-                ->session ->settings advancement item-id
-                kind-change kind-names named new-item origin
-                origin-names session status-names)
+(use ledger/api ->advancement ->item-id ->new-item ->session
+                advancement item-id kind-change kind-names
+                named new-item origin origin-names session
+                status-names)
 
-(use cli/routes ->route route)
+(use cli/routes route)
 
-(use cli/arguments ->arguments arguments check-shape flag
-                   operand required-flag route-of
-                   split-arguments)
+(use cli/arguments arguments check-shape flag operand
+                   required-flag route-of split-arguments)
 
 (use cli/flags list-flag list-flag-globs named-flag
                optional-named-flag optional-number)

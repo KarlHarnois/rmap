@@ -3,7 +3,7 @@
 
 (use process/command ->command run-command)
 (use ledger/sqlite/connection ->database-error)
-(use ledger/operations/context failure)
+(use ledger/operations/transaction failure)
 
 (export default-database-path)
 

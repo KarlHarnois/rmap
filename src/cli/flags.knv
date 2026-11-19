@@ -1,10 +1,8 @@
 (module
   "Reads typed values out of the command line's flags.")
 
-(use ledger/api ->glob ->item-id ->new-item ->session
-                ->settings named)
-
-(use cli/arguments ->arguments flag required-flag)
+(use ledger/api ->glob named)
+(use cli/arguments flag required-flag)
 
 (export list-flag list-flag-globs named-flag
         optional-named-flag optional-number)

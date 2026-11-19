@@ -1,35 +1,20 @@
 (module
-  "Opens the ledger, runs writes in one transaction and records their events.")
+  "Opens the ledger and runs each write in one transaction that also records its event.")
 
-(use json/value json)
-
-(use ledger/model ->dep ->glob ->item ->item-id ->item-path
-                  ->roadmap ->roadmap-id ->session
-                  event-type item-id roadmap-id timestamp)
-
+(use ledger/model timestamp)
 (use ledger/refusal refusal)
-(use ledger/core/ready scope)
-(use ledger/core/statuses find-item)
-(use ledger/core/schema ->new-item)
+(use ledger/events event-draft)
 
-(use ledger/sqlite/connection ->database-error begin commit
-                              connection database-error open
-                              rollback)
+(use ledger/sqlite/connection begin commit connection
+                              database-error open rollback)
 
 (use ledger/sqlite/migrations migrate)
-(use process/command ->command)
 (use ledger/sqlite/migration-sources migration-sources)
-(use ledger/sqlite/roadmaps roadmap-named)
-
-(use ledger/sqlite/events ->event-filter ->new-event
-                          append-event)
-
+(use ledger/sqlite/events ->new-event append-event)
 (use ledger/sqlite/store database-now)
 
-(export ->event-draft ->settings cli-actor clock connect
-        event-draft existing-item failure in-transaction now
-        record roadmap-id-named scope-named settings
-        transaction)
+(export ->settings clock connect failure in-transaction now
+        record settings transaction)
 
 (defenum clock
   system
@@ -43,18 +28,9 @@
   :connection connection
   :clock clock)
 
-(defstruct event-draft
-  :actor string
-  :roadmap-id (option roadmap-id)
-  :item-id (option item-id)
-  :type event-type
-  :payload json)
-
 (defenum failure
   (refused refusal)
   (database database-error))
-
-(def cli-actor "cli")
 
 (defn connect (settings)
   (let-try (connection (open (as-str (:database-path settings)))
@@ -116,24 +92,3 @@
                  :item-id item-id
                  :type type
                  :payload payload)))
-
-(type roadmap-id-named
-  (fn ((ref connection) (ref str))
-    (result roadmap-id failure)))
-
-(defn roadmap-id-named (connection name)
-  (let-try (found (roadmap-named connection name))
-    (match found
-      ((some roadmap) (ok (clone (:id roadmap))))
-      (none (err (failure/refused (refusal/roadmap-not-found (str name))))))))
-
-(defn scope-named (connection name)
-  (match name
-    ((some present)
-     (map-ok (roadmap-id-named connection (as-str present))
-       (fn (id) (scope/one-roadmap id))))
-    (none (ok scope/every-roadmap))))
-
-(defn existing-item (snapshot id)
-  (ok-or (find-item snapshot id)
-         (failure/refused (refusal/item-not-found (clone id)))))

@@ -1,0 +1,103 @@
+(module
+  "Describes each ledger change as an event to record.")
+
+(use json/value json object text->json)
+(use ledger/model dep event-type item item-id roadmap-id)
+(use ledger/names kind-names name-of status-names)
+(use ledger/core/move move)
+
+(export ->item-move cli-actor dep-changed event-draft
+        item-added item-move item-moved roadmap-created)
+
+(defstruct event-draft
+  :actor string
+  :roadmap-id (option roadmap-id)
+  :item-id (option item-id)
+  :type event-type
+  :payload json)
+
+(def cli-actor "cli")
+
+(defstruct item-move
+  :before item
+  :after item
+  :move move
+  :actor string)
+
+(defn roadmap-created (roadmap)
+  (->event-draft :actor (clone (:name (:manager roadmap)))
+                 :roadmap-id (some (clone (:id roadmap)))
+                 :item-id none
+                 :type event-type/roadmap-created
+                 :payload (object (vec
+                                    (pair (str "name")
+                                          (text->json (as-str (:name roadmap))))
+                                    (pair (str "manager")
+                                          (text->json (as-str (:name (:manager roadmap)))))))))
+
+(type item-added
+  (fn ((ref item)) event-draft))
+
+(defn item-added (item)
+  (->event-draft :actor (str cli-actor)
+                 :roadmap-id (some (clone (:roadmap-id item)))
+                 :item-id (some (clone (:id item)))
+                 :type event-type/item-added
+                 :payload (object
+                            (vec (pair (str "title")
+                                       (text->json (as-str (:title item))))
+                                 (pair (str "kind")
+                                       (text->json (name-of kind-names
+                                                            (:kind item))))))))
+
+(type dep-changed
+  (fn ((ref item) (ref dep) event-type)
+    event-draft))
+
+(defn dep-changed (owner dep type)
+  (->event-draft :actor (str cli-actor)
+                 :roadmap-id (some (clone (:roadmap-id owner)))
+                 :item-id (some (clone (:item dep)))
+                 :type type
+                 :payload (object (vec (pair (str "on")
+                                             (text->json (as-str (:value (:on dep)))))))))
+
+(type item-moved
+  (fn ((ref item-move)) event-draft))
+
+(defn item-moved (change)
+  (->event-draft :actor (clone (:actor change))
+                 :roadmap-id (some (clone (:roadmap-id (:after change))))
+                 :item-id (some (clone (:id (:after change))))
+                 :type (move->event-type (ref (:move change)))
+                 :payload (move-payload (ref (:before change))
+                                        (ref (:after change))
+                                        (ref (:move change)))))
+
+(defn move->event-type (move)
+  (match move
+    ((claim _) event-type/item-claimed)
+    ((advance _) event-type/item-advanced)
+    ((advance-to-build _) event-type/item-advanced)
+    (close event-type/item-closed)
+    ((drop _) event-type/item-dropped)))
+
+(type move-payload
+  (fn ((ref item) (ref item) (ref move))
+    json))
+
+(defn move-payload (before after move)
+  (object (vec (pair (str "from")
+                     (text->json (name-of status-names (:status before))))
+               (pair (str "to")
+                     (text->json (name-of status-names (:status after))))
+               (pair (str "kind")
+                     (text->json (name-of kind-names (:kind after))))
+               (pair (str "detail")
+                     (text->json (as-str (move-detail move)))))))
+
+(defn move-detail (move)
+  (match move
+    ((claim session) (clone (:name session)))
+    ((drop reason) (clone reason))
+    (_ (str ""))))

@@ -10,15 +10,18 @@
 
 **NEVER import `ledger/sqlite/*` from `ledger/core/*`.** The core is pure: it reads a snapshot and returns values or refusals.
 
+**Import no `ledger/operations/*` module from another one, except `transaction` and `lookups`.**
+
 | Path | Holds |
 | --- | --- |
 | `src/json/value.knv` | The bindings over `serde_json::Value`. |
 | `src/process/command.knv` | Runs a program and captures its exit code and output. |
 | `src/main.knv`, `src/cli/` | The `rmap` CLI. |
 | `src/ledger/api.knv` | The public ledger functions, re-exported from `src/ledger/operations/`. |
-| `src/ledger/operations/` | The ledger operations. Each write runs in one `BEGIN IMMEDIATE` transaction and appends its `events` row in that transaction. |
+| `src/ledger/operations/` | The ledger operations. `transaction.knv` runs each write in one `BEGIN IMMEDIATE` transaction that also appends its `events` row. |
+| `src/ledger/events.knv` | The event type and payload that describe each ledger change. |
 | `src/ledger/model.knv`, `names.knv`, `refusal.knv` | The ledger values, the text of each enum case, and the refusal codes. |
-| `src/ledger/core/` | The pure ledger rules. |
+| `src/ledger/core/` | The pure ledger rules. `move.knv` says what a move does to an item, and `transitions.knv` says whether the move is legal. |
 | `src/ledger/sqlite/` | The connection, the migrations runner and one module per table. |
 | `migrations/` | The numbered `.sql` migrations. |
 | `docs/cli.md` | Every command, its JSON output and its exit codes. |

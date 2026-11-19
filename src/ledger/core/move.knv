@@ -1,13 +1,19 @@
 (module
-  "Checks a move against the transition table and applies it to an item.")
+  "Names each move an item can make and computes the item a move leaves.")
 
 (use ledger/model claim glob item kind session status
                   timestamp)
 
-(use ledger/refusal refusal)
-(use ledger/core/transitions command transitions)
+(export ->advancement added-globs advancement
+        advancement->move command kind-change move
+        move->command move->target moved)
 
-(export check-move move move->command move->target moved)
+(defenum command
+  claim
+  advance
+  advance-to-build
+  close
+  drop)
 
 (defenum move
   (claim session)
@@ -15,6 +21,25 @@
   (advance-to-build (vec glob))
   close
   (drop string))
+
+(defenum kind-change
+  keep-kind
+  (become-build (vec glob)))
+
+(defstruct advancement
+  :to status
+  :kind-change kind-change)
+
+(defn advancement->move (advancement)
+  (let-match ((advancement :to target :kind-change change) advancement)
+    (match change
+      (keep-kind (move/advance target))
+      ((become-build globs) (build-move target globs)))))
+
+(defn build-move (target globs)
+  (if (= target status/dispatched)
+    (move/advance-to-build globs)
+    (move/advance target)))
 
 (defn move->command (move)
   (match move
@@ -32,30 +57,10 @@
     (move/close status/merged)
     ((move/drop _) status/dropped)))
 
-(type check-move
-  (fn ((ref item) (ref move))
-    (result unit refusal)))
-
-(defn check-move (item move)
-  (cond
-    ((= (:kind item) kind/epic)
-     (err refusal/epic-status-computed))
-    ((allowed? item move) (ok (do)))
-    (else (err (refusal/invalid-transition (:status item)
-                                           (move->target move))))))
-
-(type allowed?
-  (fn ((ref item) (ref move)) bool))
-
-(defn allowed? (item move)
-  (let (command (move->command move)
-        target (move->target move))
-    (any? (transitions)
-      (fn (transition)
-        (and (= (:from transition) (:status item))
-             (= (:to transition) target)
-             (= (:command transition) command)
-             (contains? (:kinds transition) (:kind item)))))))
+(defn added-globs (move)
+  (match move
+    ((move/advance-to-build globs) (clone globs))
+    (_ (vec))))
 
 (type moved
   (fn ((ref item) (ref move) (ref timestamp))

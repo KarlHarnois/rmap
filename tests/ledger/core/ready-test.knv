@@ -1,14 +1,11 @@
-(use ledger/model claim dep dep-type glob item item-id
-                  item-path kind snapshot status)
+(use ledger/model claim dep dep-type glob item item-id kind
+                  snapshot status)
 
-(use ledger/core/ready blocked-item readiness readiness-of
-                       scope)
-
+(use ledger/core/ready readiness readiness-of scope)
 (use ledger/core/paths conflict?)
 
 (use support/items blocks-dep child-of claimed epic-item
-                   id-of kinds path-of snapshot-of statuses
-                   work-item)
+                   path-of snapshot-of statuses work-item)
 
 (defn ready-ids (snapshot)
   (-> (:ready (readiness-of (ref snapshot) (ref scope/every-roadmap)))

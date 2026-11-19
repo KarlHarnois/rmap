@@ -1,9 +1,8 @@
 (module
   "Computes which items can start and what blocks the others.")
 
-(use ledger/model ->path-conflict claim decision-id dep-type
-                  item item-id kind roadmap-id snapshot
-                  status)
+(use ledger/model claim decision-id dep-type item item-id
+                  kind roadmap-id snapshot status)
 
 (use ledger/refusal ->blockage blockage)
 (use ledger/core/statuses merged?)

@@ -7,7 +7,7 @@
 (use ledger/sqlite/connection execute query)
 (use ledger/sqlite/rows named-cell text-cell)
 
-(export all-deps delete-dep insert-dep)
+(export all-deps delete-dep insert-dep insert-deps)
 
 (defn insert-dep (connection dep)
   (execute connection
@@ -51,3 +51,10 @@
     (ok (->dep :item (->item-id :value item)
                :on (->item-id :value on)
                :type type))))
+
+(defn insert-deps (connection deps)
+  (loop (index 0)
+    (if (< index (len deps))
+      (let-try (_ (insert-dep connection (at deps index)))
+        (recur (inc index)))
+      (ok (do)))))

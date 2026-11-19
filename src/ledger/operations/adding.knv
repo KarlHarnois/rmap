@@ -1,31 +1,23 @@
 (module
   "Adds an item with its paths and dependencies.")
 
-(use json/value object text->json)
+(use ledger/model ->dep ->item ->item-id claim dep dep-type
+                  item item-id roadmap-id status timestamp)
 
-(use ledger/model ->dep ->glob ->item ->item-id ->item-path
-                  ->roadmap ->roadmap-id ->session claim dep
-                  dep-type event-type item item-id
-                  roadmap-id status timestamp)
-
-(use ledger/names kind-names name-of)
-(use ledger/core/schema ->new-item check-new-item new-item)
+(use ledger/core/schema check-new-item new-item)
 (use ledger/sqlite/items insert-item)
-(use ledger/sqlite/deps insert-dep)
-(use ledger/sqlite/item-paths insert-item-path)
-(use ledger/sqlite/events ->event-filter ->new-event)
+(use ledger/sqlite/deps insert-deps)
+(use ledger/sqlite/item-paths insert-globs)
 (use ledger/sqlite/store fresh-id load-snapshot)
 
-(use ledger/operations/context cli-actor failure
-                               in-transaction now record
-                               roadmap-id-named)
+(use ledger/operations/transaction failure in-transaction
+                                   now record transaction)
 
-(use ledger/operations/context ->event-draft event-draft
-                               transaction)
-
+(use ledger/operations/lookups roadmap-id-named)
+(use ledger/events item-added)
 (use ledger/model item-id roadmap-id timestamp)
 
-(export add-item insert-globs)
+(export add-item)
 
 (defstruct item-stamp
   :id item-id
@@ -68,21 +60,6 @@
             _ (record transaction (item-added (ref item))))
     (ok item)))
 
-(type item-added
-  (fn ((ref item)) event-draft))
-
-(defn item-added (item)
-  (->event-draft :actor (str cli-actor)
-                 :roadmap-id (some (clone (:roadmap-id item)))
-                 :item-id (some (clone (:id item)))
-                 :type event-type/item-added
-                 :payload (object
-                            (vec (pair (str "title")
-                                       (text->json (as-str (:title item))))
-                                 (pair (str "kind")
-                                       (text->json (name-of kind-names
-                                                            (:kind item))))))))
-
 (type request->item
   (fn ((ref new-item) item-stamp) item))
 
@@ -120,28 +97,3 @@
                      :type dep-type/discovered-from)))
       (none (do)))
     deps))
-
-(defn insert-globs (connection id globs)
-  (loop (index 0)
-    (if (< index (len globs))
-      (let-try (_ (insert-glob connection
-                               (ref (->item-path :item (clone id)
-                                                 :glob (clone (at globs
-                                                                  index))))))
-        (recur (inc index)))
-      (ok (do)))))
-
-(defn insert-glob (connection path)
-  (let-try (_ (insert-item-path connection path))
-    (ok (do))))
-
-(defn insert-deps (connection deps)
-  (loop (index 0)
-    (if (< index (len deps))
-      (let-try (_ (insert-one-dep connection (at deps index)))
-        (recur (inc index)))
-      (ok (do)))))
-
-(defn insert-one-dep (connection dep)
-  (let-try (_ (insert-dep connection dep))
-    (ok (do))))

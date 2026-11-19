@@ -2,9 +2,7 @@
   "Wraps command results and errors in the JSON object the CLI prints.")
 
 (use json/value array int->json json object text->json)
-
-(use ledger/api ->glob ->item-id ->new-item ->session
-                ->settings item-detail item-id)
+(use ledger/api item-detail item-id)
 
 (use cli/objects dep->json event->json glob->json item->json
                  roadmap->json)

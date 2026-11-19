@@ -1,10 +1,7 @@
 (module
   "Splits the command line into words and flags and finds the command's route.")
 
-(use ledger/api ->glob ->item-id ->new-item ->session
-                ->settings)
-
-(use cli/routes ->route route routes)
+(use cli/routes route routes)
 
 (export ->arguments arguments check-shape flag operand
         required-flag route-of split-arguments)

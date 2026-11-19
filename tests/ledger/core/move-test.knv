@@ -1,0 +1,40 @@
+(use ledger/model ->session ->timestamp claim item kind
+                  status)
+
+(use ledger/core/move move moved)
+(use support/items claimed glob-of work-item)
+
+(defn now ()
+  (->timestamp :value (str "2026-02-02T00:00:00Z")))
+
+(deftest claim-records-the-session
+  (let (item (moved (ref (work-item "rm-0001" kind/build status/open))
+                    (ref (move/claim (->session :name (str "s1"))))
+                    (ref (now))))
+    (assert (= (:status item) status/dispatched))
+    (assert (= (:claim item)
+               (claim/claimed-by (->session :name (str "s1")))))))
+
+(deftest a-failed-dispatch-clears-the-claim
+  (let (item (moved (ref (claimed
+                           (work-item "rm-0001" kind/build status/dispatched)))
+                    (ref (move/advance status/open))
+                    (ref (now))))
+    (assert (= (:claim item) claim/unclaimed))))
+
+(deftest advancing-to-build-changes-the-kind
+  (let (item (moved (ref (work-item "rm-0001" kind/research status/reported))
+                    (ref (move/advance-to-build (vec (glob-of "src/*"))))
+                    (ref (now))))
+    (assert (= (:kind item) kind/build))
+    (assert (= (:status item) status/dispatched))))
+
+(deftest closing-and-dropping-stamp-the-close-time
+  (let (closed (moved (ref (work-item "rm-0001" kind/build status/merging))
+                      (ref move/close)
+                      (ref (now)))
+        dropped (moved (ref (work-item "rm-0002" kind/design status/open))
+                       (ref (move/drop (str "obsolete")))
+                       (ref (now))))
+    (assert (= (:closed-at closed) (some (now))))
+    (assert (= (:closed-at dropped) (some (now))))))

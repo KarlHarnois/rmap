@@ -1,16 +1,13 @@
 (use json/value json json->string)
 
-(use ledger/api ->glob ->item-id ->new-item ->session
-                ->settings add-dep add-item advance-item
+(use ledger/api ->settings add-dep add-item advance-item
                 claim-item clock close-item
                 default-database-path drop-item failure
                 list-items list-roadmaps new-roadmap
                 read-log ready-items refusal refusal->code
                 refusal->message remove-dep show-item)
 
-(use cli/routes ->route)
-(use cli/arguments ->arguments)
-(use cli/requests ->invocation parse-invocation request)
+(use cli/requests parse-invocation request)
 
 (use cli/envelopes blockage-fields conflicts->json
                    dep-envelope detail-envelope

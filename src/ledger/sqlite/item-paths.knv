@@ -9,7 +9,7 @@
 
 (use ledger/sqlite/rows text-cell)
 
-(export all-item-paths insert-item-path)
+(export all-item-paths insert-globs)
 
 (type insert-item-path
   (fn ((ref connection) (ref item-path))
@@ -44,3 +44,13 @@
             pattern (text-cell row 1))
     (ok (->item-path :item (->item-id :value item)
                      :glob (->glob :pattern pattern)))))
+
+(defn insert-globs (connection id globs)
+  (loop (index 0)
+    (if (< index (len globs))
+      (let-try (_ (insert-item-path connection
+                                    (ref (->item-path
+                                           :item (clone id)
+                                           :glob (clone (at globs index))))))
+        (recur (inc index)))
+      (ok (do)))))

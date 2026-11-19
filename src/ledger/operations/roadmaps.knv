@@ -1,25 +1,22 @@
 (module
   "Creates and lists roadmaps.")
 
-(use json/value object text->json)
-
-(use ledger/model ->dep ->glob ->item ->item-id ->item-path
-                  ->roadmap ->roadmap-id ->session
-                  event-type roadmap roadmap-status)
+(use ledger/model ->roadmap ->roadmap-id roadmap
+                  roadmap-status)
 
 (use ledger/refusal refusal)
-(use ledger/core/schema ->new-item)
 (use ledger/sqlite/connection connection)
 
 (use ledger/sqlite/roadmaps all-roadmaps insert-roadmap
                             roadmap-named)
 
-(use ledger/sqlite/events ->event-filter ->new-event)
 (use ledger/sqlite/store fresh-id)
 
-(use ledger/operations/context ->event-draft connect failure
-                               in-transaction now record
-                               settings transaction)
+(use ledger/operations/transaction connect failure
+                                   in-transaction now record
+                                   settings transaction)
+
+(use ledger/events roadmap-created)
 
 (export list-roadmaps new-roadmap)
 
@@ -48,17 +45,6 @@
                               (ref roadmap))
             _ (record transaction (roadmap-created (ref roadmap))))
     (ok roadmap)))
-
-(defn roadmap-created (roadmap)
-  (->event-draft :actor (clone (:name (:manager roadmap)))
-                 :roadmap-id (some (clone (:id roadmap)))
-                 :item-id none
-                 :type event-type/roadmap-created
-                 :payload (object (vec
-                                    (pair (str "name")
-                                          (text->json (as-str (:name roadmap))))
-                                    (pair (str "manager")
-                                          (text->json (as-str (:name (:manager roadmap)))))))))
 
 (type check-name-free
   (fn ((ref connection) (ref str))
