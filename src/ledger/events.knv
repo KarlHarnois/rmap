@@ -1,16 +1,21 @@
 (module
   "Describes each ledger change as an event to record.")
 
-(use json/value array int->json json object text->json)
+(use json/value int->json json object text->json)
 
 (use ledger/model ->event-draft dep event-draft event-type
-                  glob item item-id roadmap)
+                  item roadmap)
 
 (use ledger/names kind-names name-of origin-names
                   status-names)
 
 (use ledger/core/move move)
-(use ledger/core/schema dep-change new-item)
+
+(use ledger/json-values globs->json ids->json
+                        optional-id->json)
+
+(use ledger/core/new-items new-item)
+(use ledger/core/deps dep-change)
 
 (export ->item-move dep-changed item-added item-move
         item-moved roadmap-created)
@@ -126,27 +131,3 @@
     ((advance-to-build globs)
      (vec (pair (str "paths") (globs->json globs))))
     (_ (vec))))
-
-(type optional-id->json
-  (fn ((ref (option item-id))) json))
-
-(defn optional-id->json (id)
-  (match id
-    ((some present) (text->json (as-str (:value present))))
-    (none json/null)))
-
-(type ids->json
-  (fn ((ref (vec item-id))) json))
-
-(defn ids->json (ids)
-  (array (collect (map (iter ids)
-                    (fn (id)
-                      (text->json (as-str (:value id))))))))
-
-(type globs->json
-  (fn ((ref (vec glob))) json))
-
-(defn globs->json (globs)
-  (array (collect (map (iter globs)
-                    (fn (glob)
-                      (text->json (as-str (:pattern glob))))))))

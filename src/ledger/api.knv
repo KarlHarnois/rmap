@@ -16,7 +16,7 @@
                           refusal-description)
 
 (use ledger/core/ready blocked-item readiness)
-(use ledger/core/schema ->new-item new-item)
+(use ledger/core/new-items ->new-item new-item)
 (use ledger/operations/database-path default-database-path)
 
 (use ledger/operations/transaction ->settings clock

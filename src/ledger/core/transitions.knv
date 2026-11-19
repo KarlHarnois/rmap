@@ -10,7 +10,7 @@
 (use ledger/core/ready blockage-of unblocked?)
 (use ledger/core/index index-of)
 (use ledger/core/phases unfinished-statuses)
-(use ledger/core/schema distinct)
+(use ledger/core/new-items distinct)
 (use ledger/core/path-conflicts conflicts-with-active-builds)
 (use ledger/core/snapshot globs-of)
 

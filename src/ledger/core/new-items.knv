@@ -1,16 +1,14 @@
 (module
-  "Checks a new item and a new or removed dependency against the ledger's rules.")
+  "Checks a new item against the ledger and drops its repeated blockers and globs.")
 
-(use ledger/model dep glob item item-id kind origin
-                  roadmap-id snapshot)
+(use ledger/model glob item item-id kind origin roadmap-id
+                  snapshot)
 
 (use ledger/refusal refusal)
-(use ledger/core/snapshot blocks? existing find-item)
-(use ledger/core/cycles closes-cycle?)
+(use ledger/core/snapshot existing find-item)
 
-(export ->new-item check-dep-change check-dep-removal
-        check-new-dep check-new-item dep-change distinct
-        new-item normalized)
+(export ->new-item check-new-item distinct new-item
+        normalized)
 
 (defstruct new-item
   :parent (option item-id)
@@ -89,34 +87,6 @@
        (fn (_) (do))))
     (none (ok (do)))))
 
-(defn check-new-dep (snapshot item on)
-  (let-try (_ (existing snapshot item)
-            _ (existing snapshot on))
-    (cond
-      ((blocks-edge? snapshot item on)
-       (err (refusal/dep-exists (clone item) (clone on))))
-      ((closes-cycle? (ref (:deps snapshot)) item on)
-       (err (refusal/cycle (clone item) (clone on))))
-      (else (ok (do))))))
-
-(defn check-dep-removal (snapshot item on)
-  (if (blocks-edge? snapshot item on)
-    (ok (do))
-    (err (refusal/dep-not-found (clone item) (clone on)))))
-
-(type blocks-edge?
-  (fn ((ref snapshot)
-       (ref item-id)
-       (ref item-id))
-    bool))
-
-(defn blocks-edge? (snapshot item on)
-  (any? (iter (:deps snapshot))
-    (fn (dep)
-      (and (blocks? dep)
-           (= (ref (:item dep)) item)
-           (= (ref (:on dep)) on)))))
-
 (type distinct
   (where ((a clone partial-eq))
     (fn ((ref (vec a))) (vec a))))
@@ -135,20 +105,3 @@
   (let (globs (distinct (ref (:globs request)))
         after (distinct (ref (:after request))))
     (-> request (assoc :globs globs) (assoc :after after))))
-
-(defenum dep-change
-  add
-  remove)
-
-(type check-dep-change
-  (fn ((ref snapshot) (ref dep) dep-change)
-    (result unit refusal)))
-
-(defn check-dep-change (snapshot dep change)
-  (match change
-    (add (check-new-dep snapshot
-                        (ref (:item dep))
-                        (ref (:on dep))))
-    (remove (check-dep-removal snapshot
-                               (ref (:item dep))
-                               (ref (:on dep))))))

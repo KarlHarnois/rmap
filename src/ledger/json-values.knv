@@ -1,0 +1,31 @@
+(module
+  "Turns ledger ids and globs into JSON values.")
+
+(use json/value array json text->json)
+(use ledger/model glob item-id)
+
+(export globs->json ids->json optional-id->json)
+
+(type optional-id->json
+  (fn ((ref (option item-id))) json))
+
+(defn optional-id->json (id)
+  (match id
+    ((some present) (text->json (as-str (:value present))))
+    (none json/null)))
+
+(type ids->json
+  (fn ((ref (vec item-id))) json))
+
+(defn ids->json (ids)
+  (array (collect (map (iter ids)
+                    (fn (id)
+                      (text->json (as-str (:value id))))))))
+
+(type globs->json
+  (fn ((ref (vec glob))) json))
+
+(defn globs->json (globs)
+  (array (collect (map (iter globs)
+                    (fn (glob)
+                      (text->json (as-str (:pattern glob))))))))
