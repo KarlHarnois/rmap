@@ -6,10 +6,28 @@
 (def sources-module
   "src/ledger/sqlite/migration-sources.knv")
 
-(def migration-files
-  (rust "(|| -> Result<Vec<String>, String> {{ let mut names: Vec<String> = std::fs::read_dir({0}).map_err(|failure| failure.to_string())?.filter_map(|entry| entry.ok()).map(|entry| entry.file_name().to_string_lossy().to_string()).filter(|name| name.ends_with(\".sql\")).collect(); names.sort(); Ok(names) }})()"
+(def directory-entries
+  (rust "std::fs::read_dir({0}).map(|entries| entries.filter_map(|entry| entry.ok()).map(|entry| entry.file_name().to_string_lossy().to_string()).collect::<Vec<String>>()).map_err(|failure| failure.to_string())"
     (fn ((ref str))
       (result (vec string) string))))
+
+(defn migration-files (directory)
+  (map-ok (directory-entries directory)
+    (fn (names)
+      (let (files (collect (map (filter (iter names)
+                                  (fn (name) (ends-with-sql? name)))
+                                clone)))
+        (sort! files)
+        files))))
+
+(def sql-extension ".sql")
+
+(defn ends-with-sql? (name)
+  (let (size (len name)
+        extension-size (len sql-extension))
+    (and (>= size extension-size)
+         (= (subs (as-str name) (- size extension-size) size)
+            sql-extension))))
 
 (def write-file
   (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"

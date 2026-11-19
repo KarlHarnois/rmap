@@ -1,7 +1,30 @@
 (export scratch-database)
 
-(def scratch-path
-  (rust "(|| -> String {{ let directory = std::env::temp_dir().join(format!(\"rmap-tests-{{}}\", std::process::id())); std::fs::create_dir_all(&directory).ok(); let path = directory.join(format!(\"{{}}.db\", {0})); for suffix in [\"\", \"-wal\", \"-shm\"] {{ std::fs::remove_file(format!(\"{{}}{{}}\", path.display(), suffix)).ok(); }} path.display().to_string() }})()"
-    (fn ((ref str)) string)))
+(def temp-directory
+  (rust "std::env::temp_dir().display().to_string()"
+    (fn () string)))
 
-(defn scratch-database (name) (scratch-path name))
+(def process-id
+  (rust "std::process::id()" (fn () u32)))
+
+(def create-directory
+  (rust "drop(std::fs::create_dir_all({0}))"
+    (fn ((ref str)) unit)))
+
+(def remove-file
+  (rust "drop(std::fs::remove_file({0}))"
+    (fn ((ref str)) unit)))
+
+(def database-file-suffixes (vec "" "-wal" "-shm"))
+
+(defn scratch-directory ()
+  (str (temp-directory) "/rmap-tests-" (process-id)))
+
+(defn scratch-database (name)
+  (let (directory (scratch-directory)
+        path (str directory "/" name ".db"))
+    (create-directory (as-str directory))
+    (for-each database-file-suffixes
+      (fn (suffix)
+        (remove-file (as-str (str path suffix)))))
+    path))

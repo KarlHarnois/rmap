@@ -1,4 +1,5 @@
 (use json/value json parse)
+(use process/command ->command command-output run-command)
 
 (export command-result run-rmap run-rmap-pair)
 
@@ -6,44 +7,51 @@
   :exit-code i32
   :output json)
 
-(def build-binary
-  (rust "std::process::Command::new(\"knave\").arg(\"build\").output().map(|output| output.status.success()).unwrap_or(false)"
-    (fn () bool)))
-
 (def binary-path "target/knave/rmap/rmap")
 
-(defn built-binary ()
-  (assert (build-binary))
-  binary-path)
+(rust-type child "std::process::Child")
 
-(def run-raw
-  (rust "(|| -> (i32, String) {{ let output = std::process::Command::new({0}).args({1}).output().expect(\"rmap runs\"); (output.status.code().unwrap_or(-1), String::from_utf8_lossy(&output.stdout).to_string()) }})()"
+(def spawn-raw
+  (rust "std::process::Command::new({0}).args({1}).stdout(std::process::Stdio::piped()).spawn().map_err(|failure| failure.to_string())"
     (fn ((ref str) (ref (vec string)))
-      (pair i32 string))))
+      (result child string))))
 
-(def run-pair-raw
-  (rust "(|| -> ((i32, String), (i32, String)) {{ let first = std::process::Command::new({0}).args({1}).stdout(std::process::Stdio::piped()).spawn().expect(\"rmap starts\"); let second = std::process::Command::new({0}).args({2}).stdout(std::process::Stdio::piped()).spawn().expect(\"rmap starts\"); let first = first.wait_with_output().expect(\"rmap ends\"); let second = second.wait_with_output().expect(\"rmap ends\"); ((first.status.code().unwrap_or(-1), String::from_utf8_lossy(&first.stdout).to_string()), (second.status.code().unwrap_or(-1), String::from_utf8_lossy(&second.stdout).to_string())) }})()"
-    (fn ((ref str)
-         (ref (vec string))
-         (ref (vec string)))
-      (pair (pair i32 string) (pair i32 string)))))
+(def wait-raw
+  (rust "{0}.wait_with_output().map(|output| (output.status.code().unwrap_or(-1), String::from_utf8_lossy(&output.stdout).to_string())).map_err(|failure| failure.to_string())"
+    (fn (child)
+      (result (pair i32 string) string))))
 
-(defn raw->result (raw)
-  (let-match ((pair code text) raw)
+(defn built-binary ()
+  (let (build (unwrap-ok (run-command (ref (->command :program (str "knave")
+                                                      :args (vec (str "build")))))))
+    (assert (= (:code build) 0))
+    binary-path))
+
+(defn output->result (output)
+  (->command-result :exit-code (:code output)
+                    :output (unwrap-ok (parse (as-str (:stdout output))))))
+
+(defn waited->result (waited)
+  (let-match ((pair code text) waited)
     (->command-result :exit-code code
                       :output (unwrap-ok (parse (as-str text))))))
 
+(defn rmap-command (database args)
+  (->command :program (str (built-binary))
+             :args (with-database database args)))
+
 (defn run-rmap (database args)
-  (raw->result (run-raw (built-binary)
-                        (ref (with-database database args)))))
+  (output->result (unwrap-ok (run-command (ref (rmap-command database args))))))
+
+(defn spawned (command)
+  (unwrap-ok (spawn-raw (as-str (:program command))
+                        (ref (:args command)))))
 
 (defn run-rmap-pair (database first-args second-args)
-  (let-match ((pair first second) (run-pair-raw
-                                    (built-binary)
-                                    (ref (with-database (clone database)
-                                                        first-args))
-                                    (ref (with-database database second-args))))
-    (pair (raw->result first) (raw->result second))))
+  (let (first (spawned (rmap-command (clone database) first-args))
+        second (spawned (rmap-command database second-args)))
+    (pair (waited->result (unwrap-ok (wait-raw first)))
+          (waited->result (unwrap-ok (wait-raw second))))))
 
 (defn with-database (database args)
   (let (all (vec (str "--db") database))
