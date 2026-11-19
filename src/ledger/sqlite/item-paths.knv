@@ -3,8 +3,8 @@
 
 (use ledger/sqlite/values text->sql)
 
-(use ledger/model ->glob ->item-id ->item-path glob item-id
-                  item-path)
+(use ledger/model ->glob ->item-glob ->item-id glob
+                  item-glob item-id)
 
 (use ledger/sqlite/connection connection database-error
                               execute query)
@@ -13,11 +13,11 @@
 
 (export all-item-paths insert-globs replace-globs)
 
-(type insert-item-path
-  (fn ((ref connection) (ref item-path))
+(type insert-item-glob
+  (fn ((ref connection) (ref item-glob))
     (result int database-error)))
 
-(defn insert-item-path (connection path)
+(defn insert-item-glob (connection path)
   (execute connection
            "INSERT INTO item_paths (item_id, glob) VALUES (?1, ?2)"
            (ref (vec (text->sql (as-str (:value (:item path))))
@@ -33,14 +33,14 @@
 (defn row->path (row)
   (let-try (item (text-cell row 0)
             pattern (text-cell row 1))
-    (ok (->item-path :item (->item-id :value item)
+    (ok (->item-glob :item (->item-id :value item)
                      :glob (->glob :pattern pattern)))))
 
 (defn insert-globs (connection id globs)
   (try-each globs
     (fn (glob)
-      (insert-item-path connection
-                        (ref (->item-path :item (clone id)
+      (insert-item-glob connection
+                        (ref (->item-glob :item (clone id)
                                           :glob (clone glob)))))))
 
 (type replace-globs

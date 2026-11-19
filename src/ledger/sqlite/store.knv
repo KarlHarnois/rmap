@@ -15,7 +15,7 @@
   (let-try (items (all-items connection)
             deps (all-deps connection)
             paths (all-item-paths connection))
-    (ok (->snapshot :items items :deps deps :paths paths))))
+    (ok (->snapshot :items items :deps deps :globs paths))))
 
 (def id-attempts 1000)
 

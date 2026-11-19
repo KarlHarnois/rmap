@@ -11,7 +11,7 @@
        (refusal/item-not-found (sample-id))
        (refusal/parent-not-epic (sample-id))
        (refusal/parent-in-other-roadmap (sample-id))
-       refusal/epic-has-parent refusal/build-needs-paths
+       refusal/epic-has-parent refusal/build-needs-globs
        refusal/epic-status-computed
        refusal/invalid-kind-change
        (refusal/invalid-transition status/open status/merged)

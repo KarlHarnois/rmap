@@ -296,10 +296,10 @@
   (fn ((ref snapshot) (ref item)) bool))
 
 (defn paths-free? (snapshot item)
-  (every? (iter (:paths snapshot))
+  (every? (iter (:globs snapshot))
     (fn (own)
       (or (not= (:item own) (:id item))
-          (every? (iter (:paths snapshot))
+          (every? (iter (:globs snapshot))
             (fn (other)
               (or (= (:item other) (:id item))
                   (not (held-by-active-build? snapshot (ref (:item other))))

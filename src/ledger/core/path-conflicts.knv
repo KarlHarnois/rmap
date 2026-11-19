@@ -1,11 +1,11 @@
 (module
   "Finds the path conflicts between an item's globs and the paths active builds hold.")
 
-(use ledger/model ->path-conflict glob item-id item-path
+(use ledger/model ->path-conflict glob item-glob item-id
                   path-conflict)
 
 (use ledger/core/paths conflict?)
-(use ledger/core/index active-paths ledger-index)
+(use ledger/core/index active-globs ledger-index)
 
 (export conflicts-with-active-builds)
 
@@ -17,7 +17,7 @@
 
 (defn conflicts-with-active-builds (index id globs)
   (let (conflicts (vec))
-    (for-each (active-paths index)
+    (for-each (active-globs index)
       (fn (held)
         (when (not= (ref (:item held)) id)
           (for-each globs
@@ -27,7 +27,7 @@
     conflicts))
 
 (type held-conflict
-  (fn ((ref item-path) glob) path-conflict))
+  (fn ((ref item-glob) glob) path-conflict))
 
 (defn held-conflict (held glob)
   (->path-conflict :with (clone (:item held))

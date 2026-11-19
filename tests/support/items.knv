@@ -1,4 +1,4 @@
-(use ledger/model ->dep ->glob ->item ->item-id ->item-path
+(use ledger/model ->dep ->glob ->item ->item-glob ->item-id
                   ->roadmap-id ->session ->snapshot
                   ->timestamp claim dep-type glob item kind
                   origin status)
@@ -43,10 +43,10 @@
          :type dep-type/blocks))
 
 (defn path-of (item pattern)
-  (->item-path :item (id-of item) :glob (glob-of pattern)))
+  (->item-glob :item (id-of item) :glob (glob-of pattern)))
 
 (defn snapshot-of (items deps paths)
-  (->snapshot :items items :deps deps :paths paths))
+  (->snapshot :items items :deps deps :globs paths))
 
 (defn statuses ()
   (vec status/open status/dispatched status/reported

@@ -2,11 +2,11 @@
   "Holds the ledger's values: roadmaps, items, dependencies, paths, events and refusals.")
 
 (export ->blockage ->dep ->event ->event-draft ->event-stamp
-        ->glob ->item ->item-id ->item-path ->path-conflict
+        ->glob ->item ->item-glob ->item-id ->path-conflict
         ->roadmap ->roadmap-id ->session ->snapshot
         ->timestamp blockage claim decision-id dep dep-type
         event event-draft event-stamp event-type glob item
-        item-id item-path kind origin path-conflict roadmap
+        item-glob item-id kind origin path-conflict roadmap
         roadmap-id roadmap-status session snapshot status
         timestamp)
 
@@ -89,14 +89,14 @@
   :on item-id
   :type dep-type)
 
-(defstruct item-path
+(defstruct item-glob
   :item item-id
   :glob glob)
 
 (defstruct snapshot
   :items (vec item)
   :deps (vec dep)
-  :paths (vec item-path))
+  :globs (vec item-glob))
 
 (defstruct blockage
   :blockers (vec item-id)

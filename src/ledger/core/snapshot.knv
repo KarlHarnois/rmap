@@ -36,7 +36,7 @@
     (vec glob)))
 
 (defn globs-of (snapshot id)
-  (-> (:paths snapshot)
+  (-> (:globs snapshot)
       iter
       (filter (fn (path) (= (ref (:item path)) id)))
       (map (fn (path) (clone (:glob path))))

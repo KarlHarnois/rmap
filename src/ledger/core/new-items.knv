@@ -44,7 +44,7 @@
 (defn check-build-has-globs (request)
   (if (and (= (:kind request) kind/build)
            (empty? (:globs request)))
-    (err refusal/build-needs-paths)
+    (err refusal/build-needs-globs)
     (ok (do))))
 
 (type check-parent

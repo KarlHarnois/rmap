@@ -37,7 +37,7 @@
     ((refusal/parent-in-other-roadmap _)
      refusal-code/parent-in-other-roadmap)
     (refusal/epic-has-parent refusal-code/epic-has-parent)
-    (refusal/build-needs-paths refusal-code/build-needs-paths)
+    (refusal/build-needs-globs refusal-code/build-needs-paths)
     (refusal/epic-status-computed refusal-code/epic-status-computed)
     (refusal/invalid-kind-change refusal-code/invalid-kind-change)
     ((refusal/invalid-transition _ _)

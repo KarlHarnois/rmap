@@ -127,6 +127,6 @@
                                                 (ref (:id item))
                                                 globs))
     (cond
-      ((empty? globs) (err refusal/build-needs-paths))
+      ((empty? globs) (err refusal/build-needs-globs))
       ((empty? conflicts) (ok (do)))
       (else (err (refusal/paths-conflict conflicts))))))
