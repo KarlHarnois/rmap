@@ -1,0 +1,98 @@
+(module
+  "Checks a new item and a new or removed dependency against the ledger's rules.")
+
+(use ledger/model dep dep-type glob item item-id kind origin
+                  roadmap-id snapshot)
+
+(use ledger/refusal refusal)
+(use ledger/core/ready find-item)
+(use ledger/core/cycles closes-cycle?)
+
+(export ->new-item check-dep-removal check-new-dep
+        check-new-item new-item)
+
+(defstruct new-item
+  :roadmap-id roadmap-id
+  :parent (option item-id)
+  :title string
+  :kind kind
+  :origin origin
+  :priority int
+  :globs (vec glob)
+  :after (vec item-id)
+  :from (option item-id))
+
+(defn check-new-item (snapshot request)
+  (let-try (_ (check-epic-has-no-parent request)
+            _ (check-build-has-globs request)
+            _ (check-parent snapshot request)
+            _ (check-all-exist snapshot (ref (:after request))))
+    (check-optional-exists snapshot (ref (:from request)))))
+
+(defn check-epic-has-no-parent (request)
+  (if (and (= (:kind request) kind/epic)
+           (some? (:parent request)))
+    (err refusal/epic-has-parent)
+    (ok (do))))
+
+(defn check-build-has-globs (request)
+  (if (and (= (:kind request) kind/build)
+           (empty? (:globs request)))
+    (err refusal/build-needs-paths)
+    (ok (do))))
+
+(defn check-parent (snapshot request)
+  (match (:parent request)
+    ((some parent-id)
+     (check-parent-item (existing snapshot parent-id) request))
+    (none (ok (do)))))
+
+(defn check-parent-item (found request)
+  (let-try (parent found)
+    (cond
+      ((not= (:kind parent) kind/epic)
+       (err (refusal/parent-not-epic (clone (:id parent)))))
+      ((not= (:roadmap-id parent) (:roadmap-id request))
+       (err (refusal/parent-in-other-roadmap (clone (:id parent)))))
+      (else (ok (do))))))
+
+(defn existing (snapshot id)
+  (ok-or (find-item snapshot id)
+         (refusal/item-not-found (clone id))))
+
+(defn check-all-exist (snapshot ids)
+  (match (find (iter ids)
+           (fn (id)
+             (none? (find-item snapshot id))))
+    ((some missing)
+     (err (refusal/item-not-found (clone missing))))
+    (none (ok (do)))))
+
+(defn check-optional-exists (snapshot id)
+  (match id
+    ((some present)
+     (map-ok (existing snapshot present)
+       (fn (_) (do))))
+    (none (ok (do)))))
+
+(defn check-new-dep (snapshot item on)
+  (let-try (_ (existing snapshot item)
+            _ (existing snapshot on))
+    (cond
+      ((blocks-edge? snapshot item on)
+       (err (refusal/dep-exists (clone item) (clone on))))
+      ((closes-cycle? (ref (:deps snapshot)) item on)
+       (err (refusal/cycle (clone item) (clone on))))
+      (else (ok (do))))))
+
+(defn check-dep-removal (snapshot item on)
+  (if (blocks-edge? snapshot item on)
+    (ok (do))
+    (err (refusal/dep-not-found (clone item) (clone on)))))
+
+(defn blocks-edge? (snapshot item on)
+  (any? (iter (:deps snapshot))
+    (fn (dep)
+      (and (= (:type dep) dep-type/blocks)
+           (= (ref (:item dep)) item)
+           (= (ref (:on dep)) on)))))

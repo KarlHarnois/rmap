@@ -1,0 +1,99 @@
+(use ledger/model claim item kind snapshot status)
+
+(use ledger/core/ready blocked-item readiness readiness-of
+                       scope)
+
+(use support/items blocks-dep child-of claimed epic-item
+                   id-of path-of snapshot-of work-item)
+
+(defn ready-ids (snapshot)
+  (-> (:ready (readiness-of (ref snapshot) (ref scope/every-roadmap)))
+      iter
+      (map (fn (item) (clone (:value (:id item)))))
+      collect))
+
+(deftest an-open-unclaimed-item-is-ready
+  (assert (= (ready-ids (snapshot-of
+                          (vec (work-item "rm-0001" kind/research status/open))
+                          (vec)
+                          (vec)))
+             (vec (str "rm-0001")))))
+
+(deftest epics-claimed-and-started-items-are-not-ready
+  (assert (empty? (ready-ids
+                    (snapshot-of
+                      (vec (epic-item "rm-0001")
+                           (claimed
+                             (work-item "rm-0002" kind/design status/open))
+                           (work-item "rm-0003" kind/build status/dispatched))
+                      (vec)
+                      (vec (path-of "rm-0003" "src/*")))))))
+
+(deftest an-unmerged-blocker-blocks
+  (assert (= (ready-ids (snapshot-of
+                          (vec
+                            (work-item "rm-0001" kind/design status/open)
+                            (work-item "rm-0002" kind/design status/in-review))
+                          (vec (blocks-dep "rm-0001" "rm-0002"))
+                          (vec)))
+             (vec))))
+
+(deftest a-merged-blocker-releases
+  (assert (= (ready-ids (snapshot-of
+                          (vec (work-item "rm-0001" kind/design status/open)
+                               (work-item "rm-0002" kind/build status/merged))
+                          (vec (blocks-dep "rm-0001" "rm-0002"))
+                          (vec)))
+             (vec (str "rm-0001")))))
+
+(deftest a-dropped-blocker-keeps-blocking
+  (assert (empty? (ready-ids
+                    (snapshot-of
+                      (vec (work-item "rm-0001" kind/design status/open)
+                           (work-item "rm-0002" kind/build status/dropped))
+                      (vec (blocks-dep "rm-0001" "rm-0002"))
+                      (vec))))))
+
+(deftest an-epic-blocker-releases-when-every-child-is-done
+  (assert (= (ready-ids
+               (snapshot-of
+                 (vec (work-item "rm-0001" kind/design status/open)
+                      (epic-item "rm-0002")
+                      (child-of (work-item "rm-0003" kind/build status/merged)
+                                "rm-0002")
+                      (child-of (work-item "rm-0004" kind/build status/dropped)
+                                "rm-0002"))
+                 (vec (blocks-dep "rm-0001" "rm-0002"))
+                 (vec)))
+             (vec (str "rm-0001")))))
+
+(deftest an-epic-without-children-blocks
+  (assert (empty? (ready-ids (snapshot-of (vec (work-item "rm-0001"
+                                                          kind/design
+                                                          status/open)
+                                               (epic-item "rm-0002"))
+                                          (vec (blocks-dep "rm-0001" "rm-0002"))
+                                          (vec))))))
+
+(deftest a-path-held-by-an-active-build-blocks
+  (let (readiness (readiness-of
+                    (ref (snapshot-of
+                           (vec (work-item "rm-0001" kind/build status/open)
+                                (work-item "rm-0002" kind/build status/fixing))
+                           (vec)
+                           (vec (path-of "rm-0001" "src/a/x.rs")
+                                (path-of "rm-0002" "src/a/**"))))
+                    (ref scope/every-roadmap)))
+    (assert (empty? (:ready readiness)))
+    (assert (= (len (:path-conflicts (:blockage (unwrap (first (:blocked
+                                                                 readiness))))))
+               1))))
+
+(deftest a-path-held-by-a-merged-build-does-not-block
+  (assert (= (ready-ids (snapshot-of
+                          (vec (work-item "rm-0001" kind/build status/open)
+                               (work-item "rm-0002" kind/build status/merged))
+                          (vec)
+                          (vec (path-of "rm-0001" "src/a/x.rs")
+                               (path-of "rm-0002" "src/a/**"))))
+             (vec (str "rm-0001")))))

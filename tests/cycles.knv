@@ -1,0 +1,29 @@
+(use ledger/core/cycles closes-cycle?)
+(use support/items blocks-dep id-of)
+
+(defn closes? (deps item on)
+  (closes-cycle? (ref deps)
+                 (ref (id-of item))
+                 (ref (id-of on))))
+
+(deftest an-item-after-itself-is-a-cycle
+  (assert (closes? (vec) "rm-000a" "rm-000a")))
+
+(deftest a-two-edge-cycle-is-refused
+  (assert (closes? (vec (blocks-dep "rm-000a" "rm-000b"))
+                   "rm-000b" "rm-000a")))
+
+(deftest a-three-edge-cycle-is-refused
+  (assert (closes? (vec (blocks-dep "rm-000a" "rm-000b")
+                        (blocks-dep "rm-000b" "rm-000c"))
+                   "rm-000c" "rm-000a")))
+
+(deftest a-diamond-is-not-a-cycle
+  (assert (not (closes? (vec (blocks-dep "rm-000a" "rm-000b")
+                             (blocks-dep "rm-000a" "rm-000c")
+                             (blocks-dep "rm-000b" "rm-000d"))
+                        "rm-000c" "rm-000d"))))
+
+(deftest a-reversed-chain-edge-is-not-a-cycle
+  (assert (not (closes? (vec (blocks-dep "rm-000a" "rm-000b"))
+                        "rm-000a" "rm-000c"))))

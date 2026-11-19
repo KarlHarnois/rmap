@@ -1,0 +1,38 @@
+(module
+  "Decides whether a new `blocks` edge would close a cycle.")
+
+(use ledger/model dep dep-type item-id)
+
+(export closes-cycle?)
+
+(type closes-cycle?
+  (fn ((ref (vec dep))
+       (ref item-id)
+       (ref item-id))
+    bool))
+
+(defn closes-cycle? (deps item on)
+  (or (= item on) (reaches? deps on item)))
+
+(type reaches?
+  (fn ((ref (vec dep))
+       (ref item-id)
+       (ref item-id))
+    bool))
+
+(defn reaches? (deps from target)
+  (or (= from target)
+      (any? (successors deps from)
+        (fn (next) (reaches? deps next target)))))
+
+(type successors
+  (fn ((ref (vec dep)) (ref item-id))
+    (vec item-id)))
+
+(defn successors (deps from)
+  (-> deps iter
+      (filter (fn (dep)
+                (and (= (:type dep) dep-type/blocks)
+                     (= (ref (:item dep)) from))))
+      (map (fn (dep) (clone (:on dep))))
+      collect))

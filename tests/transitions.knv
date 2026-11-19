@@ -1,0 +1,188 @@
+(use ledger/model ->session ->timestamp claim item kind
+                  session status timestamp)
+
+(use ledger/refusal refusal)
+(use ledger/core/states check-move move moved)
+(use support/items claimed glob-of kinds statuses work-item)
+
+(defstruct allowed-move
+  :command string
+  :from status
+  :to status
+  :kinds (vec kind))
+
+(defn work-kinds ()
+  (vec kind/research kind/design kind/build))
+
+(defn spec-table ()
+  (vec (->allowed-move :command (str "claim")
+                       :from status/open
+                       :to status/dispatched
+                       :kinds (work-kinds))
+       (->allowed-move :command (str "advance")
+                       :from status/dispatched
+                       :to status/open
+                       :kinds (work-kinds))
+       (->allowed-move :command (str "advance")
+                       :from status/dispatched
+                       :to status/reported
+                       :kinds (vec kind/research kind/design))
+       (->allowed-move :command (str "advance")
+                       :from status/dispatched
+                       :to status/in-review
+                       :kinds (vec kind/build))
+       (->allowed-move :command (str "build")
+                       :from status/reported
+                       :to status/dispatched
+                       :kinds (vec kind/research kind/design))
+       (->allowed-move :command (str "advance")
+                       :from status/in-review
+                       :to status/fixing
+                       :kinds (vec kind/build))
+       (->allowed-move :command (str "advance")
+                       :from status/in-review
+                       :to status/merging
+                       :kinds (vec kind/build))
+       (->allowed-move :command (str "advance")
+                       :from status/fixing
+                       :to status/in-review
+                       :kinds (vec kind/build))
+       (->allowed-move :command (str "advance")
+                       :from status/merging
+                       :to status/fixing
+                       :kinds (vec kind/build))
+       (->allowed-move :command (str "close")
+                       :from status/merging
+                       :to status/merged
+                       :kinds (vec kind/build))
+       (->allowed-move :command (str "drop")
+                       :from status/open
+                       :to status/dropped
+                       :kinds (work-kinds))
+       (->allowed-move :command (str "drop")
+                       :from status/dispatched
+                       :to status/dropped
+                       :kinds (work-kinds))
+       (->allowed-move :command (str "drop")
+                       :from status/reported
+                       :to status/dropped
+                       :kinds (work-kinds))
+       (->allowed-move :command (str "drop")
+                       :from status/in-review
+                       :to status/dropped
+                       :kinds (work-kinds))
+       (->allowed-move :command (str "drop")
+                       :from status/fixing
+                       :to status/dropped
+                       :kinds (work-kinds))
+       (->allowed-move :command (str "drop")
+                       :from status/merging
+                       :to status/dropped
+                       :kinds (work-kinds))))
+
+(defstruct attempt
+  :command string
+  :move move
+  :target status)
+
+(defn attempts ()
+  (let (all (vec (->attempt :command (str "claim")
+                            :move (move/claim (->session :name (str "s1")))
+                            :target status/dispatched)
+                 (->attempt :command (str "build")
+                            :move (move/advance-to-build (vec (glob-of
+                                                                "src/*")))
+                            :target status/dispatched)
+                 (->attempt :command (str "close")
+                            :move move/close
+                            :target status/merged)
+                 (->attempt :command (str "drop")
+                            :move (move/drop (str "no longer needed"))
+                            :target status/dropped)))
+    (for-each (statuses)
+      (fn (target)
+        (push! all
+               (->attempt :command (str "advance")
+                          :move (move/advance (deref target))
+                          :target (deref target)))))
+    all))
+
+(type spec-allows?
+  (fn ((ref item) (ref attempt)) bool))
+
+(defn spec-allows? (item attempt)
+  (any? (iter (spec-table))
+    (fn (row)
+      (and (= (:command row) (:command attempt))
+           (= (:from row) (:status item))
+           (= (:to row) (:target attempt))
+           (contains? (:kinds row) (:kind item))))))
+
+(defn refusal-of (outcome)
+  (match outcome
+    ((ok _) none)
+    ((err refused) (some refused))))
+
+(defn expected-refusal (item attempt)
+  (cond
+    ((= (:kind item) kind/epic)
+     (some refusal/epic-status-computed))
+    ((spec-allows? item attempt) none)
+    (else (some (refusal/invalid-transition (:status item)
+                                            (:target attempt))))))
+
+(defn grid-matches-spec? (kind from)
+  (let (item (work-item "rm-0001" kind from))
+    (every? (iter (attempts))
+      (fn (attempt)
+        (= (refusal-of (check-move (ref item)
+                                   (ref (:move attempt))))
+           (expected-refusal (ref item) attempt))))))
+
+(deftest every-move-from-every-status-of-every-kind-follows-the-table
+  (for-each (kinds)
+    (fn (kind)
+      (for-each (statuses)
+        (fn (from)
+          (assert (grid-matches-spec? (deref kind) (deref from))))))))
+
+(defn now ()
+  (->timestamp :value (str "2026-02-02T00:00:00Z")))
+
+(deftest a-refused-transition-names-both-statuses
+  (assert (= (refusal-of (check-move
+                           (ref (work-item "rm-0001" kind/build status/open))
+                           (ref move/close)))
+             (some (refusal/invalid-transition status/open status/merged)))))
+
+(deftest claim-records-the-session
+  (let (item (moved (ref (work-item "rm-0001" kind/build status/open))
+                    (ref (move/claim (->session :name (str "s1"))))
+                    (ref (now))))
+    (assert (= (:status item) status/dispatched))
+    (assert (= (:claim item)
+               (claim/claimed-by (->session :name (str "s1")))))))
+
+(deftest a-failed-dispatch-clears-the-claim
+  (let (item (moved (ref (claimed
+                           (work-item "rm-0001" kind/build status/dispatched)))
+                    (ref (move/advance status/open))
+                    (ref (now))))
+    (assert (= (:claim item) claim/unclaimed))))
+
+(deftest advancing-to-build-changes-the-kind
+  (let (item (moved (ref (work-item "rm-0001" kind/research status/reported))
+                    (ref (move/advance-to-build (vec (glob-of "src/*"))))
+                    (ref (now))))
+    (assert (= (:kind item) kind/build))
+    (assert (= (:status item) status/dispatched))))
+
+(deftest closing-and-dropping-stamp-the-close-time
+  (let (closed (moved (ref (work-item "rm-0001" kind/build status/merging))
+                      (ref move/close)
+                      (ref (now)))
+        dropped (moved (ref (work-item "rm-0002" kind/design status/open))
+                       (ref (move/drop (str "obsolete")))
+                       (ref (now))))
+    (assert (= (:closed-at closed) (some (now))))
+    (assert (= (:closed-at dropped) (some (now))))))

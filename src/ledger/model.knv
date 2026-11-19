@@ -1,0 +1,100 @@
+(module
+  "Holds the ledger's values: roadmaps, items, dependencies, paths, events and refusals.")
+
+(export ->dep ->glob ->item ->item-id ->item-path
+        ->path-conflict ->roadmap ->roadmap-id ->session
+        ->snapshot ->timestamp claim decision-id dep
+        dep-type glob item item-id item-path kind origin
+        path-conflict roadmap roadmap-id roadmap-status
+        session snapshot status timestamp)
+
+(defstruct roadmap-id
+  :value string)
+
+(defstruct item-id
+  :value string)
+
+(defstruct session
+  :name string)
+
+(defstruct glob
+  :pattern string)
+
+(defstruct timestamp
+  :value string)
+
+(defstruct decision-id
+  :value string)
+
+(defenum roadmap-status
+  active
+  paused
+  done)
+
+(defstruct roadmap
+  :id roadmap-id
+  :name string
+  :manager session
+  :status roadmap-status
+  :created-at timestamp)
+
+(defenum kind
+  epic
+  research
+  design
+  build)
+
+(defenum status
+  open
+  dispatched
+  reported
+  in-review
+  fixing
+  merging
+  merged
+  dropped)
+
+(defenum origin
+  planned
+  user-bug
+  follow-up)
+
+(defenum claim
+  unclaimed
+  (claimed-by session))
+
+(defstruct item
+  :id item-id
+  :roadmap-id roadmap-id
+  :parent (option item-id)
+  :title string
+  :kind kind
+  :status status
+  :origin origin
+  :priority int
+  :claim claim
+  :created-at timestamp
+  :closed-at (option timestamp))
+
+(defenum dep-type
+  blocks
+  discovered-from)
+
+(defstruct dep
+  :item item-id
+  :on item-id
+  :type dep-type)
+
+(defstruct item-path
+  :item item-id
+  :glob glob)
+
+(defstruct snapshot
+  :items (vec item)
+  :deps (vec dep)
+  :paths (vec item-path))
+
+(defstruct path-conflict
+  :with item-id
+  :glob glob
+  :other-glob glob)

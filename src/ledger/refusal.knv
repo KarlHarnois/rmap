@@ -1,0 +1,80 @@
+(module
+  "Names each ledger refusal, with its stable code and a sentence for the user.")
+
+(use ledger/model item-id path-conflict status)
+(use ledger/names name-of status-names)
+
+(export ->blockage blockage refusal refusal->code
+        refusal->message)
+
+(defstruct blockage
+  :blockers (vec item-id)
+  :path-conflicts (vec path-conflict))
+
+(defenum refusal
+  (roadmap-not-found string)
+  (roadmap-exists string)
+  (item-not-found item-id)
+  (parent-not-epic item-id)
+  (parent-in-other-roadmap item-id)
+  epic-has-parent
+  build-needs-paths
+  epic-status-computed
+  (invalid-transition status status)
+  (not-ready blockage)
+  (paths-conflict (vec path-conflict))
+  (cycle item-id item-id)
+  (dep-exists item-id item-id)
+  (dep-not-found item-id item-id))
+
+(defn refusal->code (failure)
+  (match failure
+    ((roadmap-not-found _) "roadmap-not-found")
+    ((roadmap-exists _) "roadmap-exists")
+    ((item-not-found _) "item-not-found")
+    ((parent-not-epic _) "parent-not-epic")
+    ((parent-in-other-roadmap _) "parent-in-other-roadmap")
+    (epic-has-parent "epic-has-parent")
+    (build-needs-paths "build-needs-paths")
+    (epic-status-computed "epic-status-computed")
+    ((invalid-transition _ _) "invalid-transition")
+    ((not-ready _) "not-ready")
+    ((paths-conflict _) "path-conflict")
+    ((cycle _ _) "cycle")
+    ((dep-exists _ _) "dep-exists")
+    ((dep-not-found _ _) "dep-not-found")))
+
+(defn refusal->message (failure)
+  (match failure
+    ((roadmap-not-found name) (str "no roadmap is named " name))
+    ((roadmap-exists name)
+     (str "a roadmap named " name " already exists"))
+    ((item-not-found id)
+     (str "no item has the id " (:value id)))
+    ((parent-not-epic id)
+     (str "the parent " (:value id) " is not an epic"))
+    ((parent-in-other-roadmap id)
+     (str "the parent "
+          (:value id)
+          " belongs to another roadmap"))
+    (epic-has-parent (str "an epic cannot have a parent"))
+    (build-needs-paths (str "a build item needs at least one path"))
+    (epic-status-computed (str
+                            "an epic's status is computed from its children"))
+    ((invalid-transition from to)
+     (str "an item cannot move from "
+          (name-of status-names from)
+          " to "
+          (name-of status-names to)))
+    ((not-ready _) (str "the item is not ready"))
+    ((paths-conflict _)
+     (str "the paths conflict with an active build"))
+    ((cycle item on)
+     (str (:value item)
+          " after "
+          (:value on)
+          " would close a cycle"))
+    ((dep-exists item on)
+     (str (:value item) " already depends on " (:value on)))
+    ((dep-not-found item on)
+     (str (:value item) " does not depend on " (:value on)))))

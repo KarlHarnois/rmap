@@ -1,0 +1,55 @@
+(use ledger/model ->dep ->glob ->item ->item-id ->item-path
+                  ->roadmap-id ->session ->snapshot
+                  ->timestamp claim dep dep-type glob item
+                  item-id item-path kind origin session
+                  snapshot status)
+
+(export blocks-dep child-of claimed epic-item glob-of id-of
+        kinds path-of snapshot-of statuses work-item)
+
+(defn id-of (text)
+  (->item-id :value (str text)))
+
+(defn glob-of (pattern)
+  (->glob :pattern (str pattern)))
+
+(defn work-item (id kind status)
+  (->item :id (id-of id)
+          :roadmap-id (->roadmap-id :value (str "rm-road"))
+          :parent none
+          :title (str "work")
+          :kind kind
+          :status status
+          :origin origin/planned
+          :priority 0
+          :claim claim/unclaimed
+          :created-at (->timestamp :value (str "2026-01-01T00:00:00Z"))
+          :closed-at none))
+
+(defn epic-item (id) (work-item id kind/epic status/open))
+
+(defn child-of (item epic-id)
+  (assoc item :parent (some (id-of epic-id))))
+
+(defn claimed (item)
+  (assoc item
+         :claim (claim/claimed-by (->session :name (str "worker")))))
+
+(defn blocks-dep (item on)
+  (->dep :item (id-of item)
+         :on (id-of on)
+         :type dep-type/blocks))
+
+(defn path-of (item pattern)
+  (->item-path :item (id-of item) :glob (glob-of pattern)))
+
+(defn snapshot-of (items deps paths)
+  (->snapshot :items items :deps deps :paths paths))
+
+(defn statuses ()
+  (vec status/open status/dispatched status/reported
+       status/in-review status/fixing status/merging
+       status/merged status/dropped))
+
+(defn kinds ()
+  (vec kind/epic kind/research kind/design kind/build))

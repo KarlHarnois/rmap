@@ -1,0 +1,170 @@
+(module
+  "Holds the table of allowed status transitions and applies a move to an item.")
+
+(use ledger/model claim glob item kind session status
+                  timestamp)
+
+(use ledger/refusal refusal)
+
+(export check-move command move move->command move->target
+        moved transitions)
+
+(defenum command
+  claim
+  advance
+  advance-to-build
+  close
+  drop)
+
+(defenum move
+  (claim session)
+  (advance status)
+  (advance-to-build (vec glob))
+  close
+  (drop string))
+
+(defstruct transition
+  :from status
+  :to status
+  :command command
+  :kinds (vec kind))
+
+(defn work-kinds ()
+  (vec kind/research kind/design kind/build))
+
+(defn transitions ()
+  (vec (->transition :from status/open
+                     :to status/dispatched
+                     :command command/claim
+                     :kinds (work-kinds))
+       (->transition :from status/dispatched
+                     :to status/open
+                     :command command/advance
+                     :kinds (work-kinds))
+       (->transition :from status/dispatched
+                     :to status/reported
+                     :command command/advance
+                     :kinds (vec kind/research kind/design))
+       (->transition :from status/dispatched
+                     :to status/in-review
+                     :command command/advance
+                     :kinds (vec kind/build))
+       (->transition :from status/reported
+                     :to status/dispatched
+                     :command command/advance-to-build
+                     :kinds (vec kind/research kind/design))
+       (->transition :from status/in-review
+                     :to status/fixing
+                     :command command/advance
+                     :kinds (vec kind/build))
+       (->transition :from status/in-review
+                     :to status/merging
+                     :command command/advance
+                     :kinds (vec kind/build))
+       (->transition :from status/fixing
+                     :to status/in-review
+                     :command command/advance
+                     :kinds (vec kind/build))
+       (->transition :from status/merging
+                     :to status/fixing
+                     :command command/advance
+                     :kinds (vec kind/build))
+       (->transition :from status/merging
+                     :to status/merged
+                     :command command/close
+                     :kinds (vec kind/build))
+       (->transition :from status/open
+                     :to status/dropped
+                     :command command/drop
+                     :kinds (work-kinds))
+       (->transition :from status/dispatched
+                     :to status/dropped
+                     :command command/drop
+                     :kinds (work-kinds))
+       (->transition :from status/reported
+                     :to status/dropped
+                     :command command/drop
+                     :kinds (work-kinds))
+       (->transition :from status/in-review
+                     :to status/dropped
+                     :command command/drop
+                     :kinds (work-kinds))
+       (->transition :from status/fixing
+                     :to status/dropped
+                     :command command/drop
+                     :kinds (work-kinds))
+       (->transition :from status/merging
+                     :to status/dropped
+                     :command command/drop
+                     :kinds (work-kinds))))
+
+(defn move->command (move)
+  (match move
+    ((move/claim _) command/claim)
+    ((move/advance _) command/advance)
+    ((move/advance-to-build _) command/advance-to-build)
+    (move/close command/close)
+    ((move/drop _) command/drop)))
+
+(defn move->target (move)
+  (match move
+    ((move/claim _) status/dispatched)
+    ((move/advance target) target)
+    ((move/advance-to-build _) status/dispatched)
+    (move/close status/merged)
+    ((move/drop _) status/dropped)))
+
+(defn check-move (item move)
+  (cond
+    ((= (:kind item) kind/epic)
+     (err refusal/epic-status-computed))
+    ((allowed? item move) (ok (do)))
+    (else (err (refusal/invalid-transition (:status item)
+                                           (move->target move))))))
+
+(type allowed?
+  (fn ((ref item) (ref move)) bool))
+
+(defn allowed? (item move)
+  (let (command (move->command move)
+        target (move->target move))
+    (any? (transitions)
+      (fn (transition)
+        (and (= (:from transition) (:status item))
+             (= (:to transition) target)
+             (= (:command transition) command)
+             (contains? (:kinds transition) (:kind item)))))))
+
+(type moved
+  (fn ((ref item) (ref move) (ref timestamp))
+    item))
+
+(defn moved (item move now)
+  (let (target (move->target move))
+    (-> (clone item)
+        (assoc :status target)
+        (assoc :claim (claim-after item move))
+        (assoc :kind (kind-after item move))
+        (assoc :closed-at (closed-at-after item target now)))))
+
+(defn claim-after (item move)
+  (match move
+    ((move/claim session) (claim/claimed-by (clone session)))
+    ((move/advance target)
+     (claim-kept-unless-reopened item target))
+    (_ (clone (:claim item)))))
+
+(defn claim-kept-unless-reopened (item target)
+  (if (= target status/open)
+    claim/unclaimed
+    (clone (:claim item))))
+
+(defn kind-after (item move)
+  (match move
+    ((move/advance-to-build _) kind/build)
+    (_ (:kind item))))
+
+(defn closed-at-after (item target now)
+  (if (or (= target status/merged) (= target status/dropped))
+    (some (clone now))
+    (clone (:closed-at item))))

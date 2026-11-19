@@ -1,0 +1,194 @@
+(use ledger/model claim dep dep-type glob item item-id
+                  item-path kind snapshot status)
+
+(use ledger/core/ready readiness-of scope)
+(use ledger/core/paths conflict?)
+
+(use support/items blocks-dep child-of claimed id-of kinds
+                   path-of snapshot-of statuses work-item)
+
+(def item-count 9)
+
+(def seed-count 300)
+
+(def glob-pool
+  (vec "src/a/**" "src/a/b.rs" "src/b/*" "docs/*.md" "src/*"))
+
+(defn next-state (state)
+  (rem (+ (* state 1103515245) 12345) 2147483648))
+
+(defn pick (state choices)
+  (rem (/ state 65536) choices))
+
+(defn choice (items roll)
+  (deref (unwrap (get items
+                      (the usize
+                           (convert (pick roll
+                                          (the int (convert (len items))))))))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))
+
+(defn id-at (index)
+  (str "rm-" (+ 1000 index)))
+
+(defstruct draw
+  :state int
+  :item item
+  :deps (vec dep)
+  :paths (vec item-path))
+
+(defn generated-snapshot (seed)
+  (loop (index 0
+         state (next-state seed)
+         items (vec (work-item "rm-1000" kind/epic status/open))
+         deps (vec)
+         paths (vec))
+    (if (< index item-count)
+      (let (s1 (next-state state)
+            s2 (next-state s1)
+            s3 (next-state s2)
+            s4 (next-state s3)
+            s5 (next-state s4)
+            s6 (next-state s5)
+            id (id-at (inc index))
+            item (generated-item (as-str id) s1 s2 s3 s4))
+        (recur (inc index)
+               s6
+               (appended items item)
+               (generated-deps deps (as-str id) index s5)
+               (generated-paths paths (as-str id) s6)))
+      (snapshot-of items deps paths))))
+
+(defn generated-item (id kind-roll status-roll claim-roll parent-roll)
+  (let (kind (choice (vec kind/research kind/design kind/build)
+                     kind-roll)
+        status (choice (statuses) status-roll)
+        base (work-item id kind status)
+        parented (with-parent base parent-roll))
+    (with-claim parented claim-roll)))
+
+(defn with-parent (item roll)
+  (if (= (pick roll 3) 0)
+    (child-of item "rm-1000")
+    item))
+
+(defn with-claim (item roll)
+  (if (= (pick roll 5) 0)
+    (claimed item)
+    item))
+
+(defn generated-deps (deps id index roll)
+  (if (> index 0)
+    (appended deps
+              (blocks-dep id
+                          (as-str (id-at (pick roll (inc index))))))
+    deps))
+
+(defn generated-paths (paths id roll)
+  (appended paths (path-of id (choice glob-pool roll))))
+
+(type find-in
+  (fn ((ref snapshot) (ref item-id))
+    (option item)))
+
+(defn find-in (snapshot id)
+  (-> (:items snapshot)
+      iter
+      (find (fn (item) (= (ref (:id item)) id)))
+      (map-some clone)))
+
+(defn done-for-dependents? (snapshot id)
+  (match (find-in snapshot id)
+    ((some target) (target-done? snapshot (ref target)))
+    (none false)))
+
+(defn target-done? (snapshot target)
+  (if (= (:kind target) kind/epic)
+    (epic-done? snapshot (ref (:id target)))
+    (= (:status target) status/merged)))
+
+(defn epic-done? (snapshot epic)
+  (let (children (collect (filter (iter (:items snapshot))
+                            (fn (item)
+                              (= (ref (:parent item))
+                                 (ref (some (clone epic))))))))
+    (and (not (empty? children))
+         (every? (iter children)
+           (fn (child)
+             (or (= (:status child) status/merged)
+                 (= (:status child) status/dropped)))))))
+
+(type blockers-done?
+  (fn ((ref snapshot) (ref item)) bool))
+
+(defn blockers-done? (snapshot item)
+  (every? (iter (:deps snapshot))
+    (fn (dep)
+      (or (not= (:item dep) (:id item))
+          (not= (:type dep) dep-type/blocks)
+          (done-for-dependents? snapshot (ref (:on dep)))))))
+
+(defn held-by-active-build? (snapshot id)
+  (match (find-in snapshot id)
+    ((some holder) (active? (ref holder)))
+    (none false)))
+
+(defn active? (item)
+  (and (= (:kind item) kind/build)
+       (not= (:status item) status/open)
+       (not= (:status item) status/merged)
+       (not= (:status item) status/dropped)))
+
+(type paths-free?
+  (fn ((ref snapshot) (ref item)) bool))
+
+(defn paths-free? (snapshot item)
+  (every? (iter (:paths snapshot))
+    (fn (own)
+      (or (not= (:item own) (:id item))
+          (every? (iter (:paths snapshot))
+            (fn (other)
+              (or (= (:item other) (:id item))
+                  (not (held-by-active-build? snapshot (ref (:item other))))
+                  (not (conflict? (ref (:glob own))
+                                  (ref (:glob other)))))))))))
+
+(defn startable? (snapshot item)
+  (and (not= (:kind item) kind/epic)
+       (= (:status item) status/open)
+       (= (:claim item) claim/unclaimed)
+       (blockers-done? snapshot item)
+       (paths-free? snapshot item)))
+
+(defn agrees-with-oracle? (seed)
+  (let (snapshot (generated-snapshot seed)
+        readiness (readiness-of (ref snapshot) (ref scope/every-roadmap))
+        ready (:ready readiness))
+    (and (every? (iter ready)
+           (fn (item)
+             (startable? (ref snapshot) item)))
+         (every? (iter (:items snapshot))
+           (fn (item)
+             (or (not (startable? (ref snapshot) item))
+                 (any? (iter ready)
+                   (fn (other) (= (:id other) (:id item))))))))))
+
+(deftest ready-matches-an-independent-oracle-over-generated-graphs
+  (for-each (range 0 seed-count)
+    (fn (seed)
+      (assert (agrees-with-oracle? seed)))))
+
+(deftest generated-graphs-contain-ready-and-blocked-items
+  (let (ready-total 0
+        blocked-total 0)
+    (for-each (range 0 seed-count)
+      (fn (seed)
+        (let (readiness (readiness-of (ref (generated-snapshot seed))
+                                      (ref scope/every-roadmap)))
+          (set! ready-total
+                (+ ready-total (len (:ready readiness))))
+          (set! blocked-total
+                (+ blocked-total (len (:blocked readiness)))))))
+    (assert (> ready-total 0))
+    (assert (> blocked-total 0))))

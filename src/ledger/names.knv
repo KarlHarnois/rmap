@@ -1,0 +1,57 @@
+(module
+  "Pairs each ledger enum case with the text that names it in the database and on the command line.")
+
+(use ledger/model dep-type kind origin roadmap-status
+                  status)
+
+(export dep-type-names kind-names name-of named origin-names
+        roadmap-status-names status-names)
+
+(def roadmap-status-names
+  (vec (pair roadmap-status/active "active")
+       (pair roadmap-status/paused "paused")
+       (pair roadmap-status/done "done")))
+
+(def kind-names
+  (vec (pair kind/epic "epic")
+       (pair kind/research "research")
+       (pair kind/design "design")
+       (pair kind/build "build")))
+
+(def status-names
+  (vec (pair status/open "open")
+       (pair status/dispatched "dispatched")
+       (pair status/reported "reported")
+       (pair status/in-review "in_review")
+       (pair status/fixing "fixing")
+       (pair status/merging "merging")
+       (pair status/merged "merged")
+       (pair status/dropped "dropped")))
+
+(def origin-names
+  (vec (pair origin/planned "planned")
+       (pair origin/user-bug "user-bug")
+       (pair origin/follow-up "follow-up")))
+
+(def dep-type-names
+  (vec (pair dep-type/blocks "blocks")
+       (pair dep-type/discovered-from "discovered_from")))
+
+(defn name-of (names value)
+  (-> names iter
+      (find (fn (entry)
+              (let-match ((pair case _) (deref entry))
+                (= case value))))
+      (map-some (fn (entry)
+                  (let-match ((pair _ name) (deref entry))
+                    name)))
+      (unwrap-or "")))
+
+(defn named (names text)
+  (-> names iter
+      (find (fn (entry)
+              (let-match ((pair _ name) (deref entry))
+                (= (str name) (str text)))))
+      (map-some (fn (entry)
+                  (let-match ((pair case _) (deref entry))
+                    case)))))

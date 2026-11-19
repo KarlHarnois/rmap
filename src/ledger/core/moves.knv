@@ -1,0 +1,43 @@
+(module
+  "Checks a move of an item against the state table and the ledger around it.")
+
+(use ledger/model glob item snapshot)
+(use ledger/refusal refusal)
+(use ledger/core/states check-move move)
+
+(use ledger/core/ready blockage-of
+                       conflicts-with-active-builds globs-of
+                       ready?)
+
+(export build-globs check-move-in)
+
+(defn check-move-in (snapshot item move)
+  (let-try (_ (check-move item move))
+    (match move
+      ((move/claim _) (check-ready snapshot item))
+      ((move/advance-to-build globs)
+       (check-build-globs snapshot item globs))
+      (_ (ok (do))))))
+
+(defn check-ready (snapshot item)
+  (if (ready? snapshot item)
+    (ok (do))
+    (err (refusal/not-ready (blockage-of snapshot item)))))
+
+(defn check-build-globs (snapshot item globs)
+  (let (chosen (build-globs snapshot item globs))
+    (check-free-globs snapshot item (ref chosen))))
+
+(defn check-free-globs (snapshot item globs)
+  (let (conflicts (conflicts-with-active-builds snapshot
+                                                (ref (:id item))
+                                                globs))
+    (cond
+      ((empty? globs) (err refusal/build-needs-paths))
+      ((empty? conflicts) (ok (do)))
+      (else (err (refusal/paths-conflict conflicts))))))
+
+(defn build-globs (snapshot item globs)
+  (if (empty? globs)
+    (globs-of snapshot (ref (:id item)))
+    (clone globs)))

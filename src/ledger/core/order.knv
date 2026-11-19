@@ -1,0 +1,18 @@
+(module
+  "Orders ready items: user bugs first, then higher priority, then older, then by id.")
+
+(use ledger/model item origin)
+
+(export ordered)
+
+(defn ordered (items)
+  (let (sorted items) (sort-by! sorted order-key) sorted))
+
+(defn order-key (item)
+  (pair (origin-rank (:origin item))
+        (pair (neg (:priority item))
+              (pair (clone (:value (:created-at item)))
+                    (clone (:value (:id item)))))))
+
+(defn origin-rank (origin)
+  (match origin (user-bug 0) (_ 1)))
