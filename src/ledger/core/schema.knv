@@ -1,15 +1,16 @@
 (module
   "Checks a new item and a new or removed dependency against the ledger's rules.")
 
-(use ledger/model glob item item-id kind origin roadmap-id
-                  snapshot)
+(use ledger/model dep glob item item-id kind origin
+                  roadmap-id snapshot)
 
 (use ledger/refusal refusal)
 (use ledger/core/snapshot blocks? existing find-item)
 (use ledger/core/cycles closes-cycle?)
 
-(export ->new-item check-dep-removal check-new-dep
-        check-new-item distinct new-item normalized)
+(export ->new-item check-dep-change check-dep-removal
+        check-new-dep check-new-item dep-change distinct
+        new-item normalized)
 
 (defstruct new-item
   :parent (option item-id)
@@ -134,3 +135,20 @@
   (let (globs (distinct (ref (:globs request)))
         after (distinct (ref (:after request))))
     (-> request (assoc :globs globs) (assoc :after after))))
+
+(defenum dep-change
+  add
+  remove)
+
+(type check-dep-change
+  (fn ((ref snapshot) (ref dep) dep-change)
+    (result unit refusal)))
+
+(defn check-dep-change (snapshot dep change)
+  (match change
+    (add (check-new-dep snapshot
+                        (ref (:item dep))
+                        (ref (:on dep))))
+    (remove (check-dep-removal snapshot
+                               (ref (:item dep))
+                               (ref (:on dep))))))

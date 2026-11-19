@@ -10,7 +10,7 @@
                   status-names)
 
 (use ledger/core/move move)
-(use ledger/core/schema new-item)
+(use ledger/core/schema dep-change new-item)
 
 (export ->item-move dep-changed item-added item-move
         item-moved roadmap-created)
@@ -61,15 +61,20 @@
                                 (optional-id->json (ref (:from request))))))))
 
 (type dep-changed
-  (fn ((ref item) (ref dep) event-type)
+  (fn ((ref item) (ref dep) dep-change)
     event-draft))
 
-(defn dep-changed (owner dep type)
+(defn dep-changed (owner dep change)
   (->event-draft :roadmap-id (some (clone (:roadmap-id owner)))
                  :item-id (some (clone (:item dep)))
-                 :type type
+                 :type (dep-change->event-type change)
                  :payload (object (vec (pair (str "on")
                                              (text->json (as-str (:value (:on dep)))))))))
+
+(defn dep-change->event-type (change)
+  (match change
+    (add event-type/dep-added)
+    (remove event-type/dep-removed)))
 
 (type item-moved
   (fn ((ref item-move)) event-draft))

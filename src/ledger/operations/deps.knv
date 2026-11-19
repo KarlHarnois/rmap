@@ -1,9 +1,8 @@
 (module
   "Adds and removes `blocks` dependencies.")
 
-(use ledger/model ->dep dep dep-type event-type snapshot)
-(use ledger/refusal refusal)
-(use ledger/core/schema check-dep-removal check-new-dep)
+(use ledger/model ->dep dep dep-type)
+(use ledger/core/schema check-dep-change dep-change)
 (use ledger/sqlite/deps delete-dep insert-dep)
 (use ledger/sqlite/store load-snapshot)
 
@@ -13,54 +12,45 @@
 (use ledger/failure failure)
 (use ledger/core/snapshot existing)
 (use ledger/events dep-changed)
+(use ledger/sqlite/connection connection database-error)
 
 (export add-dep remove-dep)
 
 (defn add-dep (settings item on)
   (change-dep settings
               (->dep :item item :on on :type dep-type/blocks)
-              event-type/dep-added))
+              dep-change/add))
 
 (defn remove-dep (settings item on)
   (change-dep settings
               (->dep :item item :on on :type dep-type/blocks)
-              event-type/dep-removed))
+              dep-change/remove))
 
-(defn change-dep (settings dep type)
+(defn change-dep (settings dep change)
   (in-transaction settings
-    (fn (transaction) (write-dep transaction dep type))))
+    (fn (transaction) (write-dep transaction dep change))))
 
 (type write-dep
-  (fn ((ref transaction) dep event-type)
+  (fn ((ref transaction) dep dep-change)
     (result dep failure)))
 
-(defn write-dep (transaction dep type)
+(defn write-dep (transaction dep change)
   (let-try (snapshot (load-snapshot (ref (:connection transaction)))
-            _ (check-dep-change (ref snapshot) (ref dep) type)
-            _ (write-dep-change (ref (:connection transaction))
-                                (ref dep)
-                                type)
+            _ (check-dep-change (ref snapshot) (ref dep) change)
             owner (existing (ref snapshot)
                             (ref (:item dep)))
+            _ (write-dep-change (ref (:connection transaction))
+                                (ref dep)
+                                change)
             _ (record transaction
-                      (dep-changed (ref owner) (ref dep) type)))
+                      (dep-changed (ref owner) (ref dep) change)))
     (ok (clone dep))))
 
-(type check-dep-change
-  (fn ((ref snapshot) (ref dep) event-type)
-    (result unit refusal)))
+(type write-dep-change
+  (fn ((ref connection) (ref dep) dep-change)
+    (result int database-error)))
 
-(defn check-dep-change (snapshot dep type)
-  (match type
-    (dep-added (check-new-dep snapshot
-                              (ref (:item dep))
-                              (ref (:on dep))))
-    (_ (check-dep-removal snapshot
-                          (ref (:item dep))
-                          (ref (:on dep))))))
-
-(defn write-dep-change (connection dep type)
-  (let-try (changed (match type
-                      (dep-added (insert-dep connection dep))
-                      (_ (delete-dep connection dep))))
-    (ok changed)))
+(defn write-dep-change (connection dep change)
+  (match change
+    (add (insert-dep connection dep))
+    (remove (delete-dep connection dep))))
