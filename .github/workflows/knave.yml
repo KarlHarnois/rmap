@@ -34,5 +34,19 @@ jobs:
         run: knave fmt --check
       - name: Lint
         run: knave lint
+      - name: Keep source files under 150 lines
+        run: |
+          long=$(git ls-files '*.knv' ':!:tests/' | xargs wc -l | awk '$2 != "total" && $1 > 150 {print $2 ": " $1 " lines"}')
+          if [ -n "$long" ]; then
+            echo "These files pass 150 lines. Move a concept that deserves its own name into its own module:"
+            echo "$long"
+            exit 1
+          fi
+      - name: Keep the ledger core free of SQLite
+        run: |
+          if grep -rn '(use ledger/sqlite' src/ledger/core; then
+            echo "src/ledger/core must not import ledger/sqlite: the core stays pure."
+            exit 1
+          fi
       - name: Test
         run: knave test

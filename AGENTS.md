@@ -4,11 +4,9 @@
 
 **Keep every ledger rule inside `src/ledger/`.**
 
-**NEVER import `ledger/sqlite` from `ledger/core`:** the core stays pure.
-
 **Put only the Rust calls that Knave cannot make in a `rust` template.** Write the logic around those calls in Knave.
 
-**Keep every file outside `tests/` under 150 lines.** If a file passes 150 lines, move a concept that deserves its own name into its own module. NEVER split a file only to cut its length.
+**If CI reports a file over 150 lines, move a concept that deserves its own name into its own module.** NEVER split a file only to cut its length.
 
 **NEVER edit a committed migration file:** a database that already applied the file skips the edit.
 
