@@ -1,0 +1,59 @@
+(use json/value json parse)
+
+(export built-binary command-result run-rmap run-rmap-pair
+        scratch-database)
+
+(defstruct command-result
+  :exit-code i32
+  :output json)
+
+(def scratch-path
+  (rust "(|| -> String {{ let directory = std::env::temp_dir().join(format!(\"rmap-tests-{{}}\", std::process::id())); std::fs::create_dir_all(&directory).ok(); let path = directory.join(format!(\"{{}}.db\", {0})); for suffix in [\"\", \"-wal\", \"-shm\"] {{ std::fs::remove_file(format!(\"{{}}{{}}\", path.display(), suffix)).ok(); }} path.display().to_string() }})()"
+    (fn ((ref str)) string)))
+
+(defn scratch-database (name) (scratch-path name))
+
+(def build-binary
+  (rust "std::process::Command::new(\"knave\").arg(\"build\").output().map(|output| output.status.success()).unwrap_or(false)"
+    (fn () bool)))
+
+(def binary-path "target/knave/rmap/rmap")
+
+(defn built-binary ()
+  (assert (build-binary))
+  binary-path)
+
+(def run-raw
+  (rust "(|| -> (i32, String) {{ let output = std::process::Command::new({0}).args({1}).output().expect(\"rmap runs\"); (output.status.code().unwrap_or(-1), String::from_utf8_lossy(&output.stdout).to_string()) }})()"
+    (fn ((ref str) (ref (vec string)))
+      (pair i32 string))))
+
+(def run-pair-raw
+  (rust "(|| -> ((i32, String), (i32, String)) {{ let first = std::process::Command::new({0}).args({1}).stdout(std::process::Stdio::piped()).spawn().expect(\"rmap starts\"); let second = std::process::Command::new({0}).args({2}).stdout(std::process::Stdio::piped()).spawn().expect(\"rmap starts\"); let first = first.wait_with_output().expect(\"rmap ends\"); let second = second.wait_with_output().expect(\"rmap ends\"); ((first.status.code().unwrap_or(-1), String::from_utf8_lossy(&first.stdout).to_string()), (second.status.code().unwrap_or(-1), String::from_utf8_lossy(&second.stdout).to_string())) }})()"
+    (fn ((ref str)
+         (ref (vec string))
+         (ref (vec string)))
+      (pair (pair i32 string) (pair i32 string)))))
+
+(defn raw->result (raw)
+  (let-match ((pair code text) raw)
+    (->command-result :exit-code code
+                      :output (unwrap-ok (parse (as-str text))))))
+
+(defn run-rmap (database args)
+  (raw->result (run-raw (built-binary)
+                        (ref (with-database database args)))))
+
+(defn run-rmap-pair (database first-args second-args)
+  (let-match ((pair first second) (run-pair-raw
+                                    (built-binary)
+                                    (ref (with-database (clone database)
+                                                        first-args))
+                                    (ref (with-database database second-args))))
+    (pair (raw->result first) (raw->result second))))
+
+(defn with-database (database args)
+  (let (all (vec (str "--db") database))
+    (for-each args
+      (fn (arg) (push! all (str arg))))
+    all))

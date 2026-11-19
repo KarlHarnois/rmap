@@ -1,0 +1,63 @@
+(use json/value text->json)
+
+(use ledger/adapters/driven/sqlite/connection execute open
+                                              query)
+
+(use ledger/adapters/driven/sqlite/migrations ->migration
+                                              migrate
+                                              schema-version)
+
+(use ledger/adapters/driven/sqlite/migration-sources migration-sources)
+(use support/process scratch-database)
+
+(def fixture-migration
+  "tests/fixtures/0002-add-item-notes.sql")
+
+(defn embedded-sql (version)
+  (-> (migration-sources)
+      iter
+      (find (fn (migration)
+              (= (:version migration) version)))
+      (map-some (fn (migration)
+                  (clone (:sql migration))))))
+
+(deftest embedded-migrations-match-the-sql-files
+  (assert (= (embedded-sql 1)
+             (some (unwrap-ok (slurp "migrations/0001-init.sql"))))))
+
+(defn opened (name)
+  (unwrap-ok (open (as-str (scratch-database name)))))
+
+(defn count-roadmaps (connection)
+  (len (unwrap-ok (query connection "SELECT id FROM roadmaps" (ref (vec))))))
+
+(deftest a-new-database-reaches-the-latest-version
+  (let (connection (opened "latest"))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    (assert (= (unwrap-ok (schema-version (ref connection)))
+               1))))
+
+(deftest a-later-migration-keeps-existing-rows
+  (let (connection (opened "keeps-rows"))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    (unwrap-ok (execute (ref connection)
+                        "INSERT INTO roadmaps (id, name, manager_session, created_at) VALUES (?1, ?2, ?3, ?4)"
+                        (ref (vec (text->json "rm-0001")
+                                  (text->json "kept")
+                                  (text->json "m1")
+                                  (text->json "2026-01-01")))))
+    (let (extended (migration-sources))
+      (push! extended
+             (->migration :version 2
+                          :sql (unwrap-ok (slurp fixture-migration))))
+      (unwrap-ok (migrate (ref connection) extended)))
+    (assert (= (unwrap-ok (schema-version (ref connection)))
+               2))
+    (assert (= (count-roadmaps (ref connection)) 1))))
+
+(deftest migrating-twice-applies-nothing-new
+  (let (connection (opened "twice"))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    (assert (= (unwrap-ok (schema-version (ref connection)))
+               1))))
