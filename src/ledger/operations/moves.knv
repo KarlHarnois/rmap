@@ -6,8 +6,8 @@
 (use ledger/events ->item-move cli-actor item-move
                    item-moved)
 
-(use ledger/core/move added-globs advancement->move move
-                      moved)
+(use ledger/core/move advancement->move move moved
+                      new-globs)
 
 (use ledger/core/transitions approved-move)
 (use ledger/sqlite/items update-item)
@@ -17,7 +17,7 @@
                                    now record transaction)
 
 (use ledger/operations/lookups existing-item)
-(use ledger/sqlite/item-paths insert-globs)
+(use ledger/sqlite/item-paths replace-globs)
 
 (export advance-item claim-item close-item drop-item)
 
@@ -77,8 +77,19 @@
 (defn store-move (transaction change)
   (let-try (_ (update-item (ref (:connection transaction))
                            (ref (:after change)))
-            _ (insert-globs (ref (:connection transaction))
-                            (ref (:id (:after change)))
-                            (ref (added-globs (ref (:move change)))))
+            _ (store-globs transaction (ref change))
             _ (record transaction (item-moved (ref change))))
     (ok (clone (:after change)))))
+
+(type store-globs
+  (fn ((ref transaction) (ref item-move))
+    (result unit failure)))
+
+(defn store-globs (transaction change)
+  (match (new-globs (ref (:move change)))
+    ((some globs)
+     (let-try (_ (replace-globs (ref (:connection transaction))
+                                (ref (:id (:after change)))
+                                (ref globs)))
+       (ok (do))))
+    (none (ok (do)))))

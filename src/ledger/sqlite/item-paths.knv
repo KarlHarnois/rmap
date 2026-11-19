@@ -2,14 +2,16 @@
   "Reads and writes the `item_paths` table.")
 
 (use json/value text->json)
-(use ledger/model ->glob ->item-id ->item-path item-path)
+
+(use ledger/model ->glob ->item-id ->item-path glob item-id
+                  item-path)
 
 (use ledger/sqlite/connection connection database-error
                               execute query)
 
 (use ledger/sqlite/rows text-cell)
 
-(export all-item-paths insert-globs)
+(export all-item-paths insert-globs replace-globs)
 
 (type insert-item-path
   (fn ((ref connection) (ref item-path))
@@ -54,3 +56,15 @@
                                            :glob (clone (at globs index))))))
         (recur (inc index)))
       (ok (do)))))
+
+(type replace-globs
+  (fn ((ref connection)
+       (ref item-id)
+       (ref (vec glob)))
+    (result unit database-error)))
+
+(defn replace-globs (connection id globs)
+  (let-try (_ (execute connection
+                       "DELETE FROM item_paths WHERE item_id = ?1"
+                       (ref (vec (text->json (as-str (:value id)))))))
+    (insert-globs connection id globs)))

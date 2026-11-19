@@ -27,6 +27,9 @@
 
 (defn epic-item (id) (work-item id kind/epic status/open))
 
+(type child-of
+  (fn (item (ref str)) item))
+
 (defn child-of (item epic-id)
   (assoc item :parent (some (id-of epic-id))))
 

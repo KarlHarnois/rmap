@@ -4,9 +4,9 @@
 (use ledger/model claim glob item kind session status
                   timestamp)
 
-(export ->advancement added-globs advancement
-        advancement->move command kind-change move
-        move->command move->target moved)
+(export ->advancement advancement advancement->move command
+        kind-change move move->command move->target moved
+        new-globs)
 
 (defenum command
   claim
@@ -57,10 +57,10 @@
     (move/close status/merged)
     ((move/drop _) status/dropped)))
 
-(defn added-globs (move)
+(defn new-globs (move)
   (match move
-    ((move/advance-to-build globs) (clone globs))
-    (_ (vec))))
+    ((move/advance-to-build globs) (some (clone globs)))
+    (_ none)))
 
 (type moved
   (fn ((ref item) (ref move) (ref timestamp))

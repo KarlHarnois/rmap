@@ -1,0 +1,58 @@
+(use ledger/api ->advancement advance-item kind kind-change
+                readiness ready-items show-item status)
+
+(use support/ledger added-id claimed globs-of-patterns
+                    item-draft scratch-ledger)
+
+(defn reported-research (settings patterns)
+  (let (id (claimed settings
+                    (added-id settings
+                              (item-draft kind/research
+                                          (globs-of-patterns patterns)))))
+    (assert (ok? (advance-item settings
+                               (clone id)
+                               (->advancement
+                                 :to status/reported
+                                 :kind-change kind-change/keep-kind))))
+    id))
+
+(defn become-build (settings id patterns)
+  (advance-item settings
+                (clone id)
+                (->advancement :to status/dispatched
+                               :kind-change (kind-change/become-build (globs-of-patterns
+                                                                        patterns)))))
+
+(defn stored-patterns (settings id)
+  (collect (map (iter (:globs (unwrap-ok (show-item settings (clone id)))))
+             (fn (glob) (clone (:pattern glob))))))
+
+(deftest given-paths-replace-the-stored-paths-of-a-new-build
+  (let (settings (scratch-ledger "build-replaces-paths")
+        research (reported-research (ref settings) (vec "src/a/**")))
+    (assert (ok? (become-build (ref settings)
+                               (ref research)
+                               (vec "docs/**"))))
+    (assert (= (stored-patterns (ref settings) (ref research))
+               (vec (str "docs/**"))))))
+
+(deftest a-new-build-keeps-its-stored-paths-when-none-are-given
+  (let (settings (scratch-ledger "build-keeps-paths")
+        research (reported-research (ref settings) (vec "src/a/**")))
+    (assert (ok? (become-build (ref settings)
+                               (ref research)
+                               (vec))))
+    (assert (= (stored-patterns (ref settings) (ref research))
+               (vec (str "src/a/**"))))))
+
+(deftest replaced-paths-no-longer-block-other-builds
+  (let (settings (scratch-ledger "build-releases-paths")
+        research (reported-research (ref settings) (vec "src/a/**"))
+        waiting (added-id (ref settings)
+                          (item-draft kind/build
+                                      (globs-of-patterns (vec "src/a/x.rs")))))
+    (assert (ok? (become-build (ref settings)
+                               (ref research)
+                               (vec "docs/**"))))
+    (assert (= (len (:ready (unwrap-ok (ready-items (ref settings) none))))
+               1))))

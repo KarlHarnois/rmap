@@ -1,0 +1,48 @@
+(use ledger/model ->timestamp)
+
+(use ledger/api ->glob ->item-id ->new-item ->session
+                ->settings add-item claim-item clock glob
+                item-id kind new-roadmap origin settings)
+
+(use support/scratch scratch-database)
+
+(export added-id claimed globs-of-patterns item-draft
+        scratch-ledger session-named)
+
+(def roadmap-name "road")
+
+(defn scratch-ledger (name)
+  (let (settings (->settings :database-path (scratch-database name)
+                             :clock (clock/fixed (->timestamp :value (str "2026-03-03T00:00:00Z")))))
+    (assert (ok? (new-roadmap (ref settings)
+                              (str roadmap-name)
+                              (session-named "manager"))))
+    settings))
+
+(defn session-named (name)
+  (->session :name (str name)))
+
+(type globs-of-patterns
+  (fn ((vec (ref str))) (vec glob)))
+
+(defn globs-of-patterns (patterns)
+  (collect (map (iter patterns)
+             (fn (pattern)
+               (->glob :pattern (str pattern))))))
+
+(defn item-draft (kind globs)
+  (->new-item :parent none
+              :title (str "work")
+              :kind kind
+              :origin origin/planned
+              :priority 0
+              :globs globs
+              :after (vec)
+              :from none))
+
+(defn added-id (settings draft)
+  (clone (:id (unwrap-ok (add-item settings (str roadmap-name) draft)))))
+
+(defn claimed (settings id)
+  (assert (ok? (claim-item settings (clone id) (session-named "worker"))))
+  id)

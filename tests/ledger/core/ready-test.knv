@@ -210,6 +210,9 @@
     ((some target) (target-done? snapshot (ref target)))
     (none false)))
 
+(type target-done?
+  (fn ((ref snapshot) (ref item)) bool))
+
 (defn target-done? (snapshot target)
   (if (= (:kind target) kind/epic)
     (epic-done? snapshot (ref (:id target)))
@@ -241,6 +244,8 @@
     ((some holder) (active? (ref holder)))
     (none false)))
 
+(type active? (fn ((ref item)) bool))
+
 (defn active? (item)
   (and (= (:kind item) kind/build)
        (not= (:status item) status/open)
@@ -260,6 +265,9 @@
                   (not (held-by-active-build? snapshot (ref (:item other))))
                   (not (conflict? (ref (:glob own))
                                   (ref (:glob other)))))))))))
+
+(type startable?
+  (fn ((ref snapshot) (ref item)) bool))
 
 (defn startable? (snapshot item)
   (and (not= (:kind item) kind/epic)
