@@ -18,9 +18,9 @@
 (use ledger/core/schema ->new-item new-item)
 (use ledger/sqlite/connection database-error)
 (use ledger/sqlite/events ->event-filter ->new-event)
+(use ledger/operations/database-path default-database-path)
 
-(use ledger/operations/context ->settings clock
-                               default-database-path failure
+(use ledger/operations/context ->settings clock failure
                                settings)
 
 (use ledger/operations/roadmaps list-roadmaps new-roadmap)

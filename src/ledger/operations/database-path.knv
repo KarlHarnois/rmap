@@ -1,0 +1,33 @@
+(module
+  "Finds the default ledger database: `ledger.db` in the git common directory.")
+
+(use process/command ->command run-command)
+(use ledger/sqlite/connection ->database-error)
+(use ledger/operations/context failure)
+
+(export default-database-path)
+
+(defn git-common-dir-lookup ()
+  (->command :program (str "git")
+             :args (vec (str "rev-parse")
+                        (str "--path-format=absolute")
+                        (str "--git-common-dir"))))
+
+(defn git-common-dir ()
+  (match (run-command (ref (git-common-dir-lookup)))
+    ((ok output) (common-dir-of output))
+    ((err message)
+     (err (failure/database (->database-error :message message))))))
+
+(defn common-dir-of (output)
+  (if (= (:code output) 0)
+    (ok (str (trim (as-str (:stdout output)))))
+    (err (failure/database (->database-error :message (str (trim (as-str (:stderr
+                                                                           output)))))))))
+
+(type default-database-path
+  (fn () (result string failure)))
+
+(defn default-database-path ()
+  (let-try (common-dir (git-common-dir))
+    (ok (str common-dir "/ledger.db"))))

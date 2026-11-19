@@ -17,7 +17,7 @@
                               rollback)
 
 (use ledger/sqlite/migrations migrate)
-(use process/command ->command run-command)
+(use process/command ->command)
 (use ledger/sqlite/migration-sources migration-sources)
 (use ledger/sqlite/roadmaps roadmap-named)
 
@@ -27,9 +27,9 @@
 (use ledger/sqlite/store database-now)
 
 (export ->event-draft ->settings cli-actor clock connect
-        default-database-path event-draft existing-item
-        failure in-transaction now record roadmap-id-named
-        scope-named settings transaction)
+        event-draft existing-item failure in-transaction now
+        record roadmap-id-named scope-named settings
+        transaction)
 
 (defenum clock
   system
@@ -55,31 +55,6 @@
   (database database-error))
 
 (def cli-actor "cli")
-
-(defn git-common-dir-lookup ()
-  (->command :program (str "git")
-             :args (vec (str "rev-parse")
-                        (str "--path-format=absolute")
-                        (str "--git-common-dir"))))
-
-(defn git-common-dir ()
-  (match (run-command (ref (git-common-dir-lookup)))
-    ((ok output) (common-dir-of output))
-    ((err message)
-     (err (failure/database (->database-error :message message))))))
-
-(defn common-dir-of (output)
-  (if (= (:code output) 0)
-    (ok (str (trim (as-str (:stdout output)))))
-    (err (failure/database (->database-error :message (str (trim (as-str (:stderr
-                                                                           output)))))))))
-
-(type default-database-path
-  (fn () (result string failure)))
-
-(defn default-database-path ()
-  (let-try (common-dir (git-common-dir))
-    (ok (str common-dir "/ledger.db"))))
 
 (defn connect (settings)
   (let-try (connection (open (as-str (:database-path settings)))
