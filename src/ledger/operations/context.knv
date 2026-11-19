@@ -1,9 +1,11 @@
 (module
   "Opens the ledger, runs writes in one transaction and records their events.")
 
+(use json/value json)
+
 (use ledger/model ->dep ->glob ->item ->item-id ->item-path
                   ->roadmap ->roadmap-id ->session
-                  roadmap-id timestamp)
+                  event-type item-id roadmap-id timestamp)
 
 (use ledger/refusal refusal)
 (use ledger/core/ready scope)
@@ -23,10 +25,10 @@
 
 (use ledger/sqlite/store database-now)
 
-(export ->settings cli-actor clock connect
-        default-database-path existing-item failure
-        in-transaction now record roadmap-id-named
-        scope-named settings)
+(export ->event-draft ->settings cli-actor clock connect
+        default-database-path event-draft existing-item
+        failure in-transaction now record roadmap-id-named
+        scope-named settings transaction)
 
 (defenum clock
   system
@@ -35,6 +37,17 @@
 (defstruct settings
   :database-path string
   :clock clock)
+
+(defstruct transaction
+  :connection connection
+  :clock clock)
+
+(defstruct event-draft
+  :actor string
+  :roadmap-id (option roadmap-id)
+  :item-id (option item-id)
+  :type event-type
+  :payload json)
 
 (defenum failure
   (refused refusal)
@@ -57,15 +70,17 @@
 (type in-transaction
   (where (a)
     (fn ((ref settings)
-         (fn ((ref connection))
+         (fn ((ref transaction))
            (result a failure)))
       (result a failure))))
 
 (defn in-transaction (settings work)
   (let-try (connection (connect settings)
             _ (begin (ref connection)))
-    (finish (ref connection)
-            (work (ref connection)))))
+    (let (transaction (->transaction :connection connection
+                                     :clock (clone (:clock settings))))
+      (finish (ref (:connection transaction))
+              (work (ref transaction))))))
 
 (type finish
   (where (a)
@@ -79,21 +94,34 @@
      (match (rollback connection)
        (_ (err failure))))))
 
-(defn now (connection settings)
-  (match (:clock settings)
-    (system (let-try (at (database-now connection)) (ok at)))
+(type now
+  (fn ((ref transaction))
+    (result timestamp failure)))
+
+(defn now (transaction)
+  (match (ref (:clock transaction))
+    (system (let-try (at (database-now (ref (:connection transaction))))
+              (ok at)))
     ((fixed at) (ok (clone at)))))
 
-(defn record (connection settings actor roadmap-id item-id type payload)
-  (let-try (at (now connection settings)
-            _ (append-event connection
-                            (ref (->new-event :at at
-                                              :actor actor
-                                              :roadmap-id roadmap-id
-                                              :item-id item-id
-                                              :type type
-                                              :payload payload))))
+(defn record (transaction draft)
+  (let-try (at (now transaction)
+            _ (append-event (ref (:connection transaction))
+                            (ref (draft->event draft at))))
     (ok (do))))
+
+(defn draft->event (draft at)
+  (let-match ((event-draft :actor actor
+                           :roadmap-id roadmap-id
+                           :item-id item-id
+                           :type type
+                           :payload payload) draft)
+    (->new-event :at at
+                 :actor actor
+                 :roadmap-id roadmap-id
+                 :item-id item-id
+                 :type type
+                 :payload payload)))
 
 (type roadmap-id-named
   (fn ((ref connection) (ref str))

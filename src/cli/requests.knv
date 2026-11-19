@@ -1,10 +1,10 @@
 (module
   "Turns the command line into a request for the ledger.")
 
-(use ledger/api ->glob ->item-id ->new-item ->session
-                ->settings item-id kind-change kind-names
-                named new-item origin origin-names session
-                status status-names)
+(use ledger/api ->advancement ->glob ->item-id ->new-item
+                ->session ->settings advancement item-id
+                kind-change kind-names named new-item origin
+                origin-names session status-names)
 
 (use cli/routes ->route route)
 
@@ -30,7 +30,7 @@
   (list-items (option string))
   (show-item item-id)
   (claim item-id session)
-  (advance item-id status kind-change)
+  (advance item-id advancement)
   (close item-id)
   (drop item-id string)
   (add-dep item-id item-id)
@@ -83,25 +83,23 @@
     (ok (request/new-roadmap name (->session :name manager)))))
 
 (defn log-request (arguments)
-  (let-try (since (optional-number arguments "since" 0))
+  (let-try (since (optional-number arguments "since"))
     (ok (request/log (map-some (flag arguments "item") text->id)
-                     since))))
+                     (unwrap-or since 0)))))
 
 (defn add-item-request (arguments)
   (let-try (roadmap (required-flag arguments "roadmap")
             title (required-flag arguments "title")
             kind (named-flag arguments "kind" kind-names)
-            origin (optional-named-flag arguments "origin"
-                                        origin-names
-                                        origin/planned)
-            priority (optional-number arguments "priority" 0))
+            origin (optional-named-flag arguments "origin" origin-names)
+            priority (optional-number arguments "priority"))
     (ok (request/add-item
           roadmap
           (->new-item :parent (map-some (flag arguments "parent") text->id)
                       :title title
                       :kind kind
-                      :origin origin
-                      :priority priority
+                      :origin (unwrap-or origin origin/planned)
+                      :priority (unwrap-or priority 0)
                       :globs (list-flag-globs arguments)
                       :after (collect (map (iter (list-flag arguments "after"))
                                         (fn (text) (text->id (clone text)))))
@@ -119,7 +117,8 @@
   (let-try (target (ok-or (named status-names (as-str status-text))
                           (str "unknown status: " status-text))
             change (kind-change-of arguments))
-    (ok (request/advance (text->id id) target change))))
+    (ok (request/advance (text->id id)
+                         (->advancement :to target :kind-change change)))))
 
 (defn kind-change-of (arguments)
   (match (flag arguments "kind")

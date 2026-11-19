@@ -9,10 +9,11 @@
 (export list-flag list-flag-globs named-flag
         optional-named-flag optional-number)
 
-(defn optional-number (arguments name fallback)
+(defn optional-number (arguments name)
   (match (flag arguments name)
-    ((some text) (text->number (as-str text) name))
-    (none (ok fallback))))
+    ((some text)
+     (map-ok (text->number (as-str text) name) some))
+    (none (ok none))))
 
 (defn text->number (text name)
   (match (the (result int (parse-error int))
@@ -25,10 +26,11 @@
   (let-try (text (required-flag arguments name))
     (text->named (as-str text) name names)))
 
-(defn optional-named-flag (arguments name names fallback)
+(defn optional-named-flag (arguments name names)
   (match (flag arguments name)
-    ((some text) (text->named (as-str text) name names))
-    (none (ok fallback))))
+    ((some text)
+     (map-ok (text->named (as-str text) name names) some))
+    (none (ok none))))
 
 (defn text->named (text name names)
   (ok-or (named names text)

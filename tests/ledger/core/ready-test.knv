@@ -126,11 +126,27 @@
 (defn id-at (index)
   (str "rm-" (+ 1000 index)))
 
-(defstruct draw
-  :state int
-  :item item
-  :deps (vec dep)
-  :paths (vec item-path))
+(defstruct rolls
+  :for-kind int
+  :for-status int
+  :for-claim int
+  :for-parent int
+  :for-dep int
+  :for-path int)
+
+(defn rolls-after (state)
+  (let (kind (next-state state)
+        status (next-state kind)
+        claim (next-state status)
+        parent (next-state claim)
+        dep (next-state parent)
+        path (next-state dep))
+    (->rolls :for-kind kind
+             :for-status status
+             :for-claim claim
+             :for-parent parent
+             :for-dep dep
+             :for-path path)))
 
 (defn generated-snapshot (seed)
   (loop (index 0
@@ -139,28 +155,27 @@
          deps (vec)
          paths (vec))
     (if (< index item-count)
-      (let (s1 (next-state state)
-            s2 (next-state s1)
-            s3 (next-state s2)
-            s4 (next-state s3)
-            s5 (next-state s4)
-            s6 (next-state s5)
-            id (id-at (inc index))
-            item (generated-item (as-str id) s1 s2 s3 s4))
+      (let (rolls (rolls-after state)
+            id (id-at (inc index)))
         (recur (inc index)
-               s6
-               (appended items item)
-               (generated-deps deps (as-str id) index s5)
-               (generated-paths paths (as-str id) s6)))
+               (:for-path rolls)
+               (appended items
+                         (generated-item (as-str id) (ref rolls)))
+               (appended-some
+                 deps
+                 (generated-dep (as-str id) index (:for-dep rolls)))
+               (appended paths
+                         (path-of (as-str id)
+                                  (choice glob-pool (:for-path rolls))))))
       (snapshot-of items deps paths))))
 
-(defn generated-item (id kind-roll status-roll claim-roll parent-roll)
+(defn generated-item (id rolls)
   (let (kind (choice (vec kind/research kind/design kind/build)
-                     kind-roll)
-        status (choice (statuses) status-roll)
+                     (:for-kind rolls))
+        status (choice (statuses) (:for-status rolls))
         base (work-item id kind status)
-        parented (with-parent base parent-roll))
-    (with-claim parented claim-roll)))
+        parented (with-parent base (:for-parent rolls)))
+    (with-claim parented (:for-claim rolls))))
 
 (defn with-parent (item roll)
   (if (= (pick roll 3) 0)
@@ -172,15 +187,16 @@
     (claimed item)
     item))
 
-(defn generated-deps (deps id index roll)
+(defn generated-dep (id index roll)
   (if (> index 0)
-    (appended deps
-              (blocks-dep id
-                          (as-str (id-at (pick roll (inc index))))))
-    deps))
+    (some (blocks-dep id
+                      (as-str (id-at (pick roll (inc index))))))
+    none))
 
-(defn generated-paths (paths id roll)
-  (appended paths (path-of id (choice glob-pool roll))))
+(defn appended-some (items extra)
+  (match extra
+    ((some present) (appended items present))
+    (none items)))
 
 (type find-in
   (fn ((ref snapshot) (ref item-id))

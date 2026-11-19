@@ -12,14 +12,18 @@
 (use ledger/core/schema ->new-item check-dep-removal
                         check-new-dep)
 
-(use ledger/sqlite/connection connection)
 (use ledger/sqlite/deps delete-dep insert-dep)
 (use ledger/sqlite/events ->event-filter ->new-event)
 (use ledger/sqlite/store load-snapshot)
 
 (use ledger/operations/context cli-actor existing-item
-                               failure in-transaction record
-                               settings)
+                               failure in-transaction
+                               record)
+
+(use ledger/operations/context ->event-draft event-draft
+                               transaction)
+
+(use ledger/model item)
 
 (export add-dep remove-dep)
 
@@ -35,26 +39,35 @@
 
 (defn change-dep (settings dep type)
   (in-transaction settings
-    (fn (connection) (write-dep connection settings dep type))))
+    (fn (transaction) (write-dep transaction dep type))))
 
 (type write-dep
-  (fn ((ref connection) (ref settings) dep event-type)
+  (fn ((ref transaction) dep event-type)
     (result dep failure)))
 
-(defn write-dep (connection settings dep type)
-  (let-try (snapshot (load-snapshot connection)
+(defn write-dep (transaction dep type)
+  (let-try (snapshot (load-snapshot (ref (:connection transaction)))
             _ (check-dep-change (ref snapshot) (ref dep) type)
-            _ (write-dep-change connection (ref dep) type)
+            _ (write-dep-change (ref (:connection transaction))
+                                (ref dep)
+                                type)
             owner (existing-item (ref snapshot)
                                  (ref (:item dep)))
-            _ (record connection settings
-                      (str cli-actor)
-                      (some (clone (:roadmap-id owner)))
-                      (some (clone (:item dep)))
-                      type
-                      (object (vec (pair (str "on")
-                                         (text->json (as-str (:value (:on dep)))))))))
+            _ (record transaction
+                      (dep-changed (ref owner) (ref dep) type)))
     (ok (clone dep))))
+
+(type dep-changed
+  (fn ((ref item) (ref dep) event-type)
+    event-draft))
+
+(defn dep-changed (owner dep type)
+  (->event-draft :actor (str cli-actor)
+                 :roadmap-id (some (clone (:roadmap-id owner)))
+                 :item-id (some (clone (:item dep)))
+                 :type type
+                 :payload (object (vec (pair (str "on")
+                                             (text->json (as-str (:value (:on dep)))))))))
 
 (type check-dep-change
   (fn ((ref snapshot) (ref dep) event-type)

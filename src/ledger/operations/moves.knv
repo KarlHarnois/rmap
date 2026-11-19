@@ -3,31 +3,42 @@
 
 (use ledger/model ->dep ->glob ->item ->item-id ->item-path
                   ->roadmap ->roadmap-id ->session glob item
-                  item-id snapshot status)
+                  item-id status)
 
 (use ledger/core/states move moved)
 (use ledger/core/moves build-globs check-move-in)
 (use ledger/core/schema ->new-item)
-(use ledger/sqlite/connection connection)
 (use ledger/sqlite/items update-item)
 (use ledger/sqlite/events ->event-filter ->new-event)
 (use ledger/sqlite/store load-snapshot)
 
 (use ledger/operations/context cli-actor existing-item
                                failure in-transaction now
-                               record settings)
+                               record)
 
 (use ledger/operations/adding insert-globs)
 
 (use ledger/operations/move-events move->event-type
                                    move-payload)
 
-(export advance-item claim-item close-item drop-item
-        kind-change)
+(use ledger/operations/context ->event-draft event-draft
+                               transaction)
+
+(export ->advancement advance-item advancement claim-item
+        close-item drop-item kind-change)
 
 (defenum kind-change
   keep-kind
   (become-build (vec glob)))
+
+(defstruct advancement
+  :to status
+  :kind-change kind-change)
+
+(defstruct move-request
+  :item item-id
+  :move move
+  :actor string)
 
 (defstruct applied-move
   :before item
@@ -37,19 +48,22 @@
   :actor string)
 
 (defn claim-item (settings id session)
-  (perform-move settings id
-                (move/claim (clone session))
-                (clone (:name session))))
+  (perform-move settings
+                (->move-request :item id
+                                :move (move/claim (clone session))
+                                :actor (clone (:name session)))))
 
-(defn advance-item (settings id target change)
-  (perform-move settings id
-                (advance-move target change)
-                (str cli-actor)))
+(defn advance-item (settings id advancement)
+  (perform-move settings
+                (->move-request :item id
+                                :move (advancement->move advancement)
+                                :actor (str cli-actor))))
 
-(defn advance-move (target change)
-  (match change
-    (keep-kind (move/advance target))
-    ((become-build globs) (build-move target globs))))
+(defn advancement->move (advancement)
+  (let-match ((advancement :to target :kind-change change) advancement)
+    (match change
+      (keep-kind (move/advance target))
+      ((become-build globs) (build-move target globs)))))
 
 (defn build-move (target globs)
   (if (= target status/dispatched)
@@ -57,60 +71,66 @@
     (move/advance target)))
 
 (defn close-item (settings id)
-  (perform-move settings id move/close (str cli-actor)))
+  (perform-move settings
+                (->move-request :item id
+                                :move move/close
+                                :actor (str cli-actor))))
 
 (defn drop-item (settings id reason)
-  (perform-move settings id
-                (move/drop reason)
-                (str cli-actor)))
+  (perform-move settings
+                (->move-request :item id
+                                :move (move/drop reason)
+                                :actor (str cli-actor))))
 
-(defn perform-move (settings id move actor)
+(defn perform-move (settings request)
   (in-transaction settings
-    (fn (connection)
-      (apply-move connection settings id move actor))))
+    (fn (transaction) (apply-move transaction request))))
 
 (type apply-move
-  (fn ((ref connection) (ref settings) item-id move string)
+  (fn ((ref transaction) move-request)
     (result item failure)))
 
-(defn apply-move (connection settings id move actor)
-  (let-try (snapshot (load-snapshot connection)
-            item (existing-item (ref snapshot) (ref id))
-            _ (check-move-in (ref snapshot)
-                             (ref item)
-                             (ref move))
-            at (now connection settings))
-    (store-move connection settings
-                (->applied-move :before (clone item)
-                                :after (moved (ref item) (ref move) (ref at))
-                                :globs (new-build-globs (ref snapshot)
-                                                        (ref item)
-                                                        (ref move))
-                                :move move
-                                :actor actor))))
+(defn apply-move (transaction request)
+  (let-match ((move-request :item id :move move :actor actor) request)
+    (let-try (snapshot (load-snapshot (ref (:connection transaction)))
+              item (existing-item (ref snapshot) (ref id))
+              _ (check-move-in (ref snapshot)
+                               (ref item)
+                               (ref move))
+              at (now transaction))
+      (store-move transaction
+                  (->applied-move :before (clone item)
+                                  :after (moved (ref item) (ref move) (ref at))
+                                  :globs (new-build-globs (ref snapshot)
+                                                          (ref item)
+                                                          (ref move))
+                                  :move move
+                                  :actor actor)))))
 
 (type store-move
-  (fn ((ref connection) (ref settings) applied-move)
+  (fn ((ref transaction) applied-move)
     (result item failure)))
 
-(defn store-move (connection settings applied)
-  (let-try (_ (update-item connection (ref (:after applied)))
-            _ (insert-globs connection
+(defn store-move (transaction applied)
+  (let-try (_ (update-item (ref (:connection transaction))
+                           (ref (:after applied)))
+            _ (insert-globs (ref (:connection transaction))
                             (ref (:id (:after applied)))
                             (ref (:globs applied)))
-            _ (record connection settings
-                      (clone (:actor applied))
-                      (some (clone (:roadmap-id (:after applied))))
-                      (some (clone (:id (:after applied))))
-                      (move->event-type (ref (:move applied)))
-                      (move-payload (ref (:before applied))
-                                    (ref (:after applied))
-                                    (ref (:move applied)))))
+            _ (record transaction (move-recorded (ref applied))))
     (ok (clone (:after applied)))))
 
-(type new-build-globs
-  (fn ((ref snapshot) (ref item) (ref move))
-    (vec glob)))
+(type move-recorded
+  (fn ((ref applied-move)) event-draft))
+
+(defn move-recorded (applied)
+  (->event-draft :actor (clone (:actor applied))
+                 :roadmap-id (some (clone (:roadmap-id (:after applied))))
+                 :item-id (some (clone (:id (:after applied))))
+                 :type (move->event-type (ref (:move applied)))
+                 :payload (move-payload (ref (:before applied))
+                                        (ref (:after applied))
+                                        (ref (:move applied)))))
 
 (defn new-build-globs (snapshot item move)
   (match move

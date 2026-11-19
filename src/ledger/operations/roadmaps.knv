@@ -17,22 +17,22 @@
 (use ledger/sqlite/events ->event-filter ->new-event)
 (use ledger/sqlite/store fresh-id)
 
-(use ledger/operations/context connect failure
+(use ledger/operations/context ->event-draft connect failure
                                in-transaction now record
-                               settings)
+                               settings transaction)
 
 (export list-roadmaps new-roadmap)
 
 (defn new-roadmap (settings name manager)
   (in-transaction settings
-    (fn (connection)
-      (create-roadmap connection settings name manager))))
+    (fn (transaction) (create-roadmap transaction name manager))))
 
-(defn create-roadmap (connection settings name manager)
-  (let-try (_ (check-name-free connection (as-str name))
-            id (fresh-id connection)
-            created-at (now connection settings))
-    (store-roadmap connection settings
+(defn create-roadmap (transaction name manager)
+  (let-try (_ (check-name-free (ref (:connection transaction))
+                               (as-str name))
+            id (fresh-id (ref (:connection transaction)))
+            created-at (now transaction))
+    (store-roadmap transaction
                    (->roadmap :id (->roadmap-id :value id)
                               :name name
                               :manager manager
@@ -40,20 +40,25 @@
                               :created-at created-at))))
 
 (type store-roadmap
-  (fn ((ref connection) (ref settings) roadmap)
+  (fn ((ref transaction) roadmap)
     (result roadmap failure)))
 
-(defn store-roadmap (connection settings roadmap)
-  (let-try (_ (insert-roadmap connection (ref roadmap))
-            _ (record connection settings
-                      (clone (:name (:manager roadmap)))
-                      (some (clone (:id roadmap)))
-                      none event-type/roadmap-created
-                      (object (vec (pair (str "name")
-                                         (text->json (as-str (:name roadmap))))
-                                   (pair (str "manager")
-                                         (text->json (as-str (:name (:manager roadmap)))))))))
+(defn store-roadmap (transaction roadmap)
+  (let-try (_ (insert-roadmap (ref (:connection transaction))
+                              (ref roadmap))
+            _ (record transaction (roadmap-created (ref roadmap))))
     (ok roadmap)))
+
+(defn roadmap-created (roadmap)
+  (->event-draft :actor (clone (:name (:manager roadmap)))
+                 :roadmap-id (some (clone (:id roadmap)))
+                 :item-id none
+                 :type event-type/roadmap-created
+                 :payload (object (vec
+                                    (pair (str "name")
+                                          (text->json (as-str (:name roadmap))))
+                                    (pair (str "manager")
+                                          (text->json (as-str (:name (:manager roadmap)))))))))
 
 (type check-name-free
   (fn ((ref connection) (ref str))
