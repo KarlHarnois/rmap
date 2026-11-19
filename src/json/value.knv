@@ -4,9 +4,21 @@
 (export array bool->json copy-of error->message field
         float->json int->json json json->bool json->float
         json->int json->items json->string json->text
-        json-error null null? object parse same? text->json)
+        json-error null? object parse same? text->json)
 
-(rust-type json "serde_json::Value")
+(rust-type json-number "serde_json::Number")
+
+(rust-type json-map
+  "serde_json::Map<String, serde_json::Value>")
+
+(defenum json
+  (rust "serde_json::Value")
+  null
+  (bool bool)
+  (number json-number)
+  (string string)
+  (array (vec json))
+  (object json-map))
 
 (defstruct json-error
   :cause string)
@@ -18,13 +30,10 @@
   (rust "serde_json::Value::Object({0}.into_iter().collect())"
     (fn ((vec (pair string json))) json)))
 
-(def array
-  (rust "serde_json::Value::Array({0})"
-    (fn ((vec json)) json)))
+(defn array (items) (json/array items))
 
-(def text->json
-  (rust "serde_json::Value::String({0}.to_string())"
-    (fn ((ref str)) json)))
+(defn text->json (text)
+  (json/string (str text)))
 
 (def int->json
   (rust "serde_json::Value::from({0})" (fn (int) json)))
@@ -32,39 +41,53 @@
 (def float->json
   (rust "serde_json::Value::from({0})" (fn (float) json)))
 
-(def bool->json
-  (rust "serde_json::Value::Bool({0})" (fn (bool) json)))
+(defn bool->json (flag) (json/bool flag))
 
-(def null (rust "serde_json::Value::Null" json))
-
-(def field
+(def entry
   (rust "{0}.get({1}).cloned()"
-    (fn ((ref json) (ref str))
+    (fn ((ref json-map) (ref str))
       (option json))))
 
-(def json->text
-  (rust "{0}.as_str().map(|text| text.to_string())"
-    (fn ((ref json)) (option string))))
+(defn field (value key)
+  (match value
+    ((object entries) (entry entries key))
+    (_ none)))
 
-(def json->int
+(defn json->text (value)
+  (match value
+    ((string text) (some (clone text)))
+    (_ none)))
+
+(def number->int
   (rust "{0}.as_i64()"
-    (fn ((ref json)) (option int))))
+    (fn ((ref json-number)) (option int))))
 
-(def json->float
+(defn json->int (value)
+  (match value
+    ((number number) (number->int number))
+    (_ none)))
+
+(def number->float
   (rust "{0}.as_f64()"
-    (fn ((ref json)) (option float))))
+    (fn ((ref json-number)) (option float))))
 
-(def json->bool
-  (rust "{0}.as_bool()"
-    (fn ((ref json)) (option bool))))
+(defn json->float (value)
+  (match value
+    ((number number) (number->float number))
+    (_ none)))
 
-(def json->items
-  (rust "{0}.as_array().cloned()"
-    (fn ((ref json)) (option (vec json)))))
+(defn json->bool (value)
+  (match value
+    ((bool flag) (some flag))
+    (_ none)))
 
-(def null?
-  (rust "{0}.is_null()"
-    (fn ((ref json)) bool)))
+(defn json->items (value)
+  (match value
+    ((array items) (some (collect (map (iter items) copy-of))))
+    (_ none)))
+
+(defn null? (value)
+  (match value (null true) (_ false)))
 
 (def same?
   (rust "{0} == {1}"

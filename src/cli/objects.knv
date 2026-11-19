@@ -1,8 +1,7 @@
 (module
   "Turns ledger values into JSON objects.")
 
-(use json/value copy-of int->json json null object
-                text->json)
+(use json/value copy-of int->json json object text->json)
 
 (use ledger/api ->glob ->item-id ->new-item ->session
                 ->settings claim dep dep-type-names event
@@ -19,7 +18,7 @@
 (defn optional-text->json (text)
   (match text
     ((some present) (text->json (as-str present)))
-    (none null)))
+    (none json/null)))
 
 (type roadmap->json
   (fn ((ref roadmap)) json))
@@ -68,7 +67,7 @@
 (defn claim->json (claim)
   (match claim
     ((claimed-by session) (text->json (as-str (:name session))))
-    (unclaimed null)))
+    (unclaimed json/null)))
 
 (type event->json
   (fn ((ref event)) json))

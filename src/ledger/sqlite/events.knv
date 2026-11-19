@@ -1,7 +1,7 @@
 (module
   "Appends to and reads the `events` table.")
 
-(use json/value int->json json json->string null parse
+(use json/value int->json json json->string parse
                 text->json)
 
 (use ledger/model ->event ->item-id ->roadmap-id ->timestamp
@@ -52,7 +52,7 @@
 (defn optional-roadmap->json (id)
   (match id
     ((some present) (text->json (as-str (:value present))))
-    (none null)))
+    (none json/null)))
 
 (type optional-item->json
   (fn ((ref (option item-id))) json))
@@ -60,7 +60,7 @@
 (defn optional-item->json (id)
   (match id
     ((some present) (text->json (as-str (:value present))))
-    (none null)))
+    (none json/null)))
 
 (type events-matching
   (fn ((ref connection) (ref event-filter))

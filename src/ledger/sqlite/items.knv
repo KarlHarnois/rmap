@@ -1,7 +1,7 @@
 (module
   "Reads and writes the `items` table.")
 
-(use json/value int->json json null text->json)
+(use json/value int->json json text->json)
 
 (use ledger/model ->item ->item-id ->roadmap-id ->session
                   ->timestamp claim item item-id)
@@ -60,17 +60,17 @@
 (defn optional-id->json (id)
   (match id
     ((some present) (text->json (as-str (:value present))))
-    (none null)))
+    (none json/null)))
 
 (defn claim->json (claim)
   (match claim
     ((claimed-by session) (text->json (as-str (:name session))))
-    (unclaimed null)))
+    (unclaimed json/null)))
 
 (defn optional-timestamp->json (item)
   (match (ref (:closed-at item))
     ((some closed-at) (text->json (as-str (:value closed-at))))
-    (none null)))
+    (none json/null)))
 
 (defn all-items (connection)
   (let-try (rows (query connection

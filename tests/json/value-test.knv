@@ -1,7 +1,7 @@
 (use json/value array bool->json field float->json int->json
                 json json->bool json->float json->int
-                json->items json->string json->text null
-                null? object parse same? text->json)
+                json->items json->string json->text null?
+                object parse same? text->json)
 
 (defn round-trips? (value)
   (match (parse (as-str (json->string value)))
@@ -13,11 +13,11 @@
                (pair (str "count") (int->json 3))
                (pair (str "ratio") (float->json 0.5))
                (pair (str "open") (bool->json true))
-               (pair (str "missing") null)
+               (pair (str "missing") json/null)
                (pair (str "items")
                      (array (vec (int->json 1)
                                  (object (vec (pair (str "deep")
-                                                    (array (vec null
+                                                    (array (vec json/null
                                                                 (bool->json false))))))))))))
 
 (deftest text-round-trips
@@ -32,7 +32,7 @@
 (deftest bool-round-trips
   (assert (round-trips? (bool->json false))))
 
-(deftest null-round-trips (assert (round-trips? null)))
+(deftest null-round-trips (assert (round-trips? json/null)))
 
 (deftest empty-array-and-object-round-trip
   (assert (round-trips? (array (vec))))
