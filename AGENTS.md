@@ -13,6 +13,7 @@
 | Path | Holds |
 | --- | --- |
 | `src/json/value.knv` | The bindings over `serde_json::Value`. |
+| `src/process/command.knv` | Runs a program and captures its exit code and output. |
 | `src/main.knv`, `src/cli/` | The `rmap` CLI. |
 | `src/ledger/api.knv` | The public ledger functions, re-exported from `src/ledger/operations/`. |
 | `src/ledger/operations/` | The ledger operations. Each write runs in one `BEGIN IMMEDIATE` transaction and appends its `events` row in that transaction. |
@@ -27,6 +28,8 @@
 **Invoke the `writing-knave` skill before you write or change a `.knv` file.**
 
 **If `knave build` and `knave test` both pass without a `type` line, delete the line.**
+
+**Put only the Rust calls that Knave cannot make in a `rust` template.** Write every branch, loop and conversion around those calls in Knave. If Knave can name the Rust type as a `defenum` with a `rust` clause, match on it in Knave.
 
 ## Tests
 
