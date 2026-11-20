@@ -16,6 +16,7 @@
   new
   list
   ready
+  next
   log
   item-add
   item-list
@@ -73,6 +74,11 @@
                 :words (words "ready")
                 :operands (vec)
                 :flags (vec (optional "roadmap" "<name>")))
+       (->route :subcommand subcommand/next
+                :words (words "next")
+                :operands (vec)
+                :flags (vec (optional "roadmap" "<name>")
+                            (optional "manager" "<session>")))
        (->route :subcommand subcommand/log
                 :words (words "log")
                 :operands (vec)

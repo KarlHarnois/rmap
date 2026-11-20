@@ -2,7 +2,7 @@
   "Names each result a ledger call hands back to the CLI.")
 
 (use ledger/api dep event graph-source init-report item
-                item-detail readiness roadmap)
+                item-detail next-item readiness roadmap)
 
 (export reply)
 
@@ -11,6 +11,7 @@
   (roadmap-created roadmap)
   (roadmaps-listed (vec roadmap))
   (readiness-checked readiness)
+  (next-listed (vec next-item))
   (log-read (vec event))
   (item-added item)
   (item-moved item)

@@ -14,8 +14,8 @@
 
 (use cli/requests add-item-request advance-request
                   claim-request drop-request graph-request
-                  log-request new-roadmap-request request
-                  text->id)
+                  log-request new-roadmap-request
+                  next-request request text->id)
 
 (export invocation ledger-call parse-invocation)
 
@@ -62,6 +62,7 @@
     (subcommand/ready (on-ledger arguments
                                  (ok (request/ready
                                        (optional-text arguments "roadmap")))))
+    (subcommand/next (on-ledger arguments (ok (next-request arguments))))
     (subcommand/log (on-ledger arguments (log-request arguments)))
     (subcommand/item-add (on-ledger arguments (add-item-request arguments)))
     (subcommand/item-list

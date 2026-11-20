@@ -1,13 +1,13 @@
 (use ledger/names kind-names status-names)
 
 (use ledger/model ->dep ->glob ->item ->item-glob ->item-id
-                  ->roadmap-id ->session ->snapshot
-                  ->timestamp claim dep-type item kind
-                  origin status)
+                  ->roadmap ->roadmap-id ->session
+                  ->snapshot ->timestamp claim dep-type item
+                  kind origin roadmap-status status)
 
 (export blocks-dep child-of claimed discovered-dep epic-item
-        glob-of id-of in-roadmap kinds path-of snapshot-of
-        statuses titled with-origin work-item)
+        glob-of id-of in-roadmap kinds path-of roadmap-of
+        snapshot-of statuses titled with-origin work-item)
 
 (defn id-of (text)
   (->item-id :value (str text)))
@@ -27,6 +27,13 @@
           :claim claim/unclaimed
           :created-at (->timestamp :value (str "2026-01-01T00:00:00Z"))
           :closed-at none))
+
+(defn roadmap-of (id manager)
+  (->roadmap :id (->roadmap-id :value (str id))
+             :name (str id)
+             :manager (->session :name (str manager))
+             :status roadmap-status/active
+             :created-at (->timestamp :value (str "2026-01-01T00:00:00Z"))))
 
 (defn epic-item (id) (work-item id kind/epic status/open))
 

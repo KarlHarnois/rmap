@@ -4,9 +4,12 @@
 (use ledger/model dep-type event-type graph-format kind
                   origin roadmap-status status)
 
-(export case-name case-named dep-type-names event-type-names
-        graph-format-names kind-names origin-names
-        roadmap-status-names status-names)
+(use ledger/core/actions action actor)
+
+(export action-names actor-names case-name case-named
+        dep-type-names event-type-names graph-format-names
+        kind-names origin-names roadmap-status-names
+        status-names)
 
 (def roadmap-status-names
   (vec (pair roadmap-status/active "active")
@@ -50,6 +53,21 @@
 
 (def graph-format-names
   (vec (pair graph-format/mermaid "mermaid")))
+
+(def action-names
+  (vec (pair action/dispatch "dispatch")
+       (pair action/wait "wait")
+       (pair action/work "work")
+       (pair action/accept-report "accept-report")
+       (pair action/review "review")
+       (pair action/fix "fix")
+       (pair action/merge "merge")))
+
+(def actor-names
+  (vec (pair actor/controller "controller")
+       (pair actor/agent "agent")
+       (pair actor/worker "worker")
+       (pair actor/user "user")))
 
 (defn case-name (names value)
   (-> names iter

@@ -1,0 +1,109 @@
+(module
+  "Works out the next actions for each item from its state, roadmap by roadmap, in the order ready uses.")
+
+(use ledger/model claim item item-id kind roadmap snapshot
+                  status)
+
+(use ledger/core/actions action next-action planned)
+(use ledger/core/ready readiness readiness-of)
+(use ledger/core/snapshot scope)
+(use ledger/core/order ordered)
+
+(export ->next-item next-item next-of)
+
+(defstruct next-item
+  :item item
+  :roadmap roadmap
+  :actions (vec next-action))
+
+(type next-of
+  (fn ((ref snapshot) (ref (vec roadmap)))
+    (vec next-item)))
+
+(defn next-of (snapshot roadmaps)
+  (let (readiness (readiness-of snapshot (ref scope/every-roadmap))
+        listed (vec))
+    (for-each roadmaps
+      (fn (roadmap)
+        (for-each (roadmap-next-items snapshot (ref readiness) roadmap)
+          (fn (entry)
+            (push! listed (clone entry))))))
+    listed))
+
+(defn roadmap-next-items (snapshot readiness roadmap)
+  (-> (ordered (work-items-in snapshot roadmap))
+      iter
+      (map (fn (item)
+             (->next-item :item (clone item)
+                          :roadmap (clone roadmap)
+                          :actions (actions-of readiness item))))
+      (filter (fn (entry)
+                (not (empty? (:actions entry)))))
+      collect))
+
+(type work-items-in
+  (fn ((ref snapshot) (ref roadmap))
+    (vec item)))
+
+(defn work-items-in (snapshot roadmap)
+  (collect (map (filter (iter (:items snapshot))
+                  (fn (item)
+                    (and (not= (:kind item) kind/epic)
+                         (= (:roadmap-id item) (:id roadmap)))))
+                clone)))
+
+(type actions-of
+  (fn ((ref readiness) (ref item))
+    (vec next-action)))
+
+(defn actions-of (readiness item)
+  (match (:status item)
+    (open (open-actions readiness item))
+    (dispatched (claimed-actions action/work item))
+    (reported (claimed-actions action/accept-report item))
+    (in-review (claimed-actions action/review item))
+    (fixing (claimed-actions action/fix item))
+    (merging (claimed-actions action/merge item))
+    (merged (vec))
+    (dropped (vec))))
+
+(type open-actions
+  (fn ((ref readiness) (ref item))
+    (vec next-action)))
+
+(defn open-actions (readiness item)
+  (if (ready-in? readiness (ref (:id item)))
+    (vec (planned action/dispatch none none))
+    (waiting-actions readiness (ref (:id item)))))
+
+(type ready-in?
+  (fn ((ref readiness) (ref item-id))
+    bool))
+
+(defn ready-in? (readiness id)
+  (any? (iter (:ready readiness))
+    (fn (ready) (= (ref (:id ready)) id))))
+
+(type waiting-actions
+  (fn ((ref readiness) (ref item-id))
+    (vec next-action)))
+
+(defn waiting-actions (readiness id)
+  (-> (:blocked readiness)
+      iter
+      (filter (fn (blocked)
+                (= (ref (:id (:item blocked))) id)))
+      (map (fn (blocked)
+             (planned action/wait none
+                      (some (clone (:blockage blocked))))))
+      collect))
+
+(defn claimed-actions (action item)
+  (vec (planned action
+                (claimant (ref (:claim item)))
+                none)))
+
+(defn claimant (claim)
+  (match claim
+    ((claimed-by session) (some (clone session)))
+    (unclaimed none)))

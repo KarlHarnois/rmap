@@ -1,0 +1,31 @@
+(module
+  "Picks the roadmaps a caller asked for: one roadmap or all of them, and only those a given manager runs.")
+
+(use ledger/model roadmap session)
+(use ledger/core/snapshot scope)
+
+(export selected-roadmaps)
+
+(defn selected-roadmaps (roadmaps scope manager)
+  (collect (map (filter (iter roadmaps)
+                  (fn (roadmap)
+                    (and (in-roadmap-scope? roadmap scope)
+                         (managed-by? roadmap manager))))
+                clone)))
+
+(type in-roadmap-scope?
+  (fn ((ref roadmap) (ref scope)) bool))
+
+(defn in-roadmap-scope? (roadmap scope)
+  (match scope
+    (every-roadmap true)
+    ((one-roadmap id) (= (ref (:id roadmap)) id))))
+
+(type managed-by?
+  (fn ((ref roadmap) (ref (option session)))
+    bool))
+
+(defn managed-by? (roadmap manager)
+  (match manager
+    ((some wanted) (= (ref (:manager roadmap)) wanted))
+    (none true)))

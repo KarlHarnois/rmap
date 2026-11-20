@@ -4,8 +4,8 @@
                 claim-item clock close-item
                 default-database-path draw-graph drop-item
                 failure init-ledger list-items list-roadmaps
-                new-roadmap read-log ready-items remove-dep
-                show-item)
+                new-roadmap next-actions read-log
+                ready-items remove-dep show-item)
 
 (use process/environment variable)
 (use cli/requests request)
@@ -96,6 +96,9 @@
     ((ready roadmap)
      (map-ok (ready-items settings roadmap)
        (fn (readiness) (reply/readiness-checked readiness))))
+    ((next roadmap manager)
+     (map-ok (next-actions settings roadmap manager)
+       (fn (items) (reply/next-listed items))))
     ((log item since)
      (map-ok (read-log settings item since)
        (fn (events) (reply/log-read events))))

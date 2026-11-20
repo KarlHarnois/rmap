@@ -1,0 +1,37 @@
+(module
+  "Reads the next actions for each open item. It changes nothing.")
+
+(use ledger/model session)
+(use ledger/core/next next-item next-of)
+(use ledger/core/selection selected-roadmaps)
+(use ledger/sqlite/roadmaps all-roadmaps)
+(use ledger/sqlite/snapshot load-snapshot)
+
+(use ledger/operations/transaction in-read-transaction
+                                   settings)
+
+(use ledger/failure failure)
+(use ledger/operations/lookups scope-named)
+
+(export next-actions)
+
+(type next-actions
+  (fn ((ref settings)
+       (option string)
+       (option session))
+    (result (vec next-item) failure)))
+
+(defn next-actions (settings roadmap manager)
+  (in-read-transaction settings
+    (fn (transaction)
+      (next-within (ref (:connection transaction))
+                   (ref roadmap)
+                   (ref manager)))))
+
+(defn next-within (connection roadmap manager)
+  (let-try (scope (scope-named connection roadmap)
+            roadmaps (all-roadmaps connection)
+            snapshot (load-snapshot connection))
+    (ok (next-of (ref snapshot)
+                 (ref
+                   (selected-roadmaps (ref roadmaps) (ref scope) manager))))))

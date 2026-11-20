@@ -22,3 +22,10 @@ rmap ready
 ```
 
 Run rmap inside a git repository, or pass `--db <path>`. `rmap init` creates the ledger once per repository. For JSON output, pass `--json` or set `RMAP_JSON=1`. `rmap help` lists every command.
+
+### rmap next
+
+`rmap next` lists the next action for each open item and the actor who takes it. It reads the ledger and changes nothing.
+
+- `--roadmap <name>` keeps the items of one roadmap.
+- `--manager <session>` keeps the items of the roadmaps that session manages. A manager with no roadmaps gives an empty list, not an error.

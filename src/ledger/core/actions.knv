@@ -1,0 +1,43 @@
+(module
+  "Names each next action, the actor who takes it, and builds an action with the actor the table gives.")
+
+(use ledger/model blockage session)
+
+(export action actor actor-of next-action planned)
+
+(defenum action
+  dispatch
+  wait
+  work
+  accept-report
+  review
+  fix
+  merge)
+
+(defenum actor
+  controller
+  agent
+  worker
+  user)
+
+(defn actor-of (action)
+  (match action
+    (dispatch actor/controller)
+    (wait actor/controller)
+    (work actor/worker)
+    (accept-report actor/agent)
+    (review actor/agent)
+    (fix actor/worker)
+    (merge actor/controller)))
+
+(defstruct next-action
+  :action action
+  :actor actor
+  :session (option session)
+  :reasons (option blockage))
+
+(defn planned (action session reasons)
+  (->next-action :action action
+                 :actor (actor-of action)
+                 :session session
+                 :reasons reasons))

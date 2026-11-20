@@ -1,0 +1,105 @@
+(use json/value copy-of field json json->int json->items
+                json->text same?)
+
+(use support/rmap database-with-roadmap research-id run-rmap
+                  text-at)
+
+(defstruct ledger-in-progress
+  :database string
+  :claimed string
+  :blocked string)
+
+(defn ledger-in-progress (name)
+  (let (database (database-with-roadmap name)
+        claimed (research-id (clone database))
+        blocked (run-rmap (clone database)
+                          (vec "item" "add" "--roadmap"
+                               "road" "--title" "b" "--kind"
+                               "design" "--after"
+                               (as-str claimed))))
+    (assert (= (:exit-code
+                 (run-rmap
+                   (clone database)
+                   (vec "item" "claim" (as-str claimed) "--session" "s1")))
+               0))
+    (->ledger-in-progress :database database
+                          :claimed claimed
+                          :blocked (text-at (ref blocked) "item" "id"))))
+
+(type entry-for
+  (fn ((ref json) (ref str) (ref str))
+    json))
+
+(defn entry-for (reply key id)
+  (-> (unwrap (json->items (unwrap (field reply key))))
+      iter
+      (find (fn (entry)
+              (= (entry-id entry) (some (str id)))))
+      unwrap copy-of))
+
+(defn entry-id (entry)
+  (then-some (field entry "item") item-id-of))
+
+(defn item-id-of (item)
+  (match (json->text (ref item))
+    ((some id) (some id))
+    (none (then-some (field (ref item) "id")
+            (fn (id) (json->text (ref id)))))))
+
+(type first-action
+  (fn ((ref json)) json))
+
+(defn first-action (entry)
+  (copy-of (unwrap (first (unwrap (json->items (unwrap (field entry
+                                                              "actions"))))))))
+
+(type text-of
+  (fn ((ref json) (ref str)) string))
+
+(defn text-of (value key)
+  (unwrap (json->text (unwrap (field value key)))))
+
+(deftest next-lists-each-item-with-its-action-actor-and-session
+  (let (ledger (ledger-in-progress "e2e-next-shape")
+        reply (run-rmap (clone (:database ledger))
+                        (vec "next"))
+        entry (entry-for (ref (:json reply))
+                         "next"
+                         (as-str (:claimed ledger)))
+        action (first-action (ref entry)))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (json->int (unwrap (field (ref (:json reply)) "schema_version")))
+               (some 1)))
+    (assert (= (text-of (ref entry) "roadmap")
+               (str "road")))
+    (assert (= (text-of (ref entry) "status")
+               (str "dispatched")))
+    (assert (= (text-of (ref entry) "kind")
+               (str "research")))
+    (assert (= (text-of (ref entry) "title")
+               (str "r")))
+    (assert (= (text-of (ref action) "action")
+               (str "work")))
+    (assert (= (text-of (ref action) "actor")
+               (str "worker")))
+    (assert (= (text-of (ref action) "session")
+               (str "s1")))))
+
+(deftest a-waiting-item-gives-the-reasons-rmap-ready-gives
+  (let (ledger (ledger-in-progress "e2e-next-reasons")
+        next (run-rmap (clone (:database ledger))
+                       (vec "next"))
+        ready (run-rmap (clone (:database ledger))
+                        (vec "ready"))
+        reasons (unwrap (field
+                          (ref (first-action (ref (entry-for (ref (:json next))
+                                                             "next"
+                                                             (as-str (:blocked ledger))))))
+                          "reasons"))
+        blocked (entry-for (ref (:json ready))
+                           "blocked"
+                           (as-str (:blocked ledger))))
+    (for-each (vec "blockers" "dropped_blockers" "path_conflicts")
+      (fn (key)
+        (assert (same? (ref (unwrap (field (ref reasons) (deref key))))
+                       (ref (unwrap (field (ref blocked) (deref key))))))))))

@@ -1,0 +1,13 @@
+(use ledger/core/actions action actor actor-of planned)
+
+(deftest each-action-has-the-actor-the-actions-table-gives
+  (assert (= (actor-of action/dispatch) actor/controller))
+  (assert (= (actor-of action/wait) actor/controller))
+  (assert (= (actor-of action/work) actor/worker))
+  (assert (= (actor-of action/accept-report) actor/agent))
+  (assert (= (actor-of action/review) actor/agent))
+  (assert (= (actor-of action/fix) actor/worker))
+  (assert (= (actor-of action/merge) actor/controller)))
+
+(deftest a-planned-action-takes-its-actor-from-the-table
+  (assert (= (:actor (planned action/review none none)) actor/agent)))

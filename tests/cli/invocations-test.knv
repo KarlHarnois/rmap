@@ -1,6 +1,6 @@
 (use cli/invocations invocation parse-invocation)
 (use cli/requests request)
-(use ledger/api ->item-id graph-format history)
+(use ledger/api ->item-id ->session graph-format history)
 
 (defn parsed (words)
   (parse-invocation (collect (map (iter words)
@@ -40,6 +40,13 @@
                 (vec (->item-id :value (str "rm-0001"))
                      (->item-id :value (str "rm-0002"))))))
     (_ (assert false))))
+
+(deftest next-reads-its-roadmap-and-manager-flags
+  (assert (= (:request (unwrap
+                         (ledger-call-of
+                           (vec "next" "--roadmap" "road" "--manager" "m1"))))
+             (request/next (some (str "road"))
+                           (some (->session :name (str "m1")))))))
 
 (deftest an-unknown-command-is-refused
   (assert (refused-with? (vec "frobnicate") "unknown command")))

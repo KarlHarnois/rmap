@@ -1,0 +1,25 @@
+(use ledger/model ->blockage kind status)
+(use ledger/api ->session action)
+(use ledger/core/actions planned)
+(use ledger/core/next ->next-item)
+(use cli/next-text next-text)
+(use support/items roadmap-of work-item)
+
+(deftest with-nothing-to-do-the-text-says-so
+  (assert (= (next-text (ref (vec)))
+             (str "Nothing to do."))))
+
+(deftest each-action-gets-its-own-line
+  (let (entry (->next-item
+                :item (work-item "rm-0001" kind/build status/in-review)
+                :roadmap (roadmap-of "rm-road" "manager")
+                :actions (vec (planned action/review
+                                       (some (->session :name (str "s1")))
+                                       none)
+                              (planned action/wait none
+                                       (some (->blockage :blockers (vec)
+                                                         :dropped-blockers (vec)
+                                                         :path-conflicts (vec)))))))
+    (assert (= (next-text (ref (vec entry)))
+               (str "review  agent       rm-0001  work\n"
+                    "wait    controller  rm-0001  work")))))

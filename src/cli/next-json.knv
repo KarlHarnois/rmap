@@ -1,0 +1,63 @@
+(module
+  "Turns the next actions for an item into the JSON object `rmap next` prints.")
+
+(use json/value array json object text->json)
+
+(use ledger/api action-names actor-names case-name
+                kind-names next-item session status-names)
+
+(use cli/ledger-json blockage-fields)
+
+(export next-item->json)
+
+(type next-item->json
+  (fn ((ref next-item)) json))
+
+(defn next-item->json (entry)
+  (let (item (ref (:item entry)))
+    (object (vec (pair (str "item")
+                       (text->json (as-str (:value (:id item)))))
+                 (pair (str "roadmap")
+                       (text->json (as-str (:name (:roadmap entry)))))
+                 (pair (str "status")
+                       (text->json (case-name status-names (:status item))))
+                 (pair (str "kind")
+                       (text->json (case-name kind-names (:kind item))))
+                 (pair (str "title")
+                       (text->json (as-str (:title item))))
+                 (pair (str "actions")
+                       (array (collect (map (iter (:actions entry))
+                                            next-action->json))))))))
+
+(defn next-action->json (planned)
+  (object (-> (vec (pair (str "action")
+                         (text->json (case-name action-names
+                                                (:action planned))))
+                   (pair (str "actor")
+                         (text->json (case-name actor-names (:actor planned)))))
+              (with-session (ref (:session planned)))
+              (with-reasons (ref (:reasons planned))))))
+
+(type with-session
+  (fn ((vec (pair string json))
+       (ref (option session)))
+    (vec (pair string json))))
+
+(defn with-session (fields session)
+  (match session
+    ((some present)
+     (appended fields
+               (pair (str "session")
+                     (text->json (as-str (:name present))))))
+    (none fields)))
+
+(defn with-reasons (fields reasons)
+  (match reasons
+    ((some blockage)
+     (appended fields
+               (pair (str "reasons")
+                     (object (blockage-fields blockage)))))
+    (none fields)))
+
+(defn appended (fields field)
+  (let (all fields) (push! all field) all))

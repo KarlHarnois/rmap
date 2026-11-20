@@ -11,6 +11,7 @@
                    item-moved-text items-text)
 
 (use cli/readiness-text readiness-text)
+(use cli/next-text next-text)
 (use cli/event-text events-text)
 
 (export reply->text)
@@ -24,6 +25,7 @@
     ((reply/roadmaps-listed roadmaps) (roadmaps-text roadmaps))
     ((reply/readiness-checked readiness)
      (readiness-text readiness))
+    ((reply/next-listed items) (next-text (ref items)))
     ((reply/log-read events) (events-text (ref events)))
     ((reply/item-added item) (item-added-text item))
     ((reply/item-moved item) (item-moved-text item))
