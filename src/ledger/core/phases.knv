@@ -4,7 +4,7 @@
 (use ledger/model kind status)
 (use ledger/names status-names)
 
-(export active? delivered? finished? phase
+(export active? completed? delivered? finished? phase
         unfinished-statuses)
 
 (defenum phase
@@ -21,6 +21,7 @@
     (fixing phase/active)
     (merging phase/active)
     (merged phase/finished)
+    (accepted phase/finished)
     (dropped phase/finished)))
 
 (defn finished? (status)
@@ -31,9 +32,12 @@
 
 (defn delivered? (kind status)
   (match kind
-    (research (= status status/reported))
-    (design (= status status/reported))
+    (research (= status status/accepted))
+    (design (= status status/accepted))
     (_ (= status status/merged))))
+
+(defn completed? (status)
+  (or (= status status/merged) (= status status/accepted)))
 
 (defn unfinished-statuses ()
   (collect (filter (map (iter status-names)

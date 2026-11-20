@@ -256,3 +256,6 @@
               (fn (roadmap-id)
                 (not (empty? (dispatched-ids-in (ref listed)
                                                 (deref roadmap-id)))))))))
+
+(deftest an-accepted-item-has-no-next-action
+  (assert (= (claimed-in status/accepted) none)))

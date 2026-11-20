@@ -53,6 +53,7 @@
   fixing
   merging
   merged
+  accepted
   dropped)
 
 (defenum origin

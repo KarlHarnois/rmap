@@ -112,14 +112,23 @@
                                (path-of "rm-0002" "src/a/**"))))
              (vec (str "rm-0001")))))
 
-(deftest a-reported-research-item-releases-its-dependents
+(deftest an-accepted-research-item-releases-its-dependents
   (assert (= (ready-ids (snapshot-of
                           (vec
                             (work-item "rm-0001" kind/design status/open)
-                            (work-item "rm-0002" kind/research status/reported))
+                            (work-item "rm-0002" kind/research status/accepted))
                           (vec (blocks-dep "rm-0001" "rm-0002"))
                           (vec)))
              (vec (str "rm-0001")))))
+
+(deftest a-reported-design-not-yet-accepted-keeps-its-dependents-waiting
+  (assert (= (ready-ids (snapshot-of
+                          (vec
+                            (work-item "rm-0001" kind/build status/open)
+                            (work-item "rm-0002" kind/design status/reported))
+                          (vec (blocks-dep "rm-0001" "rm-0002"))
+                          (vec)))
+             (vec))))
 
 (deftest a-dropped-blocker-is-reported-apart-from-waiting-blockers
   (let (readiness (readiness-of
@@ -170,7 +179,7 @@
   (match (:kind target)
     (epic (epic-done? snapshot (ref (:id target))))
     (build (= (:status target) status/merged))
-    (_ (= (:status target) status/reported))))
+    (_ (= (:status target) status/accepted))))
 
 (type epic-done?
   (fn ((ref snapshot) (ref item-id)) bool))
@@ -183,8 +192,7 @@
     (and (not (empty? children))
          (every? (iter children)
            (fn (child)
-             (or (= (:status child) status/merged)
-                 (= (:status child) status/dropped)))))))
+             (contains? (finished-statuses) (:status child)))))))
 
 (type blockers-done?
   (fn ((ref snapshot) (ref item)) bool))
@@ -206,8 +214,10 @@
 (defn active? (item)
   (and (= (:kind item) kind/build)
        (not= (:status item) status/open)
-       (not= (:status item) status/merged)
-       (not= (:status item) status/dropped)))
+       (not (contains? (finished-statuses) (:status item)))))
+
+(defn finished-statuses ()
+  (vec status/merged status/accepted status/dropped))
 
 (type paths-free?
   (fn ((ref snapshot) (ref item)) bool))

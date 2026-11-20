@@ -3,9 +3,7 @@
 
 (use ledger/refusal refusal)
 (use ledger/core/phases finished?)
-
-(use ledger/model claim glob item kind session status
-                  timestamp)
+(use ledger/model claim glob item kind session status)
 
 (export ->advancement advancement advancement->move
         kind-change move move-type move-type-of moved
@@ -52,25 +50,30 @@
     (move/close move-type/close)
     ((move/drop _) move-type/drop)))
 
-(defn target-status (move)
+(type target-status
+  (fn ((ref item) (ref move)) status))
+
+(defn target-status (item move)
   (match move
     ((move/claim _) status/dispatched)
     ((move/advance target) target)
     ((move/advance-to-build _) status/dispatched)
-    (move/close status/merged)
+    (move/close (closed-status (:kind item)))
     ((move/drop _) status/dropped)))
+
+(defn closed-status (kind)
+  (match kind
+    (research status/accepted)
+    (design status/accepted)
+    (_ status/merged)))
 
 (defn new-globs (move)
   (match move
     ((move/advance-to-build globs) (some (clone globs)))
     (_ none)))
 
-(type moved
-  (fn ((ref item) (ref move) (ref timestamp))
-    item))
-
 (defn moved (item move now)
-  (let (target (target-status move))
+  (let (target (target-status item move))
     (-> (clone item)
         (assoc :status target)
         (assoc :claim (claim-after item move))

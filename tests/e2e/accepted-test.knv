@@ -1,0 +1,98 @@
+(use json/value copy-of field json json->items json->text
+                null?)
+
+(use support/rmap blocked-design-id database-with-roadmap
+                  error-code reply research-id run-rmap
+                  text-at)
+
+(defstruct reported-ledger
+  :database string
+  :research string)
+
+(defn reported-ledger (name)
+  (let (database (database-with-roadmap name)
+        research (research-id (clone database)))
+    (assert (= (:exit-code
+                 (run-rmap
+                   (clone database)
+                   (vec "item" "claim" (as-str research) "--session" "s1")))
+               0))
+    (assert (= (:exit-code
+                 (run-rmap (clone database)
+                           (vec "item" "advance" (as-str research) "reported")))
+               0))
+    (->reported-ledger :database database :research research)))
+
+(type closed
+  (fn ((ref reported-ledger)) reply))
+
+(defn closed (ledger)
+  (run-rmap (clone (:database ledger))
+            (vec "item" "close" (as-str (:research ledger)))))
+
+(deftest closing-a-reported-research-item-accepts-it
+  (let (reply (closed (ref (reported-ledger "e2e-accept-close"))))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (text-at (ref reply) "item" "status")
+               (str "accepted")))
+    (assert (not (null? (ref (-> (ref (:json reply))
+                                 (field "item")
+                                 unwrap
+                                 (field "closed_at")
+                                 unwrap)))))))
+
+(deftest closing-an-accepted-item-again-is-refused
+  (let (ledger (reported-ledger "e2e-accept-twice"))
+    (assert (= (:exit-code (closed (ref ledger))) 0))
+    (assert (= (error-code (ref (closed (ref ledger))))
+               (str "invalid-transition")))))
+
+(type last-changes
+  (fn ((ref reported-ledger)) json))
+
+(defn last-changes (ledger)
+  (let (reply (run-rmap (clone (:database ledger))
+                        (vec "log" "--item" (as-str (:research ledger))))
+        events (unwrap (json->items (unwrap (field (ref (:json reply))
+                                                   "events")))))
+    (copy-of (unwrap (field (unwrap (field (unwrap (last events)) "payload"))
+                            "changes")))))
+
+(defn side (changes column which)
+  (copy-of (-> (ref changes)
+               (field column)
+               unwrap
+               (field which)
+               unwrap)))
+
+(deftest the-close-event-records-the-status-and-close-time
+  (let (ledger (reported-ledger "e2e-accept-event"))
+    (closed (ref ledger))
+    (let (changes (last-changes (ref ledger)))
+      (assert (= (json->text (side (ref changes) "status" "old"))
+                 (some (str "reported"))))
+      (assert (= (json->text (side (ref changes) "status" "new"))
+                 (some (str "accepted"))))
+      (assert (null? (ref (side (ref changes) "closed_at" "old"))))
+      (assert (not (null? (ref (side (ref changes) "closed_at" "new"))))))))
+
+(type ready-ids
+  (fn ((ref reported-ledger))
+    (vec string)))
+
+(defn ready-ids (ledger)
+  (let (reply (run-rmap (clone (:database ledger))
+                        (vec "ready")))
+    (collect (map (iter (unwrap (json->items (unwrap (field (ref (:json reply))
+                                                            "ready")))))
+                  (fn (item)
+                    (unwrap (json->text (unwrap (field item "id")))))))))
+
+(deftest a-dependent-waits-until-the-report-is-accepted
+  (let (ledger (reported-ledger "e2e-accept-unblocks")
+        design (blocked-design-id (clone (:database ledger))
+                                  (clone (:research ledger))))
+    (assert (not (contains? (ready-ids (ref ledger))
+                            (clone design))))
+    (closed (ref ledger))
+    (assert (contains? (ready-ids (ref ledger)) design))))
