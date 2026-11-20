@@ -50,7 +50,7 @@
   (fn ((ref (vec roadmap))) string))
 
 (defn roadmap-table (roadmaps)
-  (let (rows (headed (vec "NAME" "STATUS" "MANAGER" "CREATED")))
+  (let (rows (headed (vec "ID" "NAME" "STATUS" "MANAGER" "CREATED")))
     (for-each roadmaps
       (fn (roadmap)
         (push! rows (roadmap-cells roadmap))))
@@ -60,7 +60,8 @@
   (fn ((ref roadmap)) (vec string)))
 
 (defn roadmap-cells (roadmap)
-  (vec (clone (:name roadmap))
+  (vec (clone (:value (:id roadmap)))
+       (clone (:name roadmap))
        (str (case-name roadmap-status-names (:status roadmap)))
        (clone (:name (:manager roadmap)))
        (clone (:value (:created-at roadmap)))))

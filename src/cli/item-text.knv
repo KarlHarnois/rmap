@@ -19,7 +19,7 @@
   (fn ((ref (vec item))) string))
 
 (defn item-table (items)
-  (let (rows (headed (vec "ID" "KIND" "STATUS" "PRIORITY" "TITLE")))
+  (let (rows (headed (vec "ID" "ROADMAP" "KIND" "STATUS" "PRIORITY" "TITLE")))
     (for-each items
       (fn (item)
         (push! rows (item-cells item))))
@@ -30,6 +30,7 @@
 
 (defn item-cells (item)
   (vec (clone (:value (:id item)))
+       (clone (:value (:roadmap-id item)))
        (str (case-name kind-names (:kind item)))
        (str (case-name status-names (:status item)))
        (str (:priority item))
@@ -73,7 +74,9 @@
 
 (defn detail-rows (detail)
   (let (item (ref (:item detail)))
-    (vec (detail-row "kind"
+    (vec (detail-row "roadmap"
+                     (clone (:value (:roadmap-id item))))
+         (detail-row "kind"
                      (str (case-name kind-names (:kind item))))
          (detail-row "status"
                      (str (case-name status-names (:status item))))
