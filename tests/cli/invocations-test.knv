@@ -1,0 +1,90 @@
+(use cli/invocations invocation ledger-call
+                     parse-invocation)
+
+(use cli/requests request)
+(use ledger/api ->item-id)
+
+(defn parsed (words)
+  (parse-invocation (collect (map (iter words)
+                               (fn (word) (str (deref word)))))))
+
+(type refused-with?
+  (fn ((vec (ref str)) (ref str)) bool))
+
+(defn refused-with? (words fragment)
+  (match (parsed words)
+    ((ok _) false)
+    ((err message) (contains? (as-str message) fragment))))
+
+(defn ledger-call-of (words)
+  (match (unwrap-ok (parsed words))
+    ((invocation/on-ledger call) (some call))
+    (invocation/help none)))
+
+(deftest help-needs-no-ledger
+  (assert (= (unwrap-ok (parsed (vec "help")))
+             invocation/help)))
+
+(deftest the-database-and-actor-flags-travel-with-the-call
+  (let (call (unwrap (ledger-call-of
+                       (vec "--db" "x.db" "list" "--actor" "boss"))))
+    (assert (= (:database call) (some (str "x.db"))))
+    (assert (= (:actor call) (some (str "boss"))))))
+
+(deftest blockers-are-read-from-a-comma-list-with-blanks-dropped
+  (match (:request (unwrap (ledger-call-of
+                             (vec "item" "add" "--roadmap"
+                                  "r" "--title" "t" "--kind"
+                                  "design" "--after"
+                                  " rm-0001, rm-0002,,"))))
+    ((request/add-item _ draft)
+     (assert (= (:blocked-by draft)
+                (vec (->item-id :value (str "rm-0001"))
+                     (->item-id :value (str "rm-0002"))))))
+    (_ (assert false))))
+
+(deftest an-unknown-command-is-refused
+  (assert (refused-with? (vec "frobnicate") "unknown command")))
+
+(deftest a-missing-operand-is-refused
+  (assert (refused-with? (vec "item" "show") "takes 1 operands")))
+
+(deftest an-unknown-flag-is-refused
+  (assert (refused-with? (vec "list" "--colour" "red")
+                         "does not take --colour")))
+
+(deftest missing-required-flags-are-named
+  (assert (refused-with? (vec "item" "add" "--roadmap" "r")
+                         "needs --title, --kind")))
+
+(deftest a-flag-without-a-value-is-refused
+  (assert (refused-with? (vec "ready" "--roadmap")
+                         "--roadmap needs a value")))
+
+(deftest an-unknown-kind-is-refused
+  (assert (refused-with? (vec "item" "add" "--roadmap" "r"
+                              "--title" "t" "--kind"
+                              "chore")
+                         "--kind does not accept chore")))
+
+(deftest a-priority-must-be-a-whole-number
+  (assert (refused-with? (vec "item" "add" "--roadmap" "r"
+                              "--title" "t" "--kind"
+                              "design" "--priority" "high")
+                         "--priority takes a whole number")))
+
+(deftest an-unknown-status-is-refused
+  (assert (refused-with? (vec "item" "advance" "rm-0001" "ready")
+                         "unknown status: ready")))
+
+(deftest paths-need-a-kind-change
+  (assert (refused-with? (vec "item" "advance" "rm-0001"
+                              "dispatched" "--paths"
+                              "src/*")
+                         "--paths needs --kind build")))
+
+(deftest only-build-is-a-kind-change
+  (assert (refused-with? (vec "item" "advance" "rm-0001"
+                              "dispatched" "--kind"
+                              "design")
+                         "--kind takes only build")))
