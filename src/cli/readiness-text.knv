@@ -1,0 +1,73 @@
+(module
+  "Describes in plain text which items are ready and what holds back the others.")
+
+(use ledger/api blocked-item item-id path-conflict)
+(use cli/tables indented)
+(use cli/item-text item-table)
+
+(export blockage-lines conflict-lines readiness-text)
+
+(defn readiness-text (readiness)
+  (let (sections (vec (ready-section (ref (:ready readiness)))))
+    (when (not (empty? (:blocked readiness)))
+      (push! sections
+             (blocked-section (ref (:blocked readiness)))))
+    (join sections "\n\n")))
+
+(defn ready-section (items)
+  (if (empty? items)
+    (str "Nothing is ready.")
+    (str "Ready:\n" (indented (item-table items)))))
+
+(defn blocked-section (blocked)
+  (str "Blocked:\n"
+       (indented (join (collect (map (iter blocked) blocked-text))
+                       "\n"))))
+
+(type blocked-text
+  (fn ((ref blocked-item)) string))
+
+(defn blocked-text (blocked)
+  (let (item (ref (:item blocked)))
+    (str (:value (:id item))
+         "  "
+         (:title item)
+         "\n"
+         (indented (join (blockage-lines (ref (:blockage blocked)))
+                         "\n")))))
+
+(defn blockage-lines (blockage)
+  (let (lines (vec))
+    (when (not (empty? (:blockers blockage)))
+      (push! lines
+             (str "waits on "
+                  (ids-text (ref (:blockers blockage))))))
+    (when (not (empty? (:dropped-blockers blockage)))
+      (push! lines
+             (str "waits on dropped "
+                  (ids-text (ref (:dropped-blockers blockage))))))
+    (for-each (conflict-lines (ref (:path-conflicts blockage)))
+      (fn (line) (push! lines (clone line))))
+    lines))
+
+(type conflict-lines
+  (fn ((ref (vec path-conflict)))
+    (vec string)))
+
+(defn conflict-lines (conflicts)
+  (collect (map (iter conflicts)
+             (fn (conflict)
+               (str "path "
+                    (:pattern (:glob conflict))
+                    " overlaps "
+                    (:pattern (:other-glob conflict))
+                    ", held by "
+                    (:value (:with conflict)))))))
+
+(type ids-text
+  (fn ((ref (vec item-id))) string))
+
+(defn ids-text (ids)
+  (join (collect (map (iter ids)
+                   (fn (id) (clone (:value id)))))
+        ", "))

@@ -24,6 +24,7 @@
 (defn exit-code->meaning (code)
   (match code
     (done "The command ran.")
-    (refused "The ledger refused the command. The error object holds a code and a message.")
-    (usage "The call is incomplete. The error object has the code usage when the arguments match no command, or no-repository when no --db was given outside a git repository.")
-    (database "The database could not be opened, read or written. The error object has the code busy when the wait for the lock timed out, otherwise database.")))
+    (refused
+      "The ledger refused the command. The error holds a code and a message.")
+    (usage "The call is incomplete. The error has the code usage when the arguments match no command, or no-repository when no --db was given outside a git repository.")
+    (database "The database could not be opened, read or written. The error has the code busy when the wait for the lock timed out, otherwise database.")))

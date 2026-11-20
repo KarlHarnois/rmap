@@ -1,0 +1,55 @@
+(module
+  "Lays out rows of text as aligned columns.")
+
+(export headed indented table)
+
+(def column-gap "  ")
+
+(def indent "  ")
+
+(defn table (rows)
+  (let (widths (column-widths (ref rows)))
+    (join (collect (map (iter rows)
+                     (fn (row) (row-line (ref widths) row))))
+          "\n")))
+
+(defn headed (headers)
+  (vec (collect (map (iter headers)
+                  (fn (header) (str header))))))
+
+(defn column-widths (rows)
+  (match (first rows)
+    ((some header)
+     (collect (map (range 0 (len header))
+                (fn (column) (column-width rows column)))))
+    (none (vec))))
+
+(defn column-width (rows column)
+  (unwrap-or (max (map (iter rows)
+                    (fn (row) (len (at row column)))))
+             0))
+
+(defn row-line (widths row)
+  (let (last-column (dec (len row))
+        cells (vec))
+    (for-each (range 0 (len row))
+      (fn (column)
+        (push! cells
+               (cell-text (at row column)
+                          (at widths column)
+                          (= column last-column)))))
+    (join cells column-gap)))
+
+(defn cell-text (cell width last?)
+  (if last?
+    (clone cell)
+    (str cell (spaces (- width (len cell))))))
+
+(defn spaces (count)
+  (join (collect (map (range 0 count) (fn (_) " ")))
+        ""))
+
+(defn indented (text)
+  (join (collect (map (lines (as-str text))
+                   (fn (line) (str indent line))))
+        "\n"))

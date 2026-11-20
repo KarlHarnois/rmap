@@ -3,7 +3,8 @@
 (use process/command ->command command-output run-command)
 
 (export database-with-roadmap error-code reply research-id
-        run-rmap run-rmap-pair run-rmap-together text-at)
+        run-rmap run-rmap-pair run-rmap-text
+        run-rmap-together text-at)
 
 (defstruct reply
   :exit-code i32
@@ -66,7 +67,7 @@
           (waited->result (unwrap-ok (wait-raw second))))))
 
 (defn with-database (database args)
-  (let (all (vec (str "--db") database))
+  (let (all (vec (str "--json") (str "--db") database))
     (for-each args
       (fn (arg) (push! all (str arg))))
     all))
@@ -115,3 +116,12 @@
                              "research")))
     (assert (= (:exit-code added) 0))
     (text-at (ref added) "item" "id")))
+
+(type run-rmap-text
+  (fn ((vec (ref str))) command-output))
+
+(defn run-rmap-text (args)
+  (unwrap-ok (run-command (ref (->command :program (str (built-binary))
+                                          :args (collect (map (iter args)
+                                                           (fn (arg)
+                                                             (str arg)))))))))

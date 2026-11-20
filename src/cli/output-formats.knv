@@ -1,0 +1,17 @@
+(module
+  "Picks the output format: text for people, JSON when the call or the environment asks for it.")
+
+(use cli/flag-specs json-switch)
+
+(export output-format output-format-of)
+
+(defenum output-format
+  text
+  json)
+
+(def json-variable-value "1")
+
+(defn output-format-of (args json-variable)
+  (if (or (contains? args (str "--" json-switch))
+          (= json-variable (some (str json-variable-value))))
+    output-format/json output-format/text))

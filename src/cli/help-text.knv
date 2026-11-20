@@ -1,0 +1,37 @@
+(module
+  "Describes the CLI in plain text: its usage, its commands, its exit codes and its refusal codes.")
+
+(use ledger/api refusal-catalog)
+(use cli/routes routes)
+
+(use cli/exit-codes exit-code->meaning exit-code->number
+                    exit-codes)
+
+(use cli/tables indented table)
+(use cli/usage command-usage usage-line)
+
+(export help-text)
+
+(defn help-text ()
+  (join (vec (str "Usage: " (usage-line))
+             (section "Commands"
+                      (join (collect (map (iter (routes)) command-usage))
+                            "\n"))
+             (section "Exit codes" (table (exit-code-rows)))
+             (section "Refusal codes" (table (refusal-rows))))
+        "\n\n"))
+
+(defn section (title body)
+  (str title ":\n" (indented body)))
+
+(defn exit-code-rows ()
+  (collect (map (iter (exit-codes))
+             (fn (code)
+               (vec (str (exit-code->number (deref code)))
+                    (str (exit-code->meaning (deref code))))))))
+
+(defn refusal-rows ()
+  (collect (map (iter (refusal-catalog))
+             (fn (description)
+               (vec (clone (:code description))
+                    (clone (:meaning description)))))))

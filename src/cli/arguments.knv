@@ -7,36 +7,51 @@
 
 (defstruct arguments
   :words (vec string)
-  :flags (vec (pair string string)))
+  :flags (vec (pair string string))
+  :switches (vec string))
 
-(defn split-arguments (args)
+(defn split-arguments (args switch-names)
   (loop (index 0
          words (vec)
-         flags (vec))
+         flags (vec)
+         switches (vec))
     (cond
       ((>= index (len args))
-       (ok (->arguments :words words :flags flags)))
+       (ok (->arguments :words words :flags flags :switches switches)))
+      ((switch-token? (at args index) (ref switch-names))
+       (recur (inc index)
+              words flags
+              (appended switches (flag-name (at args index)))))
       ((flag-name? (at args index))
-       (let-try (value (flag-value (ref args) index))
+       (let-try (value (flag-value (ref args) index (ref switch-names)))
          (recur (+ index 2)
                 words
                 (appended flags
-                          (pair (str (flag-name (at args index)))
-                                value)))))
+                          (pair (flag-name (at args index)) value))
+                switches)))
       (else (recur (inc index)
                    (appended words (clone (at args index)))
-                   flags)))))
+                   flags switches)))))
 
 (defn flag-name? (arg)
   (starts-with? (as-str arg) "--"))
 
 (defn flag-name (arg)
-  (subs (as-str arg) 2 (len arg)))
+  (str (subs (as-str arg) 2 (len arg))))
 
-(defn flag-value (args index)
-  (match (get args (inc index))
-    ((some value) (ok (clone value)))
-    (none (err (str (at args index) " needs a value")))))
+(defn switch-token? (arg switch-names)
+  (and (flag-name? arg)
+       (contains? switch-names (flag-name arg))))
+
+(defn flag-value (args index switch-names)
+  (ok-or (then-some (get args (inc index))
+           (fn (value) (unless-switch value switch-names)))
+         (str (at args index) " needs a value")))
+
+(defn unless-switch (value switch-names)
+  (if (switch-token? value switch-names)
+    none
+    (some (clone value))))
 
 (defn appended (items extra)
   (let (all items) (push! all extra) all))

@@ -1,4 +1,4 @@
-(use json/value json json->source)
+(use json/value json->source)
 
 (use ledger/api ->settings add-dep add-item advance-item
                 claim-item clock close-item
@@ -12,36 +12,49 @@
 (use cli/invocations invocation ledger-call
                      parse-invocation)
 
-(use cli/exit-codes exit-code exit-code->number)
-(use cli/help help-document)
-(use cli/outcomes ->outcome result->outcome usage-outcome)
-
-(use cli/envelopes dep-envelope detail-envelope
-                   events-envelope item-envelope
-                   items-envelope readiness-envelope
-                   roadmap-envelope roadmaps-envelope)
+(use cli/exit-codes exit-code->number)
+(use cli/replies reply)
+(use cli/responses response response-exit-code)
+(use cli/output-formats output-format output-format-of)
+(use cli/json-output response->json)
+(use cli/text-output response->printed stream)
 
 (defn main ()
-  (let (outcome (run (command-line-args)))
-    (println (json->source (ref (:output outcome))))
-    (exit (convert (exit-code->number (:exit-code outcome))))))
+  (let (args (command-line-args)
+        format (output-format-of (ref args) (variable "RMAP_JSON"))
+        response (run args)
+        code (exit-code->number (response-exit-code (ref response))))
+    (print-response format response)
+    (exit (convert code))))
+
+(defn print-response (format response)
+  (match format
+    (output-format/json (println (json->source (ref (response->json
+                                                      response)))))
+    (output-format/text (print-text (response->printed response)))))
+
+(defn print-text (printed)
+  (match (:stream printed)
+    (stream/standard-output (println (:text printed)))
+    (stream/standard-error (eprintln (:text printed)))))
 
 (defn run (args)
   (match (parse-invocation args)
     ((ok invocation) (execute invocation))
-    ((err message) (usage-outcome message))))
+    ((err message) (response/misused message))))
 
 (defn execute (invocation)
   (match invocation
-    (invocation/help (->outcome :exit-code exit-code/done
-                                :output (help-document)))
+    (invocation/help response/help)
     ((invocation/on-ledger call) (call-ledger call))))
 
 (defn call-ledger (call)
-  (result->outcome (ledger-result call)))
+  (match (ledger-result call)
+    ((ok reply) (response/replied reply))
+    ((err failure) (response/failed failure))))
 
 (type ledger-result
-  (fn (ledger-call) (result json failure)))
+  (fn (ledger-call) (result reply failure)))
 
 (defn ledger-result (call)
   (let-try (settings (settings-for (ref call)))
@@ -74,27 +87,39 @@
   (match request
     ((new-roadmap name manager)
      (map-ok (new-roadmap settings name manager)
-             roadmap-envelope))
-    (list-roadmaps (map-ok (list-roadmaps settings) roadmaps-envelope))
+       (fn (roadmap) (reply/roadmap-created roadmap))))
+    (list-roadmaps (map-ok (list-roadmaps settings)
+                     (fn (roadmaps) (reply/roadmaps-listed roadmaps))))
     ((ready roadmap)
-     (map-ok (ready-items settings roadmap) readiness-envelope))
+     (map-ok (ready-items settings roadmap)
+       (fn (readiness) (reply/readiness-checked readiness))))
     ((log item since)
-     (map-ok (read-log settings item since) events-envelope))
+     (map-ok (read-log settings item since)
+       (fn (events) (reply/log-read events))))
     ((add-item roadmap draft)
-     (map-ok (add-item settings roadmap draft) item-envelope))
+     (map-ok (add-item settings roadmap draft)
+       (fn (item) (reply/item-added item))))
     ((list-items roadmap)
-     (map-ok (list-items settings roadmap) items-envelope))
+     (map-ok (list-items settings roadmap)
+       (fn (items) (reply/items-listed items))))
     ((show-item id)
-     (map-ok (show-item settings id) detail-envelope))
+     (map-ok (show-item settings id)
+       (fn (detail) (reply/item-shown detail))))
     ((claim id session)
-     (map-ok (claim-item settings id session) item-envelope))
+     (map-ok (claim-item settings id session)
+       (fn (item) (reply/item-moved item))))
     ((advance id advancement)
      (map-ok (advance-item settings id advancement)
-             item-envelope))
-    ((close id) (map-ok (close-item settings id) item-envelope))
+       (fn (item) (reply/item-moved item))))
+    ((close id)
+     (map-ok (close-item settings id)
+       (fn (item) (reply/item-moved item))))
     ((drop id reason)
-     (map-ok (drop-item settings id reason) item-envelope))
+     (map-ok (drop-item settings id reason)
+       (fn (item) (reply/item-moved item))))
     ((add-dep item on)
-     (map-ok (add-dep settings item on) dep-envelope))
+     (map-ok (add-dep settings item on)
+       (fn (dep) (reply/dep-added dep))))
     ((remove-dep item on)
-     (map-ok (remove-dep settings item on) dep-envelope))))
+     (map-ok (remove-dep settings item on)
+       (fn (dep) (reply/dep-removed dep))))))

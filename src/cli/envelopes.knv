@@ -3,14 +3,12 @@
 
 (use json/value array int->json json object text->json)
 (use ledger/api item-detail)
+(use cli/replies reply)
 
 (use cli/ledger-json blocked->json dep->json event->json
                      globs->json item->json roadmap->json)
 
-(export dep-envelope detail-envelope envelope error-envelope
-        events-envelope item-envelope items-envelope
-        readiness-envelope roadmap-envelope
-        roadmaps-envelope)
+(export envelope error-envelope reply-envelope)
 
 (def output-schema-version 1)
 
@@ -28,6 +26,21 @@
     (push! fields
            (pair (str "message") (text->json message)))
     (envelope (vec (pair (str "error") (object fields))))))
+
+(defn reply-envelope (reply)
+  (match reply
+    ((reply/roadmap-created roadmap) (roadmap-envelope roadmap))
+    ((reply/roadmaps-listed roadmaps)
+     (roadmaps-envelope roadmaps))
+    ((reply/readiness-checked readiness)
+     (readiness-envelope readiness))
+    ((reply/log-read events) (events-envelope events))
+    ((reply/item-added item) (item-envelope item))
+    ((reply/item-moved item) (item-envelope item))
+    ((reply/items-listed items) (items-envelope items))
+    ((reply/item-shown detail) (detail-envelope detail))
+    ((reply/dep-added dep) (dep-envelope dep))
+    ((reply/dep-removed dep) (dep-envelope dep))))
 
 (defn roadmap-envelope (roadmap)
   (envelope (vec (pair (str "roadmap")

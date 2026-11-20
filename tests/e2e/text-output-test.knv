@@ -1,0 +1,26 @@
+(use support/rmap run-rmap-text)
+(use support/scratch scratch-database)
+
+(deftest a-command-prints-text-by-default
+  (let (database (scratch-database "text-by-default")
+        output (run-rmap-text
+                 (vec "--db" (as-str database) "new" "road" "--manager" "m1")))
+    (assert (= (:code output) 0))
+    (assert (= (:stdout output)
+               (str "Created roadmap road, managed by m1.\n")))
+    (assert (empty? (:stderr output)))))
+
+(deftest a-refusal-prints-its-error-on-standard-error
+  (let (database (scratch-database "text-refusal")
+        _ (run-rmap-text
+            (vec "--db" (as-str database) "new" "road" "--manager" "m1"))
+        output (run-rmap-text
+                 (vec "--db" (as-str database) "new" "road" "--manager" "m2")))
+    (assert (= (:code output) 1))
+    (assert (empty? (:stdout output)))
+    (assert (starts-with? (as-str (:stderr output)) "error: "))))
+
+(deftest rmap-without-a-command-prints-the-help
+  (let (output (run-rmap-text (vec)))
+    (assert (= (:code output) 0))
+    (assert (starts-with? (as-str (:stdout output)) "Usage: rmap"))))

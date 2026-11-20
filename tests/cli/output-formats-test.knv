@@ -1,0 +1,25 @@
+(use cli/output-formats output-format output-format-of)
+
+(defn arguments (words)
+  (collect (map (iter words)
+             (fn (word) (str (deref word))))))
+
+(deftest text-is-the-default
+  (assert (= (output-format-of (ref (arguments (vec "list")))
+                               none)
+             output-format/text)))
+
+(deftest the-json-flag-picks-json
+  (assert (= (output-format-of (ref (arguments (vec "list" "--json")))
+                               none)
+             output-format/json)))
+
+(deftest rmap-json-set-to-one-picks-json
+  (assert (= (output-format-of (ref (arguments (vec "list")))
+                               (some (str "1")))
+             output-format/json)))
+
+(deftest rmap-json-set-to-anything-else-keeps-text
+  (assert (= (output-format-of (ref (arguments (vec "list")))
+                               (some (str "0")))
+             output-format/text)))

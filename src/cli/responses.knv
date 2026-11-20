@@ -1,0 +1,27 @@
+(module
+  "Names what a command produced, and the exit code each kind of result gives.")
+
+(use ledger/api failure)
+(use cli/replies reply)
+(use cli/exit-codes exit-code)
+
+(export failure-exit-code response response-exit-code)
+
+(defenum response
+  help
+  (replied reply)
+  (failed failure)
+  (misused string))
+
+(defn response-exit-code (response)
+  (match response
+    (response/help exit-code/done)
+    ((response/replied _) exit-code/done)
+    ((response/failed failure) (failure-exit-code failure))
+    ((response/misused _) exit-code/usage)))
+
+(defn failure-exit-code (failure)
+  (match failure
+    ((failure/refused _) exit-code/refused)
+    ((failure/no-repository _) exit-code/usage)
+    ((failure/database _) exit-code/database)))
