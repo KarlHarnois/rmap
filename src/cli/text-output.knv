@@ -6,6 +6,7 @@
 
 (use cli/responses response)
 (use cli/help-text help-text)
+(use cli/tables indented)
 (use cli/reply-text reply->text)
 (use cli/readiness-text blockage-lines conflict-lines)
 
@@ -44,10 +45,10 @@
                         (failure-message failure)
                         " ("
                         (failure-code failure)
-                        ")")))
-    (for-each (failure-details failure)
-      (fn (line)
-        (push! lines (str "  " line))))
+                        ")"))
+        details (failure-details failure))
+    (when (not (empty? details))
+      (push! lines (indented (join details "\n"))))
     (join lines "\n")))
 
 (defn failure-details (failure)
