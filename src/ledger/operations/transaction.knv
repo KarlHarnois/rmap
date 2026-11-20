@@ -15,8 +15,7 @@
 (use files/presence file-exists?)
 
 (export ->settings clock connect in-read-transaction
-        in-transaction now open-ledger record settings
-        transaction)
+        in-transaction now record settings transaction)
 
 (defenum clock
   system

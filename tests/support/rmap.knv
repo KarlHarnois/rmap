@@ -77,7 +77,7 @@
 
 (type run-rmap-together
   (fn (string (vec (ref str)) int)
-    (vec i32)))
+    (vec reply)))
 
 (defn run-rmap-together (database args copies)
   (let (children (vec))
@@ -85,16 +85,17 @@
       (fn (_)
         (push! children
                (spawned (rmap-command (clone database) (clone args))))))
-    (waited-codes children)))
+    (waited-replies children)))
 
-(defn waited-codes (children)
+(defn waited-replies (children)
   (let (pending children
-        codes (vec))
+        replies (vec))
     (for-each (range 0 (len pending))
       (fn (_)
-        (push! codes
-               (:exit-code (waited->result (unwrap-ok (wait-raw (unwrap (pop! pending)))))))))
-    codes))
+        (push! replies
+               (waited->result (unwrap-ok (wait-raw (unwrap (pop!
+                                                              pending))))))))
+    replies))
 
 (defn text-at (reply object key)
   (-> (:json reply)

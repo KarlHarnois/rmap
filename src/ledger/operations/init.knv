@@ -1,9 +1,11 @@
 (module
   "Creates the ledger database, or reports the one already at its path.")
 
-(use files/presence file-exists?)
 (use ledger/failure failure)
-(use ledger/operations/transaction open-ledger settings)
+(use ledger/operations/transaction settings)
+(use ledger/sqlite/connection open)
+(use ledger/sqlite/migrations empty-schema-version migrate)
+(use ledger/sqlite/migration-sources migration-sources)
 
 (export ->init-report init-ledger init-outcome
         init-outcome-names init-report)
@@ -25,11 +27,12 @@
     (result init-report failure)))
 
 (defn init-ledger (settings)
-  (let (path (clone (:database-path settings))
-        outcome (outcome-before-opening (as-str path)))
-    (let-try (_ (open-ledger settings))
-      (ok (->init-report :database-path path :outcome outcome)))))
+  (let (path (clone (:database-path settings)))
+    (let-try (connection (open (as-str path))
+              starting-version (migrate (ref connection) (migration-sources)))
+      (ok (->init-report :database-path path
+                         :outcome (outcome-from-version starting-version))))))
 
-(defn outcome-before-opening (path)
-  (if (file-exists? path)
-    init-outcome/existing init-outcome/created))
+(defn outcome-from-version (starting-version)
+  (if (= starting-version empty-schema-version)
+    init-outcome/created init-outcome/existing))

@@ -1,5 +1,5 @@
 (use support/rmap database-with-roadmap research-id
-                  run-rmap-pair run-rmap-together)
+                  run-rmap-pair run-rmap-together text-at)
 
 (use support/scratch scratch-database)
 
@@ -32,12 +32,24 @@
 
 (def first-users 6)
 
-(defn all-succeed-on-a-fresh-database? (round)
-  (let (database (scratch-database (as-str (str "fresh-race-" round))))
-    (every? (iter (run-rmap-together database (vec "init") first-users))
-      (fn (code) (= (deref code) 0)))))
+(defn racing-inits (round)
+  (run-rmap-together (scratch-database (as-str (str "fresh-race-" round)))
+                     (vec "init")
+                     first-users))
+
+(defn created-count (replies)
+  (count (filter (iter replies)
+           (fn (reply)
+             (= (text-at reply "ledger" "outcome") "created")))))
 
 (deftest processes-initializing-one-new-ledger-at-once-all-succeed
   (for-each (range 0 fresh-rounds)
     (fn (round)
-      (assert (all-succeed-on-a-fresh-database? round)))))
+      (assert (every? (iter (racing-inits round))
+                (fn (reply) (= (:exit-code reply) 0)))))))
+
+(deftest only-one-of-several-racing-inits-reports-created
+  (for-each (range 0 fresh-rounds)
+    (fn (round)
+      (assert (= (created-count (ref (racing-inits round)))
+                 1)))))
