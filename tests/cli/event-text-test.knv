@@ -1,4 +1,4 @@
-(use json/value json object text->json)
+(use json/value array json object text->json)
 (use ledger/model ->roadmap-id ->timestamp)
 (use ledger/model/events ->event event-type)
 (use cli/event-text events-text)
@@ -28,6 +28,26 @@
     (assert (= (events-text (ref (vec (claim-event payload))))
                (lines (vec (header)
                            "4   2026-01-01T00:00:00Z  ana    item-claimed  rm-0a0a  rm-0001  title=-->a"))))))
+
+(deftest a-set-with-nothing-before-or-after-is-left-out
+  (let (payload (set-changes-payload
+                  (vec (change "blocked_by" json/null (array (vec)))
+                       (change "paths"
+                               (array (vec))
+                               (array (vec)))
+                       (change "title" json/null (text->json "a")))))
+    (assert (= (events-text (ref (vec (claim-event payload))))
+               (lines (vec (header)
+                           "4   2026-01-01T00:00:00Z  ana    item-claimed  rm-0a0a  rm-0001  title=-->a"))))))
+
+(deftest a-set-that-changes-prints-as-json-arrays
+  (let (payload (set-changes-payload (vec (change "paths"
+                                                  (array (vec))
+                                                  (array (vec (text->json
+                                                                "src/*")))))))
+    (assert (= (events-text (ref (vec (claim-event payload))))
+               (lines (vec (header)
+                           "4   2026-01-01T00:00:00Z  ana    item-claimed  rm-0a0a  rm-0001  paths=[]->[\"src/*\"]"))))))
 
 (deftest context-keys-print-after-the-changes
   (let (payload (object (vec (pair (str "reason") (text->json "obsolete"))
@@ -62,6 +82,9 @@
                                   (change "claimed_by"
                                           json/null
                                           (text->json "s1"))))))))
+
+(defn set-changes-payload (changes)
+  (object (vec (pair (str "changes") (object changes)))))
 
 (defn change (column old new)
   (pair (str column)

@@ -1,8 +1,8 @@
 (module
   "Describes ledger events in plain text: one row per event, with its roadmap and the details its payload records, with each recorded change as `column=old->new`.")
 
-(use json/value field json->entries json->source json->text
-                null?)
+(use json/value field json->entries json->items json->source
+                json->text null?)
 
 (use ledger/api case-name event event-type-names roadmap-id)
 (use cli/tables headed table)
@@ -71,12 +71,17 @@
       collect))
 
 (defn recorded? (change)
-  (not (and (null-side? change "old") (null-side? change "new"))))
+  (not (and (blank-side? change "old") (blank-side? change "new"))))
 
-(defn null-side? (change side)
+(defn blank-side? (change side)
   (match (field change side)
-    ((some value) (null? (ref value)))
+    ((some value) (blank? (ref value)))
     (none true)))
+
+(defn blank? (value)
+  (match (json->items value)
+    ((some items) (empty? items))
+    (none (null? value))))
 
 (defn change-text (entry)
   (let-match ((pair column change) entry)
