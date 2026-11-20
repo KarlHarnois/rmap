@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 env:
-  KNAVE_VERSION: "0.20.0"
+  KNAVE_VERSION: "0.20.1"
 
 jobs:
   check:
@@ -34,8 +34,28 @@ jobs:
           key: ${{ steps.knave-cache.outputs.cache-primary-key }}
       - name: Check the layout
         run: knave fmt --check
-      - name: Lint
+      - name: Lint the app
         run: knave lint
+      - name: Lint the tasks
+        run: |
+          status=0
+          for task in tasks/*.knv; do
+            knave lint "$task" || status=1
+          done
+          exit $status
+      - name: Lint the tests, without needless-type, from a copy that places them under src
+        run: |
+          copy="$RUNNER_TEMP/test-lint"
+          mkdir -p "$copy"
+          git archive HEAD | tar -x -C "$copy"
+          cp -r tests/. "$copy/src/"
+          sed -i 's/(needless-type [a-z]*)/(needless-type allow)/' "$copy/project.knv"
+          cd "$copy"
+          status=0
+          for test in $(cd tests && find . -name '*-test.knv' | sort); do
+            knave lint "src/${test#./}" || status=1
+          done
+          exit $status
       - name: Keep source files under 150 lines
         run: |
           long=$(git ls-files '*.knv' ':!:tests/' | xargs wc -l | awk '$2 != "total" && $1 > 150 {print $2 ": " $1 " lines"}')

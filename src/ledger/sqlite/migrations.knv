@@ -3,8 +3,7 @@
 
 (use ledger/sqlite/rows int-cell single-row try-each)
 
-(use ledger/sqlite/connection connection database-error
-                              database-failure
+(use ledger/sqlite/connection database-failure
                               in-write-transaction query
                               run-batch)
 
@@ -19,10 +18,6 @@
   (in-write-transaction connection
     (fn (locked)
       (apply-pending-after-version locked migrations))))
-
-(type apply-pending-after-version
-  (fn ((ref connection) (ref (vec migration)))
-    (result unit database-error)))
 
 (defn apply-pending-after-version (connection migrations)
   (let-try (_ (check-unique-versions migrations)
@@ -54,10 +49,6 @@
                           "\nPRAGMA user_version = "
                           (:version migration)
                           ";"))))
-
-(type check-unique-versions
-  (fn ((ref (vec migration)))
-    (result unit database-error)))
 
 (defn check-unique-versions (migrations)
   (match (find (iter migrations)

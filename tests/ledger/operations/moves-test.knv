@@ -3,10 +3,10 @@
                 kind-change read-log ready-items refusal
                 show-item status)
 
-(use support/ledger added-id advanced claimed
-                    globs-of-patterns item-draft
-                    refusal-code-of reported-research
-                    scratch-ledger session-named)
+(use support/ledger added-id claimed globs-of-patterns
+                    item-draft refusal-code-of
+                    reported-research scratch-ledger
+                    session-named)
 
 (defn become-build (settings id patterns)
   (advance-item settings
@@ -40,9 +40,9 @@
 (deftest replaced-paths-no-longer-block-other-builds
   (let (settings (scratch-ledger "build-releases-paths")
         research (reported-research (ref settings) (vec "src/a/**"))
-        waiting (added-id (ref settings)
-                          (item-draft kind/build
-                                      (globs-of-patterns (vec "src/a/x.rs")))))
+        _waiting (added-id (ref settings)
+                           (item-draft kind/build
+                                       (globs-of-patterns (vec "src/a/x.rs")))))
     (assert (ok? (become-build (ref settings)
                                (ref research)
                                (vec "docs/**"))))
@@ -62,7 +62,7 @@
 
 (deftest every-event-records-the-settings-actor
   (let (settings (scratch-ledger "actor-recorded")
-        research (reported-research (ref settings) (vec)))
+        _research (reported-research (ref settings) (vec)))
     (assert (every? (iter (unwrap-ok (read-log (ref settings) none 0)))
               (fn (event)
                 (= (:actor event) (str "tester")))))))
@@ -120,8 +120,8 @@
 
 (deftest claiming-a-build-on-held-paths-is-refused
   (let (settings (scratch-ledger "claim-held-paths")
-        holder (claimed (ref settings)
-                        (build (ref settings) "src/a/**"))
+        _holder (claimed (ref settings)
+                         (build (ref settings) "src/a/**"))
         waiting (build (ref settings) "src/a/b.rs"))
     (assert (= (refusal-code-of
                  (claim-item (ref settings) waiting (session-named "other")))
@@ -129,8 +129,8 @@
 
 (deftest becoming-a-build-on-held-paths-is-refused
   (let (settings (scratch-ledger "build-on-held-paths")
-        holder (claimed (ref settings)
-                        (build (ref settings) "src/**"))
+        _holder (claimed (ref settings)
+                         (build (ref settings) "src/**"))
         item (reported-research (ref settings) (vec)))
     (assert (= (refusal-code-of (become-build (ref settings)
                                               (ref item)

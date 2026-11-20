@@ -1,6 +1,4 @@
-(use ledger/model ->session ->timestamp claim item kind
-                  status)
-
+(use ledger/model ->session ->timestamp claim kind status)
 (use ledger/core/move move moved)
 (use support/items claimed glob-of work-item)
 

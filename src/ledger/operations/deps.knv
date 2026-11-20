@@ -12,7 +12,6 @@
 (use ledger/failure failure)
 (use ledger/core/snapshot existing)
 (use ledger/events dep-changed)
-(use ledger/sqlite/connection connection database-error)
 
 (export add-dep remove-dep)
 
@@ -45,10 +44,6 @@
             _ (record transaction
                       (dep-changed (ref owner) (ref dep) change)))
     (ok (clone dep))))
-
-(type write-dep-change
-  (fn ((ref connection) (ref dep) dep-change)
-    (result int database-error)))
 
 (defn write-dep-change (connection dep change)
   (match change

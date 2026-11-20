@@ -4,8 +4,8 @@
 (use ledger/api ->advancement ->item-id ->new-item
                 ->session)
 
-(use cli/routes route subcommand)
-(use cli/arguments arguments operand split-arguments)
+(use cli/routes subcommand)
+(use cli/arguments operand split-arguments)
 (use cli/route-matching check-shape route-of)
 (use cli/flags optional-text)
 
@@ -30,10 +30,6 @@
             _ (check-shape (ref arguments) (ref route)))
     (invocation-of (ref route) (ref arguments))))
 
-(type on-ledger
-  (fn ((ref arguments) (result request string))
-    (result invocation string)))
-
 (defn on-ledger (arguments requested)
   (map-ok requested
     (fn (request)
@@ -41,10 +37,6 @@
                               :database (optional-text arguments "db")
                               :actor (optional-text arguments "actor")
                               :request request)))))
-
-(type invocation-of
-  (fn ((ref route) (ref arguments))
-    (result invocation string)))
 
 (defn invocation-of (route arguments)
   (match (:subcommand route)

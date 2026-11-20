@@ -23,10 +23,6 @@
       (find (fn (item) (= (ref (:id item)) id)))
       (map-some clone)))
 
-(type existing
-  (fn ((ref snapshot) (ref item-id))
-    (result item refusal)))
-
 (defn existing (snapshot id)
   (ok-or (find-item snapshot id)
          (refusal/item-not-found (clone id))))
@@ -55,10 +51,6 @@
 
 (defn blocks? (dep)
   (= (:type dep) dep-type/blocks))
-
-(type blocked-by
-  (fn ((ref snapshot) (ref item-id))
-    (vec item-id)))
 
 (defn blocked-by (snapshot id)
   (collect (map (filter (iter (deps-of snapshot id))

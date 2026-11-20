@@ -34,10 +34,6 @@
       (items-within (ref (:connection transaction))
                     (ref roadmap)))))
 
-(type items-within
-  (fn ((ref connection) (ref (option string)))
-    (result (vec item) failure)))
-
 (defn items-within (connection roadmap)
   (let-try (scope (scope-named connection roadmap)
             snapshot (load-snapshot connection))

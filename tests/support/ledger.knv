@@ -3,7 +3,7 @@
 (use ledger/api ->advancement ->glob ->new-item ->session
                 ->settings add-item advance-item claim-item
                 clock failure-code glob kind kind-change
-                new-roadmap origin settings status)
+                new-roadmap origin status)
 
 (use support/scratch scratch-database)
 

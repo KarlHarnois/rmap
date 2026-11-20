@@ -16,9 +16,6 @@
   (or (= item on)
       (reaches? (blocking-edges deps) on item)))
 
-(type blocking-edges
-  (fn ((ref (vec dep))) (vec dep)))
-
 (defn blocking-edges (deps)
   (collect (map (filter (iter deps)
                   (fn (dep) (blocks? dep)))
