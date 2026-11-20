@@ -1,10 +1,10 @@
-(use ledger/api kind ready-items status)
+(use ledger/api ready-items status)
 
-(use support/ledger added-blocked-research-in added-id
-                    added-research advanced claimed
-                    item-draft ledger-with-two-roadmaps
+(use support/ledger added-blocked-research-in added-research
+                    advanced claimed
+                    ledger-with-two-roadmaps
                     other-roadmap-name refusal-code-of
-                    scratch-ledger)
+                    roadmap-name scratch-ledger)
 
 (deftest an-unknown-roadmap-is-refused
   (let (settings (scratch-ledger "unknown-roadmap"))
@@ -14,16 +14,14 @@
 
 (deftest naming-a-roadmap-limits-ready-items-to-it
   (let (settings (ledger-with-two-roadmaps "ready-in-one-roadmap")
-        _ (added-id (ref settings)
-                    (item-draft kind/research (vec))))
-    (assert (= (len (:ready (other-readiness (ref settings))))
+        _ (added-research (ref settings)))
+    (assert (= (len (:ready (readiness-in (ref settings) other-roadmap-name)))
                0))
-    (assert (= (len (:ready (unwrap-ok (ready-items (ref settings)
-                                                    (some (str "road"))))))
+    (assert (= (len (:ready (readiness-in (ref settings) roadmap-name)))
                1))))
 
-(defn other-readiness (settings)
-  (unwrap-ok (ready-items settings (some (str other-roadmap-name)))))
+(defn readiness-in (settings roadmap)
+  (unwrap-ok (ready-items settings (some (str roadmap)))))
 
 (deftest an-open-blocker-in-another-roadmap-keeps-an-item-waiting
   (let (settings (ledger-with-two-roadmaps "cross-roadmap-waiting")
@@ -31,7 +29,7 @@
         _blocked (added-blocked-research-in (ref settings)
                                             other-roadmap-name
                                             blocker)
-        readiness (other-readiness (ref settings)))
+        readiness (readiness-in (ref settings) other-roadmap-name))
     (assert (= (len (:ready readiness)) 0))
     (assert (= (len (:blocked readiness)) 1))))
 
@@ -44,5 +42,5 @@
         _delivered (advanced (ref settings)
                              (claimed (ref settings) blocker)
                              status/reported))
-    (assert (= (len (:ready (other-readiness (ref settings))))
+    (assert (= (len (:ready (readiness-in (ref settings) other-roadmap-name)))
                1))))

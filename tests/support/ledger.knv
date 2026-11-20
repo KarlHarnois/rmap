@@ -12,7 +12,7 @@
         added-research-in advanced claimed globs-of-patterns
         item-draft ledger-with-two-roadmaps
         other-roadmap-name refusal-code-of reported-research
-        scratch-ledger session-named)
+        roadmap-name scratch-ledger session-named)
 
 (def roadmap-name "road")
 
