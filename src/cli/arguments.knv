@@ -7,31 +7,26 @@
 
 (defstruct arguments
   :words (vec string)
-  :flags (vec (pair string string))
-  :switches (vec string))
+  :flags (vec (pair string string)))
 
 (defn split-arguments (args switch-names)
   (loop (index 0
          words (vec)
-         flags (vec)
-         switches (vec))
+         flags (vec))
     (cond
       ((>= index (len args))
-       (ok (->arguments :words words :flags flags :switches switches)))
+       (ok (->arguments :words words :flags flags)))
       ((switch-token? (at args index) (ref switch-names))
-       (recur (inc index)
-              words flags
-              (appended switches (flag-name (at args index)))))
+       (recur (inc index) words flags))
       ((flag-name? (at args index))
        (let-try (value (flag-value (ref args) index (ref switch-names)))
          (recur (+ index 2)
                 words
                 (appended flags
-                          (pair (flag-name (at args index)) value))
-                switches)))
+                          (pair (flag-name (at args index)) value)))))
       (else (recur (inc index)
                    (appended words (clone (at args index)))
-                   flags switches)))))
+                   flags)))))
 
 (defn flag-name? (arg)
   (starts-with? (as-str arg) "--"))
