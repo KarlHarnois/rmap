@@ -8,11 +8,11 @@
 (use support/scratch scratch-database)
 
 (export added-blocked-research added-blocked-research-in
-        added-id added-id-in added-research
-        added-research-in advanced claimed globs-of-patterns
-        item-draft ledger-with-two-roadmaps
-        other-roadmap-name refusal-code-of reported-research
-        roadmap-name scratch-ledger session-named)
+        added-id added-research added-research-in advanced
+        claimed globs-of-patterns item-draft
+        ledger-with-two-roadmaps other-roadmap-name
+        refusal-code-of reported-research roadmap-name
+        scratch-ledger session-named)
 
 (def roadmap-name "road")
 
