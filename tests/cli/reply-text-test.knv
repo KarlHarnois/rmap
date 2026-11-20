@@ -3,13 +3,13 @@
 (use cli/reply-text reply->text)
 (use support/items blocks-dep)
 
-(deftest adding-a-dep-says-which-item-waits-on-which
+(deftest adding-a-dep-says-which-item-comes-after-which
   (assert (= (reply->text (reply/dep-added (blocks-dep "rm-0002" "rm-0001")))
-             (str "rm-0002 now waits on rm-0001."))))
+             (str "rm-0002 now comes after rm-0001."))))
 
-(deftest removing-a-dep-says-the-item-no-longer-waits
+(deftest removing-a-dep-says-the-order-no-longer-holds
   (assert (= (reply->text (reply/dep-removed (blocks-dep "rm-0002" "rm-0001")))
-             (str "rm-0002 no longer waits on rm-0001."))))
+             (str "rm-0002 no longer comes after rm-0001."))))
 
 (deftest an-empty-roadmap-list-says-so
   (assert (= (reply->text (reply/roadmaps-listed (the (vec roadmap) (vec))))

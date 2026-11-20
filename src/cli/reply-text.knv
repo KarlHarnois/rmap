@@ -30,9 +30,9 @@
     ((reply/item-moved item) (item-moved-text item))
     ((reply/items-listed items) (items-text (ref items)))
     ((reply/item-shown detail) (item-detail-text detail))
-    ((reply/dep-added dep) (dep-text dep "now waits on"))
+    ((reply/dep-added dep) (dep-text dep "now comes after"))
     ((reply/dep-removed dep)
-     (dep-text dep "no longer waits on"))))
+     (dep-text dep "no longer comes after"))))
 
 (type init-report-text
   (fn ((ref init-report)) string))

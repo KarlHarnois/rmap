@@ -94,7 +94,7 @@
          (detail-row "paths"
                      (listed (collect (map (iter (:globs detail))
                                         (fn (glob) (clone (:pattern glob)))))))
-         (detail-row "waits on"
+         (detail-row "after"
                      (listed (dep-targets (ref (:deps detail))
                                           dep-type/blocks)))
          (detail-row "discovered from"

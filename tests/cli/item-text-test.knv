@@ -36,4 +36,4 @@
                                                 :type dep-type/discovered-from))
                               :globs (vec (glob-of "src/**"))))
     (assert (= (item-detail-text (ref detail))
-               (str "rm-0002  work\n  roadmap          rm-road\n  kind             build\n  status           dispatched\n  claimed by       worker\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  paths            src/**\n  waits on         rm-0001\n  discovered from  rm-0009")))))
+               (str "rm-0002  work\n  roadmap          rm-road\n  kind             build\n  status           dispatched\n  claimed by       worker\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  paths            src/**\n  after            rm-0001\n  discovered from  rm-0009")))))
