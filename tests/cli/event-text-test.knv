@@ -6,24 +6,69 @@
 (use cli/event-text events-text)
 (use support/items id-of)
 
-(deftest events-print-their-roadmap-item-and-non-null-details
-  (assert (= (events-text (ref (vec (claim-event))))
-             (lines (vec "ID  AT                    ACTOR  EVENT         ROADMAP  ITEM     DETAILS"
+(defn header ()
+  "ID  AT                    ACTOR  EVENT         ROADMAP  ITEM     DETAILS")
+
+(deftest events-in-the-old-shape-print-their-non-null-details
+  (assert (= (events-text (ref (vec (claim-event (legacy-claim-payload)))))
+             (lines (vec (header)
                          "4   2026-01-01T00:00:00Z  ana    item-claimed  rm-0a0a  rm-0001  session=s1 to=dispatched")))))
 
-(defn claim-event ()
+(deftest changes-print-as-old-to-new-with-a-dash-for-null
+  (assert (= (events-text (ref (vec (claim-event (claim-payload)))))
+             (lines (vec (header)
+                         "4   2026-01-01T00:00:00Z  ana    item-claimed  rm-0a0a  rm-0001  claimed_by=-->s1 status=open->dispatched")))))
+
+(deftest a-column-null-before-and-after-is-left-out
+  (let (payload (object (vec (pair (str "changes")
+                                   (object (vec (change "parent_id"
+                                                        json/null
+                                                        json/null)
+                                                (change "title"
+                                                        json/null
+                                                        (text->json "a"))))))))
+    (assert (= (events-text (ref (vec (claim-event payload))))
+               (lines (vec (header)
+                           "4   2026-01-01T00:00:00Z  ana    item-claimed  rm-0a0a  rm-0001  title=-->a"))))))
+
+(deftest context-keys-print-after-the-changes
+  (let (payload (object (vec (pair (str "reason") (text->json "obsolete"))
+                             (pair (str "changes")
+                                   (object (vec (change "status"
+                                                        (text->json "open")
+                                                        (text->json
+                                                          "dropped"))))))))
+    (assert (= (events-text (ref (vec (claim-event payload))))
+               (lines (vec (header)
+                           "4   2026-01-01T00:00:00Z  ana    item-claimed  rm-0a0a  rm-0001  status=open->dropped reason=obsolete"))))))
+
+(defn claim-event (payload)
   (->event :id 4
            :at (->timestamp :value (str "2026-01-01T00:00:00Z"))
            :actor (str "ana")
            :roadmap-id (some (->roadmap-id :value (str "rm-0a0a")))
            :item-id (some (id-of "rm-0001"))
            :type event-type/item-claimed
-           :payload (claim-payload)))
+           :payload payload))
 
-(defn claim-payload ()
+(defn legacy-claim-payload ()
   (object (vec (text-field "to" "dispatched")
                (pair (str "parent_id") json/null)
                (text-field "session" "s1"))))
+
+(defn claim-payload ()
+  (object (vec (pair (str "changes")
+                     (object (vec (change "status"
+                                          (text->json "open")
+                                          (text->json "dispatched"))
+                                  (change "claimed_by"
+                                          json/null
+                                          (text->json "s1"))))))))
+
+(defn change (column old new)
+  (pair (str column)
+        (object (vec (pair (str "old") old)
+                     (pair (str "new") new)))))
 
 (defn text-field (key value)
   (pair (str key) (text->json value)))

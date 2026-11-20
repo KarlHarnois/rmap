@@ -1,7 +1,9 @@
 (module
-  "Describes ledger events in plain text: one row per event, with its roadmap and the details its payload records.")
+  "Describes ledger events in plain text: one row per event, with its roadmap and the details its payload records, with each recorded change as `column=old->new`.")
 
-(use json/value json->entries json->source json->text null?)
+(use json/value field json->entries json->source json->text
+                null?)
+
 (use ledger/api case-name event event-type-names roadmap-id)
 (use cli/tables headed table)
 (use cli/item-text optional-id-text)
@@ -49,9 +51,49 @@
     (for-each (json->entries payload)
       (fn (entry)
         (let-match ((pair key value) entry)
-          (when (not (null? value))
-            (push! parts (str key "=" (value-text value)))))))
+          (for-each (entry-texts (as-str key) value)
+            (fn (text) (push! parts (clone text)))))))
     (join parts " ")))
+
+(defn entry-texts (key value)
+  (cond
+    ((= key "changes") (changes-texts value))
+    ((null? value) (vec))
+    (else (vec (str key "=" (value-text value))))))
+
+(defn changes-texts (changes)
+  (-> (json->entries changes)
+      iter
+      (filter (fn (entry)
+                (let-match ((pair _ change) (deref entry))
+                  (recorded? change))))
+      (map change-text)
+      collect))
+
+(defn recorded? (change)
+  (not (and (null-side? change "old") (null-side? change "new"))))
+
+(defn null-side? (change side)
+  (match (field change side)
+    ((some value) (null? (ref value)))
+    (none true)))
+
+(defn change-text (entry)
+  (let-match ((pair column change) entry)
+    (str column "="
+         (side-text change "old")
+         "->"
+         (side-text change "new"))))
+
+(defn side-text (change side)
+  (match (field change side)
+    ((some value) (nullable-text (ref value)))
+    (none (str "-"))))
+
+(defn nullable-text (value)
+  (if (null? value)
+    (str "-")
+    (value-text value)))
 
 (defn value-text (value)
   (match (json->text value)
