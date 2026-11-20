@@ -12,13 +12,15 @@
 (defenum failure
   (refused refusal)
   (database database-error)
-  (no-repository string))
+  (no-repository string)
+  (no-ledger string))
 
 (defn failure-code (failure)
   (match failure
     ((refused refusal) (refusal-code-text refusal))
     ((database problem) (database-code problem))
-    ((no-repository _) (str "no-repository"))))
+    ((no-repository _) (str "no-repository"))
+    ((no-ledger _) (str "no-ledger"))))
 
 (defn database-code (problem)
   (match (:problem problem)
@@ -30,4 +32,6 @@
     ((refused refusal) (refusal->message refusal))
     ((database problem) (clone (:message problem)))
     ((no-repository detail)
-     (str "rmap needs a git repository or --db: " detail))))
+     (str "rmap needs a git repository or --db: " detail))
+    ((no-ledger path)
+     (str "no ledger at " path "; run `rmap init` to create it"))))

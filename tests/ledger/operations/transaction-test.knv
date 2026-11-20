@@ -6,17 +6,11 @@
 (use ledger/sqlite/connection query)
 (use ledger/sqlite/roadmaps insert-roadmap)
 
-(use ledger/operations/transaction ->settings clock connect
-                                   in-transaction record
-                                   transaction)
+(use ledger/operations/transaction connect in-transaction
+                                   record transaction)
 
 (use ledger/failure failure)
-(use support/scratch scratch-database)
-
-(defn ledger-settings (name)
-  (->settings :database-path (scratch-database name)
-              :clock (clock/fixed (->timestamp :value (str "2026-03-03T00:00:00Z")))
-              :actor (str "tester")))
+(use support/ledger initialized-settings)
 
 (defn sample-roadmap ()
   (->roadmap :id (->roadmap-id :value (str "rm-0001"))
@@ -57,7 +51,7 @@
         (row-count settings "events")))
 
 (deftest a-write-that-succeeds-keeps-its-row-and-its-event
-  (let (settings (ledger-settings "transaction-commit"))
+  (let (settings (initialized-settings "transaction-commit"))
     (assert (ok? (in-transaction (ref settings)
                    (fn (transaction)
                      (write-roadmap transaction (ref (sample-roadmap)))))))
@@ -65,13 +59,13 @@
                (pair 1 1)))))
 
 (deftest a-refused-write-keeps-neither-its-row-nor-its-event
-  (let (settings (ledger-settings "transaction-refusal"))
+  (let (settings (initialized-settings "transaction-refusal"))
     (assert (err? (in-transaction (ref settings) write-then-refuse)))
     (assert (= (kept-roadmaps-and-events (ref settings))
                (pair 0 0)))))
 
 (deftest a-failed-write-undoes-the-writes-before-it
-  (let (settings (ledger-settings "transaction-failure"))
+  (let (settings (initialized-settings "transaction-failure"))
     (assert (err? (in-transaction (ref settings) write-twice)))
     (assert (= (kept-roadmaps-and-events (ref settings))
                (pair 0 0)))))

@@ -4,9 +4,10 @@
 (use process/command ->command ->command-output
                      command-output run-command)
 
-(export database-with-roadmap error-code reply research-id
-        run-rmap run-rmap-pair run-rmap-text
-        run-rmap-together text-at)
+(export database-with-roadmap error-code
+        initialized-database reply research-id run-rmap
+        run-rmap-pair run-rmap-text run-rmap-together
+        text-at)
 
 (defstruct reply
   :exit-code i32
@@ -76,7 +77,7 @@
 
 (type run-rmap-together
   (fn (string (vec (ref str)) int)
-    (vec i32)))
+    (vec reply)))
 
 (defn run-rmap-together (database args copies)
   (let (children (vec))
@@ -84,16 +85,17 @@
       (fn (_)
         (push! children
                (spawned (rmap-command (clone database) (clone args))))))
-    (waited-codes children)))
+    (waited-replies children)))
 
-(defn waited-codes (children)
+(defn waited-replies (children)
   (let (pending children
-        codes (vec))
+        replies (vec))
     (for-each (range 0 (len pending))
       (fn (_)
-        (push! codes
-               (:exit-code (waited->result (unwrap-ok (wait-raw (unwrap (pop! pending)))))))))
-    codes))
+        (push! replies
+               (waited->result (unwrap-ok (wait-raw (unwrap (pop!
+                                                              pending))))))))
+    replies))
 
 (defn text-at (reply object key)
   (-> (:json reply)
@@ -104,8 +106,14 @@
 
 (defn error-code (reply) (text-at reply "error" "code"))
 
-(defn database-with-roadmap (name)
+(defn initialized-database (name)
   (let (database (scratch-database name))
+    (assert (= (:exit-code (run-rmap (clone database) (vec "init")))
+               0))
+    database))
+
+(defn database-with-roadmap (name)
+  (let (database (initialized-database name))
     (assert (= (:exit-code (run-rmap (clone database)
                                      (vec "new" "road" "--manager" "m1")))
                0))

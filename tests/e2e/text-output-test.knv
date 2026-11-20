@@ -1,8 +1,8 @@
-(use support/rmap run-rmap-text)
+(use support/rmap initialized-database run-rmap-text)
 (use support/scratch scratch-database)
 
 (deftest a-command-prints-text-by-default
-  (let (database (scratch-database "text-by-default")
+  (let (database (initialized-database "text-by-default")
         output (run-rmap-text
                  (vec "--db" (as-str database) "new" "road" "--manager" "m1")))
     (assert (= (:code output) 0))
@@ -11,7 +11,7 @@
     (assert (empty? (:stderr output)))))
 
 (deftest a-refusal-prints-its-error-on-standard-error
-  (let (database (scratch-database "text-refusal")
+  (let (database (initialized-database "text-refusal")
         _ (run-rmap-text
             (vec "--db" (as-str database) "new" "road" "--manager" "m1"))
         output (run-rmap-text
@@ -19,6 +19,12 @@
     (assert (= (:code output) 1))
     (assert (empty? (:stdout output)))
     (assert (starts-with? (as-str (:stderr output)) "error: "))))
+
+(deftest init-prints-the-path-of-the-ledger-it-created
+  (let (database (scratch-database "text-init")
+        output (run-rmap-text (vec "--db" (as-str database) "init")))
+    (assert (= (:code output) 0))
+    (assert (= (:stdout output) (str "Created ledger " database ".\n")))))
 
 (deftest rmap-without-a-command-prints-the-help
   (let (output (run-rmap-text (vec)))

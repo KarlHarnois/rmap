@@ -15,6 +15,7 @@
         text->id)
 
 (defenum request
+  init
   (new-roadmap string session)
   list-roadmaps
   (ready (option string))

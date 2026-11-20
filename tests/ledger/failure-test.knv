@@ -20,6 +20,10 @@
                                                :message (str "corrupt"))))
              (str "database"))))
 
+(deftest a-missing-ledger-reports-no-ledger
+  (assert (= (failure-code (failure/no-ledger (str "/tmp/ledger.db")))
+             (str "no-ledger"))))
+
 (deftest a-missing-repository-reports-no-repository
   (assert (= (failure-code (failure/no-repository (str "not a git repository")))
              (str "no-repository"))))

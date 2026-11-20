@@ -6,12 +6,15 @@
 (use ledger/model ->event-stamp event-draft event-stamp)
 
 (use ledger/sqlite/connection begin begin-read connection
-                              database-error finish open)
+                              database-error
+                              database-failure finish
+                              open-existing)
 
 (use ledger/sqlite/migrations migrate)
 (use ledger/sqlite/migration-sources migration-sources)
 (use ledger/sqlite/events append-event)
 (use ledger/sqlite/generated database-now)
+(use files/presence file-presence file-presence-at)
 
 (export ->settings clock connect in-read-transaction
         in-transaction now record settings transaction)
@@ -29,8 +32,25 @@
   :connection connection
   :stamp event-stamp)
 
+(type connect
+  (fn ((ref settings))
+    (result connection failure)))
+
 (defn connect (settings)
-  (let-try (connection (open (as-str (:database-path settings)))
+  (let-try (presence (map-err (file-presence-at (as-str (:database-path
+                                                          settings)))
+                              database-failure))
+    (match presence
+      (file-presence/present (open-ledger settings))
+      (file-presence/absent (err (failure/no-ledger (clone (:database-path
+                                                             settings))))))))
+
+(type open-ledger
+  (fn ((ref settings))
+    (result connection failure)))
+
+(defn open-ledger (settings)
+  (let-try (connection (open-existing (as-str (:database-path settings)))
             _ (migrate (ref connection) (migration-sources)))
     (ok connection)))
 

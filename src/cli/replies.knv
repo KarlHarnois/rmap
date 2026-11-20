@@ -1,12 +1,13 @@
 (module
   "Names each result a ledger call hands back to the CLI.")
 
-(use ledger/api dep event item item-detail readiness
-                roadmap)
+(use ledger/api dep event init-report item item-detail
+                readiness roadmap)
 
 (export reply)
 
 (defenum reply
+  (ledger-initialized init-report)
   (roadmap-created roadmap)
   (roadmaps-listed (vec roadmap))
   (readiness-checked readiness)

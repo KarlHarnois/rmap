@@ -1,0 +1,38 @@
+(module
+  "Creates the ledger database, or reports the one already at its path.")
+
+(use ledger/failure failure)
+(use ledger/operations/transaction settings)
+(use ledger/sqlite/connection open)
+(use ledger/sqlite/migrations empty-schema-version migrate)
+(use ledger/sqlite/migration-sources migration-sources)
+
+(export ->init-report init-ledger init-outcome
+        init-outcome-names init-report)
+
+(defenum init-outcome
+  created
+  existing)
+
+(def init-outcome-names
+  (vec (pair init-outcome/created "created")
+       (pair init-outcome/existing "existing")))
+
+(defstruct init-report
+  :database-path string
+  :outcome init-outcome)
+
+(type init-ledger
+  (fn ((ref settings))
+    (result init-report failure)))
+
+(defn init-ledger (settings)
+  (let (path (clone (:database-path settings)))
+    (let-try (connection (open (as-str path))
+              starting-version (migrate (ref connection) (migration-sources)))
+      (ok (->init-report :database-path path
+                         :outcome (outcome-from-version starting-version))))))
+
+(defn outcome-from-version (starting-version)
+  (if (= starting-version empty-schema-version)
+    init-outcome/created init-outcome/existing))

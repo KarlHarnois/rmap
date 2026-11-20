@@ -1,0 +1,31 @@
+(use ledger/api list-roadmaps)
+(use ledger/operations/init init-ledger init-outcome)
+(use ledger/failure failure)
+(use files/presence file-presence file-presence-at)
+(use support/scratch scratch-database)
+(use support/ledger fixed-clock-settings scratch-ledger)
+
+(defn outcome-of (settings)
+  (:outcome (unwrap-ok (init-ledger settings))))
+
+(deftest init-creates-a-missing-ledger
+  (let (settings (fixed-clock-settings (scratch-database "init-creates")))
+    (assert (= (outcome-of (ref settings)) init-outcome/created))
+    (assert (= (file-presence-at (as-str (:database-path settings)))
+               (ok file-presence/present)))))
+
+(deftest init-reports-an-existing-ledger
+  (let (settings (scratch-ledger "init-existing"))
+    (assert (= (outcome-of (ref settings)) init-outcome/existing))))
+
+(deftest init-keeps-the-roadmaps-of-an-existing-ledger
+  (let (settings (scratch-ledger "init-keeps"))
+    (unwrap-ok (init-ledger (ref settings)))
+    (assert (= (len (unwrap-ok (list-roadmaps (ref settings))))
+               1))))
+
+(deftest a-command-on-a-missing-ledger-fails-with-no-ledger
+  (let (database (scratch-database "no-ledger")
+        settings (fixed-clock-settings (clone database)))
+    (assert (= (list-roadmaps (ref settings))
+               (err (failure/no-ledger database))))))

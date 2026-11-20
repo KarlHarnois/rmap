@@ -1,0 +1,17 @@
+(use ledger/sqlite/connection open open-existing)
+(use files/presence file-presence file-presence-at)
+(use support/scratch scratch-database)
+
+(deftest opening-a-missing-database-as-existing-fails
+  (assert (err? (open-existing (as-str (scratch-database "open-missing"))))))
+
+(deftest opening-a-missing-database-as-existing-creates-no-file
+  (let (database (scratch-database "open-missing-stays"))
+    (assert (err? (open-existing (as-str database))))
+    (assert (= (file-presence-at (as-str database))
+               (ok file-presence/absent)))))
+
+(deftest an-existing-database-opens-as-existing
+  (let (database (scratch-database "open-existing"))
+    (assert (ok? (open (as-str database))))
+    (assert (ok? (open-existing (as-str database))))))

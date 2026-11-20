@@ -3,8 +3,9 @@
 (use ledger/api ->settings add-dep add-item advance-item
                 claim-item clock close-item
                 default-database-path drop-item failure
-                list-items list-roadmaps new-roadmap
-                read-log ready-items remove-dep show-item)
+                init-ledger list-items list-roadmaps
+                new-roadmap read-log ready-items remove-dep
+                show-item)
 
 (use process/environment variable)
 (use cli/requests request)
@@ -85,6 +86,8 @@
 
 (defn perform (settings request)
   (match request
+    (init (map-ok (init-ledger settings)
+            (fn (report) (reply/ledger-initialized report))))
     ((new-roadmap name manager)
      (map-ok (new-roadmap settings name manager)
        (fn (roadmap) (reply/roadmap-created roadmap))))

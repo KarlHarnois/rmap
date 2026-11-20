@@ -74,3 +74,10 @@
                         :file (str "0001-other.sql")
                         :sql (str "SELECT 1;")))
     (assert (err? (migrate (ref connection) clashing)))))
+
+(deftest migrating-reports-the-version-it-started-from
+  (let (connection (opened "starting-version"))
+    (assert (= (migrate (ref connection) (migration-sources))
+               (ok 0)))
+    (assert (= (migrate (ref connection) (migration-sources))
+               (ok 1)))))

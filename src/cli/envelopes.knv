@@ -2,7 +2,7 @@
   "Wraps command results and errors in the JSON object the CLI prints, with its output schema version.")
 
 (use json/value array int->json json object text->json)
-(use ledger/api item-detail)
+(use ledger/api case-name init-outcome-names item-detail)
 (use cli/replies reply)
 
 (use cli/ledger-json blocked->json dep->json event->json
@@ -29,6 +29,8 @@
 
 (defn reply-envelope (reply)
   (match reply
+    ((reply/ledger-initialized report)
+     (init-report-envelope report))
     ((reply/roadmap-created roadmap) (roadmap-envelope roadmap))
     ((reply/roadmaps-listed roadmaps)
      (roadmaps-envelope roadmaps))
@@ -41,6 +43,16 @@
     ((reply/item-shown detail) (detail-envelope detail))
     ((reply/dep-added dep) (dep-envelope dep))
     ((reply/dep-removed dep) (dep-envelope dep))))
+
+(defn init-report-envelope (report)
+  (envelope (vec (pair (str "ledger")
+                       (init-report->json (ref report))))))
+
+(defn init-report->json (report)
+  (let (outcome (case-name init-outcome-names (:outcome report)))
+    (object (vec (pair (str "path")
+                       (text->json (:database-path report)))
+                 (pair (str "outcome") (text->json outcome))))))
 
 (defn roadmap-envelope (roadmap)
   (envelope (vec (pair (str "roadmap")
