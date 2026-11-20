@@ -1,0 +1,26 @@
+(use support/rmap initialized-database run-rmap
+                  run-rmap-text text-at)
+
+(use support/scratch scratch-database)
+
+(defn init-outcome (database)
+  (text-at (ref (run-rmap database (vec "init")))
+           "ledger" "outcome"))
+
+(deftest init-reports-created-then-existing-in-json
+  (let (database (scratch-database "init-json"))
+    (assert (= (init-outcome (clone database)) "created"))
+    (assert (= (init-outcome (clone database)) "existing"))))
+
+(deftest init-reports-the-ledger-path-in-json
+  (let (database (scratch-database "init-json-path"))
+    (assert (= (text-at (ref (run-rmap (clone database) (vec "init")))
+                        "ledger" "path")
+               database))))
+
+(deftest a-second-init-prints-that-the-ledger-exists
+  (let (database (initialized-database "init-text-existing")
+        output (run-rmap-text (vec "--db" (as-str database) "init")))
+    (assert (= (:code output) 0))
+    (assert (= (:stdout output)
+               (str "Ledger already exists at " database ".\n")))))
