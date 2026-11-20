@@ -1,4 +1,4 @@
-(use ledger/api ->item-id kind list-items show-item status)
+(use ledger/api ->item-id kind show-item status)
 
 (use support/ledger added-id item-draft refusal-code-of
                     scratch-ledger)

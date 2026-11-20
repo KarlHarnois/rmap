@@ -1,4 +1,4 @@
-(use ledger/model ->session claim item kind status)
+(use ledger/model ->session item kind status)
 (use ledger/refusal refusal)
 (use ledger/core/move move)
 (use ledger/core/transitions approved-move)

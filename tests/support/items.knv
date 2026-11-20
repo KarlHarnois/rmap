@@ -2,7 +2,7 @@
 
 (use ledger/model ->dep ->glob ->item ->item-glob ->item-id
                   ->roadmap-id ->session ->snapshot
-                  ->timestamp claim dep-type glob item kind
+                  ->timestamp claim dep-type item kind
                   origin status)
 
 (export blocks-dep child-of claimed epic-item glob-of id-of

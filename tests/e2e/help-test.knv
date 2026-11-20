@@ -1,7 +1,7 @@
 (use json/value copy-of field json->bool json->items
                 json->text)
 
-(use support/rmap reply run-rmap)
+(use support/rmap run-rmap)
 
 (defn described-command (result name)
   (-> (:json result)

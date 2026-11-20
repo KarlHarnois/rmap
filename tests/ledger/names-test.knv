@@ -1,5 +1,5 @@
-(use ledger/names case-name case-named dep-type-names
-                  event-type-names kind-names origin-names
+(use ledger/names case-named dep-type-names event-type-names
+                  kind-names origin-names
                   roadmap-status-names status-names)
 
 (type round-trips?

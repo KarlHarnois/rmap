@@ -8,7 +8,7 @@
 
 (use ledger/operations/transaction ->settings clock connect
                                    in-transaction record
-                                   settings transaction)
+                                   transaction)
 
 (use ledger/failure failure)
 (use support/scratch scratch-database)
@@ -41,10 +41,6 @@
 (defn write-then-refuse (transaction)
   (let-try (_ (write-roadmap transaction (ref (sample-roadmap))))
     (err (failure/refused refusal/epic-has-parent))))
-
-(type write-twice
-  (fn ((ref transaction))
-    (result unit failure)))
 
 (defn write-twice (transaction)
   (let-try (_ (write-roadmap transaction (ref (sample-roadmap))))

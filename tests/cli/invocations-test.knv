@@ -1,6 +1,4 @@
-(use cli/invocations invocation ledger-call
-                     parse-invocation)
-
+(use cli/invocations invocation parse-invocation)
 (use cli/requests request)
 (use ledger/api ->item-id)
 

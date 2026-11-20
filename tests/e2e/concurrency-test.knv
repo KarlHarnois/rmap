@@ -1,6 +1,4 @@
-(use json/value field json->text)
-
-(use support/rmap database-with-roadmap research-id run-rmap
+(use support/rmap database-with-roadmap research-id
                   run-rmap-pair run-rmap-together)
 
 (use support/scratch scratch-database)
