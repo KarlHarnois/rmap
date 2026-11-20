@@ -4,9 +4,11 @@
 (use ledger/sqlite/values int->sql sql-value text->sql)
 (use json/value json->source parse-json)
 
-(use ledger/model ->event ->item-id ->roadmap-id ->timestamp
-                  event event-draft event-stamp item-id
+(use ledger/model ->item-id ->roadmap-id ->timestamp item-id
                   roadmap-id)
+
+(use ledger/model/events ->event event event-draft
+                         event-stamp)
 
 (use ledger/names case-name event-type-names)
 

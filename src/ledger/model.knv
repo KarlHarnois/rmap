@@ -1,17 +1,13 @@
 (module
-  "Holds the ledger's values: roadmaps, items, dependencies, globs, blockages and events.")
+  "Holds the ledger's values: roadmaps, items, dependencies, globs and blockages.")
 
-(export ->blockage ->dep ->event ->event-draft ->event-stamp
-        ->glob ->item ->item-glob ->item-id ->path-conflict
-        ->path-lock ->roadmap ->roadmap-id ->session
-        ->snapshot ->timestamp blockage claim decision-id
-        dep dep-type event event-draft event-stamp
-        event-type glob graph-format history item item-glob
-        item-id kind origin path-conflict path-lock roadmap
-        roadmap-id roadmap-status session snapshot status
-        timestamp)
-
-(use json/value json)
+(export ->blockage ->dep ->glob ->item ->item-glob ->item-id
+        ->path-conflict ->path-lock ->roadmap ->roadmap-id
+        ->session ->snapshot ->timestamp blockage claim
+        decision-id dep dep-type glob graph-format history
+        item item-glob item-id kind origin path-conflict
+        path-lock roadmap roadmap-id roadmap-status session
+        snapshot status timestamp)
 
 (defstruct roadmap-id
   :value string)
@@ -120,32 +116,3 @@
   :with item-id
   :glob glob
   :other-glob glob)
-
-(defenum event-type
-  roadmap-created
-  item-added
-  item-claimed
-  item-advanced
-  item-closed
-  item-dropped
-  dep-added
-  dep-removed)
-
-(defstruct event-stamp
-  :at timestamp
-  :actor string)
-
-(defstruct event-draft
-  :roadmap-id (option roadmap-id)
-  :item-id (option item-id)
-  :type event-type
-  :payload json)
-
-(defstruct event
-  :id int
-  :at timestamp
-  :actor string
-  :roadmap-id (option roadmap-id)
-  :item-id (option item-id)
-  :type event-type
-  :payload json)

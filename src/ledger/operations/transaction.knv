@@ -3,7 +3,9 @@
 
 (use ledger/model timestamp)
 (use ledger/failure failure)
-(use ledger/model ->event-stamp event-draft event-stamp)
+
+(use ledger/model/events ->event-stamp event-draft
+                         event-stamp)
 
 (use ledger/sqlite/connection begin begin-read connection
                               database-error

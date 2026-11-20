@@ -1,7 +1,8 @@
 (module
   "Reads the events the ledger recorded.")
 
-(use ledger/model event item-id)
+(use ledger/model item-id)
+(use ledger/model/events event)
 
 (use ledger/sqlite/events ->event-filter event-filter
                           events-matching)
