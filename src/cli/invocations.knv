@@ -5,9 +5,9 @@
                 ->session)
 
 (use cli/routes route subcommand)
-
-(use cli/arguments arguments check-shape flag operand
-                   route-of split-arguments)
+(use cli/arguments arguments operand split-arguments)
+(use cli/route-matching check-shape route-of)
+(use cli/flags optional-text)
 
 (use cli/requests add-item-request advance-request
                   claim-request drop-request log-request
@@ -37,9 +37,10 @@
 (defn on-ledger (arguments requested)
   (map-ok requested
     (fn (request)
-      (invocation/on-ledger (->ledger-call :database (flag arguments "db")
-                                           :actor (flag arguments "actor")
-                                           :request request)))))
+      (invocation/on-ledger (->ledger-call
+                              :database (optional-text arguments "db")
+                              :actor (optional-text arguments "actor")
+                              :request request)))))
 
 (type invocation-of
   (fn ((ref route) (ref arguments))
@@ -53,13 +54,13 @@
                  (new-roadmap-request arguments (operand arguments route 0))))
     (subcommand/list (on-ledger arguments (ok request/list-roadmaps)))
     (subcommand/ready (on-ledger arguments
-                                 (ok (request/ready (flag arguments
-                                                          "roadmap")))))
+                                 (ok (request/ready
+                                       (optional-text arguments "roadmap")))))
     (subcommand/log (on-ledger arguments (log-request arguments)))
     (subcommand/item-add (on-ledger arguments (add-item-request arguments)))
-    (subcommand/item-list (on-ledger arguments
-                                     (ok (request/list-items
-                                           (flag arguments "roadmap")))))
+    (subcommand/item-list
+      (on-ledger arguments
+                 (ok (request/list-items (optional-text arguments "roadmap")))))
     (subcommand/item-show (on-ledger arguments
                                      (ok (request/show-item
                                            (text->id

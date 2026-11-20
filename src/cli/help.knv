@@ -5,9 +5,8 @@
                 text->json)
 
 (use ledger/api refusal-catalog refusal-description)
-
-(use cli/routes flag-spec global-flags presence route
-                route-name routes)
+(use cli/routes route route-name routes)
+(use cli/flag-specs flag-spec global-flags required?)
 
 (use cli/exit-codes exit-code->meaning exit-code->number
                     exit-codes)
@@ -52,9 +51,9 @@
   (object (vec (pair (str "name")
                      (text->json (as-str (:name spec))))
                (pair (str "required")
-                     (bool->json (= (:presence spec) presence/required)))
+                     (bool->json (required? spec)))
                (pair (str "value")
-                     (text->json (as-str (:value spec)))))))
+                     (text->json (as-str (:placeholder spec)))))))
 
 (defn exit-code->json (code)
   (object (vec (pair (str "code")

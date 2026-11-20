@@ -2,13 +2,28 @@
   "Reads typed values out of the command line's flags.")
 
 (use ledger/api ->glob case-named)
-(use cli/arguments flag required-flag)
+(use cli/arguments arguments)
+(use ledger/api ->item-id)
 
-(export list-flag list-flag-globs named-flag
-        optional-named-flag optional-number)
+(export glob-list id-list optional-choice optional-number
+        optional-text required-choice required-text
+        text-list)
+
+(type optional-text
+  (fn ((ref arguments) (ref str))
+    (option string)))
+
+(defn optional-text (arguments name)
+  (map-some (find (iter (:flags arguments))
+              (fn (entry) (= (first entry) name)))
+            (fn (entry) (clone (second entry)))))
+
+(defn required-text (arguments name)
+  (ok-or (optional-text arguments name)
+         (str "--" name " is required")))
 
 (defn optional-number (arguments name)
-  (match (flag arguments name)
+  (match (optional-text arguments name)
     ((some text)
      (map-ok (text->number (as-str text) name) some))
     (none (ok none))))
@@ -20,12 +35,12 @@
     ((err _)
      (err (str "--" name " takes a whole number, got " text)))))
 
-(defn named-flag (arguments name names)
-  (let-try (text (required-flag arguments name))
+(defn required-choice (arguments name names)
+  (let-try (text (required-text arguments name))
     (text->named (as-str text) name names)))
 
-(defn optional-named-flag (arguments name names)
-  (match (flag arguments name)
+(defn optional-choice (arguments name names)
+  (match (optional-text arguments name)
     ((some text)
      (map-ok (text->named (as-str text) name names) some))
     (none (ok none))))
@@ -34,8 +49,8 @@
   (ok-or (case-named names text)
          (str "--" name " does not accept " text)))
 
-(defn list-flag (arguments name)
-  (match (flag arguments name)
+(defn text-list (arguments name)
+  (match (optional-text arguments name)
     ((some text) (comma-separated (as-str text)))
     (none (vec))))
 
@@ -45,7 +60,12 @@
                     (not (empty? (trim (deref part))))))
                 (fn (part) (str (trim part))))))
 
-(defn list-flag-globs (arguments)
-  (collect (map (iter (list-flag arguments "paths"))
+(defn glob-list (arguments name)
+  (collect (map (iter (text-list arguments name))
              (fn (pattern)
                (->glob :pattern (clone pattern))))))
+
+(defn id-list (arguments name)
+  (collect (map (iter (text-list arguments name))
+             (fn (text)
+               (->item-id :value (clone text))))))

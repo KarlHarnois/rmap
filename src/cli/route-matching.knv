@@ -1,0 +1,87 @@
+(module
+  "Finds the route a command line names and checks its operands and flags against it.")
+
+(use cli/routes route route-name routes word-count)
+(use cli/flag-specs flag-spec global-flags required?)
+(use cli/arguments arguments)
+(use cli/flags optional-text)
+
+(export check-shape route-of)
+
+(defn route-of (arguments)
+  (ok-or (map-some (find (iter (routes))
+                     (fn (route) (route-matches? route arguments)))
+                   clone)
+         (str "unknown command: " (join (:words arguments) " "))))
+
+(type route-matches?
+  (fn ((ref route) (ref arguments)) bool))
+
+(defn route-matches? (route arguments)
+  (= (collect (map (take (iter (:words arguments))
+                         (word-count route))
+                   clone))
+     (clone (:words route))))
+
+(type check-shape
+  (fn ((ref arguments) (ref route))
+    (result unit string)))
+
+(defn check-shape (arguments route)
+  (let (operand-count (- (len (:words arguments))
+                         (word-count route))
+        expected (len (:operands route))
+        unknown (unknown-flags arguments route)
+        missing (missing-flags arguments route))
+    (cond
+      ((not= operand-count expected)
+       (err (str (route-name route)
+                 " takes " expected " operands, got "
+                 operand-count)))
+      ((not (empty? unknown))
+       (err (str (route-name route)
+                 " does not take --"
+                 (join unknown ", --"))))
+      ((not (empty? missing))
+       (err (str (route-name route) " needs --" (join missing ", --"))))
+      (else (ok (do))))))
+
+(type unknown-flags
+  (fn ((ref arguments) (ref route))
+    (vec string)))
+
+(defn unknown-flags (arguments route)
+  (let (known (known-flag-names route))
+    (collect (filter (map (iter (:flags arguments))
+                       (fn (entry) (clone (first entry))))
+                     (fn (name)
+                       (not (contains? known (clone name))))))))
+
+(type known-flag-names
+  (fn ((ref route)) (vec string)))
+
+(defn known-flag-names (route)
+  (let (names (flag-names (ref (:flags route))))
+    (for-each (flag-names (ref (global-flags)))
+      (fn (name) (push! names (clone name))))
+    names))
+
+(type flag-names
+  (fn ((ref (vec flag-spec)))
+    (vec string)))
+
+(defn flag-names (specs)
+  (collect (map (iter specs)
+             (fn (spec) (clone (:name spec))))))
+
+(type missing-flags
+  (fn ((ref arguments) (ref route))
+    (vec string)))
+
+(defn missing-flags (arguments route)
+  (collect (map (filter (iter (:flags route))
+                  (fn (spec)
+                    (and (required? spec)
+                         (none? (optional-text arguments
+                                               (as-str (:name spec)))))))
+                (fn (spec) (clone (:name spec))))))

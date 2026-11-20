@@ -2,18 +2,10 @@
   "Lists each command the CLI accepts, with its operands and its flags.")
 
 (use ledger/api kind-names origin-names status-names)
+(use cli/flag-specs choices flag-spec optional required)
 
-(export ->route flag-spec global-flags presence route
-        route-name routes subcommand word-count)
-
-(defenum presence
-  required
-  optional)
-
-(defstruct flag-spec
-  :name string
-  :presence presence
-  :value string)
+(export ->route route route-name routes subcommand
+        word-count)
 
 (defenum subcommand
   help
@@ -37,28 +29,6 @@
   :operands (vec string)
   :flags (vec flag-spec))
 
-(defn required (name value)
-  (->flag-spec :name (str name)
-               :presence presence/required
-               :value (str value)))
-
-(defn optional (name value)
-  (->flag-spec :name (str name)
-               :presence presence/optional
-               :value (str value)))
-
-(type choices
-  (where ((a copy))
-    (fn ((ref (vec (pair a (ref str)))))
-      string)))
-
-(defn choices (names)
-  (join (collect (map (iter names)
-                   (fn (entry)
-                     (let-match ((pair _ name) (deref entry))
-                       name))))
-        "|"))
-
 (type word-count
   (fn ((ref route)) usize))
 
@@ -73,9 +43,6 @@
 
 (defn words (text)
   (collect (map (split text " ") str)))
-
-(defn global-flags ()
-  (vec (optional "db" "<path>") (optional "actor" "<name>")))
 
 (defn operands (names)
   (collect (map (iter names) str)))
