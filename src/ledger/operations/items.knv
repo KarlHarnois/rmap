@@ -1,8 +1,10 @@
 (module
-  "Lists items and shows one item with its dependencies and globs.")
+  "Lists items and shows one item with its dependencies, globs and children.")
 
-(use ledger/model dep glob item item-id)
-(use ledger/core/index index-of with-shown-status)
+(use ledger/model dep glob item item-id snapshot)
+
+(use ledger/core/index index-of ledger-index
+                       with-shown-status)
 
 (use ledger/core/snapshot deps-of existing globs-of
                           in-scope?)
@@ -22,7 +24,8 @@
 (defstruct item-detail
   :item item
   :deps (vec dep)
-  :globs (vec glob))
+  :globs (vec glob)
+  :children (vec item))
 
 (type list-items
   (fn ((ref settings) (option string))
@@ -63,7 +66,32 @@
 (defn detail-within (connection id)
   (let-try (snapshot (load-snapshot connection)
             item (existing (ref snapshot) id))
-    (ok (->item-detail :item (with-shown-status (ref (index-of (ref snapshot)))
-                                                (ref item))
-                       :deps (deps-of (ref snapshot) id)
-                       :globs (globs-of (ref snapshot) id)))))
+    (let (index (index-of (ref snapshot)))
+      (ok (->item-detail
+            :item (with-shown-status (ref index) (ref item))
+            :deps (deps-of (ref snapshot) id)
+            :globs (globs-of (ref snapshot) id)
+            :children (children-of (ref snapshot) (ref index) id))))))
+
+(type children-of
+  (fn ((ref snapshot)
+       (ref ledger-index)
+       (ref item-id))
+    (vec item)))
+
+(defn children-of (snapshot index id)
+  (let (children (collect (map (filter (iter (:items snapshot))
+                                 (fn (item) (child-of? item id)))
+                               (fn (item) (with-shown-status index item)))))
+    (sort-by! children
+      (fn (child)
+        (clone (:value (:id child)))))
+    children))
+
+(type child-of?
+  (fn ((ref item) (ref item-id)) bool))
+
+(defn child-of? (item id)
+  (match (:parent item)
+    ((some parent) (= parent id))
+    (none false)))
