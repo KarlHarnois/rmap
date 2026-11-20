@@ -1,0 +1,31 @@
+(use json/value json object text->json)
+
+(use ledger/model ->event ->roadmap-id ->timestamp
+                  event-type)
+
+(use cli/event-text events-text)
+(use support/items id-of)
+
+(deftest events-print-their-roadmap-item-and-non-null-details
+  (assert (= (events-text (ref (vec (claim-event))))
+             (lines (vec "ID  AT                    ACTOR  EVENT         ROADMAP  ITEM     DETAILS"
+                         "4   2026-01-01T00:00:00Z  ana    item-claimed  rm-0a0a  rm-0001  session=s1 to=dispatched")))))
+
+(defn claim-event ()
+  (->event :id 4
+           :at (->timestamp :value (str "2026-01-01T00:00:00Z"))
+           :actor (str "ana")
+           :roadmap-id (some (->roadmap-id :value (str "rm-0a0a")))
+           :item-id (some (id-of "rm-0001"))
+           :type event-type/item-claimed
+           :payload (claim-payload)))
+
+(defn claim-payload ()
+  (object (vec (text-field "to" "dispatched")
+               (pair (str "parent_id") json/null)
+               (text-field "session" "s1"))))
+
+(defn text-field (key value)
+  (pair (str key) (text->json value)))
+
+(defn lines (texts) (join texts "\n"))

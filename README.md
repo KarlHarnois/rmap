@@ -4,7 +4,7 @@ rmap is a CLI that tracks roadmap items in a SQLite ledger and shows which are r
 
 ## Install
 
-Install with [Nix](https://nixos.org/download/):
+Enable [flakes](https://nixos.wiki/wiki/Flakes) in [Nix](https://nixos.org/download/), then run:
 
 ```sh
 nix profile add github:KarlHarnois/rmap

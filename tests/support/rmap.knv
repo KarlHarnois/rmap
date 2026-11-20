@@ -1,8 +1,6 @@
 (use json/value field json json->text parse-json)
 (use support/scratch scratch-database)
-
-(use process/command ->command ->command-output
-                     command-output run-command)
+(use process/command ->command command-output run-command)
 
 (export database-with-roadmap error-code
         initialized-database reply research-id run-rmap
@@ -127,20 +125,14 @@
     (assert (= (:exit-code added) 0))
     (text-at (ref added) "item" "id")))
 
-(def run-without-json-variable-raw
-  (rust "std::process::Command::new({0}).args({1}).env_remove(\"RMAP_JSON\").output().map(|output| (output.status.code().unwrap_or(-1), (String::from_utf8_lossy(&output.stdout).to_string(), String::from_utf8_lossy(&output.stderr).to_string()))).map_err(|failure| failure.to_string())"
-    (fn ((ref str) (ref (vec string)))
-      (result (pair i32 (pair string string)) string))))
-
 (type run-rmap-text
   (fn ((vec (ref str))) command-output))
 
 (defn run-rmap-text (args)
-  (let-match ((pair code (pair stdout stderr)) (unwrap-ok (run-without-json-variable-raw
-                                                            (built-binary)
-                                                            (ref (collect
-                                                                   (map (iter
-                                                                          args)
-                                                                        (fn (arg)
-                                                                          (str arg))))))))
-    (->command-output :code code :stdout stdout :stderr stderr)))
+  (let (env-args (vec (str "-u")
+                      (str "RMAP_JSON")
+                      (str (built-binary))))
+    (for-each args
+      (fn (arg) (push! env-args (str arg))))
+    (unwrap-ok (run-command (ref (->command :program (str "env")
+                                            :args env-args))))))

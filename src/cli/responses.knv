@@ -5,7 +5,7 @@
 (use cli/replies reply)
 (use cli/exit-codes exit-code)
 
-(export failure-exit-code response response-exit-code)
+(export response response-exit-code)
 
 (defenum response
   help

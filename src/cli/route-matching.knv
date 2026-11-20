@@ -6,7 +6,7 @@
 (use cli/arguments arguments)
 (use cli/flags optional-text)
 
-(export check-shape route-of)
+(export check-flags-without-command check-shape route-of)
 
 (defn route-of (arguments)
   (ok-or (map-some (find (iter (routes))
@@ -46,16 +46,25 @@
        (err (str (route-name route) " needs --" (join missing ", --"))))
       (else (ok (do))))))
 
-(type unknown-flags
-  (fn ((ref arguments) (ref route))
+(defn unknown-flags (arguments route)
+  (unlisted-flags arguments (known-flag-names route)))
+
+(defn check-flags-without-command (arguments)
+  (let (command-flags (unlisted-flags arguments
+                                      (flag-names (ref (global-flags)))))
+    (if (empty? command-flags)
+      (ok (do))
+      (err (str "--" (join command-flags ", --") " needs a command")))))
+
+(type unlisted-flags
+  (fn ((ref arguments) (ref (vec string)))
     (vec string)))
 
-(defn unknown-flags (arguments route)
-  (let (known (known-flag-names route))
-    (collect (filter (map (iter (:flags arguments))
-                       (fn (entry) (clone (first entry))))
-                     (fn (name)
-                       (not (contains? known (clone name))))))))
+(defn unlisted-flags (arguments listed)
+  (collect (filter (map (iter (:flags arguments))
+                     (fn (entry) (clone (first entry))))
+                   (fn (name)
+                     (not (contains? listed (clone name)))))))
 
 (type known-flag-names
   (fn ((ref route)) (vec string)))

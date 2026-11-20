@@ -1,0 +1,59 @@
+(module
+  "Describes ledger events in plain text: one row per event, with its roadmap and the details its payload records.")
+
+(use json/value json->entries json->source json->text null?)
+(use ledger/api case-name event event-type-names roadmap-id)
+(use cli/tables headed table)
+(use cli/item-text optional-id-text)
+
+(export events-text)
+
+(defn events-text (events)
+  (if (empty? events)
+    (str "No events.")
+    (event-table events)))
+
+(type event-table
+  (fn ((ref (vec event))) string))
+
+(defn event-table (events)
+  (let (rows (headed (vec "ID" "AT" "ACTOR" "EVENT"
+                          "ROADMAP" "ITEM" "DETAILS")))
+    (for-each events
+      (fn (event)
+        (push! rows (event-cells event))))
+    (table rows)))
+
+(type event-cells
+  (fn ((ref event)) (vec string)))
+
+(defn event-cells (event)
+  (vec (str (:id event))
+       (clone (:value (:at event)))
+       (clone (:actor event))
+       (str (case-name event-type-names (:type event)))
+       (optional-roadmap-id-text (ref (:roadmap-id event)))
+       (optional-id-text (ref (:item-id event)))
+       (payload-text (ref (:payload event)))))
+
+(type optional-roadmap-id-text
+  (fn ((ref (option roadmap-id))) string))
+
+(defn optional-roadmap-id-text (id)
+  (match id
+    ((some present) (clone (:value present)))
+    (none (str "-"))))
+
+(defn payload-text (payload)
+  (let (parts (vec))
+    (for-each (json->entries payload)
+      (fn (entry)
+        (let-match ((pair key value) entry)
+          (when (not (null? value))
+            (push! parts (str key "=" (value-text value)))))))
+    (join parts " ")))
+
+(defn value-text (value)
+  (match (json->text value)
+    ((some text) text)
+    (none (json->source value))))

@@ -5,10 +5,13 @@
                 ->session)
 
 (use cli/routes subcommand)
-(use cli/arguments arguments operand split-arguments)
-(use cli/route-matching check-shape route-of)
+(use cli/arguments operand split-arguments)
+
+(use cli/route-matching check-flags-without-command
+                        check-shape route-of)
+
 (use cli/flags optional-text)
-(use cli/flag-specs boolean-flag-names global-flags)
+(use cli/flag-specs boolean-flag-names)
 
 (use cli/requests add-item-request advance-request
                   claim-request drop-request log-request
@@ -32,21 +35,8 @@
       (routed-invocation (ref arguments)))))
 
 (defn bare-invocation (arguments)
-  (let (command-flags (command-flag-names arguments))
-    (if (empty? command-flags)
-      (ok invocation/help)
-      (err (str "--" (join command-flags ", --") " needs a command")))))
-
-(type command-flag-names
-  (fn ((ref arguments)) (vec string)))
-
-(defn command-flag-names (arguments)
-  (let (global-names (collect (map (iter (global-flags))
-                                (fn (spec) (clone (:name spec))))))
-    (collect (filter (map (iter (:flags arguments))
-                       (fn (entry) (clone (first entry))))
-                     (fn (name)
-                       (not (contains? global-names (clone name))))))))
+  (map-ok (check-flags-without-command arguments)
+    (fn (_) invocation/help)))
 
 (defn routed-invocation (arguments)
   (let-try (route (route-of arguments)
