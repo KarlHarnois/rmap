@@ -1,12 +1,13 @@
 (module
   "Renders a response as the JSON object the CLI prints.")
 
-(use ledger/api failure failure-code failure-message
-                refusal)
+(use ledger/api database-problem failure failure-code
+                failure-message refusal)
 
 (use cli/responses response)
 (use cli/help command-help-document help-document)
 (use cli/envelopes error-envelope reply-envelope)
+(use json/value int->json)
 (use cli/ledger-json blockage-fields conflicts->json)
 
 (export response->json)
@@ -34,6 +35,17 @@
 (defn failure-fields (failure)
   (match failure
     ((failure/refused refusal) (refusal-fields refusal))
+    ((failure/database error)
+     (database-fields (:problem error)))
+    (_ (vec))))
+
+(defn database-fields (problem)
+  (match problem
+    ((database-problem/too-new versions)
+     (vec (pair (str "ledger_version")
+                (int->json (:ledger versions)))
+          (pair (str "binary_version")
+                (int->json (:binary versions)))))
     (_ (vec))))
 
 (defn refusal-fields (refusal)

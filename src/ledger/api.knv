@@ -32,6 +32,7 @@
                         optional-id->json)
 
 (use ledger/failure failure failure-code failure-message)
+(use ledger/sqlite/connection database-problem)
 (use ledger/operations/roadmaps list-roadmaps new-roadmap)
 
 (use ledger/operations/init init-ledger init-outcome
@@ -64,8 +65,8 @@
         advance-item advancement batch batch-size
         batch-size-of blockage blocked-item case-name
         case-named claim claim-item clock close-item
-        default-database-path dep dep-type dep-type-names
-        draw-graph drop-item event event-type
+        database-problem default-database-path dep dep-type
+        dep-type-names draw-graph drop-item event event-type
         event-type-names failure failure-code
         failure-message glob globs->json graph-format
         graph-format-names graph-request graph-source
