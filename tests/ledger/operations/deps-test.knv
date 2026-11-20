@@ -1,0 +1,48 @@
+(use ledger/api add-dep kind remove-dep)
+
+(use support/ledger added-id item-draft refusal-code-of
+                    scratch-ledger)
+
+(defn research (settings)
+  (added-id settings (item-draft kind/research (vec))))
+
+(deftest a-two-edge-cycle-is-refused
+  (let (settings (scratch-ledger "two-edge-cycle")
+        first (research (ref settings))
+        second (research (ref settings)))
+    (assert (ok? (add-dep (ref settings)
+                          (clone first)
+                          (clone second))))
+    (assert (= (refusal-code-of (add-dep (ref settings) second first))
+               (some (str "cycle"))))))
+
+(deftest a-three-edge-cycle-is-refused
+  (let (settings (scratch-ledger "three-edge-cycle")
+        first (research (ref settings))
+        second (research (ref settings))
+        third (research (ref settings)))
+    (assert (ok? (add-dep (ref settings)
+                          (clone first)
+                          (clone second))))
+    (assert (ok? (add-dep (ref settings)
+                          (clone second)
+                          (clone third))))
+    (assert (= (refusal-code-of (add-dep (ref settings) third first))
+               (some (str "cycle"))))))
+
+(deftest a-repeated-dep-is-refused
+  (let (settings (scratch-ledger "repeated-dep")
+        first (research (ref settings))
+        second (research (ref settings)))
+    (assert (ok? (add-dep (ref settings)
+                          (clone first)
+                          (clone second))))
+    (assert (= (refusal-code-of (add-dep (ref settings) first second))
+               (some (str "dep-exists"))))))
+
+(deftest removing-a-missing-dep-is-refused
+  (let (settings (scratch-ledger "missing-dep")
+        first (research (ref settings))
+        second (research (ref settings)))
+    (assert (= (refusal-code-of (remove-dep (ref settings) first second))
+               (some (str "dep-not-found"))))))

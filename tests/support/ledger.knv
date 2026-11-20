@@ -1,12 +1,14 @@
 (use ledger/model ->timestamp)
 
-(use ledger/api ->glob ->new-item ->session ->settings
-                add-item claim-item clock glob kind
-                new-roadmap origin settings)
+(use ledger/api ->advancement ->glob ->new-item ->session
+                ->settings add-item advance-item claim-item
+                clock failure-code glob kind kind-change
+                new-roadmap origin settings status)
 
 (use support/scratch scratch-database)
 
-(export added-id claimed globs-of-patterns item-draft
+(export added-id advanced claimed globs-of-patterns
+        item-draft refusal-code-of reported-research
         scratch-ledger session-named)
 
 (def roadmap-name "road")
@@ -47,3 +49,24 @@
 (defn claimed (settings id)
   (assert (ok? (claim-item settings (clone id) (session-named "worker"))))
   id)
+
+(defn advanced (settings id target)
+  (assert (ok? (advance-item settings
+                             (clone id)
+                             (->advancement
+                               :to target
+                               :kind-change kind-change/keep-kind))))
+  id)
+
+(defn reported-research (settings patterns)
+  (advanced settings
+            (claimed settings
+                     (added-id settings
+                               (item-draft kind/research
+                                           (globs-of-patterns patterns))))
+            status/reported))
+
+(defn refusal-code-of (outcome)
+  (match outcome
+    ((ok _) none)
+    ((err failure) (some (failure-code (ref failure))))))

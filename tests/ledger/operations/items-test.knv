@@ -1,0 +1,17 @@
+(use ledger/api ->item-id kind list-items show-item status)
+
+(use support/ledger added-id item-draft refusal-code-of
+                    scratch-ledger)
+
+(deftest showing-an-unknown-item-is-refused
+  (let (settings (scratch-ledger "unknown-item"))
+    (assert (= (refusal-code-of (show-item (ref settings)
+                                           (->item-id :value (str "rm-ffff"))))
+               (some (str "item-not-found"))))))
+
+(deftest an-epic-shows-the-status-its-children-give-it
+  (let (settings (scratch-ledger "epic-status-shown")
+        epic (added-id (ref settings)
+                       (item-draft kind/epic (vec))))
+    (assert (= (:status (:item (unwrap-ok (show-item (ref settings) epic))))
+               status/open))))

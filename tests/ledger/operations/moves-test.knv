@@ -1,21 +1,12 @@
-(use ledger/api ->advancement advance-item failure kind
+(use ledger/api ->advancement advance-item claim-item
+                close-item drop-item failure kind
                 kind-change read-log ready-items refusal
                 show-item status)
 
-(use support/ledger added-id claimed globs-of-patterns
-                    item-draft scratch-ledger)
-
-(defn reported-research (settings patterns)
-  (let (id (claimed settings
-                    (added-id settings
-                              (item-draft kind/research
-                                          (globs-of-patterns patterns)))))
-    (assert (ok? (advance-item settings
-                               (clone id)
-                               (->advancement
-                                 :to status/reported
-                                 :kind-change kind-change/keep-kind))))
-    id))
+(use support/ledger added-id advanced claimed
+                    globs-of-patterns item-draft
+                    refusal-code-of reported-research
+                    scratch-ledger session-named)
 
 (defn become-build (settings id patterns)
   (advance-item settings
@@ -75,3 +66,90 @@
     (assert (every? (iter (unwrap-ok (read-log (ref settings) none 0)))
               (fn (event)
                 (= (:actor event) (str "tester")))))))
+
+(defn research (settings)
+  (added-id settings (item-draft kind/research (vec))))
+
+(defn build (settings pattern)
+  (added-id settings
+            (item-draft kind/build (globs-of-patterns (vec pattern)))))
+
+(deftest claiming-an-epic-is-refused
+  (let (settings (scratch-ledger "claim-epic")
+        epic (added-id (ref settings)
+                       (item-draft kind/epic (vec))))
+    (assert (= (refusal-code-of
+                 (claim-item (ref settings) epic (session-named "worker")))
+               (some (str "epic-status-computed"))))))
+
+(deftest closing-an-open-item-is-refused
+  (let (settings (scratch-ledger "close-open"))
+    (assert (= (refusal-code-of (close-item (ref settings)
+                                            (build (ref settings) "src/*")))
+               (some (str "invalid-transition"))))))
+
+(deftest a-research-item-cannot-enter-review
+  (let (settings (scratch-ledger "research-review")
+        item (claimed (ref settings)
+                      (research (ref settings))))
+    (assert (= (refusal-code-of (advance-item
+                                  (ref settings)
+                                  item
+                                  (->advancement
+                                    :to status/in-review
+                                    :kind-change kind-change/keep-kind)))
+               (some (str "invalid-transition"))))))
+
+(deftest claiming-a-claimed-item-is-refused
+  (let (settings (scratch-ledger "claim-twice")
+        item (claimed (ref settings)
+                      (research (ref settings))))
+    (assert (= (refusal-code-of
+                 (claim-item (ref settings) item (session-named "other")))
+               (some (str "invalid-transition"))))))
+
+(deftest claiming-a-blocked-item-is-refused
+  (let (settings (scratch-ledger "claim-blocked")
+        blocker (research (ref settings))
+        blocked (added-id (ref settings)
+                          (assoc (item-draft kind/research (vec))
+                                 :blocked-by (vec blocker))))
+    (assert (= (refusal-code-of
+                 (claim-item (ref settings) blocked (session-named "worker")))
+               (some (str "not-ready"))))))
+
+(deftest claiming-a-build-on-held-paths-is-refused
+  (let (settings (scratch-ledger "claim-held-paths")
+        holder (claimed (ref settings)
+                        (build (ref settings) "src/a/**"))
+        waiting (build (ref settings) "src/a/b.rs"))
+    (assert (= (refusal-code-of
+                 (claim-item (ref settings) waiting (session-named "other")))
+               (some (str "not-ready"))))))
+
+(deftest becoming-a-build-on-held-paths-is-refused
+  (let (settings (scratch-ledger "build-on-held-paths")
+        holder (claimed (ref settings)
+                        (build (ref settings) "src/**"))
+        item (reported-research (ref settings) (vec)))
+    (assert (= (refusal-code-of (become-build (ref settings)
+                                              (ref item)
+                                              (vec "src/x.rs")))
+               (some (str "path-conflict"))))))
+
+(deftest becoming-a-build-without-paths-is-refused
+  (let (settings (scratch-ledger "build-without-paths")
+        item (reported-research (ref settings) (vec)))
+    (assert (= (refusal-code-of (become-build (ref settings)
+                                              (ref item)
+                                              (vec)))
+               (some (str "build-needs-paths"))))))
+
+(deftest dropping-a-dropped-item-is-refused
+  (let (settings (scratch-ledger "drop-twice")
+        item (research (ref settings)))
+    (assert (ok? (drop-item (ref settings)
+                            (clone item)
+                            (str "obsolete"))))
+    (assert (= (refusal-code-of (drop-item (ref settings) item (str "again")))
+               (some (str "invalid-transition"))))))

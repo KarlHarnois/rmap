@@ -1,0 +1,35 @@
+(use ledger/sqlite/connection open run-batch)
+(use json/value field json->int)
+(use support/rmap database-with-roadmap error-code run-rmap)
+(use support/scratch scratch-database)
+
+(deftest a-command-that-runs-exits-zero-with-the-schema-version
+  (let (reply (run-rmap (scratch-database "exit-zero")
+                        (vec "new" "road" "--manager" "m1")))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (json->int (unwrap (field (:json reply) "schema_version")))
+               (some 1)))))
+
+(deftest a-refusal-exits-one-with-its-code
+  (let (reply (run-rmap (database-with-roadmap "exit-one")
+                        (vec "new" "road" "--manager" "m2")))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply)) "roadmap-exists"))))
+
+(deftest arguments-that-match-no-command-exit-two
+  (let (reply (run-rmap (scratch-database "exit-two") (vec "frobnicate")))
+    (assert (= (:exit-code reply) 2))
+    (assert (= (error-code (ref reply)) "usage"))))
+
+(deftest a-database-that-cannot-open-exits-three
+  (let (reply (run-rmap (str "/nonexistent/rmap/ledger.db") (vec "list")))
+    (assert (= (:exit-code reply) 3))
+    (assert (= (error-code (ref reply)) "database"))))
+
+(deftest a-write-that-waits-out-the-lock-exits-three-with-busy
+  (let (database (database-with-roadmap "exit-busy")
+        holder (unwrap-ok (open (as-str database))))
+    (unwrap-ok (run-batch (ref holder) "BEGIN IMMEDIATE"))
+    (let (reply (run-rmap database (vec "new" "other" "--manager" "m2")))
+      (assert (= (:exit-code reply) 3))
+      (assert (= (error-code (ref reply)) "busy")))))

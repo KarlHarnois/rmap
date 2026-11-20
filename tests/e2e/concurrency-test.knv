@@ -1,27 +1,11 @@
 (use json/value field json->text)
-(use e2e/process run-rmap run-rmap-pair run-rmap-together)
+
+(use support/rmap database-with-roadmap research-id run-rmap
+                  run-rmap-pair run-rmap-together)
+
 (use support/scratch scratch-database)
 
 (def rounds 20)
-
-(defn item-id-of (result)
-  (-> (:output result)
-      (field "item")
-      unwrap
-      (field "id")
-      unwrap json->text unwrap))
-
-(defn racing-ledger ()
-  (let (database (scratch-database "claim-race"))
-    (run-rmap (clone database)
-              (vec "new" "road" "--manager" "m1"))
-    database))
-
-(defn add-research (database)
-  (item-id-of (ref (run-rmap (clone database)
-                             (vec "item" "add" "--roadmap"
-                                  "road" "--title" "race"
-                                  "--kind" "research")))))
 
 (defn winners (database item)
   (let-match ((pair first second) (run-rmap-pair
@@ -39,11 +23,11 @@
        (if (= (:exit-code second) 0) 1 0))))
 
 (deftest two-processes-claiming-one-item-leave-exactly-one-winner
-  (let (database (racing-ledger))
+  (let (database (database-with-roadmap "claim-race"))
     (for-each (range 0 rounds)
       (fn (_)
         (assert (= (winners (ref database)
-                            (add-research (ref database)))
+                            (research-id (ref database)))
                    1))))))
 
 (def fresh-rounds 5)

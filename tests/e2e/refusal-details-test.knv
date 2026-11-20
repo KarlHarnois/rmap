@@ -1,0 +1,29 @@
+(use json/value field json->items json->text)
+
+(use support/rmap database-with-roadmap error-code
+                  research-id run-rmap)
+
+(defn error-list (reply key)
+  (unwrap (json->items (unwrap (field (unwrap (field (:json reply) "error"))
+                                      key)))))
+
+(deftest a-not-ready-claim-lists-what-blocks-the-item
+  (let (database (database-with-roadmap "not-ready-details")
+        blocker (research-id (clone database))
+        blocked (run-rmap (clone database)
+                          (vec "item" "add" "--roadmap"
+                               "road" "--title" "b" "--kind"
+                               "design" "--after"
+                               (as-str blocker)))
+        blocked-id (unwrap (json->text (unwrap (field (unwrap (field (:json
+                                                                       blocked)
+                                                                     "item"))
+                                                      "id"))))
+        reply (run-rmap
+                database
+                (vec "item" "claim" (as-str blocked-id) "--session" "s1")))
+    (assert (= (error-code (ref reply)) "not-ready"))
+    (assert (= (json->text (unwrap (first (error-list (ref reply) "blockers"))))
+               (some blocker)))
+    (assert (empty? (error-list (ref reply) "dropped_blockers")))
+    (assert (empty? (error-list (ref reply) "path_conflicts")))))

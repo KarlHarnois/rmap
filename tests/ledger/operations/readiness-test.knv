@@ -1,0 +1,24 @@
+(use ledger/api kind new-roadmap ready-items)
+
+(use support/ledger added-id item-draft refusal-code-of
+                    scratch-ledger session-named)
+
+(deftest an-unknown-roadmap-is-refused
+  (let (settings (scratch-ledger "unknown-roadmap"))
+    (assert (= (refusal-code-of (ready-items (ref settings)
+                                             (some (str "nope"))))
+               (some (str "roadmap-not-found"))))))
+
+(deftest naming-a-roadmap-limits-ready-items-to-it
+  (let (settings (scratch-ledger "ready-in-one-roadmap")
+        _ (added-id (ref settings)
+                    (item-draft kind/research (vec)))
+        _ (new-roadmap (ref settings)
+                       (str "other")
+                       (session-named "other-manager")))
+    (assert (= (len (:ready (unwrap-ok (ready-items (ref settings)
+                                                    (some (str "other"))))))
+               0))
+    (assert (= (len (:ready (unwrap-ok (ready-items (ref settings)
+                                                    (some (str "road"))))))
+               1))))

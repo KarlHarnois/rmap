@@ -1,0 +1,21 @@
+(use ledger/api kind read-log)
+
+(use support/ledger added-id claimed item-draft
+                    scratch-ledger)
+
+(deftest adding-and-claiming-each-log-one-event
+  (let (settings (scratch-ledger "logged-events")
+        item (claimed (ref settings)
+                      (added-id (ref settings)
+                                (item-draft kind/research (vec)))))
+    (assert (= (len (unwrap-ok (read-log (ref settings) (some item) 0)))
+               2))))
+
+(deftest reading-since-an-event-skips-the-earlier-ones
+  (let (settings (scratch-ledger "logged-since")
+        _ (added-id (ref settings)
+                    (item-draft kind/research (vec)))
+        all (unwrap-ok (read-log (ref settings) none 0))
+        first-id (:id (unwrap (first all))))
+    (assert (= (len (unwrap-ok (read-log (ref settings) none first-id)))
+               (dec (len all))))))

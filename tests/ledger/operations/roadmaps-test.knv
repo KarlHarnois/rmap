@@ -1,0 +1,16 @@
+(use ledger/api list-roadmaps new-roadmap)
+
+(use support/ledger refusal-code-of scratch-ledger
+                    session-named)
+
+(deftest a-second-roadmap-with-the-same-name-is-refused
+  (let (settings (scratch-ledger "duplicate-roadmap"))
+    (assert (= (refusal-code-of (new-roadmap (ref settings)
+                                             (str "road")
+                                             (session-named "other-manager")))
+               (some (str "roadmap-exists"))))))
+
+(deftest roadmaps-are-listed-with-their-manager
+  (let (settings (scratch-ledger "listed-roadmaps"))
+    (assert (= (:name (:manager (unwrap (first (unwrap-ok (list-roadmaps (ref settings)))))))
+               (str "manager")))))

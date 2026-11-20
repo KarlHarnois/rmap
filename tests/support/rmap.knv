@@ -1,12 +1,13 @@
-(use json/value json parse-json)
+(use json/value field json json->text parse-json)
+(use support/scratch scratch-database)
 (use process/command ->command command-output run-command)
 
-(export command-result run-rmap run-rmap-pair
-        run-rmap-together)
+(export database-with-roadmap error-code reply research-id
+        run-rmap run-rmap-pair run-rmap-together text-at)
 
-(defstruct command-result
+(defstruct reply
   :exit-code i32
-  :output json)
+  :json json)
 
 (def binary-path "target/knave/rmap/rmap")
 
@@ -36,16 +37,16 @@
   (assert (once build-succeeds?))
   binary-path)
 
-(type output->result (fn (command-output) command-result))
+(type output->result (fn (command-output) reply))
 
 (defn output->result (output)
-  (->command-result :exit-code (:code output)
-                    :output (unwrap-ok (parse-json (as-str (:stdout output))))))
+  (->reply :exit-code (:code output)
+           :json (unwrap-ok (parse-json (as-str (:stdout output))))))
 
 (defn waited->result (waited)
   (let-match ((pair code text) waited)
-    (->command-result :exit-code code
-                      :output (unwrap-ok (parse-json (as-str text))))))
+    (->reply :exit-code code
+             :json (unwrap-ok (parse-json (as-str text))))))
 
 (defn rmap-command (database args)
   (->command :program (str (built-binary))
@@ -90,3 +91,27 @@
         (push! codes
                (:exit-code (waited->result (unwrap-ok (wait-raw (unwrap (pop! pending)))))))))
     codes))
+
+(defn text-at (reply object key)
+  (-> (:json reply)
+      (field object)
+      unwrap
+      (field key)
+      unwrap json->text unwrap))
+
+(defn error-code (reply) (text-at reply "error" "code"))
+
+(defn database-with-roadmap (name)
+  (let (database (scratch-database name))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "new" "road" "--manager" "m1")))
+               0))
+    database))
+
+(defn research-id (database)
+  (let (added (run-rmap (clone database)
+                        (vec "item" "add" "--roadmap" "road"
+                             "--title" "r" "--kind"
+                             "research")))
+    (assert (= (:exit-code added) 0))
+    (text-at (ref added) "item" "id")))

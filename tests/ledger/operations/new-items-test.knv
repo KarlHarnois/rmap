@@ -1,7 +1,9 @@
-(use ledger/api kind show-item)
+(use ledger/api ->item-id add-item kind new-roadmap
+                show-item)
 
 (use support/ledger added-id globs-of-patterns item-draft
-                    scratch-ledger)
+                    refusal-code-of scratch-ledger
+                    session-named)
 
 (deftest repeated-blockers-are-stored-once
   (let (settings (scratch-ledger "repeated-blockers")
@@ -20,3 +22,59 @@
                                     (globs-of-patterns (vec "src/*" "src/*")))))
     (assert (= (len (:globs (unwrap-ok (show-item (ref settings) build))))
                1))))
+
+(defn added (settings draft)
+  (add-item settings (str "road") draft))
+
+(deftest a-build-without-paths-is-refused
+  (let (settings (scratch-ledger "build-without-paths"))
+    (assert (= (refusal-code-of (added (ref settings)
+                                       (item-draft kind/build (vec))))
+               (some (str "build-needs-paths"))))))
+
+(deftest an-epic-with-a-parent-is-refused
+  (let (settings (scratch-ledger "epic-with-parent")
+        epic (added-id (ref settings)
+                       (item-draft kind/epic (vec))))
+    (assert (= (refusal-code-of (added (ref settings)
+                                       (assoc (item-draft kind/epic (vec))
+                                              :parent (some epic))))
+               (some (str "epic-has-parent"))))))
+
+(deftest a-parent-that-is-not-an-epic-is-refused
+  (let (settings (scratch-ledger "parent-not-epic")
+        research (added-id (ref settings)
+                           (item-draft kind/research (vec))))
+    (assert (= (refusal-code-of (added (ref settings)
+                                       (assoc (item-draft kind/design (vec))
+                                              :parent (some research))))
+               (some (str "parent-not-epic"))))))
+
+(deftest a-parent-in-another-roadmap-is-refused
+  (let (settings (scratch-ledger "parent-in-other-roadmap")
+        epic (added-id (ref settings)
+                       (item-draft kind/epic (vec)))
+        _ (new-roadmap (ref settings)
+                       (str "other")
+                       (session-named "other-manager")))
+    (assert (= (refusal-code-of (add-item (ref settings)
+                                          (str "other")
+                                          (assoc (item-draft kind/design (vec))
+                                                 :parent (some epic))))
+               (some (str "parent-in-other-roadmap"))))))
+
+(deftest an-unknown-blocker-is-refused
+  (let (settings (scratch-ledger "unknown-blocker"))
+    (assert (= (refusal-code-of (added (ref settings)
+                                       (assoc (item-draft kind/design (vec))
+                                              :blocked-by (vec (->item-id
+                                                                 :value (str "rm-ffff"))))))
+               (some (str "item-not-found"))))))
+
+(deftest an-unknown-discovered-from-item-is-refused
+  (let (settings (scratch-ledger "unknown-discovered-from"))
+    (assert (= (refusal-code-of
+                 (added (ref settings)
+                        (assoc (item-draft kind/design (vec))
+                               :discovered-from (some (->item-id :value (str "rm-ffff"))))))
+               (some (str "item-not-found"))))))
