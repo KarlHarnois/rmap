@@ -1,6 +1,8 @@
-(use ledger/api ready-items status)
+(use ledger/api batch-size-of kind list-items read-log
+                ready-batch ready-items status)
 
-(use support/ledger advanced blocked-research-in claimed
+(use support/ledger added-id advanced blocked-research-in
+                    claimed globs-of-patterns item-draft
                     ledger-with-two-roadmaps
                     other-roadmap-name refusal-code-of
                     research roadmap-name scratch-ledger)
@@ -43,3 +45,26 @@
                              status/reported))
     (assert (= (len (:ready (readiness-in (ref settings) other-roadmap-name)))
                1))))
+
+(defn overlapping-build (settings)
+  (added-id settings
+            (item-draft kind/build (globs-of-patterns (vec "src/a/**")))))
+
+(defn event-ids (settings)
+  (collect (map (iter (unwrap-ok (read-log settings none 0)))
+             (fn (event) (:id event)))))
+
+(deftest picking-a-batch-writes-no-event-and-changes-no-row
+  (let (settings (ledger-with-two-roadmaps "batch-is-read-only")
+        _first (overlapping-build (ref settings))
+        _second (overlapping-build (ref settings))
+        events-before (event-ids (ref settings))
+        items-before (unwrap-ok (list-items (ref settings) none))
+        batch (unwrap-ok (ready-batch (ref settings)
+                                      none
+                                      (unwrap (batch-size-of 2)))))
+    (assert (= (len (:picked batch)) 1))
+    (assert (= (len (:skipped batch)) 1))
+    (assert (= (event-ids (ref settings)) events-before))
+    (assert (= (unwrap-ok (list-items (ref settings) none))
+               items-before))))

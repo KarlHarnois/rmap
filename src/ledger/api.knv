@@ -18,6 +18,10 @@
                           refusal-description)
 
 (use ledger/core/ready blocked-item readiness)
+
+(use ledger/core/batch batch batch-size batch-size-of
+                       skipped-item)
+
 (use ledger/core/new-items ->new-item new-item)
 (use ledger/operations/database-path default-database-path)
 
@@ -33,7 +37,7 @@
 (use ledger/operations/init init-ledger init-outcome
                             init-outcome-names init-report)
 
-(use ledger/operations/readiness ready-items)
+(use ledger/operations/readiness ready-batch ready-items)
 (use ledger/operations/next next-actions)
 (use ledger/core/actions action actor next-action)
 (use ledger/core/next next-item)
@@ -57,10 +61,11 @@
 (export ->advancement ->glob ->graph-request ->graph-source
         ->item-id ->new-item ->session ->settings action
         action-names actor actor-names add-dep add-item
-        advance-item advancement blockage blocked-item
-        case-name case-named claim claim-item clock
-        close-item default-database-path dep dep-type
-        dep-type-names draw-graph drop-item event event-type
+        advance-item advancement batch batch-size
+        batch-size-of blockage blocked-item case-name
+        case-named claim claim-item clock close-item
+        default-database-path dep dep-type dep-type-names
+        draw-graph drop-item event event-type
         event-type-names failure failure-code
         failure-message glob globs->json graph-format
         graph-format-names graph-request graph-source
@@ -70,7 +75,8 @@
         list-roadmaps new-item new-roadmap next-action
         next-actions next-item optional-id->json origin
         origin-names path-conflict read-log readiness
-        ready-items refusal refusal->message refusal-catalog
-        refusal-code-text refusal-description remove-dep
-        roadmap roadmap-id roadmap-status-names session
-        settings show-item status status-names timestamp)
+        ready-batch ready-items refusal refusal->message
+        refusal-catalog refusal-code-text
+        refusal-description remove-dep roadmap roadmap-id
+        roadmap-status-names session settings show-item
+        skipped-item status status-names timestamp)

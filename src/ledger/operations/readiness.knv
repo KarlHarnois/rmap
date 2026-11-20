@@ -1,7 +1,8 @@
 (module
-  "Reads which items can start and what blocks the others.")
+  "Reads which items can start, what blocks the others, and which of them can start together.")
 
 (use ledger/core/ready readiness readiness-of)
+(use ledger/core/batch batch batch-of batch-size)
 (use ledger/sqlite/events ->event-filter)
 (use ledger/sqlite/snapshot load-snapshot)
 
@@ -11,7 +12,7 @@
 (use ledger/failure failure)
 (use ledger/operations/lookups scope-named)
 
-(export ready-items)
+(export ready-batch ready-items)
 
 (type ready-items
   (fn ((ref settings) (option string))
@@ -27,3 +28,21 @@
   (let-try (scope (scope-named connection roadmap)
             snapshot (load-snapshot connection))
     (ok (readiness-of (ref snapshot) (ref scope)))))
+
+(type ready-batch
+  (fn ((ref settings) (option string) batch-size)
+    (result batch failure)))
+
+(defn ready-batch (settings roadmap size)
+  (in-read-transaction settings
+    (fn (transaction)
+      (batch-within (ref (:connection transaction))
+                    (ref roadmap)
+                    (clone size)))))
+
+(defn batch-within (connection roadmap size)
+  (let-try (scope (scope-named connection roadmap)
+            snapshot (load-snapshot connection))
+    (ok (batch-of (ref (readiness-of (ref snapshot) (ref scope)))
+                  (ref snapshot)
+                  size))))
