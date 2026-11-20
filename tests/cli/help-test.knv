@@ -60,3 +60,17 @@
         document (command-help-document next-routes))
     (assert (= (described-names (ref document))
                (vec (str "next"))))))
+
+(defn environment-variable-names ()
+  (-> (help-document)
+      (field "environment")
+      unwrap json->items unwrap iter
+      (map (fn (variable)
+             (unwrap (json->text (unwrap (field variable "name"))))))
+      collect))
+
+(deftest help-lists-the-environment-variables-it-reads
+  (assert (= (environment-variable-names)
+             (vec (str "RMAP_JSON")
+                  (str "RMAP_ACTOR")
+                  (str "USER")))))

@@ -1,4 +1,4 @@
-(use cli/help-text command-help-text)
+(use cli/help-text command-help-text help-text)
 (use cli/routes route-name)
 (use cli/commands routes)
 
@@ -18,3 +18,7 @@
 (deftest command-help-points-to-the-full-help
   (assert (contains? (as-str (command-help-text (routes-named "list")))
                      "Run `rmap help` for the global flags")))
+
+(deftest help-lists-the-environment-variables
+  (assert (contains? (as-str (help-text))
+                     "Environment:\n  RMAP_JSON   Set to 1 to print JSON")))

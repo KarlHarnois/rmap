@@ -11,6 +11,9 @@
 (use process/environment variable)
 (use cli/requests request)
 
+(use cli/environment-variables actor-variable json-variable
+                               user-variable)
+
 (use cli/invocations invocation ledger-call
                      parse-invocation)
 
@@ -23,7 +26,7 @@
 
 (defn main ()
   (let (args (command-line-args)
-        format (output-format-of (ref args) (variable "RMAP_JSON"))
+        format (output-format-of (ref args) (variable json-variable))
         response (run args)
         code (exit-code->number (response-exit-code (ref response))))
     (print-response format response)
@@ -74,7 +77,8 @@
 (defn actor-for (given)
   (match given
     ((some actor) (clone actor))
-    (none (unwrap-or (or-else (variable "RMAP_ACTOR") (variable "USER"))
+    (none (unwrap-or (or-else (variable actor-variable)
+                              (variable user-variable))
                      (str "unknown")))))
 
 (defn or-else (first-choice second-choice)

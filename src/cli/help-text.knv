@@ -1,5 +1,5 @@
 (module
-  "Describes the CLI in plain text: its usage, its commands, its exit codes and its refusal codes.")
+  "Describes the CLI in plain text: its usage, its commands, its environment variables, its exit codes and its refusal codes.")
 
 (use ledger/api refusal-catalog)
 (use cli/routes route)
@@ -8,6 +8,7 @@
 (use cli/exit-codes exit-code->meaning exit-code->number
                     exit-codes)
 
+(use cli/environment-variables environment-variables)
 (use cli/tables indented table)
 (use cli/usage command-usage usage-line)
 
@@ -16,12 +17,13 @@
 (defn help-text ()
   (join (vec (str "Usage: " (usage-line))
              (section "Commands" (entries (routes) command-entry))
+             (section "Environment" (table (environment-rows)))
              (section "Exit codes" (table (exit-code-rows)))
              (section "Refusal codes" (table (refusal-rows))))
         "\n\n"))
 
 (def full-help-pointer
-  "Run `rmap help` for the global flags, exit codes and refusal codes.")
+  "Run `rmap help` for the global flags, environment variables, exit codes and refusal codes.")
 
 (defn command-help-text (routes)
   (join (vec (section "Usage" (entries routes rmap-command-entry))
@@ -47,6 +49,12 @@
 
 (defn section (title body)
   (str title ":\n" (indented body)))
+
+(defn environment-rows ()
+  (collect (map (iter (environment-variables))
+             (fn (variable)
+               (vec (clone (:name variable))
+                    (clone (:meaning variable)))))))
 
 (defn exit-code-rows ()
   (collect (map (iter (exit-codes))
