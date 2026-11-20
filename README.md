@@ -21,4 +21,4 @@ rmap item add --roadmap website --title "Add the parser" --kind build --paths 's
 rmap ready
 ```
 
-Run rmap inside a git repository, or pass `--db <path>`. `rmap init` creates the ledger once per repository, and every other command refuses to run until it exists. For JSON output, pass `--json` or set `RMAP_JSON=1`. `rmap help` lists every command.
+Run rmap inside a git repository, or pass `--db <path>`. `rmap init` creates the ledger once per repository. For JSON output, pass `--json` or set `RMAP_JSON=1`. `rmap help` lists every command.
