@@ -83,28 +83,27 @@
 
 (defstruct attempt
   :command string
-  :move move
+  :proposed-move move
   :target status)
 
 (defn attempts ()
   (let (all (vec (->attempt :command (str "claim")
-                            :move (move/claim (->session :name (str "s1")))
+                            :proposed-move (move/claim (->session :name (str "s1")))
                             :target status/dispatched)
                  (->attempt :command (str "build")
-                            :move (move/advance-to-build (vec (glob-of
-                                                                "src/*")))
+                            :proposed-move (move/advance-to-build (vec (glob-of "src/*")))
                             :target status/dispatched)
                  (->attempt :command (str "close")
-                            :move move/close
+                            :proposed-move move/close
                             :target status/merged)
                  (->attempt :command (str "drop")
-                            :move (move/drop (str "no longer needed"))
+                            :proposed-move (move/drop (str "no longer needed"))
                             :target status/dropped)))
     (for-each (statuses)
       (fn (target)
         (push! all
                (->attempt :command (str "advance")
-                          :move (move/advance (deref target))
+                          :proposed-move (move/advance (deref target))
                           :target (deref target)))))
     all))
 
@@ -148,7 +147,7 @@
     (every? (iter (attempts))
       (fn (attempt)
         (= (verdict (ref item)
-                    (ref (:move attempt)))
+                    (ref (:proposed-move attempt)))
            (expected-refusal (ref item) attempt))))))
 
 (deftest every-move-from-every-status-of-every-kind-follows-the-table

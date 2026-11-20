@@ -25,9 +25,6 @@
     (ok (str (trim (as-str (:stdout output)))))
     (err (failure/no-repository (str (trim (as-str (:stderr output))))))))
 
-(type default-database-path
-  (fn () (result string failure)))
-
 (defn default-database-path ()
   (let-try (common-dir (git-common-dir))
     (ok (str common-dir "/ledger.db"))))

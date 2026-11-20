@@ -8,10 +8,7 @@
                        ledger-index)
 
 (use ledger/core/path-conflicts conflicts-with-active-builds)
-
-(use ledger/core/snapshot blocked-by globs-of in-scope?
-                          scope)
-
+(use ledger/core/snapshot blocked-by globs-of in-scope?)
 (use ledger/core/order ordered)
 
 (export blockage-of blocked-item blocking-decisions
@@ -24,10 +21,6 @@
 (defstruct readiness
   :ready (vec item)
   :blocked (vec blocked-item))
-
-(type readiness-of
-  (fn ((ref snapshot) (ref scope))
-    readiness))
 
 (defn readiness-of (snapshot scope)
   (let (index (index-of snapshot)
@@ -50,10 +43,6 @@
        (= (:status item) status/open)
        (= (:claim item) claim/unclaimed)))
 
-(type startable-items
-  (fn ((ref (vec blocked-item)))
-    (vec item)))
-
 (defn startable-items (assessed)
   (collect (map (filter (iter assessed)
                   (fn (entry) (startable? entry)))
@@ -67,9 +56,6 @@
   (collect (map (filter (iter assessed)
                   (fn (entry) (not (startable? entry))))
                 clone)))
-
-(type startable?
-  (fn ((ref blocked-item)) bool))
 
 (defn startable? (entry)
   (and (unblocked? (ref (:blockage entry)))

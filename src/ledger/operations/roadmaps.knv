@@ -14,7 +14,7 @@
 
 (use ledger/operations/transaction in-read-transaction
                                    in-transaction now record
-                                   settings transaction)
+                                   transaction)
 
 (use ledger/failure failure)
 (use ledger/events roadmap-created)
@@ -56,10 +56,6 @@
       ((some _)
        (err (failure/refused (refusal/roadmap-exists (str name)))))
       (none (ok (do))))))
-
-(type list-roadmaps
-  (fn ((ref settings))
-    (result (vec roadmap) failure)))
 
 (defn list-roadmaps (settings)
   (in-read-transaction settings

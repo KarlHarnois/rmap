@@ -20,9 +20,6 @@
     ((database problem) (database-code problem))
     ((no-repository _) (str "no-repository"))))
 
-(type database-code
-  (fn ((ref database-error)) string))
-
 (defn database-code (problem)
   (match (:problem problem)
     (database-problem/busy (str "busy"))

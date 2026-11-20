@@ -10,7 +10,6 @@
 
 (use ledger/failure failure)
 (use ledger/operations/lookups scope-named)
-(use ledger/sqlite/connection connection)
 
 (export ready-items)
 
@@ -23,10 +22,6 @@
     (fn (transaction)
       (readiness-within (ref (:connection transaction))
                         (ref roadmap)))))
-
-(type readiness-within
-  (fn ((ref connection) (ref (option string)))
-    (result readiness failure)))
 
 (defn readiness-within (connection roadmap)
   (let-try (scope (scope-named connection roadmap)

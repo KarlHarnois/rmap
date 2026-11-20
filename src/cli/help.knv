@@ -5,7 +5,7 @@
                 text->json)
 
 (use ledger/api refusal-catalog refusal-description)
-(use cli/routes route route-name routes)
+(use cli/routes route-name routes)
 (use cli/flag-specs flag-spec global-flags required?)
 
 (use cli/exit-codes exit-code->meaning exit-code->number
@@ -30,9 +30,6 @@
                  (pair (str "refusal_codes")
                        (array (collect (map (iter (refusal-catalog))
                                             refusal->json)))))))
-
-(type route->json
-  (fn ((ref route)) json))
 
 (defn route->json (route)
   (object (vec

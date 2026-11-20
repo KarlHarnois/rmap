@@ -1,7 +1,7 @@
 (module
   "Describes each ledger change as an event to record.")
 
-(use json/value int->json json object text->json)
+(use json/value int->json object text->json)
 
 (use ledger/model ->event-draft dep event-draft event-type
                   item roadmap)
@@ -82,9 +82,6 @@
     (add event-type/dep-added)
     (remove event-type/dep-removed)))
 
-(type item-moved
-  (fn ((ref applied-move)) event-draft))
-
 (defn item-moved (applied)
   (->event-draft :roadmap-id (some (clone (:roadmap-id (:after applied))))
                  :item-id (some (clone (:id (:after applied))))
@@ -98,10 +95,6 @@
     ((advance-to-build _) event-type/item-advanced)
     (close event-type/item-closed)
     ((drop _) event-type/item-dropped)))
-
-(type move-fields
-  (fn ((ref applied-move))
-    (vec (pair string json))))
 
 (defn move-fields (applied)
   (let (fields (detail-fields (ref (:move applied))))
@@ -117,10 +110,6 @@
            (pair (str "kind")
                  (text->json (case-name kind-names (:kind (:after applied))))))
     fields))
-
-(type detail-fields
-  (fn ((ref move))
-    (vec (pair string json))))
 
 (defn detail-fields (move)
   (match move

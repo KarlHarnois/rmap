@@ -4,8 +4,7 @@
                 claim-item clock close-item
                 default-database-path drop-item failure
                 list-items list-roadmaps new-roadmap
-                read-log ready-items remove-dep settings
-                show-item)
+                read-log ready-items remove-dep show-item)
 
 (use process/environment variable)
 (use cli/requests request)
@@ -48,10 +47,6 @@
   (let-try (settings (settings-for (ref call)))
     (perform (ref settings)
              (clone (:request call)))))
-
-(type settings-for
-  (fn ((ref ledger-call))
-    (result settings failure)))
 
 (defn settings-for (call)
   (let-try (path (database-path (ref (:database call))))

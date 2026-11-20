@@ -37,10 +37,6 @@
                               (pair (clone (:value (:id item)))
                                     (clone item)))))))
 
-(type child-statuses
-  (fn ((ref (vec item)))
-    (hash-map string (vec status))))
-
 (defn child-statuses (items)
   (loop (index 0
          (groups (hash-map string (vec status))) (hash-map))

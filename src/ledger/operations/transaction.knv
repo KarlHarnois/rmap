@@ -34,22 +34,8 @@
             _ (migrate (ref connection) (migration-sources)))
     (ok connection)))
 
-(type in-transaction
-  (where (a)
-    (fn ((ref settings)
-         (fn ((ref transaction))
-           (result a failure)))
-      (result a failure))))
-
 (defn in-transaction (settings work)
   (run-transaction settings begin work))
-
-(type in-read-transaction
-  (where (a)
-    (fn ((ref settings)
-         (fn ((ref transaction))
-           (result a failure)))
-      (result a failure))))
 
 (defn in-read-transaction (settings work)
   (run-transaction settings begin-read work))
@@ -84,9 +70,6 @@
   (match clock
     (system (let-try (at (database-now connection)) (ok at)))
     ((fixed at) (ok (clone at)))))
-
-(type now
-  (fn ((ref transaction)) timestamp))
 
 (defn now (transaction)
   (clone (:at (:stamp transaction))))
