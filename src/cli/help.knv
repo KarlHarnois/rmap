@@ -14,12 +14,12 @@
 
 (use cli/envelopes schema-version)
 
-(export help)
+(export help-document)
 
 (def usage
   "rmap [--db <path>] <command> <operands> [--<flag> <value>]")
 
-(defn help ()
+(defn help-document ()
   (object (vec (pair (str "schema_version") (int->json schema-version))
                (pair (str "usage") (text->json usage))
                (pair (str "commands")

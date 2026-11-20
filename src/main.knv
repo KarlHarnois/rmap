@@ -3,25 +3,23 @@
 (use ledger/api ->settings add-dep add-item advance-item
                 claim-item clock close-item
                 default-database-path drop-item failure
-                failure-code failure-message list-items
-                list-roadmaps new-roadmap read-log
-                ready-items refusal remove-dep show-item)
+                list-items list-roadmaps new-roadmap
+                read-log ready-items remove-dep settings
+                show-item)
 
 (use process/environment variable)
-(use cli/requests parse-invocation request)
+
+(use cli/requests invocation ledger-call parse-invocation
+                  request)
+
 (use cli/exit-codes exit-code exit-code->number)
-(use cli/help help)
+(use cli/help help-document)
+(use cli/outcomes ->outcome result->outcome usage-outcome)
 
-(use cli/envelopes blockage-fields conflicts->json
-                   dep-envelope detail-envelope
-                   error-envelope events-envelope
-                   item-envelope items-envelope
-                   readiness-envelope roadmap-envelope
-                   roadmaps-envelope)
-
-(defstruct outcome
-  :exit-code exit-code
-  :output json)
+(use cli/envelopes dep-envelope detail-envelope
+                   events-envelope item-envelope
+                   items-envelope readiness-envelope
+                   roadmap-envelope roadmaps-envelope)
 
 (defn main ()
   (let (outcome (run (command-line-args)))
@@ -33,30 +31,32 @@
     ((ok invocation) (execute invocation))
     ((err message) (usage-outcome message))))
 
-(defn usage-outcome (message)
-  (->outcome :exit-code exit-code/usage
-             :output (error-envelope "usage"
-                                     (as-str (str message
-                                                  "; run `rmap help` to list the commands"))
-                                     (vec))))
-
 (defn execute (invocation)
-  (match (:request invocation)
-    (request/help (->outcome :exit-code exit-code/done :output (help)))
-    (_ (execute-on-ledger invocation))))
+  (match invocation
+    (invocation/help (->outcome :exit-code exit-code/done
+                                :output (help-document)))
+    ((invocation/on-ledger call) (call-ledger call))))
 
-(defn execute-on-ledger (invocation)
-  (match (settings-for (ref invocation))
-    ((ok settings)
-     (failure-or-done (perform (ref settings)
-                               (clone (:request invocation)))))
-    ((err failure) (failure->outcome failure))))
+(defn call-ledger (call)
+  (result->outcome (ledger-result call)))
 
-(defn settings-for (invocation)
-  (let-try (path (database-path (ref (:database invocation))))
+(type ledger-result
+  (fn (ledger-call) (result json failure)))
+
+(defn ledger-result (call)
+  (let-try (settings (settings-for (ref call)))
+    (perform (ref settings)
+             (clone (:request call)))))
+
+(type settings-for
+  (fn ((ref ledger-call))
+    (result settings failure)))
+
+(defn settings-for (call)
+  (let-try (path (database-path (ref (:database call))))
     (ok (->settings :database-path path
                     :clock clock/system
-                    :actor (actor-for (ref (:actor invocation)))))))
+                    :actor (actor-for (ref (:actor call)))))))
 
 (defn actor-for (given)
   (match given
@@ -74,15 +74,8 @@
     ((some path) (ok (clone path)))
     (none (default-database-path))))
 
-(defn failure-or-done (result)
-  (match result
-    ((ok output)
-     (->outcome :exit-code exit-code/done :output output))
-    ((err failure) (failure->outcome failure))))
-
 (defn perform (settings request)
   (match request
-    (help (ok (help)))
     ((new-roadmap name manager)
      (map-ok (new-roadmap settings name manager)
              roadmap-envelope))
@@ -109,27 +102,3 @@
      (map-ok (add-dep settings item on) dep-envelope))
     ((remove-dep item on)
      (map-ok (remove-dep settings item on) dep-envelope))))
-
-(defn failure->outcome (failure)
-  (->outcome :exit-code (failure-exit-code (ref failure))
-             :output (error-envelope (as-str (failure-code (ref failure)))
-                                     (as-str (failure-message (ref failure)))
-                                     (failure-details (ref failure)))))
-
-(defn failure-exit-code (failure)
-  (match failure
-    ((failure/refused _) exit-code/refused)
-    ((failure/no-repository _) exit-code/usage)
-    ((failure/database _) exit-code/database)))
-
-(defn failure-details (failure)
-  (match failure
-    ((failure/refused refusal) (refusal-details refusal))
-    (_ (vec))))
-
-(defn refusal-details (refusal)
-  (match refusal
-    ((not-ready blockage) (blockage-fields blockage))
-    ((paths-conflict conflicts)
-     (vec (pair (str "path_conflicts") (conflicts->json conflicts))))
-    (_ (vec))))

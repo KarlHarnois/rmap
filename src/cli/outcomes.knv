@@ -1,0 +1,55 @@
+(module
+  "Turns a ledger result into the exit code and the JSON the CLI prints.")
+
+(use json/value json)
+
+(use ledger/api failure failure-code failure-message
+                refusal)
+
+(use cli/exit-codes exit-code)
+
+(use cli/envelopes blockage-fields conflicts->json
+                   error-envelope)
+
+(export ->outcome outcome result->outcome usage-outcome)
+
+(defstruct outcome
+  :exit-code exit-code
+  :output json)
+
+(defn result->outcome (result)
+  (match result
+    ((ok output)
+     (->outcome :exit-code exit-code/done :output output))
+    ((err failure) (failure->outcome failure))))
+
+(defn usage-outcome (message)
+  (->outcome :exit-code exit-code/usage
+             :output (error-envelope "usage"
+                                     (as-str (str message
+                                                  "; run `rmap help` to list the commands"))
+                                     (vec))))
+
+(defn failure->outcome (failure)
+  (->outcome :exit-code (failure-exit-code (ref failure))
+             :output (error-envelope (as-str (failure-code (ref failure)))
+                                     (as-str (failure-message (ref failure)))
+                                     (failure-fields (ref failure)))))
+
+(defn failure-exit-code (failure)
+  (match failure
+    ((failure/refused _) exit-code/refused)
+    ((failure/no-repository _) exit-code/usage)
+    ((failure/database _) exit-code/database)))
+
+(defn failure-fields (failure)
+  (match failure
+    ((failure/refused refusal) (refusal-fields refusal))
+    (_ (vec))))
+
+(defn refusal-fields (refusal)
+  (match refusal
+    ((refusal/not-ready blockage) (blockage-fields blockage))
+    ((refusal/paths-conflict conflicts)
+     (vec (pair (str "path_conflicts") (conflicts->json conflicts))))
+    (_ (vec))))
