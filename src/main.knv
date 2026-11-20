@@ -8,9 +8,10 @@
                 show-item)
 
 (use process/environment variable)
+(use cli/requests request)
 
-(use cli/requests invocation ledger-call parse-invocation
-                  request)
+(use cli/invocations invocation ledger-call
+                     parse-invocation)
 
 (use cli/exit-codes exit-code exit-code->number)
 (use cli/help help-document)

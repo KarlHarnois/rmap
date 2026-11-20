@@ -1,0 +1,89 @@
+(module
+  "Parses the command line into an invocation: help, or a call to the ledger.")
+
+(use ledger/api ->advancement ->item-id ->new-item
+                ->session)
+
+(use cli/routes route subcommand)
+
+(use cli/arguments arguments check-shape flag operand
+                   route-of split-arguments)
+
+(use cli/requests add-item-request advance-request
+                  claim-request drop-request log-request
+                  new-roadmap-request request text->id)
+
+(export invocation ledger-call parse-invocation)
+
+(defstruct ledger-call
+  :database (option string)
+  :actor (option string)
+  :request request)
+
+(defenum invocation
+  help
+  (on-ledger ledger-call))
+
+(defn parse-invocation (args)
+  (let-try (arguments (split-arguments args)
+            route (route-of (ref arguments))
+            _ (check-shape (ref arguments) (ref route)))
+    (invocation-of (ref route) (ref arguments))))
+
+(type on-ledger
+  (fn ((ref arguments) (result request string))
+    (result invocation string)))
+
+(defn on-ledger (arguments requested)
+  (map-ok requested
+    (fn (request)
+      (invocation/on-ledger (->ledger-call :database (flag arguments "db")
+                                           :actor (flag arguments "actor")
+                                           :request request)))))
+
+(type invocation-of
+  (fn ((ref route) (ref arguments))
+    (result invocation string)))
+
+(defn invocation-of (route arguments)
+  (match (:subcommand route)
+    (subcommand/help (ok invocation/help))
+    (subcommand/new
+      (on-ledger arguments
+                 (new-roadmap-request arguments (operand arguments route 0))))
+    (subcommand/list (on-ledger arguments (ok request/list-roadmaps)))
+    (subcommand/ready (on-ledger arguments
+                                 (ok (request/ready (flag arguments
+                                                          "roadmap")))))
+    (subcommand/log (on-ledger arguments (log-request arguments)))
+    (subcommand/item-add (on-ledger arguments (add-item-request arguments)))
+    (subcommand/item-list (on-ledger arguments
+                                     (ok (request/list-items
+                                           (flag arguments "roadmap")))))
+    (subcommand/item-show (on-ledger arguments
+                                     (ok (request/show-item
+                                           (text->id
+                                             (operand arguments route 0))))))
+    (subcommand/item-claim
+      (on-ledger arguments
+                 (claim-request arguments (operand arguments route 0))))
+    (subcommand/item-advance (on-ledger arguments
+                                        (advance-request
+                                          arguments
+                                          (operand arguments route 0)
+                                          (operand arguments route 1))))
+    (subcommand/item-close
+      (on-ledger arguments
+                 (ok (request/close (text->id (operand arguments route 0))))))
+    (subcommand/item-drop
+      (on-ledger arguments
+                 (drop-request arguments (operand arguments route 0))))
+    (subcommand/dep-add
+      (on-ledger arguments
+                 (ok (request/add-dep (text->id (operand arguments route 0))
+                                      (text->id (operand arguments route 1))))))
+    (subcommand/dep-rm (on-ledger arguments
+                                  (ok (request/remove-dep
+                                        (text->id (operand arguments route 0))
+                                        (text->id
+                                          (operand arguments route 1))))))))
