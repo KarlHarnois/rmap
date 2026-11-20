@@ -1,14 +1,14 @@
 (use ledger/api ->item-id add-item kind show-item)
 
-(use support/ledger added-id globs-of-patterns item-draft
+(use support/ledger added-id added-research
+                    globs-of-patterns item-draft
                     ledger-with-two-roadmaps
                     other-roadmap-name refusal-code-of
                     scratch-ledger)
 
 (deftest repeated-blockers-are-stored-once
   (let (settings (scratch-ledger "repeated-blockers")
-        blocker (added-id (ref settings)
-                          (item-draft kind/research (vec)))
+        blocker (added-research (ref settings))
         draft (assoc (item-draft kind/research (vec))
                      :blocked-by (vec (clone blocker) (clone blocker)))
         blocked (added-id (ref settings) draft))
@@ -43,8 +43,7 @@
 
 (deftest a-parent-that-is-not-an-epic-is-refused
   (let (settings (scratch-ledger "parent-not-epic")
-        research (added-id (ref settings)
-                           (item-draft kind/research (vec))))
+        research (added-research (ref settings)))
     (assert (= (refusal-code-of (added (ref settings)
                                        (assoc (item-draft kind/design (vec))
                                               :parent (some research))))
