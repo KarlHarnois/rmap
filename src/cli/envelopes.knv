@@ -11,6 +11,8 @@
 (use cli/ledger-json blocked->json dep->json event->json
                      globs->json item->json roadmap->json)
 
+(use cli/next-json next-item->json)
+
 (export envelope error-envelope reply-envelope)
 
 (def output-schema-version 1)
@@ -39,6 +41,7 @@
      (roadmaps-envelope roadmaps))
     ((reply/readiness-checked readiness)
      (readiness-envelope readiness))
+    ((reply/next-listed items) (next-envelope items))
     ((reply/log-read events) (events-envelope events))
     ((reply/item-added item) (item-envelope item))
     ((reply/item-moved item) (item-envelope item))
@@ -86,6 +89,10 @@
 (defn events-envelope (events)
   (envelope (vec (pair (str "events")
                        (array (collect (map (iter events) event->json)))))))
+
+(defn next-envelope (items)
+  (envelope (vec (pair (str "next")
+                       (array (collect (map (iter items) next-item->json)))))))
 
 (defn dep-envelope (dep)
   (envelope (vec (pair (str "dep") (dep->json (ref dep))))))

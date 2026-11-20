@@ -1,0 +1,82 @@
+(use ledger/api list-items new-roadmap next-actions read-log
+                settings)
+
+(use support/ledger ledger-with-two-roadmaps
+                    other-roadmap-name refusal-code-of
+                    research research-in roadmap-name
+                    session-named)
+
+(def third-roadmap-name "third")
+
+(defn ledger-with-three-roadmaps (name)
+  (let (settings (ledger-with-two-roadmaps name))
+    (assert (ok? (new-roadmap (ref settings)
+                              (str third-roadmap-name)
+                              (session-named "manager"))))
+    (research (ref settings))
+    (research-in (ref settings) other-roadmap-name)
+    (research-in (ref settings) third-roadmap-name)
+    settings))
+
+(type roadmaps-listed
+  (fn ((ref settings)
+       (option (ref str))
+       (option (ref str)))
+    (vec string)))
+
+(defn roadmaps-listed (settings roadmap manager)
+  (-> (unwrap-ok (next-actions settings
+                               (map-some roadmap str)
+                               (map-some manager session-named)))
+      iter
+      (map (fn (entry)
+             (clone (:name (:roadmap entry)))))
+      collect))
+
+(deftest an-unknown-roadmap-is-refused
+  (let (settings (ledger-with-two-roadmaps "next-unknown-roadmap"))
+    (assert (= (refusal-code-of (next-actions (ref settings)
+                                              (some (str "nope"))
+                                              none))
+               (some (str "roadmap-not-found"))))))
+
+(deftest naming-a-roadmap-lists-only-its-items
+  (let (settings (ledger-with-three-roadmaps "next-by-roadmap"))
+    (assert (= (roadmaps-listed (ref settings)
+                                (some other-roadmap-name)
+                                none)
+               (vec (str other-roadmap-name))))))
+
+(deftest naming-a-manager-lists-the-items-of-every-roadmap-it-runs
+  (let (settings (ledger-with-three-roadmaps "next-by-manager"))
+    (assert (= (sorted (roadmaps-listed (ref settings) none (some "manager")))
+               (vec (str roadmap-name) (str third-roadmap-name))))))
+
+(defn sorted (names)
+  (let (all names) (sort! all) all))
+
+(deftest a-roadmap-and-its-manager-list-that-roadmap
+  (let (settings (ledger-with-three-roadmaps "next-by-both"))
+    (assert (= (roadmaps-listed (ref settings)
+                                (some third-roadmap-name)
+                                (some "manager"))
+               (vec (str third-roadmap-name))))))
+
+(deftest a-roadmap-with-another-manager-lists-nothing
+  (let (settings (ledger-with-three-roadmaps "next-by-both-mismatched"))
+    (assert (empty? (roadmaps-listed (ref settings)
+                                     (some roadmap-name)
+                                     (some "other-manager"))))))
+
+(defn event-ids (settings)
+  (collect (map (iter (unwrap-ok (read-log settings none 0)))
+             (fn (event) (:id event)))))
+
+(deftest next-writes-no-event-and-changes-no-item
+  (let (settings (ledger-with-three-roadmaps "next-reads-only")
+        events-before (event-ids (ref settings))
+        items-before (unwrap-ok (list-items (ref settings) none))
+        _ (unwrap-ok (next-actions (ref settings) none none)))
+    (assert (= (event-ids (ref settings)) events-before))
+    (assert (= (unwrap-ok (list-items (ref settings) none))
+               items-before))))

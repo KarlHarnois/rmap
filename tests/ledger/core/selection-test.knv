@@ -1,0 +1,52 @@
+(use ledger/model ->roadmap-id ->session)
+(use ledger/core/selection selected-roadmaps)
+(use ledger/core/snapshot scope)
+(use support/items roadmap-of)
+
+(defn roadmaps ()
+  (vec (roadmap-of "road" "m1")
+       (roadmap-of "other" "m2")
+       (roadmap-of "third" "m1")))
+
+(defn one (id)
+  (scope/one-roadmap (->roadmap-id :value (str id))))
+
+(defn session-named (name)
+  (->session :name (str name)))
+
+(type selected-ids
+  (fn (scope (option (ref str)))
+    (vec string)))
+
+(defn selected-ids (scope manager-name)
+  (-> (selected-roadmaps (ref (roadmaps))
+                         (ref scope)
+                         (ref (map-some manager-name session-named)))
+      iter
+      (map (fn (roadmap)
+             (clone (:value (:id roadmap)))))
+      collect))
+
+(deftest with-no-filter-every-roadmap-is-kept
+  (assert (= (selected-ids scope/every-roadmap none)
+             (vec (str "road")
+                  (str "other")
+                  (str "third")))))
+
+(deftest naming-a-roadmap-keeps-only-it
+  (assert (= (selected-ids (one "other") none)
+             (vec (str "other")))))
+
+(deftest naming-a-manager-keeps-the-roadmaps-it-runs
+  (assert (= (selected-ids scope/every-roadmap (some "m1"))
+             (vec (str "road") (str "third")))))
+
+(deftest a-roadmap-and-its-manager-keep-that-roadmap
+  (assert (= (selected-ids (one "third") (some "m1"))
+             (vec (str "third")))))
+
+(deftest a-roadmap-with-another-manager-keeps-nothing
+  (assert (empty? (selected-ids (one "road") (some "m2")))))
+
+(deftest a-manager-with-no-roadmaps-keeps-nothing
+  (assert (empty? (selected-ids scope/every-roadmap (some "nobody")))))

@@ -5,7 +5,8 @@
                 text->json)
 
 (use ledger/api refusal-catalog refusal-description)
-(use cli/routes route-name routes)
+(use cli/routes route-name)
+(use cli/commands routes)
 
 (use cli/flag-specs boolean? flag-input flag-spec
                     global-flags required?)
@@ -36,6 +37,8 @@
   (object (vec
             (pair (str "command")
                   (text->json (as-str (route-name route))))
+            (pair (str "summary")
+                  (text->json (as-str (:summary route))))
             (pair (str "operands")
                   (array (collect (map (iter (:operands route))
                                     (fn (name) (text->json (as-str name)))))))

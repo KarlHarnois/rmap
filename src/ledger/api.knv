@@ -7,9 +7,9 @@
                   origin path-conflict roadmap roadmap-id
                   session status timestamp)
 
-(use ledger/names case-name case-named dep-type-names
-                  event-type-names graph-format-names
-                  kind-names origin-names
+(use ledger/names action-names actor-names case-name
+                  case-named dep-type-names event-type-names
+                  graph-format-names kind-names origin-names
                   roadmap-status-names status-names)
 
 (use ledger/refusal refusal refusal->message)
@@ -34,6 +34,9 @@
                             init-outcome-names init-report)
 
 (use ledger/operations/readiness ready-items)
+(use ledger/operations/next next-actions)
+(use ledger/core/actions action actor next-action)
+(use ledger/core/next next-item)
 (use ledger/operations/log read-log)
 
 (use ledger/operations/items item-detail list-items
@@ -52,10 +55,11 @@
                              graph-source)
 
 (export ->advancement ->glob ->graph-request ->graph-source
-        ->item-id ->new-item ->session ->settings add-dep
-        add-item advance-item advancement blockage
-        blocked-item case-name case-named claim claim-item
-        clock close-item default-database-path dep dep-type
+        ->item-id ->new-item ->session ->settings action
+        action-names actor actor-names add-dep add-item
+        advance-item advancement blockage blocked-item
+        case-name case-named claim claim-item clock
+        close-item default-database-path dep dep-type
         dep-type-names draw-graph drop-item event event-type
         event-type-names failure failure-code
         failure-message glob globs->json graph-format
@@ -63,10 +67,10 @@
         history ids->json init-ledger init-outcome
         init-outcome-names init-report item item-detail
         item-id kind kind-change kind-names list-items
-        list-roadmaps new-item new-roadmap optional-id->json
-        origin origin-names path-conflict path-conflict
-        read-log readiness ready-items refusal
-        refusal->message refusal-catalog refusal-code-text
-        refusal-description remove-dep roadmap roadmap-id
-        roadmap-status-names session settings show-item
-        status status-names timestamp)
+        list-roadmaps new-item new-roadmap next-action
+        next-actions next-item optional-id->json origin
+        origin-names path-conflict read-log readiness
+        ready-items refusal refusal->message refusal-catalog
+        refusal-code-text refusal-description remove-dep
+        roadmap roadmap-id roadmap-status-names session
+        settings show-item status status-names timestamp)

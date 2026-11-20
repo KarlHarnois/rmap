@@ -26,3 +26,19 @@
                (some (str "<path>"))))
     (assert (= (json->bool (unwrap (field (ref spec) "boolean")))
                (some false)))))
+
+(defn command-summary (name)
+  (let (document (help-document)
+        commands (unwrap (json->items (unwrap (field (ref document)
+                                                     "commands")))))
+    (-> commands iter
+        (find (fn (command)
+                (= (json->text (unwrap (field command "command")))
+                   (some (str name)))))
+        unwrap
+        (field "summary")
+        unwrap json->text unwrap)))
+
+(deftest next-says-a-manager-without-roadmaps-gives-an-empty-list
+  (assert (contains? (as-str (command-summary "next"))
+                     "A manager with no roadmaps gives an empty list")))

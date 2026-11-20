@@ -2,7 +2,7 @@
   "Describes the CLI in plain text: its usage, its commands, its exit codes and its refusal codes.")
 
 (use ledger/api refusal-catalog)
-(use cli/routes routes)
+(use cli/commands routes)
 
 (use cli/exit-codes exit-code->meaning exit-code->number
                     exit-codes)
@@ -15,11 +15,16 @@
 (defn help-text ()
   (join (vec (str "Usage: " (usage-line))
              (section "Commands"
-                      (join (collect (map (iter (routes)) command-usage))
+                      (join (collect (map (iter (routes)) command-entry))
                             "\n"))
              (section "Exit codes" (table (exit-code-rows)))
              (section "Refusal codes" (table (refusal-rows))))
         "\n\n"))
+
+(defn command-entry (route)
+  (str (command-usage route)
+       "\n"
+       (indented (:summary route))))
 
 (defn section (title body)
   (str title ":\n" (indented body)))

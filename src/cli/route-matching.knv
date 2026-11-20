@@ -1,7 +1,8 @@
 (module
   "Finds the route a command line names and checks its operands and flags against it.")
 
-(use cli/routes route route-name routes word-count)
+(use cli/routes route route-name word-count)
+(use cli/commands routes)
 (use cli/flag-specs flag-spec global-flags required?)
 (use cli/arguments arguments)
 (use cli/flags optional-text)
