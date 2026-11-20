@@ -32,6 +32,7 @@
 (defstruct route
   :subcommand subcommand
   :words (vec string)
+  :summary string
   :operands (vec string)
   :flags (vec flag-spec))
 
@@ -56,36 +57,44 @@
 (defn routes ()
   (vec (->route :subcommand subcommand/help
                 :words (words "help")
+                :summary (str "Prints this help.")
                 :operands (vec)
                 :flags (vec))
        (->route :subcommand subcommand/init
                 :words (words "init")
+                :summary (str "Creates the ledger for this repository.")
                 :operands (vec)
                 :flags (vec))
        (->route :subcommand subcommand/new
                 :words (words "new")
+                :summary (str "Creates a roadmap that a manager session runs.")
                 :operands (operands (vec "name"))
                 :flags (vec (required "manager" "<session>")))
        (->route :subcommand subcommand/list
                 :words (words "list")
+                :summary (str "Lists the roadmaps.")
                 :operands (vec)
                 :flags (vec))
        (->route :subcommand subcommand/ready
                 :words (words "ready")
+                :summary (str "Lists the items that can start, and what holds back the others.")
                 :operands (vec)
                 :flags (vec (optional "roadmap" "<name>")))
        (->route :subcommand subcommand/next
                 :words (words "next")
+                :summary (str "Lists the next action for each open item and who takes it. A manager with no roadmaps gives an empty list, not an error.")
                 :operands (vec)
                 :flags (vec (optional "roadmap" "<name>")
                             (optional "manager" "<session>")))
        (->route :subcommand subcommand/log
                 :words (words "log")
+                :summary (str "Prints the events, for one item or after one event id when given.")
                 :operands (vec)
                 :flags (vec (optional "item" "<id>")
                             (optional "since" "<event id>")))
        (->route :subcommand subcommand/item-add
                 :words (words "item add")
+                :summary (str "Adds an item to a roadmap.")
                 :operands (vec)
                 :flags (vec (required "roadmap" "<name>")
                             (required "title" "<text>")
@@ -98,39 +107,48 @@
                             (optional "priority" "<whole number>")))
        (->route :subcommand subcommand/item-list
                 :words (words "item list")
+                :summary (str "Lists the items.")
                 :operands (vec)
                 :flags (vec (optional "roadmap" "<name>")))
        (->route :subcommand subcommand/item-show
                 :words (words "item show")
+                :summary (str "Shows one item with its dependencies and paths.")
                 :operands (operands (vec "id"))
                 :flags (vec))
        (->route :subcommand subcommand/item-claim
                 :words (words "item claim")
+                :summary (str "Gives a ready item to a session and marks it dispatched.")
                 :operands (operands (vec "id"))
                 :flags (vec (required "session" "<name>")))
        (->route :subcommand subcommand/item-advance
                 :words (words "item advance")
+                :summary (str "Moves an item to another status.")
                 :operands (vec (str "id") (choices status-names))
                 :flags (vec (optional "kind" "build")
                             (optional "paths" "<globs, comma-separated>")))
        (->route :subcommand subcommand/item-close
                 :words (words "item close")
+                :summary (str "Marks an item merged.")
                 :operands (operands (vec "id"))
                 :flags (vec))
        (->route :subcommand subcommand/item-drop
                 :words (words "item drop")
+                :summary (str "Drops an item and records the reason.")
                 :operands (operands (vec "id"))
                 :flags (vec (required "reason" "<text>")))
        (->route :subcommand subcommand/dep-add
                 :words (words "dep add")
+                :summary (str "Makes an item come after another.")
                 :operands (operands (vec "item" "on"))
                 :flags (vec))
        (->route :subcommand subcommand/dep-rm
                 :words (words "dep rm")
+                :summary (str "Removes the dependency between two items.")
                 :operands (operands (vec "item" "on"))
                 :flags (vec))
        (->route :subcommand subcommand/graph
                 :words (words "graph")
+                :summary (str "Prints the roadmaps, their items and dependencies as a Mermaid flowchart. Merged items show only with --all.")
                 :operands (vec)
                 :flags (vec (optional "roadmap" "<name>")
                             (boolean-flag "all")

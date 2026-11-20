@@ -36,6 +36,8 @@
   (object (vec
             (pair (str "command")
                   (text->json (as-str (route-name route))))
+            (pair (str "summary")
+                  (text->json (as-str (:summary route))))
             (pair (str "operands")
                   (array (collect (map (iter (:operands route))
                                     (fn (name) (text->json (as-str name)))))))
