@@ -3,10 +3,10 @@
                 kind-change read-log ready-items refusal
                 show-item status)
 
-(use support/ledger added-id claimed globs-of-patterns
-                    item-draft refusal-code-of
-                    reported-research scratch-ledger
-                    session-named)
+(use support/ledger added-id added-research claimed
+                    globs-of-patterns item-draft
+                    refusal-code-of reported-research
+                    scratch-ledger session-named)
 
 (defn become-build (settings id patterns)
   (advance-item settings
@@ -67,9 +67,6 @@
               (fn (event)
                 (= (:actor event) (str "tester")))))))
 
-(defn research (settings)
-  (added-id settings (item-draft kind/research (vec))))
-
 (defn build (settings pattern)
   (added-id settings
             (item-draft kind/build (globs-of-patterns (vec pattern)))))
@@ -91,7 +88,7 @@
 (deftest a-research-item-cannot-enter-review
   (let (settings (scratch-ledger "research-review")
         item (claimed (ref settings)
-                      (research (ref settings))))
+                      (added-research (ref settings))))
     (assert (= (refusal-code-of (advance-item
                                   (ref settings)
                                   item
@@ -103,14 +100,14 @@
 (deftest claiming-a-claimed-item-is-refused
   (let (settings (scratch-ledger "claim-twice")
         item (claimed (ref settings)
-                      (research (ref settings))))
+                      (added-research (ref settings))))
     (assert (= (refusal-code-of
                  (claim-item (ref settings) item (session-named "other")))
                (some (str "invalid-transition"))))))
 
 (deftest claiming-a-blocked-item-is-refused
   (let (settings (scratch-ledger "claim-blocked")
-        blocker (research (ref settings))
+        blocker (added-research (ref settings))
         blocked (added-id (ref settings)
                           (assoc (item-draft kind/research (vec))
                                  :blocked-by (vec blocker))))
@@ -147,7 +144,7 @@
 
 (deftest dropping-a-dropped-item-is-refused
   (let (settings (scratch-ledger "drop-twice")
-        item (research (ref settings)))
+        item (added-research (ref settings)))
     (assert (ok? (drop-item (ref settings)
                             (clone item)
                             (str "obsolete"))))

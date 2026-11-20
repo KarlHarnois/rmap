@@ -7,11 +7,11 @@
 
 (use support/scratch scratch-database)
 
-(export added-id added-id-in advanced claimed
-        globs-of-patterns item-draft
-        ledger-with-two-roadmaps other-roadmap-name
-        refusal-code-of reported-research scratch-ledger
-        session-named)
+(export added-id added-id-in added-research
+        added-research-in advanced claimed globs-of-patterns
+        item-draft ledger-with-two-roadmaps
+        other-roadmap-name refusal-code-of reported-research
+        scratch-ledger session-named)
 
 (def roadmap-name "road")
 
@@ -59,6 +59,13 @@
 
 (defn added-id-in (settings roadmap draft)
   (clone (:id (unwrap-ok (add-item settings (str roadmap) draft)))))
+
+(defn added-research (settings)
+  (added-research-in settings roadmap-name))
+
+(defn added-research-in (settings roadmap)
+  (added-id-in settings roadmap
+               (item-draft kind/research (vec))))
 
 (defn claimed (settings id)
   (assert (ok? (claim-item settings (clone id) (session-named "worker"))))

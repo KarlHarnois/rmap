@@ -1,21 +1,14 @@
-(use ledger/api add-dep kind remove-dep)
+(use ledger/api add-dep remove-dep)
 
-(use support/ledger added-id added-id-in item-draft
+(use support/ledger added-research added-research-in
                     ledger-with-two-roadmaps
                     other-roadmap-name refusal-code-of
                     scratch-ledger)
 
-(defn research (settings)
-  (added-id settings (item-draft kind/research (vec))))
-
-(defn other-research (settings)
-  (added-id-in settings other-roadmap-name
-               (item-draft kind/research (vec))))
-
 (deftest a-two-edge-cycle-is-refused
   (let (settings (scratch-ledger "two-edge-cycle")
-        first (research (ref settings))
-        second (research (ref settings)))
+        first (added-research (ref settings))
+        second (added-research (ref settings)))
     (assert (ok? (add-dep (ref settings)
                           (clone first)
                           (clone second))))
@@ -24,9 +17,9 @@
 
 (deftest a-three-edge-cycle-is-refused
   (let (settings (scratch-ledger "three-edge-cycle")
-        first (research (ref settings))
-        second (research (ref settings))
-        third (research (ref settings)))
+        first (added-research (ref settings))
+        second (added-research (ref settings))
+        third (added-research (ref settings)))
     (assert (ok? (add-dep (ref settings)
                           (clone first)
                           (clone second))))
@@ -38,8 +31,8 @@
 
 (deftest a-repeated-dep-is-refused
   (let (settings (scratch-ledger "repeated-dep")
-        first (research (ref settings))
-        second (research (ref settings)))
+        first (added-research (ref settings))
+        second (added-research (ref settings)))
     (assert (ok? (add-dep (ref settings)
                           (clone first)
                           (clone second))))
@@ -48,21 +41,21 @@
 
 (deftest removing-a-missing-dep-is-refused
   (let (settings (scratch-ledger "missing-dep")
-        first (research (ref settings))
-        second (research (ref settings)))
+        first (added-research (ref settings))
+        second (added-research (ref settings)))
     (assert (= (refusal-code-of (remove-dep (ref settings) first second))
                (some (str "dep-not-found"))))))
 
 (deftest a-dep-on-an-item-in-another-roadmap-is-added
   (let (settings (ledger-with-two-roadmaps "cross-roadmap-dep")
-        blocker (research (ref settings))
-        blocked (other-research (ref settings)))
+        blocker (added-research (ref settings))
+        blocked (added-research-in (ref settings) other-roadmap-name))
     (assert (ok? (add-dep (ref settings) blocked blocker)))))
 
 (deftest a-cycle-through-two-roadmaps-is-refused
   (let (settings (ledger-with-two-roadmaps "cross-roadmap-cycle")
-        first (research (ref settings))
-        second (other-research (ref settings)))
+        first (added-research (ref settings))
+        second (added-research-in (ref settings) other-roadmap-name))
     (assert (ok? (add-dep (ref settings)
                           (clone first)
                           (clone second))))

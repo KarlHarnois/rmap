@@ -1,7 +1,8 @@
 (use ledger/api kind ready-items status)
 
-(use support/ledger added-id added-id-in advanced claimed
-                    item-draft ledger-with-two-roadmaps
+(use support/ledger added-id added-id-in added-research
+                    advanced claimed item-draft
+                    ledger-with-two-roadmaps
                     other-roadmap-name refusal-code-of
                     scratch-ledger)
 
@@ -24,9 +25,6 @@
 (defn other-readiness (settings)
   (unwrap-ok (ready-items settings (some (str other-roadmap-name)))))
 
-(defn research (settings)
-  (added-id settings (item-draft kind/research (vec))))
-
 (defn other-research-blocked-by (settings blocker)
   (added-id-in settings other-roadmap-name
                (assoc (item-draft kind/research (vec))
@@ -34,7 +32,7 @@
 
 (deftest an-open-blocker-in-another-roadmap-keeps-an-item-waiting
   (let (settings (ledger-with-two-roadmaps "cross-roadmap-waiting")
-        blocker (research (ref settings))
+        blocker (added-research (ref settings))
         _blocked (other-research-blocked-by (ref settings) blocker)
         readiness (other-readiness (ref settings)))
     (assert (= (len (:ready readiness)) 0))
@@ -42,7 +40,7 @@
 
 (deftest a-delivered-blocker-in-another-roadmap-frees-the-item
   (let (settings (ledger-with-two-roadmaps "cross-roadmap-freed")
-        blocker (research (ref settings))
+        blocker (added-research (ref settings))
         _blocked (other-research-blocked-by (ref settings) (clone blocker))
         _delivered (advanced (ref settings)
                              (claimed (ref settings) blocker)
