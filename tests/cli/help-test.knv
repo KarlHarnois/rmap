@@ -1,0 +1,28 @@
+(use json/value copy-of field json->bool json->items
+                json->text)
+
+(use cli/help help-document)
+
+(defn global-flag (name)
+  (let (document (help-document)
+        flags (unwrap (json->items (unwrap (field (ref document)
+                                                  "global_flags")))))
+    (unwrap (map-some (find (iter flags)
+                        (fn (spec)
+                          (= (json->text (unwrap (field spec "name")))
+                             (some (str name)))))
+                      copy-of))))
+
+(deftest a-boolean-flag-keeps-a-text-value-and-says-it-is-boolean
+  (let (spec (global-flag "json"))
+    (assert (= (json->text (unwrap (field (ref spec) "value")))
+               (some (str ""))))
+    (assert (= (json->bool (unwrap (field (ref spec) "boolean")))
+               (some true)))))
+
+(deftest a-flag-with-a-value-is-not-boolean
+  (let (spec (global-flag "db"))
+    (assert (= (json->text (unwrap (field (ref spec) "value")))
+               (some (str "<path>"))))
+    (assert (= (json->bool (unwrap (field (ref spec) "boolean")))
+               (some false)))))

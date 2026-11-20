@@ -7,8 +7,8 @@
 (use ledger/api refusal-catalog refusal-description)
 (use cli/routes route-name routes)
 
-(use cli/flag-specs flag-input flag-spec global-flags
-                    required?)
+(use cli/flag-specs boolean? flag-input flag-spec
+                    global-flags required?)
 
 (use cli/exit-codes exit-code->meaning exit-code->number
                     exit-codes)
@@ -51,13 +51,15 @@
                (pair (str "required")
                      (bool->json (required? spec)))
                (pair (str "value")
-                     (input->json (ref (:input spec)))))))
+                     (placeholder->json (ref (:input spec))))
+               (pair (str "boolean")
+                     (bool->json (boolean? spec))))))
 
-(defn input->json (input)
+(defn placeholder->json (input)
   (match input
     ((flag-input/value placeholder)
      (text->json (as-str placeholder)))
-    (flag-input/boolean json/null)))
+    (flag-input/boolean (text->json ""))))
 
 (defn exit-code->json (code)
   (object (vec (pair (str "code")
