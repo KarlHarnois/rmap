@@ -1,8 +1,6 @@
-(use json/value json->entries)
-
-(use support/rmap database-with-roadmap initialized-database
-                  research-id run-rmap run-rmap-text
-                  text-at)
+(use support/rmap blocked-design-id database-with-roadmap
+                  initialized-database research-id run-rmap
+                  run-rmap-text text-at top-level-keys)
 
 (use support/scratch scratch-database)
 
@@ -36,14 +34,6 @@
     (assert (= (:code output) 0))
     (assert (starts-with? (as-str (:stdout output)) "Usage: rmap"))))
 
-(defn blocked-design-id (database blocker)
-  (text-at (ref (run-rmap (clone database)
-                          (vec "item" "add" "--roadmap"
-                               "road" "--title" "d" "--kind"
-                               "design" "--after"
-                               (as-str blocker))))
-           "item" "id"))
-
 (defn roadmap-id-of (database item)
   (text-at (ref (run-rmap (clone database)
                           (vec "item" "show" (as-str item))))
@@ -69,8 +59,7 @@
         research (research-id (clone database))
         _design (blocked-design-id (clone database) research)
         reply (run-rmap database (vec "ready")))
-    (assert (= (collect (map (iter (json->entries (ref (:json reply))))
-                          (fn (entry) (clone (first entry)))))
+    (assert (= (top-level-keys (ref reply))
                (vec (str "blocked")
                     (str "ready")
                     (str "schema_version"))))))
