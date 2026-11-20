@@ -3,6 +3,7 @@
                   run-rmap-text text-at top-level-keys)
 
 (use support/scratch scratch-database)
+(use json/value field json->items json->text)
 
 (deftest a-command-prints-text-by-default
   (let (database (initialized-database "text-by-default")
@@ -66,3 +67,51 @@
                (str "road")))
     (assert (starts-with? (as-str (text-at (ref reply) "item" "roadmap_id"))
                           "rm-"))))
+
+(defn epic-id (database)
+  (text-at (ref (run-rmap database
+                          (vec "item" "add" "--roadmap"
+                               "road" "--title" "e" "--kind"
+                               "epic")))
+           "item" "id"))
+
+(defn child-id (database epic)
+  (text-at (ref (run-rmap database
+                          (vec "item" "add" "--roadmap"
+                               "road" "--title" "c" "--kind"
+                               "research" "--parent"
+                               (as-str epic))))
+           "item" "id"))
+
+(defn child-ids-at (reply)
+  (collect (map (iter (unwrap (json->items (unwrap (field (:json reply)
+                                                          "children")))))
+                (fn (child)
+                  (unwrap (json->text (unwrap (field child "id"))))))))
+
+(deftest item-show-replies-with-the-children-of-an-epic
+  (let (database (database-with-roadmap "item-children")
+        epic (epic-id (clone database))
+        child (child-id (clone database) (ref epic))
+        reply (run-rmap database (vec "item" "show" (as-str epic))))
+    (assert (= (child-ids-at (ref reply))
+               (vec child)))))
+
+(deftest item-show-replies-with-no-children-for-a-research-item
+  (let (database (database-with-roadmap "item-no-children")
+        research (research-id (clone database))
+        reply (run-rmap database (vec "item" "show" (as-str research))))
+    (assert (= (child-ids-at (ref reply)) (vec)))))
+
+(deftest item-show-prints-the-children-of-an-epic
+  (let (database (database-with-roadmap "item-children-text")
+        epic (epic-id (clone database))
+        child (child-id (clone database) (ref epic))
+        output (run-rmap-text
+                 (vec "--db" (as-str database) "item" "show" (as-str epic))))
+    (assert (= (:code output) 0))
+    (assert (contains? (:stdout output)
+                       (as-str (str "\n\nChildren:\n"
+                                    "  ID       ROADMAP  KIND      STATUS  PRIORITY  TITLE\n"
+                                    "  " child
+                                    "  road     research  open    0         c\n"))))))

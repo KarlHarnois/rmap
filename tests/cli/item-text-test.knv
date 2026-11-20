@@ -4,8 +4,8 @@
 (use cli/item-text item-added-text item-detail-text
                    item-moved-text items-text)
 
-(use support/items blocks-dep claimed glob-of id-of
-                   work-item)
+(use support/items blocks-dep child-of claimed epic-item
+                   glob-of id-of work-item)
 
 (deftest adding-an-item-names-its-id-kind-and-title
   (assert (= (item-added-text (ref
@@ -38,3 +38,14 @@
                               :children (vec)))
     (assert (= (item-detail-text (ref detail))
                (str "rm-0002  work\n  roadmap          rm-road\n  kind             build\n  status           dispatched\n  claimed by       worker\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  paths            src/**\n  after            rm-0001\n  discovered from  rm-0009")))))
+
+(deftest an-epic-detail-lists-its-children-under-a-heading
+  (let (detail (->item-detail :item (epic-item "rm-0001")
+                              :deps (vec)
+                              :globs (vec)
+                              :children (vec (child-of (work-item "rm-0002"
+                                                                  kind/build
+                                                                  status/merged)
+                                                       "rm-0001"))))
+    (assert (= (item-detail-text (ref detail))
+               (str "rm-0001  work\n  roadmap          rm-road\n  kind             epic\n  status           open\n  claimed by       -\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  paths            -\n  after            -\n  discovered from  -\n\nChildren:\n  ID       ROADMAP  KIND   STATUS  PRIORITY  TITLE\n  rm-0002  road     build  merged  0         work")))))

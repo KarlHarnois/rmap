@@ -107,7 +107,10 @@
                  (pair (str "deps")
                        (array (collect (map (iter (:deps detail)) dep->json))))
                  (pair (str "paths")
-                       (globs->json (ref (:globs detail)))))))
+                       (globs->json (ref (:globs detail))))
+                 (pair (str "children")
+                       (array (collect (map (iter (:children detail))
+                                            item->json)))))))
 
 (defn readiness-envelope (readiness)
   (envelope (vec (pair (str "ready")
