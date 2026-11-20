@@ -1,0 +1,11 @@
+(module
+  "Pairs the schema version a ledger stores with the newest version this rmap can migrate to.")
+
+(export ->schema-versions ledger-newer? schema-versions)
+
+(defstruct schema-versions
+  :ledger int
+  :binary int)
+
+(defn ledger-newer? (versions)
+  (> (:ledger versions) (:binary versions)))

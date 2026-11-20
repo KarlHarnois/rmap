@@ -2,6 +2,7 @@
   "Opens the ledger database and runs SQL with SQLite values as parameters and cells.")
 
 (use ledger/sqlite/values sql-value)
+(use ledger/sqlite/schema-versions schema-versions)
 
 (export ->database-error begin begin-read connection
         database-error database-failure database-problem
@@ -12,6 +13,7 @@
 
 (defenum database-problem
   busy
+  (too-new schema-versions)
   failed)
 
 (defstruct database-error

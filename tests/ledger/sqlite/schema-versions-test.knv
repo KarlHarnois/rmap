@@ -1,0 +1,11 @@
+(use ledger/sqlite/schema-versions ->schema-versions
+                                   ledger-newer?)
+
+(deftest a-ledger-above-the-binary-version-is-newer
+  (assert (ledger-newer? (->schema-versions :ledger 3 :binary 2))))
+
+(deftest a-ledger-at-the-binary-version-is-not-newer
+  (assert (not (ledger-newer? (->schema-versions :ledger 2 :binary 2)))))
+
+(deftest a-ledger-below-the-binary-version-is-not-newer
+  (assert (not (ledger-newer? (->schema-versions :ledger 1 :binary 2)))))

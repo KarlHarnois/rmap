@@ -4,6 +4,8 @@
 (use ledger/sqlite/connection ->database-error
                               database-problem)
 
+(use ledger/sqlite/schema-versions ->schema-versions)
+
 (deftest a-refusal-reports-its-refusal-code
   (assert (= (failure-code (failure/refused refusal/epic-has-parent))
              (str "epic-has-parent"))))
@@ -27,3 +29,12 @@
 (deftest a-missing-repository-reports-no-repository
   (assert (= (failure-code (failure/no-repository (str "not a git repository")))
              (str "no-repository"))))
+
+(deftest a-ledger-from-a-newer-rmap-reports-ledger-too-new
+  (assert (= (failure-code (failure/database (->database-error
+                                               :problem (database-problem/too-new
+                                                          (->schema-versions
+                                                            :ledger 3
+                                                            :binary 2))
+                                               :message (str "too new"))))
+             (str "ledger-too-new"))))
