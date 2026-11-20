@@ -96,10 +96,9 @@ jobs:
         run: knave test
       - name: Keep the README's `rmap help` in sync with the CLI
         run: |
-          knave build
-          readme_help=$(awk '/^## Use$/ {in_use = 1; next} in_use && /^```/ {if (in_block) exit; in_block = 1; next} in_block' README.md)
-          if ! diff -u <(printf '%s\n' "$readme_help") <(env -u RMAP_JSON target/knave/rmap/rmap help); then
-            echo "The Use section of README.md no longer matches \`rmap help\`. Replace its code block with the output of \`rmap help\`."
+          knave task sync-readme-help
+          if ! git diff --exit-code README.md; then
+            echo "The Use section of README.md no longer matches \`rmap help\`. Run \`knave task sync-readme-help\` and commit README.md."
             exit 1
           fi
   nix:
