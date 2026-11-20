@@ -26,8 +26,8 @@ Commands:
     Creates a roadmap that a manager session runs.
   list
     Lists the roadmaps.
-  ready [--roadmap <name>]
-    Lists the items that can start, and what holds back the others.
+  ready [--roadmap <name>] [--limit <whole number, at least 1>]
+    Lists the items that can start, and what holds back the others. With --limit, picks up to that many ready items whose paths do not conflict, and lists the ones it skipped.
   next [--roadmap <name>] [--manager <session>]
     Lists the next action for each open item and who takes it. A manager with no roadmaps gives an empty list, not an error.
   log [--item <id>] [--since <event id>]
