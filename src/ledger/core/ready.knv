@@ -11,8 +11,9 @@
 (use ledger/core/snapshot blocked-by globs-of in-scope?)
 (use ledger/core/order ordered)
 
-(export blockage-of blocked-item blocking-decisions
-        readiness readiness-of unblocked?)
+(export ->blocked-item ->readiness blockage-of blocked-item
+        blocking-decisions readiness readiness-of
+        unblocked?)
 
 (defstruct blocked-item
   :item item
