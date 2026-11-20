@@ -1,28 +1,71 @@
 (module
-  "Turns ledger ids and globs into JSON values.")
+  "Turns ledger ids, globs, claims, timestamps and the columns of an item into JSON values.")
 
-(use json/value array json text->json)
-(use ledger/model item-id)
+(use json/value array int->json json text->json)
+(use ledger/model claim item item-id timestamp)
 
-(export globs->json ids->json optional-id->json)
+(use ledger/names case-name kind-names origin-names
+                  status-names)
 
-(type optional-id->json
-  (fn ((ref (option item-id))) json))
+(export claim->json globs->json id->json ids->json
+        item->columns optional-id->json optional-ids->json
+        optional-timestamp->json)
+
+(type id->json
+  (fn ((ref item-id)) json))
+
+(defn id->json (id)
+  (text->json (as-str (:value id))))
 
 (defn optional-id->json (id)
   (match id
-    ((some present) (text->json (as-str (:value present))))
+    ((some present) (id->json present))
     (none json/null)))
 
-(type ids->json
-  (fn ((ref (vec item-id))) json))
-
 (defn ids->json (ids)
-  (array (collect (map (iter ids)
-                    (fn (id)
-                      (text->json (as-str (:value id))))))))
+  (array (collect (map (iter ids) id->json))))
+
+(defn optional-ids->json (id)
+  (match id
+    ((some present) (array (vec (id->json present))))
+    (none (array (vec)))))
 
 (defn globs->json (globs)
   (array (collect (map (iter globs)
                     (fn (glob)
                       (text->json (as-str (:pattern glob))))))))
+
+(defn claim->json (claim)
+  (match claim
+    ((claimed-by session) (text->json (as-str (:name session))))
+    (unclaimed json/null)))
+
+(type optional-timestamp->json
+  (fn ((ref (option timestamp))) json))
+
+(defn optional-timestamp->json (at)
+  (match at
+    ((some present) (text->json (as-str (:value present))))
+    (none json/null)))
+
+(type item->columns
+  (fn ((ref item))
+    (vec (pair string json))))
+
+(defn item->columns (item)
+  (vec (pair (str "title")
+             (text->json (as-str (:title item))))
+       (pair (str "kind")
+             (text->json (case-name kind-names (:kind item))))
+       (pair (str "status")
+             (text->json (case-name status-names (:status item))))
+       (pair (str "origin")
+             (text->json (case-name origin-names (:origin item))))
+       (pair (str "priority")
+             (int->json (:priority item)))
+       (pair (str "parent_id")
+             (optional-id->json (ref (:parent item))))
+       (pair (str "claimed_by")
+             (claim->json (ref (:claim item))))
+       (pair (str "closed_at")
+             (optional-timestamp->json (ref (:closed-at item))))))
