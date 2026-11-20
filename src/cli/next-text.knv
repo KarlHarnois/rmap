@@ -1,8 +1,8 @@
 (module
-  "Describes in plain text the next actions: one line per action, with its actor and its item.")
+  "Describes in plain text the next actions: one line per action, with its actor, the session that holds the item, and the item.")
 
 (use ledger/api action-names actor-names case-name
-                next-action next-item)
+                next-action next-item session)
 
 (use cli/tables table)
 
@@ -33,5 +33,14 @@
 (defn action-cells (entry planned)
   (vec (str (case-name action-names (:action planned)))
        (str (case-name actor-names (:actor planned)))
+       (session-text (ref (:session planned)))
        (clone (:value (:id (:item entry))))
        (clone (:title (:item entry)))))
+
+(type session-text
+  (fn ((ref (option session))) string))
+
+(defn session-text (session)
+  (match session
+    ((some present) (clone (:name present)))
+    (none (str "-"))))

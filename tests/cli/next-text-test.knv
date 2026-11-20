@@ -21,5 +21,5 @@
                                                          :dropped-blockers (vec)
                                                          :path-conflicts (vec)))))))
     (assert (= (next-text (ref (vec entry)))
-               (str "review  agent       rm-0001  work\n"
-                    "wait    controller  rm-0001  work")))))
+               (str "review  agent       s1  rm-0001  work\n"
+                    "wait    controller  -   rm-0001  work")))))
