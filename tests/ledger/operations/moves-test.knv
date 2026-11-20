@@ -1,3 +1,5 @@
+(use json/value array field same? text->json)
+
 (use ledger/api ->advancement advance-item claim-item
                 close-item drop-item failure kind
                 kind-change read-log ready-items refusal
@@ -27,6 +29,25 @@
                                (vec "docs/**"))))
     (assert (= (stored-patterns (ref settings) (ref research))
                (vec (str "docs/**"))))))
+
+(deftest a-new-build-records-the-paths-it-replaced
+  (let (settings (scratch-ledger "build-records-old-paths")
+        research (reported-research (ref settings) (vec "src/a/**")))
+    (assert (ok? (become-build (ref settings)
+                               (ref research)
+                               (vec "docs/**"))))
+    (assert (same? (ref (old-paths-recorded (ref settings)))
+                   (ref (array (vec (text->json "src/a/**"))))))))
+
+(defn old-paths-recorded (settings)
+  (-> (unwrap-ok (read-log settings none 0))
+      last unwrap
+      :payload (field "changes")
+      unwrap
+      (field "paths")
+      unwrap
+      (field "old")
+      unwrap))
 
 (deftest a-new-build-keeps-its-stored-paths-when-none-are-given
   (let (settings (scratch-ledger "build-keeps-paths")
