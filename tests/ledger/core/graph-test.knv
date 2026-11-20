@@ -1,0 +1,142 @@
+(use ledger/model ->roadmap-id dep-type history)
+(use ledger/core/graph ->graph-view diagram-of)
+(use ledger/core/snapshot scope)
+(use ledger/core/diagram diagram roadmap-cluster)
+(use support/items id-of)
+
+(use support/graph-fixture graph-roadmaps graph-snapshot
+                           platform-id website-id)
+
+(defn diagram-for (scope history)
+  (diagram-of (ref (graph-snapshot))
+              (ref (graph-roadmaps))
+              (ref (->graph-view :scope scope :history history))))
+
+(defn every-roadmap (history)
+  (diagram-for scope/every-roadmap history))
+
+(defn platform-only ()
+  (diagram-for (scope/one-roadmap (->roadmap-id :value (str platform-id)))
+               history/without-merged))
+
+(type cluster-ids
+  (fn ((ref roadmap-cluster))
+    (vec string)))
+
+(defn cluster-ids (cluster)
+  (let (ids (collect (map (iter (:nodes cluster))
+                       (fn (node)
+                         (clone (:value (:id (:item node))))))))
+    (for-each (:epics cluster)
+      (fn (epic)
+        (for-each (:children epic)
+          (fn (child)
+            (push! ids
+                   (clone (:value (:id (:item child)))))))))
+    ids))
+
+(type drawn-ids
+  (fn ((ref diagram)) (vec string)))
+
+(defn drawn-ids (diagram)
+  (let (ids (vec))
+    (for-each (:clusters diagram)
+      (fn (cluster)
+        (for-each (cluster-ids cluster)
+          (fn (id) (push! ids (clone id))))))
+    ids))
+
+(type edge-pairs
+  (fn ((ref diagram))
+    (vec (pair string string))))
+
+(defn edge-pairs (diagram)
+  (collect (map (iter (:edges diagram))
+             (fn (edge)
+               (pair (clone (:value (:from edge)))
+                     (clone (:value (:to edge))))))))
+
+(defn edge (from to)
+  (pair (str from) (str to)))
+
+(deftest merged-items-and-their-edges-are-left-out-by-default
+  (let (diagram (every-roadmap history/without-merged))
+    (assert (not (contains? (drawn-ids (ref diagram))
+                            (str "rm-1005"))))
+    (assert (not (contains? (edge-pairs (ref diagram))
+                            (edge "rm-1005" "rm-1001"))))))
+
+(deftest merged-items-and-their-edges-appear-with-all
+  (let (diagram (every-roadmap history/with-merged))
+    (assert (contains? (drawn-ids (ref diagram))
+                       (str "rm-1005")))
+    (assert (contains? (edge-pairs (ref diagram))
+                       (edge "rm-1005" "rm-1001")))))
+
+(deftest dropped-items-and-their-edges-are-always-left-out
+  (for-each (vec history/without-merged history/with-merged)
+    (fn (history)
+      (let (diagram (every-roadmap (clone history)))
+        (assert (not (contains? (drawn-ids (ref diagram))
+                                (str "rm-1006"))))
+        (assert (not (contains? (edge-pairs (ref diagram))
+                                (edge "rm-1006" "rm-1004"))))))))
+
+(deftest every-roadmap-gets-a-cluster-ordered-by-id
+  (assert (= (collect (map (iter (:clusters (every-roadmap
+                                              history/without-merged)))
+                           (fn (cluster)
+                             (clone (:value (:id (:roadmap cluster)))))))
+             (vec (str website-id) (str platform-id)))))
+
+(deftest an-epic-cluster-holds-its-children-inside-its-roadmap
+  (let (platform (clone (unwrap (last (:clusters (every-roadmap
+                                                   history/without-merged)))))
+        storage (unwrap (first (:epics platform))))
+    (assert (= (:id (:epic storage))
+               (id-of "rm-2000")))
+    (assert (= (collect (map (iter (:children storage))
+                          (fn (node)
+                            (clone (:value (:id (:item node)))))))
+               (vec (str "rm-2001") (str "rm-2003"))))))
+
+(deftest an-epic-whose-children-are-hidden-is-still-drawn-empty
+  (let (website (clone (unwrap (first (:clusters (every-roadmap
+                                                   history/without-merged)))))
+        archive (unwrap (last (:epics website))))
+    (assert (= (:id (:epic archive))
+               (id-of "rm-1008")))
+    (assert (empty? (:children archive)))))
+
+(deftest a-blocks-edge-crosses-between-roadmaps
+  (assert (contains? (edge-pairs (ref (every-roadmap history/without-merged)))
+                     (edge "rm-2002" "rm-1002"))))
+
+(deftest one-roadmap-draws-items-its-edges-reach-in-other-roadmaps-outside-it
+  (let (diagram (platform-only))
+    (assert (= (len (:clusters diagram)) 1))
+    (assert (= (collect (map (iter (:externals diagram))
+                          (fn (external)
+                            (clone (:value (:id (:item (:node external))))))))
+               (vec (str "rm-1000")
+                    (str "rm-1002")
+                    (str "rm-1003"))))
+    (assert (every? (iter (:externals diagram))
+              (fn (external)
+                (= (:roadmap-name external) (str "website")))))))
+
+(deftest one-roadmap-leaves-out-edges-between-other-roadmaps
+  (assert (not (contains? (edge-pairs (ref (platform-only)))
+                          (edge "rm-1003" "rm-1002")))))
+
+(deftest an-edge-can-start-or-end-at-an-epic
+  (let (pairs (edge-pairs (ref (every-roadmap history/without-merged))))
+    (assert (contains? pairs (edge "rm-1003" "rm-2000")))
+    (assert (contains? pairs (edge "rm-1000" "rm-2002")))))
+
+(deftest a-discovered-from-edge-runs-from-the-source-to-the-item-found
+  (assert (any? (iter (:edges (every-roadmap history/without-merged)))
+            (fn (edge)
+              (and (= (:from edge) (id-of "rm-1004"))
+                   (= (:to edge) (id-of "rm-1007"))
+                   (= (:type edge) dep-type/discovered-from))))))

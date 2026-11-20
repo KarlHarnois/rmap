@@ -1,0 +1,81 @@
+(module
+  "Groups the items a graph shows into one cluster per roadmap, with each epic's children nested in its own cluster.")
+
+(use ledger/model item item-id kind roadmap)
+
+(use ledger/core/diagram ->epic-cluster ->roadmap-cluster
+                         graph-node node-of sorted-by-id)
+
+(export roadmap-cluster-of)
+
+(defn roadmap-cluster-of (roadmap shown ready)
+  (let (members (sorted-by-id (members-of shown roadmap))
+        epics (epics-among (ref members)))
+    (->roadmap-cluster
+      :roadmap (clone roadmap)
+      :epics (collect (map (iter epics)
+                        (fn (epic)
+                          (epic-cluster-of epic (ref members) ready))))
+      :nodes (nodes-of (loose-items (ref members) (ref epics))
+                       ready))))
+
+(type members-of
+  (fn ((ref (vec item)) (ref roadmap))
+    (vec item)))
+
+(defn members-of (shown roadmap)
+  (collect (map (filter (iter shown)
+                  (fn (item)
+                    (= (:roadmap-id item) (:id roadmap))))
+                clone)))
+
+(type epics-among
+  (fn ((ref (vec item))) (vec item)))
+
+(defn epics-among (members)
+  (collect (map (filter (iter members)
+                  (fn (item) (= (:kind item) kind/epic)))
+                clone)))
+
+(defn epic-cluster-of (epic members ready)
+  (->epic-cluster :epic (clone epic)
+                  :children (nodes-of (children-of members epic) ready)))
+
+(type children-of
+  (fn ((ref (vec item)) (ref item))
+    (vec item)))
+
+(defn children-of (members epic)
+  (collect (map (filter (iter members)
+                  (fn (item)
+                    (= (:parent item)
+                       (some (clone (:id epic))))))
+                clone)))
+
+(type loose-items
+  (fn ((ref (vec item)) (ref (vec item)))
+    (vec item)))
+
+(defn loose-items (members epics)
+  (collect (map (filter (iter members)
+                  (fn (item)
+                    (and (not= (:kind item) kind/epic)
+                         (not (child-of-any? item epics)))))
+                clone)))
+
+(type child-of-any?
+  (fn ((ref item) (ref (vec item))) bool))
+
+(defn child-of-any? (item epics)
+  (any? (iter epics)
+    (fn (epic)
+      (= (:parent item)
+         (some (clone (:id epic)))))))
+
+(type nodes-of
+  (fn ((vec item) (ref (vec item-id)))
+    (vec graph-node)))
+
+(defn nodes-of (items ready)
+  (collect (map (iter items)
+             (fn (item) (node-of item ready)))))

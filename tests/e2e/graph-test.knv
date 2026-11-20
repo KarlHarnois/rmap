@@ -1,0 +1,25 @@
+(use json/value field json->text)
+
+(use support/rmap database-with-roadmap error-code run-rmap
+                  run-rmap-text)
+
+(deftest graph-prints-raw-mermaid-without-a-code-fence
+  (let (database (database-with-roadmap "graph-text")
+        output (run-rmap-text (vec "--db" (as-str database) "graph")))
+    (assert (= (:code output) 0))
+    (assert (starts-with? (as-str (:stdout output)) "flowchart LR\n"))
+    (assert (not (contains? (as-str (:stdout output)) "```")))))
+
+(deftest graph-json-holds-the-format-and-the-source
+  (let (reply (run-rmap (database-with-roadmap "graph-json")
+                        (vec "graph")))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (json->text (unwrap (field (:json reply) "format")))
+               (some (str "mermaid"))))
+    (assert (some? (json->text (unwrap (field (:json reply) "source")))))))
+
+(deftest a-graph-format-other-than-mermaid-exits-two
+  (let (reply (run-rmap (database-with-roadmap "graph-dot")
+                        (vec "graph" "--format" "dot")))
+    (assert (= (:exit-code reply) 2))
+    (assert (= (error-code (ref reply)) "usage"))))

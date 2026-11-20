@@ -1,0 +1,53 @@
+(module
+  "Draws the graph of the roadmaps, their items and their dependencies, without changing the ledger.")
+
+(use ledger/model graph-format history)
+(use ledger/core/graph ->graph-view diagram-of)
+(use ledger/core/mermaid diagram->mermaid)
+(use ledger/sqlite/snapshot load-snapshot)
+(use ledger/sqlite/roadmaps all-roadmaps)
+
+(use ledger/operations/transaction in-read-transaction
+                                   settings)
+
+(use ledger/failure failure)
+(use ledger/operations/lookups scope-named)
+(use ledger/sqlite/connection connection)
+
+(export ->graph-request ->graph-source draw-graph
+        graph-request graph-source)
+
+(defstruct graph-request
+  :roadmap (option string)
+  :history history
+  :format graph-format)
+
+(defstruct graph-source
+  :format graph-format
+  :source string)
+
+(type draw-graph
+  (fn ((ref settings) graph-request)
+    (result graph-source failure)))
+
+(defn draw-graph (settings request)
+  (in-read-transaction settings
+    (fn (transaction)
+      (graph-within (ref (:connection transaction))
+                    (ref request)))))
+
+(type graph-within
+  (fn ((ref connection) (ref graph-request))
+    (result graph-source failure)))
+
+(defn graph-within (connection request)
+  (let-try (scope (scope-named connection (ref (:roadmap request)))
+            snapshot (load-snapshot connection)
+            roadmaps (all-roadmaps connection))
+    (let (diagram (diagram-of (ref snapshot)
+                              (ref roadmaps)
+                              (ref (->graph-view :scope scope
+                                                 :history (:history request)))))
+      (ok (->graph-source :format (:format request)
+                          :source (match (:format request)
+                                    (mermaid (diagram->mermaid (ref diagram)))))))))

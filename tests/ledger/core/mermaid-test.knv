@@ -1,0 +1,54 @@
+(use ledger/model ->roadmap-id history)
+(use ledger/core/graph ->graph-view diagram-of)
+(use ledger/core/mermaid diagram->mermaid)
+(use ledger/core/snapshot scope)
+(use support/fixtures fixture-text)
+
+(use support/graph-fixture graph-roadmaps graph-snapshot
+                           platform-id)
+
+(defn rendered-in (scope history)
+  (diagram->mermaid (ref (diagram-of (ref (graph-snapshot))
+                                     (ref (graph-roadmaps))
+                                     (ref (->graph-view :scope scope
+                                                        :history history))))))
+
+(defn rendered (history)
+  (rendered-in scope/every-roadmap history))
+
+(defn platform-rendered ()
+  (rendered-in (scope/one-roadmap (->roadmap-id :value (str platform-id)))
+               history/without-merged))
+
+(type has-line?
+  (fn ((ref str) (ref str)) bool))
+
+(defn has-line? (source line)
+  (any? (lines source)
+    (fn (each) (= (trim each) line))))
+
+(deftest the-fixture-without-merged-items-matches-its-stored-graph
+  (assert (= (str (rendered history/without-merged) "\n")
+             (fixture-text "graph-every-roadmap.mmd"))))
+
+(deftest the-fixture-with-merged-items-matches-its-stored-graph
+  (assert (= (str (rendered history/with-merged) "\n")
+             (fixture-text "graph-every-roadmap-all.mmd"))))
+
+(deftest two-renders-of-one-ledger-are-identical
+  (assert (= (rendered history/with-merged)
+             (rendered history/with-merged))))
+
+(deftest items-from-other-roadmaps-get-the-external-class
+  (assert (has-line? (as-str (platform-rendered))
+                     "class rm_1000,rm_1002,rm_1003 external")))
+
+(deftest an-item-from-another-roadmap-is-labelled-with-its-roadmap
+  (assert (has-line? (as-str (platform-rendered))
+                     "rm_1003[\"rm-1003<br/>Session store<br/><i>build · in_review</i><br/>website\"]")))
+
+(deftest an-edge-to-an-epic-ends-at-its-subgraph
+  (let (source (rendered history/without-merged))
+    (assert (has-line? (as-str source)
+                       "subgraph rm_2000[\"Epic: Storage\"]"))
+    (assert (has-line? (as-str source) "rm_1003 --> rm_2000"))))

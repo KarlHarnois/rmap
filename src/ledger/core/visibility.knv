@@ -1,0 +1,43 @@
+(module
+  "Decides which items and dependencies a graph shows: dropped items never, merged items only with their history.")
+
+(use ledger/model dep history item item-id status)
+
+(export visible-deps visible-items visible?)
+
+(type visible?
+  (fn ((ref item) (ref history)) bool))
+
+(defn visible? (item history)
+  (match (:status item)
+    (dropped false)
+    (merged (= (deref history) history/with-merged))
+    (_ true)))
+
+(type visible-items
+  (fn ((ref (vec item)) (ref history))
+    (vec item)))
+
+(defn visible-items (items history)
+  (collect (map (filter (iter items)
+                  (fn (item) (visible? item history)))
+                clone)))
+
+(type visible-deps
+  (fn ((ref (vec dep)) (ref (vec item)))
+    (vec dep)))
+
+(defn visible-deps (deps shown)
+  (collect (map (filter (iter deps)
+                  (fn (dep)
+                    (and (shown-id? shown (ref (:item dep)))
+                         (shown-id? shown (ref (:on dep))))))
+                clone)))
+
+(type shown-id?
+  (fn ((ref (vec item)) (ref item-id))
+    bool))
+
+(defn shown-id? (shown id)
+  (any? (iter shown)
+    (fn (item) (= (ref (:id item)) id))))

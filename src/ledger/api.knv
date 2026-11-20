@@ -2,12 +2,14 @@
   "The ledger's public functions. Code outside `src/ledger/` calls only these.")
 
 (use ledger/model ->glob ->item-id ->session blockage claim
-                  dep dep-type event event-type glob item
-                  item-id kind origin path-conflict roadmap
-                  roadmap-id session status timestamp)
+                  dep dep-type event event-type glob
+                  graph-format history item item-id kind
+                  origin path-conflict roadmap roadmap-id
+                  session status timestamp)
 
 (use ledger/names case-name case-named dep-type-names
-                  event-type-names kind-names origin-names
+                  event-type-names graph-format-names
+                  kind-names origin-names
                   roadmap-status-names status-names)
 
 (use ledger/refusal refusal refusal->message)
@@ -45,20 +47,26 @@
 (use ledger/core/move ->advancement advancement kind-change)
 (use ledger/operations/deps add-dep remove-dep)
 
-(export ->advancement ->glob ->item-id ->new-item ->session
-        ->settings add-dep add-item advance-item advancement
-        blockage blocked-item case-name case-named claim
-        claim-item clock close-item default-database-path
-        dep dep-type dep-type-names drop-item event
-        event-type event-type-names failure failure-code
-        failure-message glob globs->json ids->json
-        init-ledger init-outcome init-outcome-names
-        init-report item item-detail item-id kind
-        kind-change kind-names list-items list-roadmaps
-        new-item new-roadmap optional-id->json origin
-        origin-names path-conflict path-conflict read-log
-        readiness ready-items refusal refusal->message
-        refusal-catalog refusal-code-text
+(use ledger/operations/graph ->graph-request ->graph-source
+                             draw-graph graph-request
+                             graph-source)
+
+(export ->advancement ->glob ->graph-request ->graph-source
+        ->item-id ->new-item ->session ->settings add-dep
+        add-item advance-item advancement blockage
+        blocked-item case-name case-named claim claim-item
+        clock close-item default-database-path dep dep-type
+        dep-type-names draw-graph drop-item event event-type
+        event-type-names failure failure-code
+        failure-message glob globs->json graph-format
+        graph-format-names graph-request graph-source
+        history ids->json init-ledger init-outcome
+        init-outcome-names init-report item item-detail
+        item-id kind kind-change kind-names list-items
+        list-roadmaps new-item new-roadmap optional-id->json
+        origin origin-names path-conflict path-conflict
+        read-log readiness ready-items refusal
+        refusal->message refusal-catalog refusal-code-text
         refusal-description remove-dep roadmap roadmap-id
         roadmap-status-names session settings show-item
         status status-names timestamp)

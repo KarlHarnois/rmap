@@ -1,0 +1,50 @@
+(module
+  "Holds a graph of roadmaps as data: roadmap and epic clusters, nodes, nodes from other roadmaps, and edges.")
+
+(use ledger/model dep-type item item-id roadmap)
+(use ledger/core/node-states node-state state-of)
+
+(export ->diagram ->epic-cluster ->external-node
+        ->graph-edge ->roadmap-cluster diagram epic-cluster
+        external-node graph-edge graph-node node-of
+        roadmap-cluster sorted-by-id)
+
+(defstruct graph-node
+  :item item
+  :state node-state)
+
+(defstruct epic-cluster
+  :epic item
+  :children (vec graph-node))
+
+(defstruct roadmap-cluster
+  :roadmap roadmap
+  :epics (vec epic-cluster)
+  :nodes (vec graph-node))
+
+(defstruct external-node
+  :node graph-node
+  :roadmap-name string)
+
+(defstruct graph-edge
+  :from item-id
+  :to item-id
+  :type dep-type)
+
+(defstruct diagram
+  :clusters (vec roadmap-cluster)
+  :externals (vec external-node)
+  :edges (vec graph-edge))
+
+(defn node-of (item ready)
+  (->graph-node :item (clone item)
+                :state (state-of item ready)))
+
+(type sorted-by-id
+  (fn ((vec item)) (vec item)))
+
+(defn sorted-by-id (items)
+  (let (sorted items)
+    (sort-by! sorted
+      (fn (item) (clone (:value (:id item)))))
+    sorted))

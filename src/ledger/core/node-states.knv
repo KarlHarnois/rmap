@@ -1,0 +1,45 @@
+(module
+  "Gives each item in a graph the state its label shows and the class that colors it: ready, or its stored status.")
+
+(use ledger/model item item-id status)
+(use ledger/core/ready readiness-of)
+(use ledger/core/snapshot scope)
+(use ledger/core/phases active?)
+
+(export node-class node-class-of node-state ready-ids
+        state-of)
+
+(defenum node-state
+  ready
+  (stored status))
+
+(defenum node-class
+  merged
+  ready
+  active
+  open)
+
+(defn ready-ids (snapshot)
+  (collect (map (iter (:ready (readiness-of snapshot
+                                            (ref scope/every-roadmap))))
+                (fn (item) (clone (:id item))))))
+
+(type state-of
+  (fn ((ref item) (ref (vec item-id)))
+    node-state))
+
+(defn state-of (item ready)
+  (if (contains? ready (clone (:id item)))
+    node-state/ready
+    (node-state/stored (:status item))))
+
+(defn node-class-of (state)
+  (match (deref state)
+    (node-state/ready node-class/ready)
+    ((node-state/stored status) (stored-class status))))
+
+(defn stored-class (status)
+  (cond
+    ((= status status/merged) node-class/merged)
+    ((active? status) node-class/active)
+    (else node-class/open)))

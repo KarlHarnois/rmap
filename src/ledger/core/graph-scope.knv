@@ -1,0 +1,65 @@
+(module
+  "Narrows a graph to a scope: the edges that touch it, and the items from other roadmaps those edges reach.")
+
+(use ledger/model dep item item-id roadmap)
+(use ledger/core/snapshot in-scope? scope)
+
+(use ledger/core/diagram ->external-node node-of
+                         sorted-by-id)
+
+(export external-items external-node-of scoped-deps)
+
+(type scoped-deps
+  (fn ((vec dep) (ref (vec item)) (ref scope))
+    (vec dep)))
+
+(defn scoped-deps (deps shown scope)
+  (collect (map (filter (iter deps)
+                  (fn (dep)
+                    (or (id-in-scope? shown (ref (:item dep)) scope)
+                        (id-in-scope? shown (ref (:on dep)) scope))))
+                clone)))
+
+(type id-in-scope?
+  (fn ((ref (vec item))
+       (ref item-id)
+       (ref scope))
+    bool))
+
+(defn id-in-scope? (shown id scope)
+  (any? (iter shown)
+    (fn (item)
+      (and (= (ref (:id item)) id)
+           (in-scope? item scope)))))
+
+(defn external-items (shown deps scope)
+  (sorted-by-id (collect (map (filter (iter shown)
+                                (fn (item)
+                                  (and (not (in-scope? item scope))
+                                       (endpoint? deps (ref (:id item))))))
+                              clone))))
+
+(type endpoint?
+  (fn ((ref (vec dep)) (ref item-id))
+    bool))
+
+(defn endpoint? (deps id)
+  (any? (iter deps)
+    (fn (dep)
+      (or (= (ref (:item dep)) id)
+          (= (ref (:on dep)) id)))))
+
+(defn external-node-of (item roadmaps ready)
+  (->external-node :node (node-of item ready)
+                   :roadmap-name (roadmap-name-of roadmaps item)))
+
+(type roadmap-name-of
+  (fn ((ref (vec roadmap)) (ref item))
+    string))
+
+(defn roadmap-name-of (roadmaps item)
+  (unwrap-or (map-some (find (iter roadmaps)
+                         (fn (roadmap)
+                           (= (:id roadmap) (:roadmap-id item))))
+                       (fn (roadmap) (clone (:name roadmap))))
+             (clone (:value (:roadmap-id item)))))

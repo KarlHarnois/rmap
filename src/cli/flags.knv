@@ -7,7 +7,7 @@
 
 (export glob-list id-list optional-choice optional-number
         optional-text required-choice required-text
-        text-list)
+        switch-on? text-list)
 
 (type optional-text
   (fn ((ref arguments) (ref str))
@@ -17,6 +17,12 @@
   (map-some (find (iter (:flags arguments))
               (fn (entry) (= (first entry) name)))
             (fn (entry) (clone (second entry)))))
+
+(type switch-on?
+  (fn ((ref arguments) (ref str)) bool))
+
+(defn switch-on? (arguments name)
+  (contains? (:switches arguments) (str name)))
 
 (defn required-text (arguments name)
   (ok-or (optional-text arguments name)

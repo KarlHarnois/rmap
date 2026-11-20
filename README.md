@@ -19,6 +19,7 @@ rmap init
 rmap new website --manager me
 rmap item add --roadmap website --title "Add the parser" --kind build --paths 'src/parser/**'
 rmap ready
+rmap graph
 ```
 
-Run rmap inside a git repository, or pass `--db <path>`. `rmap init` creates the ledger once per repository. For JSON output, pass `--json` or set `RMAP_JSON=1`. `rmap help` lists every command.
+Run rmap inside a git repository, or pass `--db <path>`. `rmap init` creates the ledger once per repository. For JSON output, pass `--json` or set `RMAP_JSON=1`. `rmap graph` prints the roadmaps, items and dependencies as a Mermaid flowchart that GitHub and [mermaid.live](https://mermaid.live) render. `rmap help` lists every command.

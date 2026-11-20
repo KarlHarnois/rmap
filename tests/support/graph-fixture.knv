@@ -1,0 +1,85 @@
+(use ledger/model ->roadmap ->roadmap-id ->session
+                  ->timestamp kind origin roadmap-status
+                  status)
+
+(use support/items blocks-dep child-of claimed
+                   discovered-dep epic-item in-roadmap
+                   snapshot-of titled with-origin work-item)
+
+(export graph-roadmaps graph-snapshot platform-id
+        website-id)
+
+(def website-id "rm-a000")
+
+(def platform-id "rm-b000")
+
+(defn roadmap-of (id name)
+  (->roadmap :id (->roadmap-id :value (str id))
+             :name (str name)
+             :manager (->session :name (str "manager"))
+             :status roadmap-status/active
+             :created-at (->timestamp :value (str "2026-01-01T00:00:00Z"))))
+
+(defn graph-roadmaps ()
+  (vec (roadmap-of platform-id "platform")
+       (roadmap-of website-id "website")))
+
+(defn website-item (id title kind status)
+  (titled (in-roadmap (work-item id kind status) website-id)
+          title))
+
+(defn platform-item (id title kind status)
+  (titled (in-roadmap (work-item id kind status) platform-id)
+          title))
+
+(defn website-items ()
+  (vec (titled (in-roadmap (epic-item "rm-1000") website-id)
+               "Login")
+       (child-of (website-item "rm-1001" "Parse" kind/build status/open)
+                 "rm-1000")
+       (child-of (website-item "rm-1002" "Form" kind/design status/open)
+                 "rm-1000")
+       (website-item "rm-1003" "Session store" kind/build
+                     status/in-review)
+       (with-origin (website-item "rm-1004" "Spike"
+                                  kind/research
+                                  status/reported)
+                    origin/user-bug)
+       (website-item "rm-1005" "Old login" kind/build
+                     status/merged)
+       (website-item "rm-1006" "Abandoned" kind/build
+                     status/dropped)
+       (with-origin (website-item "rm-1007" "Cookie bug"
+                                  kind/research
+                                  status/dispatched)
+                    origin/follow-up)
+       (titled (in-roadmap (epic-item "rm-1008") website-id)
+               "Archive")
+       (child-of (website-item "rm-1009" "Export" kind/build status/merged)
+                 "rm-1008")))
+
+(defn platform-items ()
+  (vec (titled (in-roadmap (epic-item "rm-2000") platform-id)
+               "Storage")
+       (child-of (platform-item "rm-2001" "Schema" kind/build status/fixing)
+                 "rm-2000")
+       (platform-item "rm-2002" "Auth API" kind/design
+                      status/merging)
+       (child-of (claimed (platform-item "rm-2003" "Backups"
+                                         kind/research
+                                         status/open))
+                 "rm-2000")))
+
+(defn graph-snapshot ()
+  (let (items (website-items))
+    (for-each (platform-items)
+      (fn (item) (push! items (clone item))))
+    (snapshot-of items
+                 (vec (blocks-dep "rm-1002" "rm-1003")
+                      (blocks-dep "rm-1001" "rm-1005")
+                      (discovered-dep "rm-1004" "rm-1006")
+                      (discovered-dep "rm-1007" "rm-1004")
+                      (blocks-dep "rm-1002" "rm-2002")
+                      (blocks-dep "rm-2000" "rm-1003")
+                      (blocks-dep "rm-2002" "rm-1000"))
+                 (vec))))

@@ -2,8 +2,8 @@
 
 (use ledger/api ->settings add-dep add-item advance-item
                 claim-item clock close-item
-                default-database-path drop-item failure
-                init-ledger list-items list-roadmaps
+                default-database-path draw-graph drop-item
+                failure init-ledger list-items list-roadmaps
                 new-roadmap read-log ready-items remove-dep
                 show-item)
 
@@ -125,4 +125,7 @@
        (fn (dep) (reply/dep-added dep))))
     ((remove-dep item on)
      (map-ok (remove-dep settings item on)
-       (fn (dep) (reply/dep-removed dep))))))
+       (fn (dep) (reply/dep-removed dep))))
+    ((graph graph)
+     (map-ok (draw-graph settings graph)
+       (fn (source) (reply/graph-drawn source))))))
