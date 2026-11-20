@@ -7,9 +7,8 @@
                 refusal)
 
 (use cli/exit-codes exit-code)
-
-(use cli/envelopes blockage-fields conflicts->json
-                   error-envelope)
+(use cli/envelopes error-envelope)
+(use cli/ledger-json blockage-fields conflicts->json)
 
 (export ->outcome outcome result->outcome usage-outcome)
 

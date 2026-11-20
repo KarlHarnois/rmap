@@ -12,7 +12,7 @@
 (use cli/exit-codes exit-code->meaning exit-code->number
                     exit-codes)
 
-(use cli/envelopes schema-version)
+(use cli/envelopes envelope)
 
 (export help-document)
 
@@ -20,18 +20,17 @@
   "rmap [--db <path>] <command> <operands> [--<flag> <value>]")
 
 (defn help-document ()
-  (object (vec (pair (str "schema_version") (int->json schema-version))
-               (pair (str "usage") (text->json usage))
-               (pair (str "commands")
-                     (array (collect (map (iter (routes)) route->json))))
-               (pair (str "global_flags")
-                     (array (collect (map (iter (global-flags)) flag->json))))
-               (pair (str "exit_codes")
-                     (array (collect (map (iter (exit-codes))
-                                          exit-code->json))))
-               (pair (str "refusal_codes")
-                     (array (collect (map (iter (refusal-catalog))
-                                          refusal->json)))))))
+  (envelope (vec (pair (str "usage") (text->json usage))
+                 (pair (str "commands")
+                       (array (collect (map (iter (routes)) route->json))))
+                 (pair (str "global_flags")
+                       (array (collect (map (iter (global-flags)) flag->json))))
+                 (pair (str "exit_codes")
+                       (array (collect (map (iter (exit-codes))
+                                            exit-code->json))))
+                 (pair (str "refusal_codes")
+                       (array (collect (map (iter (refusal-catalog))
+                                            refusal->json)))))))
 
 (type route->json
   (fn ((ref route)) json))

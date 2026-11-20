@@ -1,0 +1,145 @@
+(module
+  "Turns ledger values into the JSON objects the CLI prints.")
+
+(use json/value array copy-of int->json json object
+                text->json)
+
+(use ledger/api case-name claim dep dep-type-names event
+                event-type-names globs->json ids->json item
+                item-id kind-names optional-id->json
+                origin-names roadmap roadmap-id
+                roadmap-status-names status-names timestamp)
+
+(export blockage-fields blocked->json conflicts->json
+        dep->json event->json globs->json ids->json
+        item->json roadmap->json)
+
+(type roadmap->json
+  (fn ((ref roadmap)) json))
+
+(defn roadmap->json (roadmap)
+  (object (vec (pair (str "id")
+                     (roadmap-id->json (ref (:id roadmap))))
+               (pair (str "name")
+                     (text->json (as-str (:name roadmap))))
+               (pair (str "manager")
+                     (text->json (as-str (:name (:manager roadmap)))))
+               (pair (str "status")
+                     (text->json (case-name roadmap-status-names
+                                            (:status roadmap))))
+               (pair (str "created_at")
+                     (timestamp->json (ref (:created-at roadmap)))))))
+
+(type item->json (fn ((ref item)) json))
+
+(defn item->json (item)
+  (object (vec (pair (str "id")
+                     (item-id->json (ref (:id item))))
+               (pair (str "roadmap_id")
+                     (roadmap-id->json (ref (:roadmap-id item))))
+               (pair (str "parent_id")
+                     (optional-id->json (ref (:parent item))))
+               (pair (str "title")
+                     (text->json (as-str (:title item))))
+               (pair (str "kind")
+                     (text->json (case-name kind-names (:kind item))))
+               (pair (str "status")
+                     (text->json (case-name status-names (:status item))))
+               (pair (str "origin")
+                     (text->json (case-name origin-names (:origin item))))
+               (pair (str "priority")
+                     (int->json (:priority item)))
+               (pair (str "claimed_by")
+                     (claim->json (ref (:claim item))))
+               (pair (str "created_at")
+                     (timestamp->json (ref (:created-at item))))
+               (pair (str "closed_at")
+                     (optional-timestamp->json (ref (:closed-at item)))))))
+
+(defn claim->json (claim)
+  (match claim
+    ((claimed-by session) (text->json (as-str (:name session))))
+    (unclaimed json/null)))
+
+(type event->json
+  (fn ((ref event)) json))
+
+(defn event->json (event)
+  (object (vec (pair (str "id")
+                     (int->json (:id event)))
+               (pair (str "at")
+                     (timestamp->json (ref (:at event))))
+               (pair (str "actor")
+                     (text->json (as-str (:actor event))))
+               (pair (str "roadmap_id")
+                     (optional-roadmap-id->json (ref (:roadmap-id event))))
+               (pair (str "item_id")
+                     (optional-id->json (ref (:item-id event))))
+               (pair (str "type")
+                     (text->json (case-name event-type-names (:type event))))
+               (pair (str "payload")
+                     (copy-of (ref (:payload event)))))))
+
+(type dep->json (fn ((ref dep)) json))
+
+(defn dep->json (dep)
+  (object (vec (pair (str "item")
+                     (item-id->json (ref (:item dep))))
+               (pair (str "on")
+                     (item-id->json (ref (:on dep))))
+               (pair (str "type")
+                     (text->json (case-name dep-type-names (:type dep)))))))
+
+(defn blocked->json (blocked)
+  (let (fields (blockage-fields (ref (:blockage blocked))))
+    (push! fields
+           (pair (str "item")
+                 (item->json (ref (:item blocked)))))
+    (object fields)))
+
+(defn blockage-fields (blockage)
+  (vec (pair (str "blockers")
+             (ids->json (ref (:blockers blockage))))
+       (pair (str "dropped_blockers")
+             (ids->json (ref (:dropped-blockers blockage))))
+       (pair (str "path_conflicts")
+             (conflicts->json (ref (:path-conflicts blockage))))))
+
+(defn conflicts->json (conflicts)
+  (array (collect (map (iter conflicts) conflict->json))))
+
+(defn conflict->json (conflict)
+  (object (vec (pair (str "with")
+                     (item-id->json (ref (:with conflict))))
+               (pair (str "glob")
+                     (text->json (as-str (:pattern (:glob conflict)))))
+               (pair (str "other_glob")
+                     (text->json (as-str (:pattern (:other-glob conflict))))))))
+
+(type item-id->json
+  (fn ((ref item-id)) json))
+
+(defn item-id->json (id)
+  (text->json (as-str (:value id))))
+
+(type roadmap-id->json
+  (fn ((ref roadmap-id)) json))
+
+(defn roadmap-id->json (id)
+  (text->json (as-str (:value id))))
+
+(defn optional-roadmap-id->json (id)
+  (match id
+    ((some present) (roadmap-id->json present))
+    (none json/null)))
+
+(type timestamp->json
+  (fn ((ref timestamp)) json))
+
+(defn timestamp->json (at)
+  (text->json (as-str (:value at))))
+
+(defn optional-timestamp->json (at)
+  (match at
+    ((some present) (timestamp->json present))
+    (none json/null)))
