@@ -2,7 +2,7 @@
 name: writing-knave
 description: This skill is the rule set for writing, designing, fixing and reviewing Knave code. Knave is a Lisp that compiles to Rust. Use this skill for every task that edits, runs, tests or explains a `.knv` file or a `project.knv`. Use this skill to read an error that the `knave` command reports. Load this skill before writing any Knave code.
 metadata:
-  knave-version: "0.20.0"
+  knave-version: "0.21.0"
 ---
 
 # Writing Knave
@@ -167,7 +167,7 @@ metadata:
 
 **NEVER write a form from memory of another language.** Take each form from this file or from `knave doc`.
 
-**If `knave --version` prints a version other than `0.20.0`, trust `knave doc` over this file.** If the shell cannot find `knave`, stop and tell the user.
+**If `knave --version` prints a version other than `0.21.0`, trust `knave doc` over this file.** If the shell cannot find `knave`, stop and tell the user.
 
 1. If you need a form this file does not show, search the output of `knave doc "(module prelude)"` for its name. Then run `knave doc <name>`. A module lists fewer forms, such as `knave doc "(module prelude/io)"` for input and output.
 2. After each definition you write, run `knave check`. Fix the first error or warning before the others.
@@ -176,7 +176,7 @@ metadata:
 5. If one error remains after three fixes, stop and show the error to the user.
 6. If you need the value of a form, run `knave eval <file> '<form>'`.
 7. If you run the application, pass its arguments after `--`, as `knave run -- 10`.
-8. Write a test beside each pure function, as `(deftest name (assert (= actual expected)))`. Write one test for each error case, as `(assert (= actual (err (enum/case value))))`. NEVER compare the text of `pr-str`. Run the tests with `knave test <file>`.
+8. Write a test for each exported pure function in a file under `tests/`, as `(deftest name (assert (= actual expected)))`. Test a private function through the exported functions that use it. Write one test for each error case, as `(assert (= actual (err (enum/case value))))`. NEVER compare the text of `pr-str`. Run the tests with `knave test`.
 9. Before you finish, run `knave fmt` and `knave lint`. Fix each warning that `knave lint` prints.
 
 ## Rust habits that fail
