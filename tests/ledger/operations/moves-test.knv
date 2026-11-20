@@ -3,10 +3,11 @@
                 kind-change read-log ready-items refusal
                 show-item status)
 
-(use support/ledger added-id added-research claimed
-                    globs-of-patterns item-draft
-                    refusal-code-of reported-research
-                    scratch-ledger session-named)
+(use support/ledger added-blocked-research added-id
+                    added-research claimed globs-of-patterns
+                    item-draft refusal-code-of
+                    reported-research scratch-ledger
+                    session-named)
 
 (defn become-build (settings id patterns)
   (advance-item settings
@@ -108,9 +109,7 @@
 (deftest claiming-a-blocked-item-is-refused
   (let (settings (scratch-ledger "claim-blocked")
         blocker (added-research (ref settings))
-        blocked (added-id (ref settings)
-                          (assoc (item-draft kind/research (vec))
-                                 :blocked-by (vec blocker))))
+        blocked (added-blocked-research (ref settings) blocker))
     (assert (= (refusal-code-of
                  (claim-item (ref settings) blocked (session-named "worker")))
                (some (str "not-ready"))))))
