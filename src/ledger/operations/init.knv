@@ -1,0 +1,35 @@
+(module
+  "Creates the ledger database, or reports the one already at its path.")
+
+(use files/presence file-exists?)
+(use ledger/failure failure)
+(use ledger/operations/transaction open-ledger settings)
+
+(export ->init-report init-ledger init-outcome
+        init-outcome-names init-report)
+
+(defenum init-outcome
+  created
+  existing)
+
+(def init-outcome-names
+  (vec (pair init-outcome/created "created")
+       (pair init-outcome/existing "existing")))
+
+(defstruct init-report
+  :database-path string
+  :outcome init-outcome)
+
+(type init-ledger
+  (fn ((ref settings))
+    (result init-report failure)))
+
+(defn init-ledger (settings)
+  (let (path (clone (:database-path settings))
+        outcome (outcome-before-opening (as-str path)))
+    (let-try (_ (open-ledger settings))
+      (ok (->init-report :database-path path :outcome outcome)))))
+
+(defn outcome-before-opening (path)
+  (if (file-exists? path)
+    init-outcome/existing init-outcome/created))

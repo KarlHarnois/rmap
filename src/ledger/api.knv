@@ -28,10 +28,8 @@
 (use ledger/failure failure failure-code failure-message)
 (use ledger/operations/roadmaps list-roadmaps new-roadmap)
 
-(use ledger/operations/initialization init-ledger
-                                      initialization
-                                      initialization-outcome
-                                      initialization-outcome-names)
+(use ledger/operations/init init-ledger init-outcome
+                            init-outcome-names init-report)
 
 (use ledger/operations/readiness ready-items)
 (use ledger/operations/log read-log)
@@ -54,13 +52,13 @@
         dep dep-type dep-type-names drop-item event
         event-type event-type-names failure failure-code
         failure-message glob globs->json ids->json
-        init-ledger initialization initialization-outcome
-        initialization-outcome-names item item-detail
-        item-id kind kind-change kind-names list-items
-        list-roadmaps new-item new-roadmap optional-id->json
-        origin origin-names path-conflict path-conflict
-        read-log readiness ready-items refusal
-        refusal->message refusal-catalog refusal-code-text
+        init-ledger init-outcome init-outcome-names
+        init-report item item-detail item-id kind
+        kind-change kind-names list-items list-roadmaps
+        new-item new-roadmap optional-id->json origin
+        origin-names path-conflict path-conflict read-log
+        readiness ready-items refusal refusal->message
+        refusal-catalog refusal-code-text
         refusal-description remove-dep roadmap roadmap-id
         roadmap-status-names session settings show-item
         status status-names timestamp)

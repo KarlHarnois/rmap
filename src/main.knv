@@ -87,8 +87,7 @@
 (defn perform (settings request)
   (match request
     (init (map-ok (init-ledger settings)
-            (fn (initialization)
-              (reply/ledger-initialized initialization))))
+            (fn (report) (reply/ledger-initialized report))))
     ((new-roadmap name manager)
      (map-ok (new-roadmap settings name manager)
        (fn (roadmap) (reply/roadmap-created roadmap))))

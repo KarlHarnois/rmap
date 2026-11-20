@@ -1,9 +1,6 @@
 (use ledger/model ->timestamp)
 (use ledger/api ->settings clock list-roadmaps)
-
-(use ledger/operations/initialization init-ledger
-                                      initialization-outcome)
-
+(use ledger/operations/init init-ledger init-outcome)
 (use ledger/failure failure)
 (use files/presence file-exists?)
 (use support/scratch scratch-database)
@@ -19,14 +16,12 @@
 
 (deftest init-creates-a-missing-ledger
   (let (settings (settings-at (scratch-database "init-creates")))
-    (assert (= (outcome-of (ref settings))
-               initialization-outcome/created))
+    (assert (= (outcome-of (ref settings)) init-outcome/created))
     (assert (file-exists? (as-str (:database-path settings))))))
 
 (deftest init-reports-an-existing-ledger
   (let (settings (scratch-ledger "init-existing"))
-    (assert (= (outcome-of (ref settings))
-               initialization-outcome/existing))))
+    (assert (= (outcome-of (ref settings)) init-outcome/existing))))
 
 (deftest init-keeps-the-roadmaps-of-an-existing-ledger
   (let (settings (scratch-ledger "init-keeps"))

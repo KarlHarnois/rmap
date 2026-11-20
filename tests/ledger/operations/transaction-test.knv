@@ -10,7 +10,7 @@
                                    in-transaction record
                                    transaction)
 
-(use ledger/operations/initialization init-ledger)
+(use ledger/operations/init init-ledger)
 (use ledger/failure failure)
 (use support/scratch scratch-database)
 

@@ -2,10 +2,7 @@
   "Wraps command results and errors in the JSON object the CLI prints, with its output schema version.")
 
 (use json/value array int->json json object text->json)
-
-(use ledger/api case-name initialization-outcome-names
-                item-detail)
-
+(use ledger/api case-name init-outcome-names item-detail)
 (use cli/replies reply)
 
 (use cli/ledger-json blocked->json dep->json event->json
@@ -32,8 +29,8 @@
 
 (defn reply-envelope (reply)
   (match reply
-    ((reply/ledger-initialized initialization)
-     (initialization-envelope initialization))
+    ((reply/ledger-initialized report)
+     (init-report-envelope report))
     ((reply/roadmap-created roadmap) (roadmap-envelope roadmap))
     ((reply/roadmaps-listed roadmaps)
      (roadmaps-envelope roadmaps))
@@ -47,15 +44,14 @@
     ((reply/dep-added dep) (dep-envelope dep))
     ((reply/dep-removed dep) (dep-envelope dep))))
 
-(defn initialization-envelope (initialization)
+(defn init-report-envelope (report)
   (envelope (vec (pair (str "ledger")
-                       (initialization->json (ref initialization))))))
+                       (init-report->json (ref report))))))
 
-(defn initialization->json (initialization)
-  (let (outcome (case-name initialization-outcome-names
-                           (:outcome initialization)))
+(defn init-report->json (report)
+  (let (outcome (case-name init-outcome-names (:outcome report)))
     (object (vec (pair (str "path")
-                       (text->json (:database-path initialization)))
+                       (text->json (:database-path report)))
                  (pair (str "outcome") (text->json outcome))))))
 
 (defn roadmap-envelope (roadmap)
