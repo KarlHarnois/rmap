@@ -1,29 +1,41 @@
 (use ledger/api ->graph-request draw-graph graph-format
-                history list-items read-log)
+                graph-level history list-items read-log)
 
 (use support/ledger blocked-research refusal-code-of
                     research scratch-ledger)
 
-(defn mermaid-request (roadmap)
+(defn mermaid-request (roadmap level)
   (->graph-request :roadmap roadmap
                    :history history/with-merged
+                   :level level
                    :format graph-format/mermaid))
 
-(deftest drawing-the-graph-writes-no-event-and-changes-no-row
-  (let (settings (scratch-ledger "graph-read-only")
+(defn draws-without-writing? (name level)
+  (let (settings (scratch-ledger name)
         blocker (research (ref settings))
         _ (blocked-research (ref settings) blocker)
         event-count (len (unwrap-ok (read-log (ref settings) none 0)))
         items-before (unwrap-ok (list-items (ref settings) none)))
-    (assert (ok? (draw-graph (ref settings) (mermaid-request none))))
-    (assert (= (len (unwrap-ok (read-log (ref settings) none 0)))
-               event-count))
-    (assert (= (unwrap-ok (list-items (ref settings) none))
-               items-before))))
+    (and (ok? (draw-graph (ref settings) (mermaid-request none level)))
+         (= (len (unwrap-ok (read-log (ref settings) none 0)))
+            event-count)
+         (= (unwrap-ok (list-items (ref settings) none))
+            items-before))))
+
+(deftest drawing-the-graph-writes-no-event-and-changes-no-row
+  (assert (draws-without-writing? "graph-read-only" graph-level/item)))
+
+(deftest drawing-the-epic-graph-writes-no-event-and-changes-no-row
+  (assert (draws-without-writing? "graph-epic-read-only"
+                                  graph-level/epic)))
+
+(deftest drawing-the-roadmap-graph-writes-no-event-and-changes-no-row
+  (assert (draws-without-writing? "graph-roadmap-read-only"
+                                  graph-level/roadmap)))
 
 (deftest drawing-an-unknown-roadmap-is-refused
   (let (settings (scratch-ledger "graph-unknown-roadmap"))
     (assert (= (refusal-code-of (draw-graph (ref settings)
-                                            (mermaid-request (some (str
-                                                                     "nope")))))
+                                            (mermaid-request (some (str "nope"))
+                                                             graph-level/item)))
                (some (str "roadmap-not-found"))))))

@@ -4,7 +4,8 @@
 (use ledger/api ->advancement ->graph-request ->item-id
                 ->new-item ->session advancement batch-size
                 batch-size-of case-named graph-format
-                graph-format-names graph-request history
+                graph-format-names graph-level
+                graph-level-names graph-request history
                 item-id kind-change kind-names new-item
                 origin origin-names session status-names)
 
@@ -85,10 +86,12 @@
                                        text->id))))))
 
 (defn graph-request (arguments)
-  (let-try (format (optional-choice arguments "format" graph-format-names))
+  (let-try (format (optional-choice arguments "format" graph-format-names)
+            level (optional-choice arguments "level" graph-level-names))
     (ok (request/graph (->graph-request
                          :roadmap (optional-text arguments "roadmap")
                          :history (history-of arguments)
+                         :level (unwrap-or level graph-level/item)
                          :format (unwrap-or format graph-format/mermaid))))))
 
 (defn history-of (arguments)

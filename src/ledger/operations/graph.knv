@@ -2,8 +2,10 @@
   "Draws the graph of the roadmaps, their items and their dependencies, without changing the ledger.")
 
 (use ledger/model graph-format history)
-(use ledger/core/graph/graph ->graph-view diagram-of)
-(use ledger/core/graph/mermaid/mermaid diagram->mermaid)
+(use ledger/core/graph/graph ->graph-view)
+(use ledger/core/graph/drawing drawing-of)
+(use ledger/core/graph/levels graph-level)
+(use ledger/core/graph/mermaid/mermaid drawing->mermaid)
 (use ledger/sqlite/snapshot load-snapshot)
 (use ledger/sqlite/roadmaps all-roadmaps)
 
@@ -20,6 +22,7 @@
 (defstruct graph-request
   :roadmap (option string)
   :history history
+  :level graph-level
   :format graph-format)
 
 (defstruct graph-source
@@ -44,10 +47,11 @@
   (let-try (scope (scope-named connection (ref (:roadmap request)))
             snapshot (load-snapshot connection)
             roadmaps (all-roadmaps connection))
-    (let (diagram (diagram-of (ref snapshot)
+    (let (drawing (drawing-of (ref snapshot)
                               (ref roadmaps)
                               (ref (->graph-view :scope scope
-                                                 :history (:history request)))))
+                                                 :history (:history request)))
+                              (:level request)))
       (ok (->graph-source :format (:format request)
                           :source (match (:format request)
-                                    (mermaid (diagram->mermaid (ref diagram)))))))))
+                                    (mermaid (drawing->mermaid drawing))))))))
