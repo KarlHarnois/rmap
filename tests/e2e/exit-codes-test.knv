@@ -37,23 +37,17 @@
     (assert (= (file-presence-at (as-str database))
                (ok file-presence/absent)))))
 
-(defn run-tool (program args)
-  (assert (ok? (run-command (ref (->command :program (str program)
-                                            :args args))))))
+(defn regular-file (name)
+  (let (path (scratch-database name))
+    (assert (ok? (run-command (ref (->command :program (str "touch")
+                                              :args (vec (clone path)))))))
+    path))
 
-(defn set-mode (directory mode)
-  (run-tool "chmod"
-            (vec (str mode) (clone directory))))
-
-(deftest a-ledger-behind-an-unreadable-directory-exits-three
-  (let (directory (str (scratch-database "unreadable") ".d"))
-    (run-tool "mkdir"
-              (vec (str "-p") (clone directory)))
-    (set-mode (ref directory) "000")
-    (let (reply (run-rmap (str directory "/ledger.db") (vec "list")))
-      (set-mode (ref directory) "700")
-      (assert (= (:exit-code reply) 3))
-      (assert (= (error-code (ref reply)) "database")))))
+(deftest a-ledger-path-through-a-regular-file-exits-three
+  (let (reply (run-rmap (str (regular-file "not-a-directory") "/ledger.db")
+                        (vec "list")))
+    (assert (= (:exit-code reply) 3))
+    (assert (= (error-code (ref reply)) "database"))))
 
 (deftest a-database-that-cannot-open-exits-three
   (let (reply (run-rmap (str "/nonexistent/rmap/ledger.db") (vec "init")))
