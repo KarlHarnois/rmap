@@ -57,7 +57,7 @@
   (match input
     ((flag-input/value placeholder)
      (text->json (as-str placeholder)))
-    (flag-input/switch json/null)))
+    (flag-input/boolean json/null)))
 
 (defn exit-code->json (code)
   (object (vec (pair (str "code")

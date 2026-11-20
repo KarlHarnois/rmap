@@ -1,9 +1,9 @@
 (module
   "Describes a flag a command takes: its name, whether it is required, and whether it takes a value.")
 
-(export choices flag-input flag-spec global-flags
-        json-switch optional presence required required?
-        switch-names)
+(export boolean-flag-names choices flag-input flag-spec
+        global-flags json-flag optional presence required
+        required?)
 
 (defenum presence
   required
@@ -11,14 +11,14 @@
 
 (defenum flag-input
   (value string)
-  switch)
+  boolean)
 
 (defstruct flag-spec
   :name string
   :presence presence
   :input flag-input)
 
-(def json-switch "json")
+(def json-flag "json")
 
 (defn required (name placeholder)
   (->flag-spec :name (str name)
@@ -30,16 +30,16 @@
                :presence presence/optional
                :input (flag-input/value (str placeholder))))
 
-(defn switch-flag (name)
+(defn boolean-flag (name)
   (->flag-spec :name (str name)
                :presence presence/optional
-               :input flag-input/switch))
+               :input flag-input/boolean))
 
 (defn required? (spec)
   (= (:presence spec) presence/required))
 
-(defn switch? (spec)
-  (= (:input spec) flag-input/switch))
+(defn boolean? (spec)
+  (= (:input spec) flag-input/boolean))
 
 (type choices
   (where ((a copy))
@@ -56,9 +56,9 @@
 (defn global-flags ()
   (vec (optional "db" "<path>")
        (optional "actor" "<name>")
-       (switch-flag json-switch)))
+       (boolean-flag json-flag)))
 
-(defn switch-names ()
+(defn boolean-flag-names ()
   (collect (map (filter (iter (global-flags))
-                  (fn (spec) (switch? spec)))
+                  (fn (spec) (boolean? spec)))
                 (fn (spec) (clone (:name spec))))))

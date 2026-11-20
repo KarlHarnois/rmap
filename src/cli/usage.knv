@@ -34,4 +34,4 @@
   (match (:input spec)
     ((flag-input/value placeholder)
      (str "--" (:name spec) " " placeholder))
-    (flag-input/switch (str "--" (:name spec)))))
+    (flag-input/boolean (str "--" (:name spec)))))

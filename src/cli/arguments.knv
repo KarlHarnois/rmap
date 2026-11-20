@@ -9,17 +9,18 @@
   :words (vec string)
   :flags (vec (pair string string)))
 
-(defn split-arguments (args switch-names)
+(defn split-arguments (args boolean-flag-names)
   (loop (index 0
          words (vec)
          flags (vec))
     (cond
       ((>= index (len args))
        (ok (->arguments :words words :flags flags)))
-      ((switch-token? (at args index) (ref switch-names))
+      ((boolean-flag-token? (at args index)
+                            (ref boolean-flag-names))
        (recur (inc index) words flags))
       ((flag-name? (at args index))
-       (let-try (value (flag-value (ref args) index (ref switch-names)))
+       (let-try (value (flag-value (ref args) index (ref boolean-flag-names)))
          (recur (+ index 2)
                 words
                 (appended flags
@@ -34,17 +35,17 @@
 (defn flag-name (arg)
   (str (subs (as-str arg) 2 (len arg))))
 
-(defn switch-token? (arg switch-names)
+(defn boolean-flag-token? (arg boolean-flag-names)
   (and (flag-name? arg)
-       (contains? switch-names (flag-name arg))))
+       (contains? boolean-flag-names (flag-name arg))))
 
-(defn flag-value (args index switch-names)
+(defn flag-value (args index boolean-flag-names)
   (ok-or (then-some (get args (inc index))
-           (fn (value) (unless-switch value switch-names)))
+           (fn (value) (unless-boolean-flag value boolean-flag-names)))
          (str (at args index) " needs a value")))
 
-(defn unless-switch (value switch-names)
-  (if (switch-token? value switch-names)
+(defn unless-boolean-flag (value boolean-flag-names)
+  (if (boolean-flag-token? value boolean-flag-names)
     none
     (some (clone value))))
 

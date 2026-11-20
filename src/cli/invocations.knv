@@ -8,7 +8,7 @@
 (use cli/arguments operand split-arguments)
 (use cli/route-matching check-shape route-of)
 (use cli/flags optional-text)
-(use cli/flag-specs switch-names)
+(use cli/flag-specs boolean-flag-names)
 
 (use cli/requests add-item-request advance-request
                   claim-request drop-request log-request
@@ -26,7 +26,7 @@
   (on-ledger ledger-call))
 
 (defn parse-invocation (args)
-  (let-try (arguments (split-arguments args (switch-names)))
+  (let-try (arguments (split-arguments args (boolean-flag-names)))
     (if (empty? (:words arguments))
       (ok invocation/help)
       (routed-invocation (ref arguments)))))
