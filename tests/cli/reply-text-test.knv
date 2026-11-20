@@ -1,0 +1,20 @@
+(use ledger/model event roadmap)
+(use cli/replies reply)
+(use cli/reply-text reply->text)
+(use support/items blocks-dep)
+
+(deftest adding-a-dep-says-which-item-waits-on-which
+  (assert (= (reply->text (reply/dep-added (blocks-dep "rm-0002" "rm-0001")))
+             (str "rm-0002 now waits on rm-0001."))))
+
+(deftest removing-a-dep-says-the-item-no-longer-waits
+  (assert (= (reply->text (reply/dep-removed (blocks-dep "rm-0002" "rm-0001")))
+             (str "rm-0002 no longer waits on rm-0001."))))
+
+(deftest an-empty-roadmap-list-says-so
+  (assert (= (reply->text (reply/roadmaps-listed (the (vec roadmap) (vec))))
+             (str "No roadmaps."))))
+
+(deftest an-empty-log-says-so
+  (assert (= (reply->text (reply/log-read (the (vec event) (vec))))
+             (str "No events."))))

@@ -17,7 +17,7 @@
 (use ledger/operations/lookups scope-named)
 (use ledger/sqlite/connection connection)
 
-(export item-detail list-items show-item)
+(export ->item-detail item-detail list-items show-item)
 
 (defstruct item-detail
   :item item

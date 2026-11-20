@@ -1,0 +1,42 @@
+(module
+  "Renders a response as the JSON object the CLI prints.")
+
+(use ledger/api failure failure-code failure-message
+                refusal)
+
+(use cli/responses response)
+(use cli/help help-document)
+(use cli/envelopes error-envelope reply-envelope)
+(use cli/ledger-json blockage-fields conflicts->json)
+
+(export response->json)
+
+(defn response->json (response)
+  (match response
+    (response/help (help-document))
+    ((response/replied reply) (reply-envelope reply))
+    ((response/failed failure) (failure-envelope (ref failure)))
+    ((response/misused message) (usage-envelope message))))
+
+(defn usage-envelope (message)
+  (error-envelope "usage"
+                  (as-str (str message
+                               "; run `rmap help` to list the commands"))
+                  (vec)))
+
+(defn failure-envelope (failure)
+  (error-envelope (as-str (failure-code failure))
+                  (as-str (failure-message failure))
+                  (failure-fields failure)))
+
+(defn failure-fields (failure)
+  (match failure
+    ((failure/refused refusal) (refusal-fields refusal))
+    (_ (vec))))
+
+(defn refusal-fields (refusal)
+  (match refusal
+    ((refusal/not-ready blockage) (blockage-fields blockage))
+    ((refusal/paths-conflict conflicts)
+     (vec (pair (str "path_conflicts") (conflicts->json conflicts))))
+    (_ (vec))))

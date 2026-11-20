@@ -1,0 +1,39 @@
+(use ledger/model ->dep dep-type item kind status)
+(use ledger/operations/items ->item-detail)
+
+(use cli/item-text item-added-text item-detail-text
+                   item-moved-text items-text)
+
+(use support/items blocks-dep claimed glob-of id-of
+                   work-item)
+
+(deftest adding-an-item-names-its-id-kind-and-title
+  (assert (= (item-added-text (ref
+                                (work-item "rm-0001" kind/build status/open)))
+             (str "Added rm-0001 (build): work"))))
+
+(deftest moving-an-item-names-its-new-status
+  (assert (= (item-moved-text
+               (ref (work-item "rm-0001" kind/build status/dispatched)))
+             (str "rm-0001 is now dispatched: work"))))
+
+(deftest items-print-as-a-table-under-a-header
+  (assert (= (items-text (ref (vec
+                                (work-item "rm-0001" kind/build status/open))))
+             (str "ID       ROADMAP  KIND   STATUS  PRIORITY  TITLE\nrm-0001  rm-road  build  open    0         work"))))
+
+(deftest an-empty-item-list-says-so
+  (assert (= (items-text (ref (the (vec item) (vec))))
+             (str "No items."))))
+
+(deftest item-detail-lists-its-claim-paths-and-dependencies
+  (let (detail (->item-detail :item (claimed (work-item "rm-0002"
+                                                        kind/build
+                                                        status/dispatched))
+                              :deps (vec (blocks-dep "rm-0002" "rm-0001")
+                                         (->dep :item (id-of "rm-0002")
+                                                :on (id-of "rm-0009")
+                                                :type dep-type/discovered-from))
+                              :globs (vec (glob-of "src/**"))))
+    (assert (= (item-detail-text (ref detail))
+               (str "rm-0002  work\n  roadmap          rm-road\n  kind             build\n  status           dispatched\n  claimed by       worker\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  paths            src/**\n  waits on         rm-0001\n  discovered from  rm-0009")))))

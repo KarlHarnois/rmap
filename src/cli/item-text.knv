@@ -1,0 +1,140 @@
+(module
+  "Describes items in plain text: a sentence about one item, a table of items, and the detail of one item.")
+
+(use ledger/api case-name claim dep dep-type item
+                item-detail item-id kind-names origin-names
+                status-names timestamp)
+
+(use cli/tables headed indented table)
+
+(export item-added-text item-detail-text item-moved-text
+        item-table items-text optional-id-text)
+
+(defn items-text (items)
+  (if (empty? items)
+    (str "No items.")
+    (item-table items)))
+
+(type item-table
+  (fn ((ref (vec item))) string))
+
+(defn item-table (items)
+  (let (rows (headed (vec "ID" "ROADMAP" "KIND" "STATUS" "PRIORITY" "TITLE")))
+    (for-each items
+      (fn (item)
+        (push! rows (item-cells item))))
+    (table rows)))
+
+(type item-cells
+  (fn ((ref item)) (vec string)))
+
+(defn item-cells (item)
+  (vec (clone (:value (:id item)))
+       (clone (:value (:roadmap-id item)))
+       (str (case-name kind-names (:kind item)))
+       (str (case-name status-names (:status item)))
+       (str (:priority item))
+       (clone (:title item))))
+
+(type item-added-text
+  (fn ((ref item)) string))
+
+(defn item-added-text (item)
+  (str "Added "
+       (:value (:id item))
+       " ("
+       (case-name kind-names (:kind item))
+       "): "
+       (:title item)))
+
+(type item-moved-text
+  (fn ((ref item)) string))
+
+(defn item-moved-text (item)
+  (str (:value (:id item))
+       " is now "
+       (case-name status-names (:status item))
+       ": "
+       (:title item)))
+
+(type item-detail-text
+  (fn ((ref item-detail)) string))
+
+(defn item-detail-text (detail)
+  (let (item (ref (:item detail)))
+    (str (:value (:id item))
+         "  "
+         (:title item)
+         "\n"
+         (indented (table (detail-rows detail))))))
+
+(type detail-rows
+  (fn ((ref item-detail))
+    (vec (vec string))))
+
+(defn detail-rows (detail)
+  (let (item (ref (:item detail)))
+    (vec (detail-row "roadmap"
+                     (clone (:value (:roadmap-id item))))
+         (detail-row "kind"
+                     (str (case-name kind-names (:kind item))))
+         (detail-row "status"
+                     (str (case-name status-names (:status item))))
+         (detail-row "claimed by"
+                     (claim-text (ref (:claim item))))
+         (detail-row "origin"
+                     (str (case-name origin-names (:origin item))))
+         (detail-row "priority" (str (:priority item)))
+         (detail-row "parent"
+                     (optional-id-text (ref (:parent item))))
+         (detail-row "created"
+                     (clone (:value (:created-at item))))
+         (detail-row "closed"
+                     (optional-timestamp-text (ref (:closed-at item))))
+         (detail-row "paths"
+                     (listed (collect (map (iter (:globs detail))
+                                        (fn (glob) (clone (:pattern glob)))))))
+         (detail-row "waits on"
+                     (listed (dep-targets (ref (:deps detail))
+                                          dep-type/blocks)))
+         (detail-row "discovered from"
+                     (listed (dep-targets (ref (:deps detail))
+                                          dep-type/discovered-from))))))
+
+(defn detail-row (label value)
+  (vec (str label) value))
+
+(defn claim-text (claim)
+  (match claim
+    ((claim/claimed-by session) (clone (:name session)))
+    (claim/unclaimed (str "-"))))
+
+(type dep-targets
+  (fn ((ref (vec dep)) dep-type)
+    (vec string)))
+
+(defn dep-targets (deps wanted)
+  (collect (map (filter (iter deps)
+                  (fn (dep) (= (:type dep) wanted)))
+                (fn (dep) (clone (:value (:on dep)))))))
+
+(defn listed (values)
+  (if (empty? values)
+    (str "-")
+    (join values ", ")))
+
+(type optional-id-text
+  (fn ((ref (option item-id))) string))
+
+(defn optional-id-text (id)
+  (match id
+    ((some present) (clone (:value present)))
+    (none (str "-"))))
+
+(type optional-timestamp-text
+  (fn ((ref (option timestamp))) string))
+
+(defn optional-timestamp-text (at)
+  (match at
+    ((some present) (clone (:value present)))
+    (none (str "-"))))

@@ -25,10 +25,9 @@
 
 (defn refusal->message (failure)
   (match failure
-    ((roadmap-not-found name)
-     (str "no roadmap is case-named " name))
+    ((roadmap-not-found name) (str "no roadmap is named " name))
     ((roadmap-exists name)
-     (str "a roadmap case-named " name " already exists"))
+     (str "a roadmap named " name " already exists"))
     ((item-not-found id)
      (str "no item has the id " (:value id)))
     ((parent-not-epic id)

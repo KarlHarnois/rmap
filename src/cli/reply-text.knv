@@ -1,0 +1,101 @@
+(module
+  "Describes each ledger result in plain text.")
+
+(use ledger/api case-name dep event event-type-names roadmap
+                roadmap-status-names)
+
+(use cli/replies reply)
+(use cli/tables headed table)
+
+(use cli/item-text item-added-text item-detail-text
+                   item-moved-text items-text
+                   optional-id-text)
+
+(use cli/readiness-text readiness-text)
+
+(export reply->text)
+
+(defn reply->text (reply)
+  (match reply
+    ((reply/roadmap-created roadmap)
+     (roadmap-created-text roadmap))
+    ((reply/roadmaps-listed roadmaps) (roadmaps-text roadmaps))
+    ((reply/readiness-checked readiness)
+     (readiness-text readiness))
+    ((reply/log-read events) (events-text events))
+    ((reply/item-added item) (item-added-text item))
+    ((reply/item-moved item) (item-moved-text item))
+    ((reply/items-listed items) (items-text (ref items)))
+    ((reply/item-shown detail) (item-detail-text detail))
+    ((reply/dep-added dep) (dep-text dep "now waits on"))
+    ((reply/dep-removed dep)
+     (dep-text dep "no longer waits on"))))
+
+(type roadmap-created-text
+  (fn ((ref roadmap)) string))
+
+(defn roadmap-created-text (roadmap)
+  (str "Created roadmap "
+       (:name roadmap)
+       ", managed by "
+       (:name (:manager roadmap))
+       "."))
+
+(defn roadmaps-text (roadmaps)
+  (if (empty? roadmaps)
+    (str "No roadmaps.")
+    (roadmap-table roadmaps)))
+
+(type roadmap-table
+  (fn ((ref (vec roadmap))) string))
+
+(defn roadmap-table (roadmaps)
+  (let (rows (headed (vec "ID" "NAME" "STATUS" "MANAGER" "CREATED")))
+    (for-each roadmaps
+      (fn (roadmap)
+        (push! rows (roadmap-cells roadmap))))
+    (table rows)))
+
+(type roadmap-cells
+  (fn ((ref roadmap)) (vec string)))
+
+(defn roadmap-cells (roadmap)
+  (vec (clone (:value (:id roadmap)))
+       (clone (:name roadmap))
+       (str (case-name roadmap-status-names (:status roadmap)))
+       (clone (:name (:manager roadmap)))
+       (clone (:value (:created-at roadmap)))))
+
+(defn events-text (events)
+  (if (empty? events)
+    (str "No events.")
+    (event-table events)))
+
+(type event-table
+  (fn ((ref (vec event))) string))
+
+(defn event-table (events)
+  (let (rows (headed (vec "ID" "AT" "ACTOR" "EVENT" "ITEM")))
+    (for-each events
+      (fn (event)
+        (push! rows (event-cells event))))
+    (table rows)))
+
+(type event-cells
+  (fn ((ref event)) (vec string)))
+
+(defn event-cells (event)
+  (vec (str (:id event))
+       (clone (:value (:at event)))
+       (clone (:actor event))
+       (str (case-name event-type-names (:type event)))
+       (optional-id-text (ref (:item-id event)))))
+
+(type dep-text
+  (fn ((ref dep) (ref str)) string))
+
+(defn dep-text (dep relation)
+  (str (:value (:item dep))
+       " " relation " "
+       (:value (:on dep))
+       "."))

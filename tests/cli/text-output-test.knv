@@ -1,0 +1,21 @@
+(use ledger/api ->item-id failure refusal)
+(use cli/responses response)
+(use cli/text-output response->printed stream)
+
+(deftest a-usage-error-goes-to-standard-error-with-a-hint
+  (let (printed (response->printed (response/misused (str "unknown command: frobnicate"))))
+    (assert (= (:stream printed) stream/standard-error))
+    (assert (= (:text printed)
+               (str "error: unknown command: frobnicate\nRun `rmap help` to list the commands.")))))
+
+(deftest a-refusal-goes-to-standard-error-with-its-code
+  (let (printed (response->printed (response/failed (failure/refused
+                                                      (refusal/item-not-found
+                                                        (->item-id :value (str "rm-ffff")))))))
+    (assert (= (:stream printed) stream/standard-error))
+    (assert (= (:text printed)
+               (str "error: no item has the id rm-ffff (item-not-found)")))))
+
+(deftest help-goes-to-standard-output
+  (assert (= (:stream (response->printed response/help))
+             stream/standard-output)))

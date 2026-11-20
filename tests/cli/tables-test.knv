@@ -1,0 +1,21 @@
+(use cli/tables headed indented table)
+
+(deftest columns-are-padded-to-their-widest-cell-except-the-last
+  (let (rows (headed (vec "ID" "TITLE")))
+    (push! rows
+           (vec (str "rm-1a2b") (str "Add the parser")))
+    (assert (= (table rows)
+               (str "ID       TITLE\nrm-1a2b  Add the parser")))))
+
+(deftest indenting-prefixes-every-line
+  (assert (= (indented (str "first\nsecond"))
+             (str "  first\n  second"))))
+
+(deftest columns-count-characters-not-bytes
+  (let (rows (headed (vec "NAME" "STATUS")))
+    (push! rows
+           (vec (str "café") (str "active")))
+    (push! rows
+           (vec (str "road") (str "paused")))
+    (assert (= (table rows)
+               (str "NAME  STATUS\ncafé  active\nroad  paused")))))

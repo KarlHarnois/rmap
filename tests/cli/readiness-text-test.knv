@@ -1,0 +1,43 @@
+(use ledger/model ->blockage ->glob ->item-id
+                  ->path-conflict)
+
+(use ledger/model kind status)
+(use ledger/core/ready ->blocked-item ->readiness)
+(use cli/readiness-text blockage-lines readiness-text)
+(use support/items work-item)
+
+(defn id-of (text)
+  (->item-id :value (str text)))
+
+(defn glob-of (pattern)
+  (->glob :pattern (str pattern)))
+
+(deftest each-reason-an-item-is-held-back-gets-its-own-line
+  (assert (= (blockage-lines
+               (ref (->blockage :blockers (vec (id-of "rm-0001"))
+                                :dropped-blockers (vec (id-of "rm-0002"))
+                                :path-conflicts (vec (->path-conflict
+                                                       :with (id-of "rm-0003")
+                                                       :glob (glob-of "src/**")
+                                                       :other-glob (glob-of "src/a/**"))))))
+             (vec (str "waits on rm-0001")
+                  (str "waits on dropped rm-0002")
+                  (str "path src/** overlaps src/a/**, held by rm-0003")))))
+
+(deftest a-blockage-without-reasons-has-no-lines
+  (assert (empty? (blockage-lines (ref (->blockage :blockers (vec)
+                                                   :dropped-blockers (vec)
+                                                   :path-conflicts (vec)))))))
+
+(deftest with-nothing-ready-the-blocked-section-follows-the-notice
+  (assert (= (readiness-text
+               (->readiness :ready (vec)
+                            :blocked (vec (->blocked-item
+                                            :item (work-item "rm-0002"
+                                                             kind/research
+                                                             status/open)
+                                            :blockage (->blockage
+                                                        :blockers (vec (id-of "rm-0001"))
+                                                        :dropped-blockers (vec)
+                                                        :path-conflicts (vec))))))
+             (str "Nothing is ready.\n\nBlocked:\n  rm-0002  work\n    waits on rm-0001"))))

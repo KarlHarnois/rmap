@@ -1,0 +1,37 @@
+(module
+  "Writes how to call the CLI and its commands, with each flag's placeholder.")
+
+(use cli/routes route-name)
+(use cli/flag-specs flag-input global-flags required?)
+
+(export command-usage usage-line)
+
+(defn usage-line ()
+  (str "rmap "
+       (flags-usage (ref (global-flags)))
+       " <command> <operands> [--<flag> <value>]"))
+
+(defn command-usage (route)
+  (let (parts (vec (route-name route)))
+    (for-each (:operands route)
+      (fn (operand)
+        (push! parts (str "<" operand ">"))))
+    (when (not (empty? (:flags route)))
+      (push! parts
+             (flags-usage (ref (:flags route)))))
+    (join parts " ")))
+
+(defn flags-usage (specs)
+  (join (collect (map (iter specs) flag-usage))
+        " "))
+
+(defn flag-usage (spec)
+  (if (required? spec)
+    (flag-written spec)
+    (str "[" (flag-written spec) "]")))
+
+(defn flag-written (spec)
+  (match (:input spec)
+    ((flag-input/value placeholder)
+     (str "--" (:name spec) " " placeholder))
+    (flag-input/boolean (str "--" (:name spec)))))

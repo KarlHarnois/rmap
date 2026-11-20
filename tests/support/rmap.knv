@@ -1,9 +1,12 @@
 (use json/value field json json->text parse-json)
 (use support/scratch scratch-database)
-(use process/command ->command command-output run-command)
+
+(use process/command ->command ->command-output
+                     command-output run-command)
 
 (export database-with-roadmap error-code reply research-id
-        run-rmap run-rmap-pair run-rmap-together text-at)
+        run-rmap run-rmap-pair run-rmap-text
+        run-rmap-together text-at)
 
 (defstruct reply
   :exit-code i32
@@ -66,7 +69,7 @@
           (waited->result (unwrap-ok (wait-raw second))))))
 
 (defn with-database (database args)
-  (let (all (vec (str "--db") database))
+  (let (all (vec (str "--json") (str "--db") database))
     (for-each args
       (fn (arg) (push! all (str arg))))
     all))
@@ -115,3 +118,21 @@
                              "research")))
     (assert (= (:exit-code added) 0))
     (text-at (ref added) "item" "id")))
+
+(def run-without-json-variable-raw
+  (rust "std::process::Command::new({0}).args({1}).env_remove(\"RMAP_JSON\").output().map(|output| (output.status.code().unwrap_or(-1), (String::from_utf8_lossy(&output.stdout).to_string(), String::from_utf8_lossy(&output.stderr).to_string()))).map_err(|failure| failure.to_string())"
+    (fn ((ref str) (ref (vec string)))
+      (result (pair i32 (pair string string)) string))))
+
+(type run-rmap-text
+  (fn ((vec (ref str))) command-output))
+
+(defn run-rmap-text (args)
+  (let-match ((pair code (pair stdout stderr)) (unwrap-ok (run-without-json-variable-raw
+                                                            (built-binary)
+                                                            (ref (collect
+                                                                   (map (iter
+                                                                          args)
+                                                                        (fn (arg)
+                                                                          (str arg))))))))
+    (->command-output :code code :stdout stdout :stderr stderr)))

@@ -86,3 +86,22 @@
                               "dispatched" "--kind"
                               "design")
                          "--kind takes only build")))
+
+(deftest a-call-without-a-command-is-help
+  (assert (= (unwrap-ok (parsed (vec "--json")))
+             invocation/help)))
+
+(deftest the-json-flag-goes-with-any-command
+  (assert (some? (ledger-call-of (vec "list" "--json")))))
+
+(deftest the-json-flag-is-never-a-flag-value
+  (assert (refused-with? (vec "ready" "--roadmap" "--json")
+                         "--roadmap needs a value")))
+
+(deftest global-flags-without-a-command-are-help
+  (assert (= (unwrap-ok (parsed (vec "--db" "x.db" "--json")))
+             invocation/help)))
+
+(deftest a-command-flag-without-a-command-is-refused
+  (assert (refused-with? (vec "--roadmap" "road")
+                         "--roadmap needs a command")))

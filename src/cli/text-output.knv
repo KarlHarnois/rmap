@@ -1,0 +1,64 @@
+(module
+  "Renders a response as the text the CLI prints: results on standard output, errors on standard error.")
+
+(use ledger/api failure failure-code failure-message
+                refusal)
+
+(use cli/responses response)
+(use cli/help-text help-text)
+(use cli/tables indented)
+(use cli/reply-text reply->text)
+(use cli/readiness-text blockage-lines conflict-lines)
+
+(export printed response->printed stream)
+
+(defenum stream
+  standard-output
+  standard-error)
+
+(defstruct printed
+  :stream stream
+  :text string)
+
+(defn response->printed (response)
+  (match response
+    (response/help (on-standard-output (help-text)))
+    ((response/replied reply)
+     (on-standard-output (reply->text reply)))
+    ((response/failed failure)
+     (on-standard-error (failure-text (ref failure))))
+    ((response/misused message)
+     (on-standard-error (usage-text message)))))
+
+(defn on-standard-output (text)
+  (->printed :stream stream/standard-output :text text))
+
+(defn on-standard-error (text)
+  (->printed :stream stream/standard-error :text text))
+
+(defn usage-text (message)
+  (str "error: " message
+       "\nRun `rmap help` to list the commands."))
+
+(defn failure-text (failure)
+  (let (lines (vec (str "error: "
+                        (failure-message failure)
+                        " ("
+                        (failure-code failure)
+                        ")"))
+        details (failure-details failure))
+    (when (not (empty? details))
+      (push! lines (indented (join details "\n"))))
+    (join lines "\n")))
+
+(defn failure-details (failure)
+  (match failure
+    ((failure/refused refusal) (refusal-details refusal))
+    (_ (vec))))
+
+(defn refusal-details (refusal)
+  (match refusal
+    ((refusal/not-ready blockage) (blockage-lines blockage))
+    ((refusal/paths-conflict conflicts)
+     (conflict-lines conflicts))
+    (_ (vec))))
