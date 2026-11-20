@@ -10,7 +10,7 @@ Enable [flakes](https://nixos.wiki/wiki/Flakes) in [Nix](https://nixos.org/downl
 nix profile add github:KarlHarnois/rmap
 ```
 
-Without Nix, install [Rust](https://rustup.rs) and [knave](https://crates.io/crates/knave) 0.20.1, then run `knave build`. The build writes the binary to `target/knave/rmap/rmap`.
+Without Nix, install [Rust](https://rustup.rs) and [knave](https://crates.io/crates/knave) 0.21.0, then run `knave build`. The build writes the binary to `target/knave/rmap/rmap`.
 
 ## Usage
 
