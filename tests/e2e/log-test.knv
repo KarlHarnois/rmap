@@ -1,0 +1,57 @@
+(use json/value copy-of field json->items json->text null?)
+
+(use support/rmap database-with-roadmap research-id
+                  run-rmap)
+
+(defn logged-changes (name)
+  (let (database (database-with-roadmap name)
+        item (research-id (clone database)))
+    (assert (= (:exit-code
+                 (run-rmap (clone database)
+                           (vec "item" "claim" (as-str item) "--session" "s1")))
+               0))
+    (assert (= (:exit-code (run-rmap
+                             (clone database)
+                             (vec "item" "advance" (as-str item) "open")))
+               0))
+    (let (reply (run-rmap database (vec "log" "--item" (as-str item))))
+      (assert (= (:exit-code reply) 0))
+      (collect
+        (map (iter (unwrap (json->items (unwrap (field (ref (:json reply))
+                                                       "events")))))
+             (fn (event)
+               (unwrap (field (unwrap (field event "payload")) "changes"))))))))
+
+(defn side-text (changes column which)
+  (-> (ref changes)
+      (field column)
+      unwrap
+      (field which)
+      unwrap
+      (copy-of)
+      (json->text)))
+
+(defn side-null? (changes column which)
+  (null? (ref (-> (ref changes)
+                  (field column)
+                  unwrap
+                  (field which)
+                  unwrap))))
+
+(deftest the-log-records-each-change-as-old-and-new
+  (let (changes (logged-changes "log-changes")
+        added (copy-of (unwrap (get changes 0)))
+        claimed (copy-of (unwrap (get changes 1)))
+        reopened (copy-of (unwrap (get changes 2))))
+    (assert (= (len changes) 3))
+    (assert (= (side-text added "title" "new")
+               (some (str "r"))))
+    (assert (side-null? added "title" "old"))
+    (assert (side-null? added "claimed_by" "new"))
+    (assert (= (side-text claimed "status" "old")
+               (some (str "open"))))
+    (assert (= (side-text claimed "claimed_by" "new")
+               (some (str "s1"))))
+    (assert (= (side-text reopened "claimed_by" "old")
+               (some (str "s1"))))
+    (assert (side-null? reopened "claimed_by" "new"))))

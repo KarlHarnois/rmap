@@ -69,7 +69,7 @@
         action (first-action (ref entry)))
     (assert (= (:exit-code reply) 0))
     (assert (= (json->int (unwrap (field (ref (:json reply)) "schema_version")))
-               (some 1)))
+               (some 2)))
     (assert (= (text-of (ref entry) "roadmap")
                (str "road")))
     (assert (= (text-of (ref entry) "status")
