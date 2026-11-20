@@ -2,9 +2,9 @@
   "Builds, reads, parses and prints JSON values, over `serde_json::Value`.")
 
 (export array bool->json copy-of field float->json int->json
-        json json->bool json->float json->int json->items
-        json->source json->text json-error null? object
-        parse-json same? text->json)
+        json json->bool json->entries json->float json->int
+        json->items json->source json->text json-error null?
+        object parse-json same? text->json)
 
 (rust-type json-number "serde_json::Number")
 
@@ -49,6 +49,16 @@
   (match value
     ((object entries) (entry entries key))
     (_ none)))
+
+(def map-entries
+  (rust "{0}.iter().map(|(key, value)| (key.clone(), value.clone())).collect()"
+    (fn ((ref json-map))
+      (vec (pair string json)))))
+
+(defn json->entries (value)
+  (match value
+    ((object entries) (map-entries entries))
+    (_ (vec))))
 
 (defn json->text (value)
   (match value

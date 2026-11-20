@@ -1,18 +1,17 @@
 (module
   "Describes each ledger result in plain text.")
 
-(use ledger/api case-name dep event event-type-names
-                init-outcome init-report roadmap
-                roadmap-status-names)
+(use ledger/api case-name dep init-outcome init-report
+                roadmap roadmap-status-names)
 
 (use cli/replies reply)
 (use cli/tables headed table)
 
 (use cli/item-text item-added-text item-detail-text
-                   item-moved-text items-text
-                   optional-id-text)
+                   item-moved-text items-text)
 
 (use cli/readiness-text readiness-text)
+(use cli/event-text events-text)
 
 (export reply->text)
 
@@ -25,7 +24,7 @@
     ((reply/roadmaps-listed roadmaps) (roadmaps-text roadmaps))
     ((reply/readiness-checked readiness)
      (readiness-text readiness))
-    ((reply/log-read events) (events-text events))
+    ((reply/log-read events) (events-text (ref events)))
     ((reply/item-added item) (item-added-text item))
     ((reply/item-moved item) (item-moved-text item))
     ((reply/items-listed items) (items-text (ref items)))
@@ -77,31 +76,6 @@
        (str (case-name roadmap-status-names (:status roadmap)))
        (clone (:name (:manager roadmap)))
        (clone (:value (:created-at roadmap)))))
-
-(defn events-text (events)
-  (if (empty? events)
-    (str "No events.")
-    (event-table events)))
-
-(type event-table
-  (fn ((ref (vec event))) string))
-
-(defn event-table (events)
-  (let (rows (headed (vec "ID" "AT" "ACTOR" "EVENT" "ITEM")))
-    (for-each events
-      (fn (event)
-        (push! rows (event-cells event))))
-    (table rows)))
-
-(type event-cells
-  (fn ((ref event)) (vec string)))
-
-(defn event-cells (event)
-  (vec (str (:id event))
-       (clone (:value (:at event)))
-       (clone (:actor event))
-       (str (case-name event-type-names (:type event)))
-       (optional-id-text (ref (:item-id event)))))
 
 (type dep-text
   (fn ((ref dep) (ref str)) string))
