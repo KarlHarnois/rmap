@@ -50,10 +50,10 @@ jobs:
             echo "Code outside src/ledger/ must import only ledger/api."
             exit 1
           fi
-      - name: Keep the ledger core free of SQLite
+      - name: Keep the ledger core pure
         run: |
-          if grep -rn '^(use ledger/sqlite' src/ledger/core; then
-            echo "src/ledger/core must not import ledger/sqlite: the core stays pure."
+          if grep -rn '^(use ' src/ledger/core | grep -vE ':\(use ledger/(model|names|refusal|core/[a-z-]+)[ )]'; then
+            echo "src/ledger/core may import only ledger/model, ledger/names, ledger/refusal and other core modules: the core stays pure."
             exit 1
           fi
       - name: Keep committed migrations unchanged
