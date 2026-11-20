@@ -42,7 +42,7 @@
   (let (connection (opened "latest"))
     (unwrap-ok (migrate (ref connection) (migration-sources)))
     (assert (= (unwrap-ok (schema-version (ref connection)))
-               1))))
+               (newest-version)))))
 
 (deftest a-later-migration-keeps-existing-rows
   (let (connection (opened "keeps-rows"))
@@ -55,12 +55,12 @@
                                   (text->sql "2026-01-01")))))
     (let (extended (migration-sources))
       (push! extended
-             (->migration :version 2
-                          :file (str "0002-add-item-notes.sql")
+             (->migration :version (inc (newest-version))
+                          :file (str "add-item-notes.sql")
                           :sql (unwrap-ok (slurp fixture-migration))))
       (unwrap-ok (migrate (ref connection) extended)))
     (assert (= (unwrap-ok (schema-version (ref connection)))
-               2))
+               (inc (newest-version))))
     (assert (= (count-roadmaps (ref connection)) 1))))
 
 (deftest migrating-twice-applies-nothing-new
@@ -68,7 +68,7 @@
     (unwrap-ok (migrate (ref connection) (migration-sources)))
     (unwrap-ok (migrate (ref connection) (migration-sources)))
     (assert (= (unwrap-ok (schema-version (ref connection)))
-               1))))
+               (newest-version)))))
 
 (deftest migrations-that-share-a-version-are-refused
   (let (connection (opened "shared-version")
@@ -84,7 +84,7 @@
     (assert (= (migrate (ref connection) (migration-sources))
                (ok 0)))
     (assert (= (migrate (ref connection) (migration-sources))
-               (ok 1)))))
+               (ok (newest-version))))))
 
 (defn newest-version ()
   (-> (migration-sources) iter (map :version) max unwrap))
@@ -110,3 +110,64 @@
     (unwrap-err (migrate (ref connection) (migration-sources)))
     (assert (= (unwrap-ok (schema-version (ref connection)))
                (inc (newest-version))))))
+
+(def version-one-rows
+  "INSERT INTO roadmaps (id, name, manager_session, created_at) VALUES ('rm-0001', 'road', 'm1', 't');
+INSERT INTO items (id, roadmap_id, parent_id, title, kind, status, created_at) VALUES
+  ('rm-0002', 'rm-0001', NULL, 'epic', 'epic', 'open', 't'),
+  ('rm-0003', 'rm-0001', 'rm-0002', 'design', 'design', 'reported', 't'),
+  ('rm-0004', 'rm-0001', NULL, 'build', 'build', 'open', 't');
+INSERT INTO deps (item_id, on_id, type) VALUES ('rm-0004', 'rm-0003', 'blocks');
+INSERT INTO item_paths (item_id, glob) VALUES ('rm-0004', 'src/a/**');
+INSERT INTO events (at, actor, roadmap_id, item_id, type, payload_json) VALUES
+  ('t', 'm1', 'rm-0001', 'rm-0003', 'item-added', '{}'),
+  ('t', 'm1', 'rm-0001', 'rm-0004', 'item-added', '{}');")
+
+(defn first-migration-only ()
+  (collect (map (filter (iter (migration-sources))
+                  (fn (migration)
+                    (= (:version migration) 1)))
+                clone)))
+
+(defn upgraded-from-version-one (name)
+  (let (connection (opened name))
+    (unwrap-ok (migrate (ref connection) (first-migration-only)))
+    (unwrap-ok (run-batch (ref connection) version-one-rows))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    connection))
+
+(defn row-count (connection table)
+  (len (unwrap-ok (query connection
+                         (as-str (str "SELECT * FROM " table))
+                         (ref (vec))))))
+
+(deftest the-accepted-migration-keeps-every-row
+  (let (connection (upgraded-from-version-one "accepted-keeps-rows"))
+    (assert (= (row-count (ref connection) "items") 3))
+    (assert (= (row-count (ref connection) "deps") 1))
+    (assert (= (row-count (ref connection) "item_paths") 1))
+    (assert (= (row-count (ref connection) "events") 2))))
+
+(deftest the-accepted-migration-allows-the-accepted-status
+  (let (connection (upgraded-from-version-one "accepted-allowed"))
+    (assert (ok? (run-batch (ref connection)
+                            "UPDATE items SET status = 'accepted' WHERE id = 'rm-0003';")))
+    (assert (err? (run-batch (ref connection)
+                             "UPDATE items SET status = 'bogus' WHERE id = 'rm-0003';")))))
+
+(deftest the-accepted-migration-keeps-foreign-keys
+  (let (connection (upgraded-from-version-one "accepted-foreign-keys"))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO deps (item_id, on_id, type) VALUES ('rm-0004', 'rm-9999', 'blocks');")))))
+
+(deftest the-accepted-migration-keeps-the-event-sequence
+  (let (connection (upgraded-from-version-one "accepted-event-sequence"))
+    (unwrap-ok (run-batch (ref connection)
+                          "INSERT INTO events (at, actor, type, payload_json) VALUES ('t', 'm1', 'item-closed', '{}');"))
+    (assert (= (row-count (ref connection) "events WHERE id = 3") 1))))
+
+(deftest the-accepted-migration-keeps-the-indexes
+  (assert (= (row-count
+               (ref (upgraded-from-version-one "accepted-indexes"))
+               "sqlite_schema WHERE name IN ('items_roadmap', 'events_item')")
+             2)))
