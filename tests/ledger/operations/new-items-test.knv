@@ -1,9 +1,9 @@
-(use ledger/api ->item-id add-item kind new-roadmap
-                show-item)
+(use ledger/api ->item-id add-item kind show-item)
 
 (use support/ledger added-id globs-of-patterns item-draft
-                    refusal-code-of scratch-ledger
-                    session-named)
+                    ledger-with-two-roadmaps
+                    other-roadmap-name refusal-code-of
+                    scratch-ledger)
 
 (deftest repeated-blockers-are-stored-once
   (let (settings (scratch-ledger "repeated-blockers")
@@ -51,14 +51,11 @@
                (some (str "parent-not-epic"))))))
 
 (deftest a-parent-in-another-roadmap-is-refused
-  (let (settings (scratch-ledger "parent-in-other-roadmap")
+  (let (settings (ledger-with-two-roadmaps "parent-in-other-roadmap")
         epic (added-id (ref settings)
-                       (item-draft kind/epic (vec)))
-        _ (new-roadmap (ref settings)
-                       (str "other")
-                       (session-named "other-manager")))
+                       (item-draft kind/epic (vec))))
     (assert (= (refusal-code-of (add-item (ref settings)
-                                          (str "other")
+                                          (str other-roadmap-name)
                                           (assoc (item-draft kind/design (vec))
                                                  :parent (some epic))))
                (some (str "parent-in-other-roadmap"))))))

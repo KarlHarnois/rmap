@@ -1,10 +1,16 @@
 (use ledger/api add-dep kind remove-dep)
 
-(use support/ledger added-id item-draft refusal-code-of
+(use support/ledger added-id added-id-in item-draft
+                    ledger-with-two-roadmaps
+                    other-roadmap-name refusal-code-of
                     scratch-ledger)
 
 (defn research (settings)
   (added-id settings (item-draft kind/research (vec))))
+
+(defn other-research (settings)
+  (added-id-in settings other-roadmap-name
+               (item-draft kind/research (vec))))
 
 (deftest a-two-edge-cycle-is-refused
   (let (settings (scratch-ledger "two-edge-cycle")
@@ -46,3 +52,19 @@
         second (research (ref settings)))
     (assert (= (refusal-code-of (remove-dep (ref settings) first second))
                (some (str "dep-not-found"))))))
+
+(deftest a-dep-on-an-item-in-another-roadmap-is-added
+  (let (settings (ledger-with-two-roadmaps "cross-roadmap-dep")
+        blocker (research (ref settings))
+        blocked (other-research (ref settings)))
+    (assert (ok? (add-dep (ref settings) blocked blocker)))))
+
+(deftest a-cycle-through-two-roadmaps-is-refused
+  (let (settings (ledger-with-two-roadmaps "cross-roadmap-cycle")
+        first (research (ref settings))
+        second (other-research (ref settings)))
+    (assert (ok? (add-dep (ref settings)
+                          (clone first)
+                          (clone second))))
+    (assert (= (refusal-code-of (add-dep (ref settings) second first))
+               (some (str "cycle"))))))

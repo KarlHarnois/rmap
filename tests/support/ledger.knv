@@ -8,10 +8,14 @@
 (use support/scratch scratch-database)
 
 (export added-id added-id-in advanced claimed
-        globs-of-patterns item-draft refusal-code-of
-        reported-research scratch-ledger session-named)
+        globs-of-patterns item-draft
+        ledger-with-two-roadmaps other-roadmap-name
+        refusal-code-of reported-research scratch-ledger
+        session-named)
 
 (def roadmap-name "road")
+
+(def other-roadmap-name "other")
 
 (defn scratch-ledger (name)
   (let (settings (->settings :database-path (scratch-database name)
@@ -20,6 +24,13 @@
     (assert (ok? (new-roadmap (ref settings)
                               (str roadmap-name)
                               (session-named "manager"))))
+    settings))
+
+(defn ledger-with-two-roadmaps (name)
+  (let (settings (scratch-ledger name))
+    (assert (ok? (new-roadmap (ref settings)
+                              (str other-roadmap-name)
+                              (session-named "other-manager"))))
     settings))
 
 (defn session-named (name)

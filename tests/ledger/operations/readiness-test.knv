@@ -1,7 +1,9 @@
-(use ledger/api kind new-roadmap ready-items)
+(use ledger/api kind ready-items status)
 
-(use support/ledger added-id item-draft refusal-code-of
-                    scratch-ledger session-named)
+(use support/ledger added-id added-id-in advanced claimed
+                    item-draft ledger-with-two-roadmaps
+                    other-roadmap-name refusal-code-of
+                    scratch-ledger)
 
 (deftest an-unknown-roadmap-is-refused
   (let (settings (scratch-ledger "unknown-roadmap"))
@@ -10,15 +12,40 @@
                (some (str "roadmap-not-found"))))))
 
 (deftest naming-a-roadmap-limits-ready-items-to-it
-  (let (settings (scratch-ledger "ready-in-one-roadmap")
+  (let (settings (ledger-with-two-roadmaps "ready-in-one-roadmap")
         _ (added-id (ref settings)
-                    (item-draft kind/research (vec)))
-        _ (new-roadmap (ref settings)
-                       (str "other")
-                       (session-named "other-manager")))
-    (assert (= (len (:ready (unwrap-ok (ready-items (ref settings)
-                                                    (some (str "other"))))))
+                    (item-draft kind/research (vec))))
+    (assert (= (len (:ready (other-readiness (ref settings))))
                0))
     (assert (= (len (:ready (unwrap-ok (ready-items (ref settings)
                                                     (some (str "road"))))))
+               1))))
+
+(defn other-readiness (settings)
+  (unwrap-ok (ready-items settings (some (str other-roadmap-name)))))
+
+(defn research (settings)
+  (added-id settings (item-draft kind/research (vec))))
+
+(defn other-research-blocked-by (settings blocker)
+  (added-id-in settings other-roadmap-name
+               (assoc (item-draft kind/research (vec))
+                      :blocked-by (vec blocker))))
+
+(deftest an-open-blocker-in-another-roadmap-keeps-an-item-waiting
+  (let (settings (ledger-with-two-roadmaps "cross-roadmap-waiting")
+        blocker (research (ref settings))
+        _blocked (other-research-blocked-by (ref settings) blocker)
+        readiness (other-readiness (ref settings)))
+    (assert (= (len (:ready readiness)) 0))
+    (assert (= (len (:blocked readiness)) 1))))
+
+(deftest a-delivered-blocker-in-another-roadmap-frees-the-item
+  (let (settings (ledger-with-two-roadmaps "cross-roadmap-freed")
+        blocker (research (ref settings))
+        _blocked (other-research-blocked-by (ref settings) (clone blocker))
+        _delivered (advanced (ref settings)
+                             (claimed (ref settings) blocker)
+                             status/reported))
+    (assert (= (len (:ready (other-readiness (ref settings))))
                1))))
