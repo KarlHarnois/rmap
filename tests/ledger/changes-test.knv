@@ -72,3 +72,12 @@
     (assert (= (len kept) 1))
     (assert (= (:column (unwrap (first kept)))
                (str "priority")))))
+
+(deftest updated-columns-pairs-columns-by-name-not-by-position
+  (let (reordered (vec (pair (str "priority") (int->json 0))
+                       (pair (str "status") (text "open")))
+        kept (only-changed (updated-columns (ref reordered)
+                                            (ref (columns "open" 3)))))
+    (assert (= (len kept) 1))
+    (assert (= (:column (unwrap (first kept)))
+               (str "priority")))))

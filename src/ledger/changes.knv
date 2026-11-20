@@ -41,11 +41,22 @@
     (vec column-change)))
 
 (defn updated-columns (before after)
-  (collect (map (zip (iter before) (iter after))
-             (fn (columns)
-               (updated (as-str (first (first columns)))
-                        (copy-of (second (first columns)))
-                        (copy-of (second (second columns))))))))
+  (collect (map (iter after)
+             (fn (column)
+               (updated (as-str (first column))
+                        (value-named before (first column))
+                        (copy-of (second column)))))))
+
+(type value-named
+  (fn ((ref (vec (pair string json)))
+       (ref string))
+    json))
+
+(defn value-named (columns name)
+  (match (find (iter columns)
+           (fn (column) (= (first column) name)))
+    ((some column) (copy-of (second column)))
+    (none json/null)))
 
 (defn only-changed (changes)
   (-> changes iter
