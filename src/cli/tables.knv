@@ -26,7 +26,8 @@
 
 (defn column-width (rows column)
   (unwrap-or (max (map (iter rows)
-                    (fn (row) (len (at row column)))))
+                    (fn (row)
+                      (character-count (at row column)))))
              0))
 
 (defn row-line (widths row)
@@ -43,7 +44,11 @@
 (defn cell-text (cell width last?)
   (if last?
     (clone cell)
-    (str cell (spaces (- width (len cell))))))
+    (str cell
+         (spaces (- width (character-count cell))))))
+
+(defn character-count (text)
+  (count (chars (as-str text))))
 
 (defn spaces (count)
   (join (collect (map (range 0 count) (fn (_) " ")))
