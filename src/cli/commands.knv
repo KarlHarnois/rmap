@@ -40,9 +40,10 @@
                 :flags (vec))
        (->route :subcommand subcommand/ready
                 :words (words "ready")
-                :summary (str "Lists the items that can start, and what holds back the others.")
+                :summary (str "Lists the items that can start, and what holds back the others. With --limit, picks up to that many ready items whose paths do not conflict, and lists the ones it skipped.")
                 :operands (vec)
-                :flags (vec (optional "roadmap" "<name>")))
+                :flags (vec (optional "roadmap" "<name>")
+                            (optional "limit" "<whole number, at least 1>")))
        (->route :subcommand subcommand/next
                 :words (words "next")
                 :summary (str "Lists the next action for each open item and who takes it. A manager with no roadmaps gives an empty list, not an error.")

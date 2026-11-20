@@ -2,11 +2,11 @@
   "Names each ledger request the CLI can make and builds it from the command line.")
 
 (use ledger/api ->advancement ->graph-request ->item-id
-                ->new-item ->session advancement case-named
-                graph-format graph-format-names
-                graph-request history item-id kind-change
-                kind-names new-item origin origin-names
-                session status-names)
+                ->new-item ->session advancement batch-size
+                batch-size-of case-named graph-format
+                graph-format-names graph-request history
+                item-id kind-change kind-names new-item
+                origin origin-names session status-names)
 
 (use cli/flags glob-list id-list optional-choice
                optional-number optional-text required-choice
@@ -14,7 +14,8 @@
 
 (export add-item-request advance-request claim-request
         drop-request graph-request log-request
-        new-roadmap-request next-request request text->id)
+        new-roadmap-request next-request ready-request
+        request text->id)
 
 (defenum request
   init
@@ -22,6 +23,7 @@
   list-roadmaps
   (ready (option string))
   (next (option string) (option session))
+  (ready-batch (option string) batch-size)
   (log (option item-id) int)
   (add-item string new-item)
   (list-items (option string))
@@ -37,6 +39,19 @@
 (defn new-roadmap-request (arguments name)
   (let-try (manager (required-text arguments "manager"))
     (ok (request/new-roadmap name (->session :name manager)))))
+
+(defn ready-request (arguments)
+  (let-try (limit (optional-number arguments "limit"))
+    (match limit
+      ((some count) (batch-request arguments count))
+      (none (ok (request/ready (optional-text arguments "roadmap")))))))
+
+(defn batch-request (arguments count)
+  (let-try (size (ok-or (batch-size-of count)
+                        (str "--limit takes a whole number of at least 1, got "
+                             count)))
+    (ok (request/ready-batch (optional-text arguments "roadmap")
+                             size))))
 
 (defn log-request (arguments)
   (let-try (since (optional-number arguments "since"))

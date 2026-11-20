@@ -12,7 +12,7 @@
 
 (export blockage-fields blocked->json conflicts->json
         dep->json event->json globs->json ids->json
-        item->json roadmap->json)
+        item->json item-id->json roadmap->json)
 
 (type roadmap->json
   (fn ((ref roadmap)) json))

@@ -5,7 +5,8 @@
                 default-database-path draw-graph drop-item
                 failure init-ledger list-items list-roadmaps
                 new-roadmap next-actions read-log
-                ready-items remove-dep show-item)
+                ready-batch ready-items remove-dep
+                show-item)
 
 (use process/environment variable)
 (use cli/requests request)
@@ -99,6 +100,9 @@
     ((next roadmap manager)
      (map-ok (next-actions settings roadmap manager)
        (fn (items) (reply/next-listed items))))
+    ((ready-batch roadmap size)
+     (map-ok (ready-batch settings roadmap size)
+       (fn (batch) (reply/batch-picked batch))))
     ((log item since)
      (map-ok (read-log settings item since)
        (fn (events) (reply/log-read events))))

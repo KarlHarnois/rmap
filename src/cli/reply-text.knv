@@ -12,6 +12,7 @@
 
 (use cli/readiness-text readiness-text)
 (use cli/next-text next-text)
+(use cli/batch-text batch-text)
 (use cli/event-text events-text)
 
 (export reply->text)
@@ -26,6 +27,7 @@
     ((reply/readiness-checked readiness)
      (readiness-text readiness))
     ((reply/next-listed items) (next-text (ref items)))
+    ((reply/batch-picked batch) (batch-text batch))
     ((reply/log-read events) (events-text (ref events)))
     ((reply/item-added item) (item-added-text item))
     ((reply/item-moved item) (item-moved-text item))

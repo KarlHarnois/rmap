@@ -4,12 +4,13 @@
 (use json/value array int->json json object text->json)
 
 (use ledger/api case-name graph-format-names graph-source
-                init-outcome-names item-detail)
+                init-outcome-names item-detail skipped-item)
 
 (use cli/replies reply)
 
 (use cli/ledger-json blocked->json dep->json event->json
-                     globs->json item->json roadmap->json)
+                     globs->json item->json item-id->json
+                     roadmap->json)
 
 (use cli/next-json next-item->json)
 
@@ -42,6 +43,7 @@
     ((reply/readiness-checked readiness)
      (readiness-envelope readiness))
     ((reply/next-listed items) (next-envelope items))
+    ((reply/batch-picked batch) (batch-envelope batch))
     ((reply/log-read events) (events-envelope events))
     ((reply/item-added item) (item-envelope item))
     ((reply/item-moved item) (item-envelope item))
@@ -114,3 +116,21 @@
                  (pair (str "blocked")
                        (array (collect (map (iter (:blocked readiness))
                                             blocked->json)))))))
+
+(defn batch-envelope (batch)
+  (envelope
+    (vec (pair (str "picked")
+               (array (collect (map (iter (:picked batch)) item->json))))
+         (pair (str "skipped")
+               (array (collect (map (iter (:skipped batch)) skipped->json))))
+         (pair (str "blocked")
+               (array (collect (map (iter (:blocked batch)) blocked->json)))))))
+
+(type skipped->json
+  (fn ((ref skipped-item)) json))
+
+(defn skipped->json (skipped)
+  (object (vec (pair (str "item")
+                     (item->json (ref (:item skipped))))
+               (pair (str "conflicts_with")
+                     (item-id->json (ref (:conflicts-with skipped)))))))

@@ -1,11 +1,13 @@
-(use json/value field json json->text parse-json)
+(use json/value field json json->entries json->text
+                parse-json)
+
 (use support/scratch scratch-database)
 (use process/command ->command command-output run-command)
 
-(export database-with-roadmap error-code
+(export blocked-design-id database-with-roadmap error-code
         initialized-database reply research-id run-rmap
         run-rmap-pair run-rmap-text run-rmap-together
-        text-at)
+        text-at top-level-keys)
 
 (defstruct reply
   :exit-code i32
@@ -124,6 +126,18 @@
                              "research")))
     (assert (= (:exit-code added) 0))
     (text-at (ref added) "item" "id")))
+
+(defn blocked-design-id (database blocker)
+  (text-at (ref (run-rmap (clone database)
+                          (vec "item" "add" "--roadmap"
+                               "road" "--title" "d" "--kind"
+                               "design" "--after"
+                               (as-str blocker))))
+           "item" "id"))
+
+(defn top-level-keys (reply)
+  (collect (map (iter (json->entries (ref (:json reply))))
+             (fn (entry) (clone (first entry))))))
 
 (type run-rmap-text
   (fn ((vec (ref str))) command-output))

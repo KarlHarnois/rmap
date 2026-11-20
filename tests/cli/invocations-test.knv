@@ -136,3 +136,24 @@
 (deftest a-command-without-all-refuses-it
   (assert (refused-with? (vec "ready" "--all")
                          "ready does not take --all")))
+
+(defn ready-request-of (words)
+  (clone (:request (unwrap (ledger-call-of words)))))
+
+(deftest ready-without-a-limit-asks-for-the-ready-items
+  (assert (= (ready-request-of (vec "ready" "--roadmap" "road"))
+             (request/ready (some (str "road"))))))
+
+(deftest ready-with-a-limit-asks-for-a-batch-of-that-size
+  (match (ready-request-of (vec "ready" "--limit" "2"))
+    ((request/ready-batch roadmap size)
+     (assert (none? roadmap))
+     (assert (= (:count size) 2)))
+    (_ (assert false))))
+
+(deftest a-ready-limit-below-one-is-refused
+  (assert (refused-with? (vec "ready" "--limit" "0") "at least 1"))
+  (assert (refused-with? (vec "ready" "--limit" "-1") "at least 1")))
+
+(deftest a-ready-limit-that-is-not-a-number-is-refused
+  (assert (refused-with? (vec "ready" "--limit" "abc") "whole number")))

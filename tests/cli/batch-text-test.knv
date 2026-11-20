@@ -1,0 +1,50 @@
+(use ledger/model ->blockage kind status)
+(use ledger/core/ready ->blocked-item)
+(use ledger/core/batch ->batch ->skipped-item batch-size-of)
+(use cli/batch-text batch-text)
+(use support/items id-of work-item)
+
+(defn research (id)
+  (work-item id kind/research status/open))
+
+(defn waiting-on (id blocker)
+  (->blocked-item :item (research id)
+                  :blockage (->blockage :blockers (vec (id-of blocker))
+                                        :dropped-blockers (vec)
+                                        :path-conflicts (vec))))
+
+(def table-header
+  "  ID       ROADMAP  KIND      STATUS  PRIORITY  TITLE\n")
+
+(defn table-row (id)
+  (str "  " id "  rm-road  research  open    0         work"))
+
+(deftest picked-skipped-and-blocked-each-get-a-section
+  (assert (= (batch-text
+               (->batch :size (unwrap (batch-size-of 3))
+                        :picked (vec (research "rm-0001"))
+                        :skipped (vec (->skipped-item :item (research "rm-0002")
+                                                      :conflicts-with (id-of "rm-0001")))
+                        :blocked (vec (waiting-on "rm-0004" "rm-0001"))))
+             (str "Picked 1 of 3:\n" table-header
+                  (table-row "rm-0001")
+                  "\n\nSkipped:\n  rm-0002  work\n    conflicts with rm-0001"
+                  "\n\nBlocked:\n  rm-0004  work\n    waits on rm-0001"))))
+
+(deftest a-batch-without-skips-or-blocks-shows-only-the-picks
+  (assert (= (batch-text (->batch :size (unwrap (batch-size-of 2))
+                                  :picked (vec (research "rm-0001")
+                                               (research "rm-0002"))
+                                  :skipped (vec)
+                                  :blocked (vec)))
+             (str "Picked 2 of 2:\n" table-header
+                  (table-row "rm-0001")
+                  "\n"
+                  (table-row "rm-0002")))))
+
+(deftest an-empty-ready-list-says-nothing-is-ready
+  (assert (= (batch-text (->batch :size (unwrap (batch-size-of 2))
+                                  :picked (vec)
+                                  :skipped (vec)
+                                  :blocked (vec)))
+             (str "Nothing is ready."))))
