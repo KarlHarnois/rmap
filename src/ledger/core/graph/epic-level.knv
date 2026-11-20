@@ -1,0 +1,125 @@
+(module
+  "Draws a graph at epic level: one node per epic and per item with no epic, inside its roadmap's subgraph.")
+
+(use ledger/model history roadmap-id)
+(use ledger/core/snapshot scope)
+(use ledger/core/graph/diagram diagram)
+
+(use ledger/core/graph/groups group-id group-of rolled-node
+                              rolled-node-id)
+
+(use ledger/core/graph/rolled-edges rolled-edge
+                                    rolled-edges)
+
+(use ledger/core/graph/memberships epic-memberships
+                                   group-id-of)
+
+(use ledger/core/graph/rollup ->external-group
+                              ->rolled-cluster ->rollup
+                              edges-among edges-touching
+                              endpoint-ids external-group
+                              node-ids rolled-cluster rollup
+                              shown-nodes)
+
+(export epic-rollup)
+
+(type epic-rollup
+  (fn ((ref diagram)
+       (ref scope)
+       (ref history))
+    rollup))
+
+(defn epic-rollup (whole scope history)
+  (let (clusters (collect (map (iter (:clusters whole))
+                            (fn (cluster)
+                              (rolled-cluster-of cluster history)))))
+    (let (edges (edges-among (rolled-edges (ref (:edges whole))
+                                           (epic-memberships whole))
+                             (ref (drawn-ids (ref clusters)))))
+      (scoped clusters edges scope))))
+
+(defn rolled-cluster-of (cluster history)
+  (let (nodes (collect (map (iter (:epics cluster)) epic-group)))
+    (for-each (:nodes cluster)
+      (fn (node)
+        (push! nodes (rolled-node/item (clone node)))))
+    (->rolled-cluster :roadmap (clone (:roadmap cluster))
+                      :nodes (shown-nodes nodes history))))
+
+(defn epic-group (cluster)
+  (let (epic (ref (:epic cluster)))
+    (rolled-node/group (group-of (group-id-of epic)
+                                 (clone (:title epic))
+                                 (ref (:children cluster))))))
+
+(type drawn-ids
+  (fn ((ref (vec rolled-cluster)))
+    (vec group-id)))
+
+(defn drawn-ids (clusters)
+  (let (ids (vec))
+    (for-each clusters
+      (fn (cluster)
+        (for-each (node-ids (ref (:nodes cluster)))
+          (fn (id) (push! ids (clone id))))))
+    ids))
+
+(defn scoped (clusters edges scope)
+  (match scope
+    (every-roadmap (->rollup :clusters clusters
+                             :nodes (vec)
+                             :externals (vec)
+                             :edges edges))
+    ((one-roadmap id) (one-roadmap-rollup clusters edges id))))
+
+(type one-roadmap-rollup
+  (fn ((vec rolled-cluster)
+       (vec rolled-edge)
+       (ref roadmap-id))
+    rollup))
+
+(defn one-roadmap-rollup (clusters edges id)
+  (let (inside (collect (map (filter (iter clusters)
+                               (fn (cluster)
+                                 (= (ref (:id (:roadmap cluster))) id)))
+                             clone))
+        kept (edges-touching (ref edges)
+                             (ref (drawn-ids (ref inside))))
+        ends (endpoint-ids (ref kept)))
+    (->rollup :clusters inside
+              :nodes (vec)
+              :externals (externals-of (ref clusters) id (ref ends))
+              :edges kept)))
+
+(type externals-of
+  (fn ((ref (vec rolled-cluster))
+       (ref roadmap-id)
+       (ref (vec group-id)))
+    (vec external-group)))
+
+(defn externals-of (clusters id ends)
+  (let (externals (vec))
+    (for-each (filter (iter clusters)
+                (fn (cluster)
+                  (not= (ref (:id (:roadmap cluster))) id)))
+              (fn (cluster)
+                (for-each (externals-in cluster ends)
+                  (fn (external)
+                    (push! externals (clone external))))))
+    (sort-by! externals
+      (fn (external)
+        (clone (:value (rolled-node-id (ref (:node external)))))))
+    externals))
+
+(type externals-in
+  (fn ((ref rolled-cluster)
+       (ref (vec group-id)))
+    (vec external-group)))
+
+(defn externals-in (cluster ends)
+  (collect (map (filter (iter (:nodes cluster))
+                  (fn (node)
+                    (contains? ends (rolled-node-id node))))
+                (fn (node)
+                  (->external-group :node (clone node)
+                                    :roadmap-name (clone (:name (:roadmap cluster))))))))

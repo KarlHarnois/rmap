@@ -1,0 +1,59 @@
+(use ledger/model item-id kind status)
+(use ledger/core/graph/diagram node-of)
+
+(use ledger/core/graph/groups ->group-id ->progress
+                              group-of)
+
+(use ledger/core/graph/node-states node-class)
+(use support/items id-of work-item)
+
+(defn node (id status ready)
+  (node-of (ref (work-item id kind/build status)) ready))
+
+(defn no-ready ()
+  (the (vec item-id) (vec)))
+
+(defn group-with (nodes)
+  (group-of (->group-id :value (str "rm-e"))
+            (str "Epic")
+            (ref nodes)))
+
+(deftest a-group-whose-items-are-all-merged-is-merged
+  (let (none-ready (no-ready))
+    (assert (= (:class (group-with
+                         (vec (node "rm-1" status/merged (ref none-ready))
+                              (node "rm-2" status/merged (ref none-ready)))))
+               node-class/merged))))
+
+(deftest a-group-mixing-ready-and-in-progress-items-is-active
+  (let (ready (vec (id-of "rm-1")))
+    (assert (= (:class (group-with
+                         (vec (node "rm-1" status/open (ref ready))
+                              (node "rm-2" status/dispatched (ref ready)))))
+               node-class/active))))
+
+(deftest a-group-with-a-ready-item-and-no-item-in-progress-is-ready
+  (let (ready (vec (id-of "rm-1")))
+    (assert (= (:class (group-with (vec
+                                     (node "rm-1" status/open (ref ready))
+                                     (node "rm-2" status/merged (ref ready)))))
+               node-class/ready))))
+
+(deftest a-group-of-open-items-is-open
+  (let (none-ready (no-ready))
+    (assert (= (:class (group-with
+                         (vec (node "rm-1" status/open (ref none-ready)))))
+               node-class/open))))
+
+(deftest an-empty-group-is-open-with-no-progress
+  (let (group (group-with (vec)))
+    (assert (= (:class group) node-class/open))
+    (assert (= (:progress group) (->progress :merged 0 :total 0)))))
+
+(deftest progress-counts-the-merged-items-among-all-items
+  (let (none-ready (no-ready))
+    (assert (= (:progress (group-with
+                            (vec (node "rm-1" status/merged (ref none-ready))
+                                 (node "rm-2" status/open (ref none-ready))
+                                 (node "rm-3" status/merged (ref none-ready)))))
+               (->progress :merged 2 :total 3)))))

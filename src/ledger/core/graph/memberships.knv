@@ -1,0 +1,58 @@
+(module
+  "Says which group each item of a graph rolls up to at epic level: its epic, or itself when it has no epic.")
+
+(use ledger/model item)
+(use ledger/core/graph/diagram diagram)
+(use ledger/core/graph/groups ->group-id group-id)
+(use ledger/core/graph/rolled-edges ->membership membership)
+
+(export epic-memberships group-id-of)
+
+(type epic-memberships
+  (fn ((ref diagram)) (vec membership)))
+
+(defn epic-memberships (whole)
+  (let (memberships (vec))
+    (for-each (:clusters whole)
+      (fn (cluster)
+        (for-each (:epics cluster)
+          (fn (epic)
+            (push-all! memberships (members-of-epic epic))))
+        (for-each (:nodes cluster)
+          (fn (node)
+            (push! memberships
+                   (own-membership (ref (:item node))))))))
+    memberships))
+
+(defn members-of-epic (cluster)
+  (let (group (group-id-of (ref (:epic cluster)))
+        memberships (vec (own-membership (ref (:epic cluster)))))
+    (for-each (:children cluster)
+      (fn (child)
+        (push! memberships
+               (->membership :item (clone (:id (:item child)))
+                             :group (clone group)))))
+    memberships))
+
+(type own-membership
+  (fn ((ref item)) membership))
+
+(defn own-membership (item)
+  (->membership :item (clone (:id item))
+                :group (group-id-of item)))
+
+(type group-id-of
+  (fn ((ref item)) group-id))
+
+(defn group-id-of (item)
+  (->group-id :value (clone (:value (:id item)))))
+
+(type push-all!
+  (fn ((mut (vec membership))
+       (vec membership))
+    unit))
+
+(defn push-all! (memberships extra)
+  (for-each extra
+    (fn (membership)
+      (push! memberships (clone membership)))))

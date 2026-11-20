@@ -1,0 +1,22 @@
+flowchart LR
+  subgraph rm_a000["Roadmap: website"]
+    rm_1000["Login<br/><i>0/2 merged</i>"]
+    rm_1003["rm-1003<br/>Session store<br/><i>build · in_review</i>"]
+    rm_1004["rm-1004<br/>Spike<br/><i>research · reported · user-bug</i>"]
+    rm_1007["rm-1007<br/>Cookie bug<br/><i>research · dispatched · follow-up</i>"]
+  end
+  subgraph rm_b000["Roadmap: platform"]
+    rm_2000["Storage<br/><i>0/2 merged</i>"]
+    rm_2002["rm-2002<br/>Auth API<br/><i>design · merging</i>"]
+  end
+  rm_1000 --> rm_2002
+  rm_1003 --> rm_1000
+  rm_1003 --> rm_2000
+  rm_2002 --> rm_1000
+  classDef merged fill:#eeeeee,stroke:#9e9e9e,color:#616161
+  classDef ready fill:#d7f5dd,stroke:#2e7d32
+  classDef active fill:#dbe9ff,stroke:#1565c0
+  classDef open fill:#fff6d6,stroke:#b58900
+  classDef external stroke-dasharray:5 5
+  class rm_1000 ready
+  class rm_1003,rm_1004,rm_1007,rm_2000,rm_2002 active

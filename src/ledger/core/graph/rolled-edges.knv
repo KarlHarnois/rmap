@@ -1,0 +1,83 @@
+(module
+  "Rolls the blocks edges between items up to edges between groups: maps each end to its group, drops an edge inside one group, and merges duplicates into one counted edge.")
+
+(use ledger/model dep-type item-id)
+(use ledger/core/graph/diagram graph-edge)
+(use ledger/core/graph/groups ->group-id group-id)
+
+(export ->membership ->rolled-edge membership rolled-edge
+        rolled-edges)
+
+(defstruct membership
+  :item item-id
+  :group group-id)
+
+(defstruct rolled-edge
+  :from group-id
+  :to group-id
+  :count int)
+
+(defn rolled-edges (edges memberships)
+  (let (groups (groups-by-item memberships)
+        counts (reduce (group-pairs edges (ref groups)) (sorted-map)
+                 (fn (counts ends) (update counts ends inc 0))))
+    (collect (map (iter counts)
+               (fn (entry)
+                 (let-match ((pair ends count) entry)
+                   (->rolled-edge :from (->group-id :value (clone (first ends)))
+                                  :to (->group-id :value (clone (second ends)))
+                                  :count (deref count))))))))
+
+(type groups-by-item
+  (fn ((vec membership))
+    (sorted-map string string)))
+
+(defn groups-by-item (memberships)
+  (into-sorted-map (collect (map (iter memberships)
+                              (fn (membership)
+                                (pair (clone (:value (:item membership)))
+                                      (clone (:value (:group membership)))))))))
+
+(type group-pairs
+  (fn ((ref (vec graph-edge))
+       (ref (sorted-map string string)))
+    (vec (pair string string))))
+
+(defn group-pairs (edges groups)
+  (let (pairs (vec))
+    (for-each edges
+      (fn (edge)
+        (match (group-pair edge groups)
+          ((some ends) (push! pairs ends))
+          (none (do)))))
+    pairs))
+
+(type group-pair
+  (fn ((ref graph-edge)
+       (ref (sorted-map string string)))
+    (option (pair string string))))
+
+(defn group-pair (edge groups)
+  (if (= (:type edge) dep-type/blocks)
+    (crossing-pair (group-at groups (ref (:from edge)))
+                   (group-at groups (ref (:to edge))))
+    none))
+
+(type group-at
+  (fn ((ref (sorted-map string string))
+       (ref item-id))
+    (option string)))
+
+(defn group-at (groups id)
+  (map-some (get groups (clone (:value id)))
+            clone))
+
+(defn crossing-pair (from to)
+  (match (pair from to)
+    ((pair (some from) (some to)) (distinct-pair from to))
+    (_ none)))
+
+(defn distinct-pair (from to)
+  (if (= from to)
+    none
+    (some (pair from to))))

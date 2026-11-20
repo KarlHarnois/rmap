@@ -1,0 +1,72 @@
+(use ledger/model ->roadmap-id history)
+(use ledger/core/graph/graph ->graph-view)
+(use ledger/core/graph/drawing drawing-of)
+
+(use ledger/core/graph/groups ->group-id ->group-node
+                              ->progress rolled-node)
+
+(use ledger/core/graph/levels graph-level)
+(use ledger/core/graph/node-states node-class)
+(use ledger/core/graph/rolled-edges ->rolled-edge)
+(use ledger/core/graph/rollup ->rollup)
+(use ledger/core/graph/mermaid/mermaid drawing->mermaid)
+(use ledger/core/graph/mermaid/rollup rollup->mermaid)
+(use ledger/core/snapshot scope)
+(use support/fixtures fixture-text)
+(use support/graph-fixture graph-roadmaps graph-snapshot)
+
+(defn rendered (level)
+  (drawing->mermaid (drawing-of (ref (graph-snapshot))
+                                (ref (graph-roadmaps))
+                                (ref (->graph-view
+                                       :scope scope/every-roadmap
+                                       :history history/without-merged))
+                                level)))
+
+(defn group (id title)
+  (rolled-node/group (->group-node :id (->group-id :value (str id))
+                                   :title (str title)
+                                   :progress (->progress :merged 3 :total 7)
+                                   :class node-class/open)))
+
+(defn two-groups-joined-by (count)
+  (rollup->mermaid (ref (->rollup :clusters (vec)
+                                  :nodes (vec (group "rm-a" "A")
+                                              (group "rm-b" "B"))
+                                  :externals (vec)
+                                  :edges (vec (->rolled-edge
+                                                :from (->group-id :value (str "rm-a"))
+                                                :to (->group-id :value (str "rm-b"))
+                                                :count count))))))
+
+(type has-line?
+  (fn ((ref str) (ref str)) bool))
+
+(defn has-line? (source line)
+  (any? (lines source)
+    (fn (each) (= (trim each) line))))
+
+(deftest the-fixture-at-epic-level-matches-its-stored-graph
+  (assert (= (str (rendered graph-level/epic) "\n")
+             (fixture-text "graph-every-roadmap-epic.mmd"))))
+
+(deftest the-fixture-at-roadmap-level-matches-its-stored-graph
+  (assert (= (str (rendered graph-level/roadmap) "\n")
+             (fixture-text "graph-every-roadmap-roadmap.mmd"))))
+
+(deftest two-renders-at-each-level-are-identical
+  (assert (= (rendered graph-level/epic) (rendered graph-level/epic)))
+  (assert (= (rendered graph-level/roadmap)
+             (rendered graph-level/roadmap))))
+
+(deftest an-edge-standing-for-many-item-edges-is-labelled-with-their-count
+  (assert (has-line? (as-str (two-groups-joined-by 10))
+                     "rm_a -->|10| rm_b")))
+
+(deftest an-edge-standing-for-one-item-edge-has-no-label
+  (assert (has-line? (as-str (two-groups-joined-by 1))
+                     "rm_a --> rm_b")))
+
+(deftest a-group-shows-its-title-then-its-progress
+  (assert (has-line? (as-str (two-groups-joined-by 1))
+                     "rm_a[\"A<br/><i>3/7 merged</i>\"]")))

@@ -1,0 +1,33 @@
+(module
+  "Builds the graph a level draws: the item graph as it is, or the item graph with every item rolled up to its epic or roadmap.")
+
+(use ledger/model history)
+(use ledger/core/snapshot scope)
+(use ledger/core/graph/graph ->graph-view diagram-of)
+(use ledger/core/graph/diagram diagram)
+(use ledger/core/graph/levels graph-level)
+(use ledger/core/graph/rollup rollup)
+(use ledger/core/graph/epic-level epic-rollup)
+(use ledger/core/graph/roadmap-level roadmap-rollup)
+
+(export drawing drawing-of)
+
+(defenum drawing
+  (items diagram)
+  (groups rollup))
+
+(defn drawing-of (snapshot roadmaps view level)
+  (match level
+    (item (drawing/items (diagram-of snapshot roadmaps view)))
+    (epic (drawing/groups (epic-rollup (ref (whole-diagram snapshot roadmaps))
+                                       (ref (:scope view))
+                                       (ref (:history view)))))
+    (roadmap (drawing/groups (roadmap-rollup (ref (whole-diagram snapshot
+                                                                 roadmaps))
+                                             (ref (:scope view))
+                                             (ref (:history view)))))))
+
+(defn whole-diagram (snapshot roadmaps)
+  (diagram-of snapshot roadmaps
+              (ref (->graph-view :scope scope/every-roadmap
+                                 :history history/with-merged))))

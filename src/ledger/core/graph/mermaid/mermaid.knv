@@ -3,16 +3,27 @@
 
 (use ledger/model dep-type)
 (use ledger/core/graph/mermaid/classes class-lines)
+(use ledger/core/graph/mermaid/rollup rollup->mermaid)
+(use ledger/core/graph/drawing drawing)
 
 (use ledger/core/graph/mermaid/text external-label node-id
-                                    node-label
                                     subgraph-header)
 
-(use ledger/core/graph/diagram graph-node roadmap-cluster)
+(use ledger/core/graph/mermaid/lines indented labelled
+                                     node-line push-all!)
 
-(export diagram->mermaid)
+(use ledger/core/graph/diagram diagram external-node
+                               roadmap-cluster)
 
-(def indent-unit "  ")
+(export diagram->mermaid drawing->mermaid)
+
+(defn drawing->mermaid (drawing)
+  (match drawing
+    ((items diagram) (diagram->mermaid diagram))
+    ((groups rollup) (rollup->mermaid rollup))))
+
+(type diagram->mermaid
+  (fn ((ref diagram)) string))
 
 (defn diagram->mermaid (diagram)
   (let (lines (vec (str "flowchart LR")))
@@ -33,20 +44,6 @@
       (fn (line)
         (push! lines (indented 1 line))))
     (join lines "\n")))
-
-(type push-all!
-  (fn ((mut (vec string)) (vec string))
-    unit))
-
-(defn push-all! (lines extra)
-  (for-each extra
-    (fn (line) (push! lines (clone line)))))
-
-(defn indented (depth text)
-  (str (join (collect (map (range 0 depth)
-                        (fn (_) indent-unit)))
-             "")
-       text))
 
 (type roadmap-lines
   (fn ((ref roadmap-cluster))
@@ -79,23 +76,15 @@
     (push! lines (indented 2 "end"))
     lines))
 
-(type node-line
-  (fn ((ref graph-node)) string))
-
-(defn node-line (node)
-  (labelled (ref (:id (:item node)))
-            (node-label (ref (:item node))
-                        (ref (:state node)))))
+(type external-line
+  (fn ((ref external-node)) string))
 
 (defn external-line (external)
   (let (node (ref (:node external)))
-    (labelled (ref (:id (:item node)))
+    (labelled (as-str (:value (:id (:item node))))
               (external-label (ref (:item node))
                               (ref (:state node))
                               (as-str (:roadmap-name external))))))
-
-(defn labelled (id label)
-  (str (node-id id) "[\"" label "\"]"))
 
 (defn arrow (type)
   (match type (blocks " --> ") (discovered-from " -.-> ")))

@@ -1,0 +1,79 @@
+(use ledger/model ->roadmap-id history kind snapshot status)
+(use ledger/core/graph/graph ->graph-view diagram-of)
+(use ledger/core/graph/roadmap-level roadmap-rollup)
+(use ledger/core/graph/groups ->group-id)
+(use ledger/core/graph/rolled-edges ->rolled-edge)
+(use ledger/core/graph/rollup node-ids rollup)
+(use ledger/core/snapshot scope)
+
+(use support/items blocks-dep discovered-dep in-roadmap
+                   roadmap-of snapshot-of work-item)
+
+(defn roadmaps ()
+  (vec (roadmap-of "rm-r1" "m")
+       (roadmap-of "rm-r2" "m")
+       (roadmap-of "rm-r3" "m")))
+
+(type rolled (fn (snapshot scope) rollup))
+
+(defn rolled (snapshot scope)
+  (roadmap-rollup (ref (diagram-of (ref snapshot)
+                                   (ref (roadmaps))
+                                   (ref (->graph-view
+                                          :scope scope/every-roadmap
+                                          :history history/with-merged))))
+                  (ref scope)
+                  (ref history/with-merged)))
+
+(defn everywhere (snapshot)
+  (rolled snapshot scope/every-roadmap))
+
+(defn task (id roadmap)
+  (in-roadmap (work-item id kind/build status/open) roadmap))
+
+(defn edge (from to count)
+  (->rolled-edge :from (->group-id :value (str from))
+                 :to (->group-id :value (str to))
+                 :count count))
+
+(type drawn-ids
+  (fn ((ref rollup)) (vec string)))
+
+(defn drawn-ids (rollup)
+  (collect (map (iter (node-ids (ref (:nodes rollup))))
+             (fn (id) (clone (:value id))))))
+
+(deftest an-edge-between-two-items-of-one-roadmap-disappears
+  (assert (empty? (:edges (everywhere (snapshot-of (vec (task "rm-a" "rm-r1")
+                                                        (task "rm-b" "rm-r1"))
+                                                   (vec (blocks-dep "rm-b"
+                                                                    "rm-a"))
+                                                   (vec)))))))
+
+(deftest edges-between-two-roadmaps-merge-into-one-counted-edge
+  (assert (= (:edges (everywhere (snapshot-of (vec (task "rm-a" "rm-r1")
+                                                   (task "rm-b" "rm-r1")
+                                                   (task "rm-c" "rm-r2"))
+                                              (vec (blocks-dep "rm-c" "rm-a")
+                                                   (blocks-dep "rm-c" "rm-b"))
+                                              (vec))))
+             (vec (edge "rm-r1" "rm-r2" 2)))))
+
+(deftest a-discovered-from-edge-is-absent
+  (assert (empty? (:edges (everywhere (snapshot-of (vec (task "rm-a" "rm-r1")
+                                                        (task "rm-c" "rm-r2"))
+                                                   (vec (discovered-dep "rm-c"
+                                                                        "rm-a"))
+                                                   (vec)))))))
+
+(deftest one-roadmap-draws-it-and-the-roadmaps-it-blocks-or-that-block-it
+  (let (rollup (rolled (snapshot-of (vec (task "rm-a" "rm-r1")
+                                         (task "rm-b" "rm-r2")
+                                         (task "rm-c" "rm-r3"))
+                                    (vec (blocks-dep "rm-b" "rm-a"))
+                                    (vec))
+                       (scope/one-roadmap (->roadmap-id :value (str "rm-r2")))))
+    (assert (= (drawn-ids (ref rollup))
+               (vec (str "rm-r1") (str "rm-r2"))))
+    (assert (= (:edges rollup)
+               (vec (edge "rm-r1" "rm-r2" 1))))))

@@ -1,0 +1,128 @@
+(module
+  "Writes a zoomed-out graph as Mermaid flowchart source: roadmap subgraphs or roadmap nodes, groups from other roadmaps, counted edges, then the classes.")
+
+(use ledger/core/graph/groups rolled-node rolled-node-class
+                              rolled-node-id)
+
+(use ledger/core/graph/rolled-edges rolled-edge)
+
+(use ledger/core/graph/rollup external-group rolled-cluster
+                              rollup)
+
+(use ledger/core/graph/node-states node-class)
+(use ledger/core/graph/mermaid/classes classed-lines)
+
+(use ledger/core/graph/mermaid/lines indented labelled
+                                     node-line push-all!)
+
+(use ledger/core/graph/mermaid/text escaped external-label
+                                    group-label mermaid-id
+                                    subgraph-header)
+
+(export rollup->mermaid)
+
+(type rollup->mermaid
+  (fn ((ref rollup)) string))
+
+(defn rollup->mermaid (rollup)
+  (let (lines (vec (str "flowchart LR")))
+    (for-each (:clusters rollup)
+      (fn (cluster)
+        (push-all! lines (cluster-lines cluster))))
+    (for-each (:nodes rollup)
+      (fn (node)
+        (push! lines (indented 1 (rolled-node-line node)))))
+    (for-each (:externals rollup)
+      (fn (external)
+        (push! lines (indented 1 (external-line external)))))
+    (for-each (:edges rollup)
+      (fn (edge)
+        (push! lines (indented 1 (edge-line edge)))))
+    (for-each (classed-lines (classed rollup) (external-ids rollup))
+      (fn (line)
+        (push! lines (indented 1 line))))
+    (join lines "\n")))
+
+(type cluster-lines
+  (fn ((ref rolled-cluster)) (vec string)))
+
+(defn cluster-lines (cluster)
+  (let (roadmap (ref (:roadmap cluster))
+        lines (vec (indented 1
+                             (subgraph-header (as-str (:value (:id roadmap)))
+                                              "Roadmap"
+                                              (as-str (:name roadmap))))))
+    (for-each (:nodes cluster)
+      (fn (node)
+        (push! lines (indented 2 (rolled-node-line node)))))
+    (push! lines (indented 1 "end"))
+    lines))
+
+(defn rolled-node-line (node)
+  (match node
+    ((group group)
+     (labelled (as-str (:value (:id group)))
+               (group-label group)))
+    ((item item) (node-line item))))
+
+(type external-line
+  (fn ((ref external-group)) string))
+
+(defn external-line (external)
+  (let (node (ref (:node external)))
+    (labelled (as-str (:value (rolled-node-id node)))
+              (external-node-label node (as-str (:roadmap-name external))))))
+
+(defn external-node-label (node roadmap-name)
+  (match node
+    ((group group)
+     (str (group-label group) "<br/>" (escaped roadmap-name)))
+    ((item item)
+     (external-label (ref (:item item))
+                     (ref (:state item))
+                     roadmap-name))))
+
+(type edge-line
+  (fn ((ref rolled-edge)) string))
+
+(defn edge-line (edge)
+  (str (mermaid-id (as-str (:value (:from edge))))
+       (counted-arrow (:count edge))
+       (mermaid-id (as-str (:value (:to edge))))))
+
+(defn counted-arrow (count)
+  (if (> count 1)
+    (str " -->|" count "| ")
+    (str " --> ")))
+
+(type classed
+  (fn ((ref rollup))
+    (vec (pair string node-class))))
+
+(defn classed (rollup)
+  (let (classed (vec))
+    (for-each (:clusters rollup)
+      (fn (cluster)
+        (for-each (:nodes cluster)
+          (fn (node)
+            (push! classed (classed-node node))))))
+    (for-each (:nodes rollup)
+      (fn (node)
+        (push! classed (classed-node node))))
+    (for-each (:externals rollup)
+      (fn (external)
+        (push! classed
+               (classed-node (ref (:node external))))))
+    classed))
+
+(defn classed-node (node)
+  (pair (mermaid-id (as-str (:value (rolled-node-id node))))
+        (rolled-node-class node)))
+
+(type external-ids
+  (fn ((ref rollup)) (vec string)))
+
+(defn external-ids (rollup)
+  (collect (map (iter (:externals rollup))
+             (fn (external)
+               (mermaid-id (as-str (:value (rolled-node-id (ref (:node external))))))))))
