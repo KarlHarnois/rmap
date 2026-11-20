@@ -1,0 +1,10 @@
+(use ledger/model status)
+(use ledger/core/epics epic-status)
+
+(deftest an-epic-whose-children-are-accepted-or-merged-shows-merged
+  (assert (= (epic-status (some (ref (vec status/accepted status/merged))))
+             status/merged)))
+
+(deftest an-epic-with-a-reported-child-shows-open
+  (assert (= (epic-status (some (ref (vec status/accepted status/reported))))
+             status/open)))

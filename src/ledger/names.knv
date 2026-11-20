@@ -32,6 +32,7 @@
        (pair status/fixing "fixing")
        (pair status/merging "merging")
        (pair status/merged "merged")
+       (pair status/accepted "accepted")
        (pair status/dropped "dropped")))
 
 (def origin-names

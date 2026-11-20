@@ -1,3 +1,5 @@
+(use ledger/model status)
+
 (use ledger/names case-named dep-type-names event-type-names
                   kind-names origin-names
                   roadmap-status-names status-names)
@@ -35,3 +37,7 @@
 
 (deftest every-event-type-has-one-name
   (assert (round-trips? (ref event-type-names))))
+
+(deftest accepted-is-a-status-name
+  (assert (= (case-named status-names "accepted")
+             (some status/accepted))))

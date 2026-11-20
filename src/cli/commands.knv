@@ -92,7 +92,7 @@
                             (optional "paths" "<globs, comma-separated>")))
        (->route :subcommand subcommand/item-close
                 :words (words "item close")
-                :summary (str "Marks an item merged.")
+                :summary (str "Marks a build merged, or a reported research or design item accepted.")
                 :operands (operands (vec "id"))
                 :flags (vec))
        (->route :subcommand subcommand/item-drop

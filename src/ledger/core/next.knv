@@ -65,6 +65,7 @@
     (fixing (claimed-actions action/fix item))
     (merging (claimed-actions action/merge item))
     (merged (vec))
+    (accepted (vec))
     (dropped (vec))))
 
 (type open-actions

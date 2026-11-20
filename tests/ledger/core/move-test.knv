@@ -36,3 +36,17 @@
                        (ref (now))))
     (assert (= (:closed-at closed) (some (now))))
     (assert (= (:closed-at dropped) (some (now))))))
+
+(deftest closing-a-reported-design-accepts-it
+  (let (item (moved (ref (work-item "rm-0001" kind/design status/reported))
+                    (ref move/close)
+                    (ref (now))))
+    (assert (= (:status item) status/accepted))
+    (assert (= (:closed-at item) (some (now))))))
+
+(deftest closing-a-merging-build-merges-it
+  (assert (= (:status (moved (ref
+                               (work-item "rm-0001" kind/build status/merging))
+                             (ref move/close)
+                             (ref (now))))
+             status/merged)))

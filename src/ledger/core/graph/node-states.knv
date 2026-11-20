@@ -4,7 +4,7 @@
 (use ledger/model item item-id status)
 (use ledger/core/ready readiness-of)
 (use ledger/core/snapshot scope)
-(use ledger/core/phases active?)
+(use ledger/core/phases active? completed?)
 
 (export node-class node-class-of node-state ready-ids
         state-of)
@@ -40,6 +40,6 @@
 
 (defn stored-class (status)
   (cond
-    ((= status status/merged) node-class/merged)
+    ((completed? status) node-class/merged)
     ((active? status) node-class/active)
     (else node-class/open)))

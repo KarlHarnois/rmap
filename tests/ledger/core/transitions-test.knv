@@ -56,6 +56,10 @@
                        :from status/merging
                        :to status/merged
                        :kinds (vec kind/build))
+       (->allowed-move :command (str "close")
+                       :from status/reported
+                       :to status/accepted
+                       :kinds (vec kind/research kind/design))
        (->allowed-move :command (str "drop")
                        :from status/open
                        :to status/dropped
@@ -86,7 +90,13 @@
   :proposed-move move
   :target status)
 
-(defn attempts ()
+(defn close-target (kind)
+  (match kind
+    (research status/accepted)
+    (design status/accepted)
+    (_ status/merged)))
+
+(defn attempts (kind)
   (let (all (vec (->attempt :command (str "claim")
                             :proposed-move (move/claim (->session :name (str "s1")))
                             :target status/dispatched)
@@ -95,7 +105,7 @@
                             :target status/dispatched)
                  (->attempt :command (str "close")
                             :proposed-move move/close
-                            :target status/merged)
+                            :target (close-target kind))
                  (->attempt :command (str "drop")
                             :proposed-move (move/drop (str "no longer needed"))
                             :target status/dropped)))
@@ -144,7 +154,7 @@
 
 (defn grid-matches-spec? (kind from)
   (let (item (work-item "rm-0001" kind from))
-    (every? (iter (attempts))
+    (every? (iter (attempts kind))
       (fn (attempt)
         (= (verdict (ref item)
                     (ref (:proposed-move attempt)))
@@ -161,3 +171,19 @@
   (assert (= (verdict (ref (work-item "rm-0001" kind/build status/open))
                       (ref move/close))
              (some (refusal/invalid-transition status/open status/merged)))))
+
+(deftest closing-a-reported-design-accepts-it
+  (assert (= (verdict (ref (work-item "rm-0001" kind/design status/reported))
+                      (ref move/close))
+             none)))
+
+(deftest closing-an-open-research-item-names-accepted-as-the-target
+  (assert (= (verdict (ref (work-item "rm-0001" kind/research status/open))
+                      (ref move/close))
+             (some (refusal/invalid-transition status/open status/accepted)))))
+
+(deftest an-accepted-item-cannot-be-dropped
+  (assert (= (verdict (ref (work-item "rm-0001" kind/research status/accepted))
+                      (ref (move/drop (str "late"))))
+             (some (refusal/invalid-transition status/accepted
+                                               status/dropped)))))

@@ -40,10 +40,10 @@ Commands:
     Shows one item with its dependencies and paths.
   item claim <id> --session <name>
     Gives a ready item to a session and marks it dispatched.
-  item advance <id> <open|dispatched|reported|in_review|fixing|merging|merged|dropped> [--kind build] [--paths <globs, comma-separated>]
+  item advance <id> <open|dispatched|reported|in_review|fixing|merging|merged|accepted|dropped> [--kind build] [--paths <globs, comma-separated>]
     Moves an item to another status.
   item close <id>
-    Marks an item merged.
+    Marks a build merged, or a reported research or design item accepted.
   item drop <id> --reason <text>
     Drops an item and records the reason.
   dep add <item> <on>

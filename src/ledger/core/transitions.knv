@@ -51,6 +51,9 @@
        (->allowance :move-type move-type/close
                     :kinds (vec kind/build)
                     :steps (vec (pair status/merging status/merged)))
+       (->allowance :move-type move-type/close
+                    :kinds (reporting-kinds)
+                    :steps (vec (pair status/reported status/accepted)))
        (->allowance :move-type move-type/drop
                     :kinds (work-kinds)
                     :steps (steps-to-dropped))))
@@ -91,14 +94,14 @@
      (err refusal/epic-status-computed))
     ((allowed? item move) (ok (do)))
     (else (err (refusal/invalid-transition (:status item)
-                                           (target-status move))))))
+                                           (target-status item move))))))
 
 (type allowed?
   (fn ((ref item) (ref move)) bool))
 
 (defn allowed? (item move)
   (let (type (move-type-of move)
-        step (pair (:status item) (target-status move)))
+        step (pair (:status item) (target-status item move)))
     (any? (allowances)
       (fn (allowance)
         (and (= (:move-type allowance) type)

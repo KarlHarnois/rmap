@@ -1,0 +1,21 @@
+(use ledger/model kind status)
+(use ledger/core/phases completed? delivered? finished?)
+
+(deftest accepted-is-a-finished-status
+  (assert (finished? status/accepted)))
+
+(deftest merged-and-accepted-are-completed
+  (assert (completed? status/merged))
+  (assert (completed? status/accepted))
+  (assert (not (completed? status/dropped))))
+
+(deftest research-and-design-deliver-once-accepted
+  (assert (delivered? kind/research status/accepted))
+  (assert (delivered? kind/design status/accepted)))
+
+(deftest a-reported-design-has-not-delivered
+  (assert (not (delivered? kind/design status/reported))))
+
+(deftest a-build-delivers-once-merged
+  (assert (delivered? kind/build status/merged))
+  (assert (not (delivered? kind/build status/accepted))))

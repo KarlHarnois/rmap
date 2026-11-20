@@ -1,5 +1,5 @@
-(use ledger/api batch-size-of kind list-items read-log
-                ready-batch ready-items status)
+(use ledger/api batch-size-of close-item kind list-items
+                read-log ready-batch ready-items status)
 
 (use support/ledger added-id advanced blocked-research-in
                     claimed globs-of-patterns item-draft
@@ -40,11 +40,26 @@
         _blocked (blocked-research-in (ref settings)
                                       other-roadmap-name
                                       (clone blocker))
-        _delivered (advanced (ref settings)
-                             (claimed (ref settings) blocker)
-                             status/reported))
+        _delivered (accepted (ref settings) blocker))
     (assert (= (len (:ready (readiness-in (ref settings) other-roadmap-name)))
                1))))
+
+(deftest a-reported-blocker-in-another-roadmap-keeps-an-item-waiting
+  (let (settings (ledger-with-two-roadmaps "cross-roadmap-reported")
+        blocker (research (ref settings))
+        _blocked (blocked-research-in (ref settings)
+                                      other-roadmap-name
+                                      (clone blocker))
+        _reported (advanced (ref settings)
+                            (claimed (ref settings) blocker)
+                            status/reported))
+    (assert (= (len (:ready (readiness-in (ref settings) other-roadmap-name)))
+               0))))
+
+(defn accepted (settings id)
+  (let (reported (advanced settings (claimed settings id) status/reported))
+    (assert (ok? (close-item settings (clone reported))))
+    reported))
 
 (defn overlapping-build (settings)
   (added-id settings
