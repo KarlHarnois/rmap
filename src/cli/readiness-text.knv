@@ -5,7 +5,8 @@
 (use cli/tables indented)
 (use cli/item-text item-table)
 
-(export blockage-lines conflict-lines readiness-text)
+(export blockage-lines blocked-section conflict-lines
+        readiness-text)
 
 (defn readiness-text (readiness)
   (let (sections (vec (ready-section (ref (:ready readiness)))))

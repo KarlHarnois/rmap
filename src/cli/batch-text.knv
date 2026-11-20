@@ -1,0 +1,46 @@
+(module
+  "Describes in plain text which ready items were picked to start together, which were skipped for a path conflict, and what holds back the others.")
+
+(use ledger/api skipped-item)
+(use cli/tables indented)
+(use cli/item-text item-table)
+(use cli/readiness-text blocked-section)
+
+(export batch-text)
+
+(defn batch-text (batch)
+  (let (sections (vec (picked-section (ref batch))))
+    (when (not (empty? (:skipped batch)))
+      (push! sections
+             (skipped-section (ref (:skipped batch)))))
+    (when (not (empty? (:blocked batch)))
+      (push! sections
+             (blocked-section (ref (:blocked batch)))))
+    (join sections "\n\n")))
+
+(defn picked-section (batch)
+  (if (empty? (:picked batch))
+    (str "Nothing is ready.")
+    (str "Picked "
+         (len (:picked batch))
+         " of "
+         (:count (:size batch))
+         ":\n"
+         (indented (item-table (ref (:picked batch)))))))
+
+(defn skipped-section (skipped)
+  (str "Skipped:\n"
+       (indented (join (collect (map (iter skipped) skipped-text))
+                       "\n"))))
+
+(type skipped-text
+  (fn ((ref skipped-item)) string))
+
+(defn skipped-text (skipped)
+  (let (item (ref (:item skipped)))
+    (str (:value (:id item))
+         "  "
+         (:title item)
+         "\n"
+         (indented (str "conflicts with "
+                        (:value (:conflicts-with skipped)))))))

@@ -1,8 +1,9 @@
 (module
   "Names each result a ledger call hands back to the CLI.")
 
-(use ledger/api dep event graph-source init-report item
-                item-detail next-item readiness roadmap)
+(use ledger/api batch dep event graph-source init-report
+                item item-detail next-item readiness
+                roadmap)
 
 (export reply)
 
@@ -12,6 +13,7 @@
   (roadmaps-listed (vec roadmap))
   (readiness-checked readiness)
   (next-listed (vec next-item))
+  (batch-picked batch)
   (log-read (vec event))
   (item-added item)
   (item-moved item)
