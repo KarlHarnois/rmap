@@ -62,7 +62,7 @@ Exit codes:
   0  The command ran.
   1  The ledger refused the command. The error holds a code and a message.
   2  The call is incomplete. The error has the code usage when the arguments match no command, no-repository when no --db was given outside a git repository, or no-ledger when no ledger exists at the path yet.
-  3  The database could not be opened, read or written. The error has the code busy when the wait for the lock timed out, otherwise database.
+  3  The database could not be opened, read or written. The error has the code busy when the wait for the lock timed out, ledger-too-new when a newer rmap migrated the ledger, otherwise database.
 
 Refusal codes:
   roadmap-not-found        No roadmap has that name.
