@@ -1,0 +1,84 @@
+(module
+  "Picks up to a number of ready items that can all start at once, walking the ready list in order and skipping each item whose paths conflict with one already picked.")
+
+(use ledger/model item item-id snapshot)
+(use ledger/core/ready blocked-item readiness)
+(use ledger/core/path-conflicts lock-conflicts)
+(use ledger/core/snapshot lock-of)
+
+(export ->batch-size ->skipped-item batch batch-of
+        batch-size batch-size-of skipped-item)
+
+(defstruct batch-size
+  :count usize)
+
+(defstruct skipped-item
+  :item item
+  :conflicts-with item-id)
+
+(defstruct batch
+  :size batch-size
+  :picked (vec item)
+  :skipped (vec skipped-item)
+  :blocked (vec blocked-item))
+
+(defn batch-size-of (count)
+  (if (>= count 1)
+    (some (->batch-size :count (convert count)))
+    none))
+
+(type batch-of
+  (fn ((ref readiness) (ref snapshot) batch-size)
+    batch))
+
+(defn batch-of (readiness snapshot size)
+  (let (ready (ref (:ready readiness)))
+    (loop (index 0
+           batch (->batch :size size
+                          :picked (vec)
+                          :skipped (vec)
+                          :blocked (clone (:blocked readiness))))
+      (if (and (< index (len ready))
+               (room-left? (ref batch)))
+        (recur (inc index)
+               (with-candidate batch snapshot (at ready index)))
+        batch))))
+
+(type room-left?
+  (fn ((ref batch)) bool))
+
+(defn room-left? (batch)
+  (< (len (:picked batch))
+     (:count (:size batch))))
+
+(type with-candidate
+  (fn (batch (ref snapshot) (ref item))
+    batch))
+
+(defn with-candidate (batch snapshot candidate)
+  (match (conflicting-pick (ref batch) snapshot candidate)
+    ((some holder)
+     (assoc batch
+            :skipped (appended (clone (:skipped batch))
+                               (->skipped-item :item (clone candidate)
+                                               :conflicts-with holder))))
+    (none (assoc batch
+                 :picked (appended (clone (:picked batch))
+                                   (clone candidate))))))
+
+(type conflicting-pick
+  (fn ((ref batch) (ref snapshot) (ref item))
+    (option item-id)))
+
+(defn conflicting-pick (batch snapshot candidate)
+  (let (claimant (lock-of snapshot candidate))
+    (-> (:picked batch)
+        iter
+        (find (fn (picked)
+                (not (empty? (lock-conflicts (ref claimant)
+                                             (ref (lock-of snapshot
+                                                           picked)))))))
+        (map-some (fn (picked) (clone (:id picked)))))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))
