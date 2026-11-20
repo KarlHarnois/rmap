@@ -22,15 +22,25 @@
                           (vec)))
              (vec (str "rm-0001")))))
 
-(deftest epics-claimed-and-started-items-are-not-ready
-  (assert (empty? (ready-ids
-                    (snapshot-of
-                      (vec (epic-item "rm-0001")
-                           (claimed
-                             (work-item "rm-0002" kind/design status/open))
-                           (work-item "rm-0003" kind/build status/dispatched))
-                      (vec)
-                      (vec (path-of "rm-0003" "src/*")))))))
+(deftest an-epic-is-never-ready
+  (assert (empty? (ready-ids (snapshot-of (vec (epic-item "rm-0001"))
+                                          (vec)
+                                          (vec))))))
+
+(deftest a-claimed-item-is-not-ready
+  (assert (empty? (ready-ids (snapshot-of (vec (claimed (work-item
+                                                          "rm-0001"
+                                                          kind/design
+                                                          status/open)))
+                                          (vec)
+                                          (vec))))))
+
+(deftest a-started-item-is-not-ready
+  (assert (empty? (ready-ids (snapshot-of (vec (work-item "rm-0001"
+                                                          kind/build
+                                                          status/dispatched))
+                                          (vec)
+                                          (vec))))))
 
 (deftest an-unmerged-blocker-blocks
   (assert (= (ready-ids (snapshot-of

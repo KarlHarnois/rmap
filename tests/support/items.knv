@@ -1,3 +1,5 @@
+(use ledger/names kind-names status-names)
+
 (use ledger/model ->dep ->glob ->item ->item-glob ->item-id
                   ->roadmap-id ->session ->snapshot
                   ->timestamp claim dep-type glob item kind
@@ -49,9 +51,9 @@
   (->snapshot :items items :deps deps :globs paths))
 
 (defn statuses ()
-  (vec status/open status/dispatched status/reported
-       status/in-review status/fixing status/merging
-       status/merged status/dropped))
+  (collect (map (iter status-names)
+             (fn (entry) (first (deref entry))))))
 
 (defn kinds ()
-  (vec kind/epic kind/research kind/design kind/build))
+  (collect (map (iter kind-names)
+             (fn (entry) (first (deref entry))))))

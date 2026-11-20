@@ -6,14 +6,14 @@
                  (ref (id-of item))
                  (ref (id-of on))))
 
-(deftest an-item-after-itself-is-a-cycle
+(deftest an-item-blocking-itself-closes-a-cycle
   (assert (closes? (vec) "rm-000a" "rm-000a")))
 
-(deftest a-two-edge-cycle-is-refused
+(deftest a-two-edge-loop-closes-a-cycle
   (assert (closes? (vec (blocks-dep "rm-000a" "rm-000b"))
                    "rm-000b" "rm-000a")))
 
-(deftest a-three-edge-cycle-is-refused
+(deftest a-three-edge-loop-closes-a-cycle
   (assert (closes? (vec (blocks-dep "rm-000a" "rm-000b")
                         (blocks-dep "rm-000b" "rm-000c"))
                    "rm-000c" "rm-000a")))
