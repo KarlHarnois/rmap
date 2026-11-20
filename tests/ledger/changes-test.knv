@@ -1,0 +1,74 @@
+(use json/value field int->json json same? text->json)
+
+(use ledger/changes deleted inserted inserted-columns
+                    only-changed payload-with-changes
+                    updated updated-columns)
+
+(defn text (value) (text->json value))
+
+(defn side-of (payload column side)
+  (-> (ref payload)
+      (field "changes")
+      unwrap
+      (field column)
+      unwrap
+      (field side)
+      unwrap))
+
+(deftest an-inserted-column-records-a-null-old-value
+  (let (payload (payload-with-changes (ref (vec (inserted "title" (text "a"))))
+                                      (vec)))
+    (assert (same? (ref (side-of payload "title" "old"))
+                   (ref json/null)))
+    (assert (same? (ref (side-of payload "title" "new"))
+                   (ref (text "a"))))))
+
+(deftest a-column-inserted-as-null-is-still-recorded
+  (let (payload (payload-with-changes (ref (vec (inserted "parent_id"
+                                                          json/null)))
+                                      (vec)))
+    (assert (same? (ref (side-of payload "parent_id" "new"))
+                   (ref json/null)))))
+
+(deftest a-deleted-column-records-a-null-new-value
+  (let (payload (payload-with-changes (ref (vec (deleted "on_id"
+                                                         (text "rm-1"))))
+                                      (vec)))
+    (assert (same? (ref (side-of payload "on_id" "old"))
+                   (ref (text "rm-1"))))
+    (assert (same? (ref (side-of payload "on_id" "new"))
+                   (ref json/null)))))
+
+(deftest only-changed-keeps-the-updates-whose-value-differs
+  (let (kept (only-changed
+               (vec (updated "status" (text "open") (text "dispatched"))
+                    (updated "kind" (text "build") (text "build"))
+                    (updated "priority" (int->json 0) (int->json 1)))))
+    (assert (= (collect (map (iter kept)
+                          (fn (change) (clone (:column change)))))
+               (vec (str "status") (str "priority"))))))
+
+(deftest context-keys-sit-beside-the-changes
+  (let (payload (payload-with-changes (ref (vec))
+                                      (vec (pair (str "reason")
+                                                 (text "obsolete")))))
+    (assert (same? (ref (unwrap (field (ref payload) "reason")))
+                   (ref (text "obsolete"))))
+    (assert (some? (field (ref payload) "changes")))))
+
+(defn columns (status priority)
+  (vec (pair (str "status") (text status))
+       (pair (str "priority") (int->json priority))))
+
+(deftest inserted-columns-records-each-column-as-new
+  (let (changes (inserted-columns (ref (columns "open" 0))))
+    (assert (= (len changes) 2))
+    (assert (same? (ref (:old (unwrap (get changes 1))))
+                   (ref json/null)))))
+
+(deftest updated-columns-pairs-each-column-with-its-old-value
+  (let (kept (only-changed (updated-columns (ref (columns "open" 0))
+                                            (ref (columns "open" 3)))))
+    (assert (= (len kept) 1))
+    (assert (= (:column (unwrap (first kept)))
+               (str "priority")))))

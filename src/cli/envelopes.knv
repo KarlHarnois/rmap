@@ -16,7 +16,7 @@
 
 (export envelope error-envelope reply-envelope)
 
-(def output-schema-version 1)
+(def output-schema-version 2)
 
 (defn envelope (fields)
   (let (all fields)

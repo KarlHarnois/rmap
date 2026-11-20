@@ -1,7 +1,7 @@
 (module
   "Claims, advances, closes and drops items, each in one transaction.")
 
-(use ledger/model item item-id)
+(use ledger/model glob item item-id timestamp)
 (use ledger/events ->applied-move applied-move item-moved)
 
 (use ledger/core/move advancement->move move moved
@@ -15,7 +15,7 @@
                                    transaction)
 
 (use ledger/failure failure)
-(use ledger/core/snapshot existing)
+(use ledger/core/snapshot existing globs-of)
 (use ledger/sqlite/item-paths replace-globs)
 
 (export advance-item claim-item close-item drop-item)
@@ -48,11 +48,24 @@
             item (existing (ref snapshot) id)
             move (approved-move (ref snapshot) (ref item) requested))
     (store-move transaction
-                (->applied-move :before (clone item)
-                                :after (moved (ref item)
-                                              (ref move)
-                                              (ref (now transaction)))
-                                :move move))))
+                (applied (ref item)
+                         (globs-of (ref snapshot) id)
+                         move
+                         (now transaction)))))
+
+(type applied
+  (fn ((ref item) (vec glob) move timestamp)
+    applied-move))
+
+(defn applied (item globs-before move now)
+  (->applied-move :before (clone item)
+                  :after (moved item (ref move) (ref now))
+                  :globs-after (globs-after (ref move) (ref globs-before))
+                  :globs-before globs-before
+                  :move move))
+
+(defn globs-after (move globs-before)
+  (unwrap-or (new-globs move) (clone globs-before)))
 
 (type store-move
   (fn ((ref transaction) applied-move)

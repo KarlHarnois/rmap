@@ -1,0 +1,79 @@
+(module
+  "Records the columns a ledger change sets as their old and new values, in the `changes` object of an event payload.")
+
+(use json/value copy-of json object same?)
+
+(export column-change deleted inserted inserted-columns
+        only-changed payload-with-changes updated
+        updated-columns)
+
+(defstruct column-change
+  :column string
+  :old json
+  :new json)
+
+(defn inserted (column value)
+  (->column-change :column (str column)
+                   :old json/null
+                   :new value))
+
+(defn deleted (column value)
+  (->column-change :column (str column)
+                   :old value
+                   :new json/null))
+
+(defn updated (column old new)
+  (->column-change :column (str column) :old old :new new))
+
+(type inserted-columns
+  (fn ((ref (vec (pair string json))))
+    (vec column-change)))
+
+(defn inserted-columns (columns)
+  (collect (map (iter columns)
+             (fn (column)
+               (inserted (as-str (first column))
+                         (copy-of (second column)))))))
+
+(type updated-columns
+  (fn ((ref (vec (pair string json)))
+       (ref (vec (pair string json))))
+    (vec column-change)))
+
+(defn updated-columns (before after)
+  (collect (map (zip (iter before) (iter after))
+             (fn (columns)
+               (updated (as-str (first (first columns)))
+                        (copy-of (second (first columns)))
+                        (copy-of (second (second columns))))))))
+
+(defn only-changed (changes)
+  (-> changes iter
+      (filter changed?)
+      (map copy-change)
+      collect))
+
+(defn changed? (change)
+  (not (same? (ref (:old change))
+              (ref (:new change)))))
+
+(defn copy-change (change)
+  (->column-change :column (clone (:column change))
+                   :old (copy-of (ref (:old change)))
+                   :new (copy-of (ref (:new change)))))
+
+(defn payload-with-changes (changes context)
+  (let (entries context)
+    (push! entries
+           (pair (str "changes") (changes->json changes)))
+    (object entries)))
+
+(defn changes->json (changes)
+  (object (collect (map (iter changes) change-entry))))
+
+(defn change-entry (change)
+  (pair (clone (:column change))
+        (object (vec (pair (str "old")
+                           (copy-of (ref (:old change))))
+                     (pair (str "new")
+                           (copy-of (ref (:new change))))))))

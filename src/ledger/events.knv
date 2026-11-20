@@ -1,18 +1,23 @@
 (module
   "Describes each ledger change as an event to record.")
 
-(use json/value int->json object text->json)
+(use json/value text->json)
 
 (use ledger/model ->event-draft dep event-draft event-type
-                  item roadmap)
+                  glob item roadmap)
 
-(use ledger/names case-name kind-names origin-names
-                  status-names)
+(use ledger/names case-name dep-type-names
+                  roadmap-status-names)
 
 (use ledger/core/move move)
 
-(use ledger/json-values globs->json ids->json
-                        optional-id->json)
+(use ledger/json-values globs->json id->json ids->json
+                        item->columns optional-ids->json)
+
+(use ledger/changes column-change deleted inserted
+                    inserted-columns only-changed
+                    payload-with-changes updated
+                    updated-columns)
 
 (use ledger/core/new-items new-item)
 (use ledger/core/deps dep-change)
@@ -23,6 +28,8 @@
 (defstruct applied-move
   :before item
   :after item
+  :globs-before (vec glob)
+  :globs-after (vec glob)
   :move move)
 
 (type roadmap-created
@@ -32,39 +39,50 @@
   (->event-draft :roadmap-id (some (clone (:id roadmap)))
                  :item-id none
                  :type event-type/roadmap-created
-                 :payload (object (vec
-                                    (pair (str "name")
-                                          (text->json (as-str (:name roadmap))))
-                                    (pair (str "manager")
-                                          (text->json (as-str (:name (:manager roadmap)))))))))
+                 :payload (payload-with-changes (ref (roadmap-insert-changes
+                                                       roadmap))
+                                                (vec))))
+
+(type roadmap-insert-changes
+  (fn ((ref roadmap)) (vec column-change)))
+
+(defn roadmap-insert-changes (roadmap)
+  (vec (inserted "name"
+                 (text->json (as-str (:name roadmap))))
+       (inserted "manager_session"
+                 (text->json (as-str (:name (:manager roadmap)))))
+       (inserted "status"
+                 (text->json (case-name roadmap-status-names
+                                        (:status roadmap))))))
 
 (type item-added
   (fn ((ref item) (ref new-item))
     event-draft))
 
 (defn item-added (item request)
-  (->event-draft
-    :roadmap-id (some (clone (:roadmap-id item)))
-    :item-id (some (clone (:id item)))
-    :type event-type/item-added
-    :payload (object
-               (vec (pair (str "title")
-                          (text->json (as-str (:title item))))
-                    (pair (str "kind")
-                          (text->json (case-name kind-names (:kind item))))
-                    (pair (str "origin")
-                          (text->json (case-name origin-names (:origin item))))
-                    (pair (str "priority")
-                          (int->json (:priority item)))
-                    (pair (str "parent_id")
-                          (optional-id->json (ref (:parent item))))
-                    (pair (str "paths")
-                          (globs->json (ref (:globs request))))
-                    (pair (str "blocked_by")
-                          (ids->json (ref (:blocked-by request))))
-                    (pair (str "discovered_from")
-                          (optional-id->json (ref (:discovered-from
-                                                    request))))))))
+  (->event-draft :roadmap-id (some (clone (:roadmap-id item)))
+                 :item-id (some (clone (:id item)))
+                 :type event-type/item-added
+                 :payload (payload-with-changes
+                            (ref (item-insert-changes item request))
+                            (vec))))
+
+(type item-insert-changes
+  (fn ((ref item) (ref new-item))
+    (vec column-change)))
+
+(defn item-insert-changes (item request)
+  (let (changes (inserted-columns (ref (item->columns item))))
+    (push! changes
+           (inserted "paths"
+                     (globs->json (ref (:globs request)))))
+    (push! changes
+           (inserted "blocked_by"
+                     (ids->json (ref (:blocked-by request)))))
+    (push! changes
+           (inserted "discovered_from"
+                     (optional-ids->json (ref (:discovered-from request)))))
+    changes))
 
 (type dep-changed
   (fn ((ref item) (ref dep) dep-change)
@@ -74,8 +92,16 @@
   (->event-draft :roadmap-id (some (clone (:roadmap-id owner)))
                  :item-id (some (clone (:item dep)))
                  :type (dep-change->event-type change)
-                 :payload (object (vec (pair (str "on")
-                                             (text->json (as-str (:value (:on dep)))))))))
+                 :payload (payload-with-changes (ref (dep-row-changes dep
+                                                                      change))
+                                                (vec))))
+
+(defn dep-row-changes (dep change)
+  (let (on (id->json (ref (:on dep)))
+        type (text->json (case-name dep-type-names (:type dep))))
+    (match change
+      (add (vec (inserted "on_id" on) (inserted "type" type)))
+      (remove (vec (deleted "on_id" on) (deleted "type" type))))))
 
 (defn dep-change->event-type (change)
   (match change
@@ -86,7 +112,8 @@
   (->event-draft :roadmap-id (some (clone (:roadmap-id (:after applied))))
                  :item-id (some (clone (:id (:after applied))))
                  :type (event-type-of (ref (:move applied)))
-                 :payload (object (move-fields applied))))
+                 :payload (payload-with-changes (ref (move-changes applied))
+                                                (move-context (ref (:move applied))))))
 
 (defn event-type-of (move)
   (match move
@@ -96,29 +123,18 @@
     (close event-type/item-closed)
     ((drop _) event-type/item-dropped)))
 
-(defn move-fields (applied)
-  (let (fields (detail-fields (ref (:move applied))))
-    (push! fields
-           (pair (str "from")
-                 (text->json (case-name status-names
-                                        (:status (:before applied))))))
-    (push! fields
-           (pair (str "to")
-                 (text->json (case-name status-names
-                                        (:status (:after applied))))))
-    (push! fields
-           (pair (str "kind")
-                 (text->json (case-name kind-names (:kind (:after applied))))))
-    fields))
+(defn move-changes (applied)
+  (let (changes (updated-columns (ref (item->columns (ref (:before applied))))
+                                 (ref (item->columns (ref (:after applied))))))
+    (push! changes
+           (updated "paths"
+                    (globs->json (ref (:globs-before applied)))
+                    (globs->json (ref (:globs-after applied)))))
+    (only-changed changes)))
 
-(defn detail-fields (move)
+(defn move-context (move)
   (match move
-    ((claim session)
-     (vec (pair (str "session")
-                (text->json (as-str (:name session))))))
     ((drop reason)
      (vec (pair (str "reason")
                 (text->json (as-str reason)))))
-    ((advance-to-build globs)
-     (vec (pair (str "paths") (globs->json globs))))
     (_ (vec))))

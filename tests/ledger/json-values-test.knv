@@ -1,0 +1,43 @@
+(use json/value json->items json->text null?)
+(use ledger/model kind status)
+(use support/items work-item)
+(use ledger/model ->item-id ->session ->timestamp claim)
+
+(use ledger/json-values claim->json item->columns
+                        optional-ids->json
+                        optional-timestamp->json)
+
+(deftest a-claim-is-the-session-name
+  (assert (= (json->text (ref (claim->json (ref (claim/claimed-by (->session
+                                                                    :name (str "s1")))))))
+             (some (str "s1")))))
+
+(deftest an-unclaimed-item-has-a-null-claim
+  (assert (null? (ref (claim->json (ref claim/unclaimed))))))
+
+(deftest an-optional-id-becomes-a-set-of-at-most-one
+  (assert (= (len (unwrap (json->items (ref (optional-ids->json
+                                              (ref (some (->item-id :value (str "rm-1")))))))))
+             1))
+  (assert (= (len (unwrap (json->items (ref (optional-ids->json (ref none))))))
+             0)))
+
+(deftest a-missing-timestamp-is-null
+  (assert (null? (ref (optional-timestamp->json (ref none)))))
+  (assert (= (json->text (ref (optional-timestamp->json
+                                (ref (some (->timestamp :value (str "t1")))))))
+             (some (str "t1")))))
+
+(deftest an-item-lists-its-own-columns-in-a-fixed-order
+  (assert (= (collect (map (iter (item->columns (ref (work-item "rm-0001"
+                                                                kind/build
+                                                                status/open))))
+                           (fn (column) (clone (first column)))))
+             (vec (str "title")
+                  (str "kind")
+                  (str "status")
+                  (str "origin")
+                  (str "priority")
+                  (str "parent_id")
+                  (str "claimed_by")
+                  (str "closed_at")))))
