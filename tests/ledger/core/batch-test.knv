@@ -1,4 +1,4 @@
-(use ledger/model item kind snapshot status)
+(use ledger/model claim item kind snapshot status)
 (use ledger/core/batch batch batch-of batch-size-of)
 (use ledger/core/ready readiness-of)
 (use ledger/core/snapshot globs-of scope)
@@ -188,12 +188,23 @@
                   (position-in ready-ids
                                (ref (:value (:id (:item skipped))))))))))))
 
+(defn startable-snapshot (seed)
+  (let (generated (generated-snapshot seed))
+    (assoc generated
+           :items (collect (map (iter (:items generated)) unstarted))
+           :deps (vec))))
+
+(defn unstarted (item)
+  (assoc (clone item)
+         :status status/open
+         :claim claim/unclaimed))
+
 (defn for-each-generated-batch (check)
   (for-each (range 0 seed-count)
     (fn (seed)
       (for-each (range 1 (inc largest-generated-limit))
         (fn (limit)
-          (let (snapshot (generated-snapshot seed)
+          (let (snapshot (startable-snapshot seed)
                 ready-ids (ready-ids (ref snapshot))
                 batch (batch-for (ref snapshot) limit))
             (assert (check (ref snapshot)
@@ -220,7 +231,7 @@
   (let (skipped-total 0)
     (for-each (range 0 seed-count)
       (fn (seed)
-        (let (snapshot (generated-snapshot seed))
+        (let (snapshot (startable-snapshot seed))
           (set! skipped-total
                 (+ skipped-total
                    (len (:skipped (batch-for (ref snapshot)
