@@ -97,3 +97,11 @@
 (deftest the-json-flag-is-never-a-flag-value
   (assert (refused-with? (vec "ready" "--roadmap" "--json")
                          "--roadmap needs a value")))
+
+(deftest global-flags-without-a-command-are-help
+  (assert (= (unwrap-ok (parsed (vec "--db" "x.db" "--json")))
+             invocation/help)))
+
+(deftest a-command-flag-without-a-command-is-refused
+  (assert (refused-with? (vec "--roadmap" "road")
+                         "--roadmap needs a command")))
