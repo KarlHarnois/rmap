@@ -3,7 +3,12 @@
 
 (use ledger/sqlite/rows int-cell single-row try-each)
 
-(use ledger/sqlite/connection database-failure
+(use ledger/sqlite/schema-versions ->schema-versions
+                                   ledger-newer?)
+
+(use ledger/sqlite/connection ->database-error
+                              database-failure
+                              database-problem
                               in-write-transaction query
                               run-batch)
 
@@ -25,6 +30,7 @@
 (defn apply-pending-after-version (connection migrations)
   (let-try (_ (check-unique-versions migrations)
             current (schema-version connection)
+            _ (check-not-newer current migrations)
             _ (apply-pending connection
                              (pending-after migrations current)))
     (ok current)))
@@ -33,6 +39,27 @@
   (let-try (rows (query connection "PRAGMA user_version" (ref (vec)))
             row (single-row (ref rows)))
     (int-cell row 0)))
+
+(defn check-not-newer (current migrations)
+  (let (versions (->schema-versions :ledger current
+                                    :binary (newest-version migrations)))
+    (if (ledger-newer? versions)
+      (err (too-new-failure versions))
+      (ok (do)))))
+
+(defn newest-version (migrations)
+  (-> migrations iter
+      (map :version)
+      max
+      (unwrap-or empty-schema-version)))
+
+(defn too-new-failure (versions)
+  (->database-error :message (str "the ledger has schema version "
+                                  (:ledger versions)
+                                  " but this rmap knows only up to version "
+                                  (:binary versions)
+                                  "; upgrade rmap to open it")
+                    :problem (database-problem/too-new versions)))
 
 (defn pending-after (migrations current)
   (let (pending (-> migrations iter

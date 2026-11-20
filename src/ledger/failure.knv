@@ -25,6 +25,7 @@
 (defn database-code (problem)
   (match (:problem problem)
     (database-problem/busy (str "busy"))
+    ((database-problem/too-new _) (str "ledger-too-new"))
     (database-problem/failed (str "database"))))
 
 (defn failure-message (failure)

@@ -1,5 +1,9 @@
 (use ledger/sqlite/values text->sql)
-(use ledger/sqlite/connection execute open query)
+
+(use ledger/sqlite/connection database-problem execute open
+                              query run-batch)
+
+(use ledger/sqlite/schema-versions ->schema-versions)
 
 (use ledger/sqlite/migrations ->migration migrate
                               schema-version)
@@ -81,3 +85,28 @@
                (ok 0)))
     (assert (= (migrate (ref connection) (migration-sources))
                (ok 1)))))
+
+(defn newest-version ()
+  (-> (migration-sources) iter (map :version) max unwrap))
+
+(defn stored-above-newest (name)
+  (let (connection (opened name))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    (unwrap-ok (run-batch (ref connection)
+                          (as-str (str "PRAGMA user_version = "
+                                       (inc (newest-version))
+                                       ";"))))
+    connection))
+
+(deftest a-ledger-above-the-newest-migration-is-refused-as-too-new
+  (let (connection (stored-above-newest "too-new-refused"))
+    (assert (= (:problem (unwrap-err (migrate (ref connection)
+                                              (migration-sources))))
+               (database-problem/too-new (->schema-versions :ledger (inc (newest-version))
+                                                            :binary (newest-version)))))))
+
+(deftest a-ledger-above-the-newest-migration-keeps-its-version
+  (let (connection (stored-above-newest "too-new-kept"))
+    (unwrap-err (migrate (ref connection) (migration-sources)))
+    (assert (= (unwrap-ok (schema-version (ref connection)))
+               (inc (newest-version))))))
