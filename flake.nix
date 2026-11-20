@@ -11,12 +11,12 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
-        knaveVersion = "0.20.1";
+        knaveVersion = "0.21.0";
 
         knaveSource = pkgs.fetchCrate {
           pname = "knave";
           version = knaveVersion;
-          hash = "sha256-UzTWXclIIyrwhH4GQux8fwXHqJ4vAfQWLFcNWq5fR2w=";
+          hash = "sha256-GNolHEPpXKyscR5O908opvUAfo9G2Js4qbNKxQftQMI=";
         };
 
         knave = pkgs.rustPlatform.buildRustPackage {
