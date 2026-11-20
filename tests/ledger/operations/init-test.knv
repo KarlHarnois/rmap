@@ -1,7 +1,7 @@
 (use ledger/api list-roadmaps)
 (use ledger/operations/init init-ledger init-outcome)
 (use ledger/failure failure)
-(use files/presence file-exists?)
+(use files/presence file-presence file-presence-at)
 (use support/scratch scratch-database)
 (use support/ledger fixed-clock-settings scratch-ledger)
 
@@ -11,7 +11,8 @@
 (deftest init-creates-a-missing-ledger
   (let (settings (fixed-clock-settings (scratch-database "init-creates")))
     (assert (= (outcome-of (ref settings)) init-outcome/created))
-    (assert (file-exists? (as-str (:database-path settings))))))
+    (assert (= (file-presence-at (as-str (:database-path settings)))
+               (ok file-presence/present)))))
 
 (deftest init-reports-an-existing-ledger
   (let (settings (scratch-ledger "init-existing"))

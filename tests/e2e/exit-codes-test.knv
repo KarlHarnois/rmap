@@ -4,8 +4,9 @@
 (use support/rmap database-with-roadmap error-code
                   initialized-database run-rmap)
 
-(use files/presence file-exists?)
+(use files/presence file-presence file-presence-at)
 (use support/scratch scratch-database)
+(use process/command ->command run-command)
 
 (deftest a-command-that-runs-exits-zero-with-the-schema-version
   (let (reply (run-rmap (initialized-database "exit-zero")
@@ -33,7 +34,26 @@
 (deftest a-missing-ledger-stays-missing
   (let (database (scratch-database "stays-missing"))
     (run-rmap (clone database) (vec "list"))
-    (assert (not (file-exists? (as-str database))))))
+    (assert (= (file-presence-at (as-str database))
+               (ok file-presence/absent)))))
+
+(defn run-tool (program args)
+  (assert (ok? (run-command (ref (->command :program (str program)
+                                            :args args))))))
+
+(defn set-mode (directory mode)
+  (run-tool "chmod"
+            (vec (str mode) (clone directory))))
+
+(deftest a-ledger-behind-an-unreadable-directory-exits-three
+  (let (directory (str (scratch-database "unreadable") ".d"))
+    (run-tool "mkdir"
+              (vec (str "-p") (clone directory)))
+    (set-mode (ref directory) "000")
+    (let (reply (run-rmap (str directory "/ledger.db") (vec "list")))
+      (set-mode (ref directory) "700")
+      (assert (= (:exit-code reply) 3))
+      (assert (= (error-code (ref reply)) "database")))))
 
 (deftest a-database-that-cannot-open-exits-three
   (let (reply (run-rmap (str "/nonexistent/rmap/ledger.db") (vec "init")))

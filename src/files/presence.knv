@@ -1,8 +1,18 @@
 (module
-  "Tells whether a file exists at a path.")
+  "Tells whether a file is present at a path, or why that could not be checked.")
 
-(export file-exists?)
+(export file-presence file-presence-at)
 
-(def file-exists?
-  (rust "std::path::Path::new({0}).exists()"
-    (fn ((ref str)) bool)))
+(defenum file-presence
+  present
+  absent)
+
+(def path-exists
+  (rust "std::path::Path::new({0}).try_exists().map_err(|failure| failure.to_string())"
+    (fn ((ref str)) (result bool string))))
+
+(defn file-presence-at (path)
+  (map-ok (path-exists path) exists->presence))
+
+(defn exists->presence (exists)
+  (if exists file-presence/present file-presence/absent))
