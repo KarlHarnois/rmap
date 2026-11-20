@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 env:
-  KNAVE_VERSION: "0.20.0"
+  KNAVE_VERSION: "0.20.1"
 
 jobs:
   check:
