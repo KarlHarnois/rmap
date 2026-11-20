@@ -61,3 +61,11 @@
     (let (reply (run-rmap database (vec "new" "other" "--manager" "m2")))
       (assert (= (:exit-code reply) 3))
       (assert (= (error-code (ref reply)) "busy")))))
+
+(deftest a-ready-limit-that-is-not-a-whole-number-of-at-least-one-exits-two
+  (let (database (initialized-database "ready-limit-usage"))
+    (for-each (vec "0" "-1" "abc")
+      (fn (limit)
+        (let (reply (run-rmap (clone database) (vec "ready" "--limit" limit)))
+          (assert (= (:exit-code reply) 2))
+          (assert (= (error-code (ref reply)) "usage")))))))

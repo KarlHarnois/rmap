@@ -1,0 +1,47 @@
+(use json/value field json->entries json->items json->text)
+
+(use support/rmap database-with-roadmap research-id run-rmap
+                  text-at)
+
+(defn build-id (database pattern)
+  (let (added (run-rmap (clone database)
+                        (vec "item" "add" "--roadmap" "road"
+                             "--title" "b" "--kind" "build"
+                             "--paths" pattern)))
+    (text-at (ref added) "item" "id")))
+
+(defn blocked-design (database blocker)
+  (run-rmap (clone database)
+            (vec "item" "add" "--roadmap" "road" "--title"
+                 "d" "--kind" "design" "--after"
+                 (as-str blocker))))
+
+(defn list-at (reply key)
+  (unwrap (json->items (unwrap (field (:json reply) key)))))
+
+(defn top-level-keys (reply)
+  (collect (map (iter (json->entries (ref (:json reply))))
+             (fn (entry) (clone (first entry))))))
+
+(deftest a-limited-ready-reply-holds-picked-skipped-and-blocked
+  (let (database (database-with-roadmap "ready-limit-json")
+        first-build (build-id (clone database) "src/a/**")
+        _second-build (build-id (clone database) "src/a/b.rs")
+        _blocked (blocked-design (clone database)
+                                 (research-id (clone database)))
+        reply (run-rmap database (vec "ready" "--limit" "2")))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (top-level-keys (ref reply))
+               (vec (str "blocked")
+                    (str "picked")
+                    (str "schema_version")
+                    (str "skipped"))))
+    (assert (= (len (list-at (ref reply) "picked"))
+               2))
+    (assert (= (len (list-at (ref reply) "blocked"))
+               1))
+    (let (skipped (list-at (ref reply) "skipped"))
+      (assert (= (len skipped) 1))
+      (assert (= (json->text (unwrap (field (unwrap (first skipped))
+                                            "conflicts_with")))
+                 (some first-build))))))

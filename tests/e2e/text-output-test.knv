@@ -1,4 +1,9 @@
-(use support/rmap initialized-database run-rmap-text)
+(use json/value json->entries)
+
+(use support/rmap database-with-roadmap initialized-database
+                  research-id run-rmap run-rmap-text
+                  text-at)
+
 (use support/scratch scratch-database)
 
 (deftest a-command-prints-text-by-default
@@ -30,3 +35,42 @@
   (let (output (run-rmap-text (vec)))
     (assert (= (:code output) 0))
     (assert (starts-with? (as-str (:stdout output)) "Usage: rmap"))))
+
+(defn blocked-design-id (database blocker)
+  (text-at (ref (run-rmap (clone database)
+                          (vec "item" "add" "--roadmap"
+                               "road" "--title" "d" "--kind"
+                               "design" "--after"
+                               (as-str blocker))))
+           "item" "id"))
+
+(defn roadmap-id-of (database item)
+  (text-at (ref (run-rmap (clone database)
+                          (vec "item" "show" (as-str item))))
+           "item" "roadmap_id"))
+
+(deftest ready-without-a-limit-prints-the-ready-and-blocked-sections
+  (let (database (database-with-roadmap "ready-unchanged-text")
+        research (research-id (clone database))
+        design (blocked-design-id (clone database) (clone research))
+        roadmap (roadmap-id-of (clone database) (clone research))
+        output (run-rmap-text (vec "--db" (as-str database) "ready")))
+    (assert (= (:code output) 0))
+    (assert (= (:stdout output)
+               (str "Ready:\n"
+                    "  ID       ROADMAP  KIND      STATUS  PRIORITY  TITLE\n"
+                    "  " research "  " roadmap
+                    "  research  open    0         r\n" "\n"
+                    "Blocked:\n" "  " design "  d\n"
+                    "    waits on " research "\n")))))
+
+(deftest ready-without-a-limit-replies-with-ready-and-blocked-only
+  (let (database (database-with-roadmap "ready-unchanged-json")
+        research (research-id (clone database))
+        _design (blocked-design-id (clone database) research)
+        reply (run-rmap database (vec "ready")))
+    (assert (= (collect (map (iter (json->entries (ref (:json reply))))
+                          (fn (entry) (clone (first entry)))))
+               (vec (str "blocked")
+                    (str "ready")
+                    (str "schema_version"))))))
