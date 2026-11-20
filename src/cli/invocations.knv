@@ -64,6 +64,7 @@
 (defn invocation-of (route arguments)
   (match (:subcommand route)
     (subcommand/help (ok invocation/help))
+    (subcommand/init (on-ledger arguments (ok request/init)))
     (subcommand/new
       (on-ledger arguments
                  (new-roadmap-request arguments (operand arguments route 0))))

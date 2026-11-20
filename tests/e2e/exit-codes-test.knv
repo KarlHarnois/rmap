@@ -1,10 +1,14 @@
 (use ledger/sqlite/connection open run-batch)
 (use json/value field json->int)
-(use support/rmap database-with-roadmap error-code run-rmap)
+
+(use support/rmap database-with-roadmap error-code
+                  initialized-database run-rmap)
+
+(use files/presence file-exists?)
 (use support/scratch scratch-database)
 
 (deftest a-command-that-runs-exits-zero-with-the-schema-version
-  (let (reply (run-rmap (scratch-database "exit-zero")
+  (let (reply (run-rmap (initialized-database "exit-zero")
                         (vec "new" "road" "--manager" "m1")))
     (assert (= (:exit-code reply) 0))
     (assert (= (json->int (unwrap (field (:json reply) "schema_version")))
@@ -21,8 +25,18 @@
     (assert (= (:exit-code reply) 2))
     (assert (= (error-code (ref reply)) "usage"))))
 
+(deftest a-missing-ledger-exits-two-with-no-ledger
+  (let (reply (run-rmap (scratch-database "exit-no-ledger") (vec "list")))
+    (assert (= (:exit-code reply) 2))
+    (assert (= (error-code (ref reply)) "no-ledger"))))
+
+(deftest a-missing-ledger-stays-missing
+  (let (database (scratch-database "stays-missing"))
+    (run-rmap (clone database) (vec "list"))
+    (assert (not (file-exists? (as-str database))))))
+
 (deftest a-database-that-cannot-open-exits-three
-  (let (reply (run-rmap (str "/nonexistent/rmap/ledger.db") (vec "list")))
+  (let (reply (run-rmap (str "/nonexistent/rmap/ledger.db") (vec "init")))
     (assert (= (:exit-code reply) 3))
     (assert (= (error-code (ref reply)) "database"))))
 

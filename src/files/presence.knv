@@ -1,0 +1,8 @@
+(module
+  "Tells whether a file exists at a path.")
+
+(export file-exists?)
+
+(def file-exists?
+  (rust "std::path::Path::new({0}).exists()"
+    (fn ((ref str)) bool)))

@@ -9,6 +9,7 @@
 
 (defenum subcommand
   help
+  init
   new
   list
   ready
@@ -50,6 +51,10 @@
 (defn routes ()
   (vec (->route :subcommand subcommand/help
                 :words (words "help")
+                :operands (vec)
+                :flags (vec))
+       (->route :subcommand subcommand/init
+                :words (words "init")
                 :operands (vec)
                 :flags (vec))
        (->route :subcommand subcommand/new

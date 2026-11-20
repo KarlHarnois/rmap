@@ -10,13 +10,16 @@
                                    in-transaction record
                                    transaction)
 
+(use ledger/operations/initialization init-ledger)
 (use ledger/failure failure)
 (use support/scratch scratch-database)
 
 (defn ledger-settings (name)
-  (->settings :database-path (scratch-database name)
-              :clock (clock/fixed (->timestamp :value (str "2026-03-03T00:00:00Z")))
-              :actor (str "tester")))
+  (let (settings (->settings :database-path (scratch-database name)
+                             :clock (clock/fixed (->timestamp :value (str "2026-03-03T00:00:00Z")))
+                             :actor (str "tester")))
+    (assert (ok? (init-ledger (ref settings))))
+    settings))
 
 (defn sample-roadmap ()
   (->roadmap :id (->roadmap-id :value (str "rm-0001"))

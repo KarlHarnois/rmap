@@ -2,8 +2,8 @@
 
 (use ledger/api ->advancement ->glob ->new-item ->session
                 ->settings add-item advance-item claim-item
-                clock failure-code glob kind kind-change
-                new-roadmap origin status)
+                clock failure-code glob init-ledger kind
+                kind-change new-roadmap origin status)
 
 (use support/scratch scratch-database)
 
@@ -22,6 +22,7 @@
   (let (settings (->settings :database-path (scratch-database name)
                              :clock (clock/fixed (->timestamp :value (str "2026-03-03T00:00:00Z")))
                              :actor (str "tester")))
+    (assert (ok? (init-ledger (ref settings))))
     (assert (ok? (new-roadmap (ref settings)
                               (str roadmap-name)
                               (session-named "manager"))))

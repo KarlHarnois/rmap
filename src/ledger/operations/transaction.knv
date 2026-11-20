@@ -12,9 +12,11 @@
 (use ledger/sqlite/migration-sources migration-sources)
 (use ledger/sqlite/events append-event)
 (use ledger/sqlite/generated database-now)
+(use files/presence file-exists?)
 
 (export ->settings clock connect in-read-transaction
-        in-transaction now record settings transaction)
+        in-transaction now open-ledger record settings
+        transaction)
 
 (defenum clock
   system
@@ -29,7 +31,21 @@
   :connection connection
   :stamp event-stamp)
 
+(type connect
+  (fn ((ref settings))
+    (result connection failure)))
+
 (defn connect (settings)
+  (let (path (:database-path settings))
+    (if (file-exists? (as-str path))
+      (open-ledger settings)
+      (err (failure/no-ledger (clone path))))))
+
+(type open-ledger
+  (fn ((ref settings))
+    (result connection failure)))
+
+(defn open-ledger (settings)
   (let-try (connection (open (as-str (:database-path settings)))
             _ (migrate (ref connection) (migration-sources)))
     (ok connection)))

@@ -4,9 +4,10 @@
 (use process/command ->command ->command-output
                      command-output run-command)
 
-(export database-with-roadmap error-code reply research-id
-        run-rmap run-rmap-pair run-rmap-text
-        run-rmap-together text-at)
+(export database-with-roadmap error-code
+        initialized-database reply research-id run-rmap
+        run-rmap-pair run-rmap-text run-rmap-together
+        text-at)
 
 (defstruct reply
   :exit-code i32
@@ -104,8 +105,14 @@
 
 (defn error-code (reply) (text-at reply "error" "code"))
 
-(defn database-with-roadmap (name)
+(defn initialized-database (name)
   (let (database (scratch-database name))
+    (assert (= (:exit-code (run-rmap (clone database) (vec "init")))
+               0))
+    database))
+
+(defn database-with-roadmap (name)
+  (let (database (initialized-database name))
     (assert (= (:exit-code (run-rmap (clone database)
                                      (vec "new" "road" "--manager" "m1")))
                0))

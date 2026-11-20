@@ -1,0 +1,41 @@
+(use ledger/model ->timestamp)
+(use ledger/api ->settings clock list-roadmaps)
+
+(use ledger/operations/initialization init-ledger
+                                      initialization-outcome)
+
+(use ledger/failure failure)
+(use files/presence file-exists?)
+(use support/scratch scratch-database)
+(use support/ledger scratch-ledger)
+
+(defn settings-at (database)
+  (->settings :database-path database
+              :clock (clock/fixed (->timestamp :value (str "2026-03-03T00:00:00Z")))
+              :actor (str "tester")))
+
+(defn outcome-of (settings)
+  (:outcome (unwrap-ok (init-ledger settings))))
+
+(deftest init-creates-a-missing-ledger
+  (let (settings (settings-at (scratch-database "init-creates")))
+    (assert (= (outcome-of (ref settings))
+               initialization-outcome/created))
+    (assert (file-exists? (as-str (:database-path settings))))))
+
+(deftest init-reports-an-existing-ledger
+  (let (settings (scratch-ledger "init-existing"))
+    (assert (= (outcome-of (ref settings))
+               initialization-outcome/existing))))
+
+(deftest init-keeps-the-roadmaps-of-an-existing-ledger
+  (let (settings (scratch-ledger "init-keeps"))
+    (unwrap-ok (init-ledger (ref settings)))
+    (assert (= (len (unwrap-ok (list-roadmaps (ref settings))))
+               1))))
+
+(deftest a-command-on-a-missing-ledger-fails-with-no-ledger
+  (let (database (scratch-database "no-ledger")
+        settings (settings-at (clone database)))
+    (assert (= (list-roadmaps (ref settings))
+               (err (failure/no-ledger database))))))

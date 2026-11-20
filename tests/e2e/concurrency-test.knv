@@ -34,10 +34,10 @@
 
 (defn all-succeed-on-a-fresh-database? (round)
   (let (database (scratch-database (as-str (str "fresh-race-" round))))
-    (every? (iter (run-rmap-together database (vec "list") first-users))
+    (every? (iter (run-rmap-together database (vec "init") first-users))
       (fn (code) (= (deref code) 0)))))
 
-(deftest processes-first-using-a-new-database-at-once-all-succeed
+(deftest processes-initializing-one-new-ledger-at-once-all-succeed
   (for-each (range 0 fresh-rounds)
     (fn (round)
       (assert (all-succeed-on-a-fresh-database? round)))))

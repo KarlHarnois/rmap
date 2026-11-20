@@ -1,8 +1,9 @@
 (module
   "Describes each ledger result in plain text.")
 
-(use ledger/api case-name dep event event-type-names roadmap
-                roadmap-status-names)
+(use ledger/api case-name dep event event-type-names
+                initialization initialization-outcome
+                roadmap roadmap-status-names)
 
 (use cli/replies reply)
 (use cli/tables headed table)
@@ -17,6 +18,8 @@
 
 (defn reply->text (reply)
   (match reply
+    ((reply/ledger-initialized initialization)
+     (initialization-text initialization))
     ((reply/roadmap-created roadmap)
      (roadmap-created-text roadmap))
     ((reply/roadmaps-listed roadmaps) (roadmaps-text roadmaps))
@@ -30,6 +33,16 @@
     ((reply/dep-added dep) (dep-text dep "now waits on"))
     ((reply/dep-removed dep)
      (dep-text dep "no longer waits on"))))
+
+(type initialization-text
+  (fn ((ref initialization)) string))
+
+(defn initialization-text (initialization)
+  (let (path (:database-path initialization))
+    (match (:outcome initialization)
+      (initialization-outcome/created (str "Created ledger " path "."))
+      (initialization-outcome/existing (str "Ledger already exists at "
+                                            path ".")))))
 
 (type roadmap-created-text
   (fn ((ref roadmap)) string))

@@ -15,9 +15,10 @@ Without Nix, install [Rust](https://rustup.rs) and [knave](https://crates.io/cra
 ## Use
 
 ```sh
+rmap init
 rmap new website --manager me
 rmap item add --roadmap website --title "Add the parser" --kind build --paths 'src/parser/**'
 rmap ready
 ```
 
-Run rmap inside a git repository, or pass `--db <path>`. For JSON output, pass `--json` or set `RMAP_JSON=1`. `rmap help` lists every command.
+Run rmap inside a git repository, or pass `--db <path>`. `rmap init` creates the ledger once per repository, and every other command refuses to run until it exists. For JSON output, pass `--json` or set `RMAP_JSON=1`. `rmap help` lists every command.
