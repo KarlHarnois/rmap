@@ -1,0 +1,15 @@
+(use ledger/model kind status)
+(use cli/ledger-json item->json)
+(use json/value field json->text)
+(use support/items work-item)
+
+(defn item-text-field (key)
+  (-> (item->json (ref (work-item "rm-0001" kind/build status/open)))
+      (field key)
+      unwrap json->text unwrap))
+
+(deftest an-item-names-its-roadmap
+  (assert (= (item-text-field "roadmap") (str "road"))))
+
+(deftest an-item-keeps-its-roadmap-id
+  (assert (= (item-text-field "roadmap_id") (str "rm-road"))))

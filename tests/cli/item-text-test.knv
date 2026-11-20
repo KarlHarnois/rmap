@@ -20,7 +20,7 @@
 (deftest items-print-as-a-table-under-a-header
   (assert (= (items-text (ref (vec
                                 (work-item "rm-0001" kind/build status/open))))
-             (str "ID       ROADMAP  KIND   STATUS  PRIORITY  TITLE\nrm-0001  rm-road  build  open    0         work"))))
+             (str "ID       ROADMAP  KIND   STATUS  PRIORITY  TITLE\nrm-0001  road     build  open    0         work"))))
 
 (deftest an-empty-item-list-says-so
   (assert (= (items-text (ref (the (vec item) (vec))))

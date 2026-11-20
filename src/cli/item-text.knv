@@ -30,7 +30,7 @@
 
 (defn item-cells (item)
   (vec (clone (:value (:id item)))
-       (clone (:value (:roadmap-id item)))
+       (clone (:roadmap-name item))
        (str (case-name kind-names (:kind item)))
        (str (case-name status-names (:status item)))
        (str (:priority item))

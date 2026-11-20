@@ -17,7 +17,7 @@
   "  ID       ROADMAP  KIND      STATUS  PRIORITY  TITLE\n")
 
 (defn table-row (id)
-  (str "  " id "  rm-road  research  open    0         work"))
+  (str "  " id "  road     research  open    0         work"))
 
 (deftest picked-skipped-and-blocked-each-get-a-section
   (assert (= (batch-text

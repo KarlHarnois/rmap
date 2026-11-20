@@ -34,24 +34,18 @@
     (assert (= (:code output) 0))
     (assert (starts-with? (as-str (:stdout output)) "Usage: rmap"))))
 
-(defn roadmap-id-of (database item)
-  (text-at (ref (run-rmap (clone database)
-                          (vec "item" "show" (as-str item))))
-           "item" "roadmap_id"))
-
 (deftest ready-without-a-limit-prints-the-ready-and-blocked-sections
   (let (database (database-with-roadmap "ready-unchanged-text")
         research (research-id (clone database))
         design (blocked-design-id (clone database) (clone research))
-        roadmap (roadmap-id-of (clone database) (clone research))
         output (run-rmap-text (vec "--db" (as-str database) "ready")))
     (assert (= (:code output) 0))
     (assert (= (:stdout output)
                (str "Ready:\n"
                     "  ID       ROADMAP  KIND      STATUS  PRIORITY  TITLE\n"
-                    "  " research "  " roadmap
-                    "  research  open    0         r\n" "\n"
-                    "Blocked:\n" "  " design "  d\n"
+                    "  " research
+                    "  road     research  open    0         r\n"
+                    "\n" "Blocked:\n" "  " design "  d\n"
                     "    waits on " research "\n")))))
 
 (deftest ready-without-a-limit-replies-with-ready-and-blocked-only
@@ -63,3 +57,12 @@
                (vec (str "blocked")
                     (str "ready")
                     (str "schema_version"))))))
+
+(deftest item-show-replies-with-the-roadmap-name-and-id
+  (let (database (database-with-roadmap "item-roadmap-name")
+        research (research-id (clone database))
+        reply (run-rmap database (vec "item" "show" (as-str research))))
+    (assert (= (text-at (ref reply) "item" "roadmap")
+               (str "road")))
+    (assert (starts-with? (as-str (text-at (ref reply) "item" "roadmap_id"))
+                          "rm-"))))
