@@ -3,11 +3,10 @@
                 kind-change read-log ready-items refusal
                 show-item status)
 
-(use support/ledger added-blocked-research added-id
-                    added-research claimed globs-of-patterns
-                    item-draft refusal-code-of
-                    reported-research scratch-ledger
-                    session-named)
+(use support/ledger added-id blocked-research claimed
+                    globs-of-patterns item-draft
+                    refusal-code-of reported-research
+                    research scratch-ledger session-named)
 
 (defn become-build (settings id patterns)
   (advance-item settings
@@ -89,7 +88,7 @@
 (deftest a-research-item-cannot-enter-review
   (let (settings (scratch-ledger "research-review")
         item (claimed (ref settings)
-                      (added-research (ref settings))))
+                      (research (ref settings))))
     (assert (= (refusal-code-of (advance-item
                                   (ref settings)
                                   item
@@ -101,15 +100,15 @@
 (deftest claiming-a-claimed-item-is-refused
   (let (settings (scratch-ledger "claim-twice")
         item (claimed (ref settings)
-                      (added-research (ref settings))))
+                      (research (ref settings))))
     (assert (= (refusal-code-of
                  (claim-item (ref settings) item (session-named "other")))
                (some (str "invalid-transition"))))))
 
 (deftest claiming-a-blocked-item-is-refused
   (let (settings (scratch-ledger "claim-blocked")
-        blocker (added-research (ref settings))
-        blocked (added-blocked-research (ref settings) blocker))
+        blocker (research (ref settings))
+        blocked (blocked-research (ref settings) blocker))
     (assert (= (refusal-code-of
                  (claim-item (ref settings) blocked (session-named "worker")))
                (some (str "not-ready"))))))
@@ -143,7 +142,7 @@
 
 (deftest dropping-a-dropped-item-is-refused
   (let (settings (scratch-ledger "drop-twice")
-        item (added-research (ref settings)))
+        item (research (ref settings)))
     (assert (ok? (drop-item (ref settings)
                             (clone item)
                             (str "obsolete"))))

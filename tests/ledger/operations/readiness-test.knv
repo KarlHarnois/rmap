@@ -1,10 +1,9 @@
 (use ledger/api ready-items status)
 
-(use support/ledger added-blocked-research-in added-research
-                    advanced claimed
+(use support/ledger advanced blocked-research-in claimed
                     ledger-with-two-roadmaps
                     other-roadmap-name refusal-code-of
-                    roadmap-name scratch-ledger)
+                    research roadmap-name scratch-ledger)
 
 (deftest an-unknown-roadmap-is-refused
   (let (settings (scratch-ledger "unknown-roadmap"))
@@ -14,7 +13,7 @@
 
 (deftest naming-a-roadmap-limits-ready-items-to-it
   (let (settings (ledger-with-two-roadmaps "ready-in-one-roadmap")
-        _ (added-research (ref settings)))
+        _ (research (ref settings)))
     (assert (= (len (:ready (readiness-in (ref settings) other-roadmap-name)))
                0))
     (assert (= (len (:ready (readiness-in (ref settings) roadmap-name)))
@@ -25,20 +24,20 @@
 
 (deftest an-open-blocker-in-another-roadmap-keeps-an-item-waiting
   (let (settings (ledger-with-two-roadmaps "cross-roadmap-waiting")
-        blocker (added-research (ref settings))
-        _blocked (added-blocked-research-in (ref settings)
-                                            other-roadmap-name
-                                            blocker)
+        blocker (research (ref settings))
+        _blocked (blocked-research-in (ref settings)
+                                      other-roadmap-name
+                                      blocker)
         readiness (readiness-in (ref settings) other-roadmap-name))
     (assert (= (len (:ready readiness)) 0))
     (assert (= (len (:blocked readiness)) 1))))
 
 (deftest a-delivered-blocker-in-another-roadmap-frees-the-item
   (let (settings (ledger-with-two-roadmaps "cross-roadmap-freed")
-        blocker (added-research (ref settings))
-        _blocked (added-blocked-research-in (ref settings)
-                                            other-roadmap-name
-                                            (clone blocker))
+        blocker (research (ref settings))
+        _blocked (blocked-research-in (ref settings)
+                                      other-roadmap-name
+                                      (clone blocker))
         _delivered (advanced (ref settings)
                              (claimed (ref settings) blocker)
                              status/reported))
