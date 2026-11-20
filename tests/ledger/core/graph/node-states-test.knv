@@ -1,7 +1,8 @@
 (use ledger/model kind status)
 
-(use ledger/core/node-states node-class node-class-of
-                             node-state ready-ids state-of)
+(use ledger/core/graph/node-states node-class node-class-of
+                                   node-state ready-ids
+                                   state-of)
 
 (use support/items claimed snapshot-of work-item)
 

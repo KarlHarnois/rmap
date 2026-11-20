@@ -2,7 +2,7 @@
   "Holds a graph of roadmaps as data: roadmap and epic clusters, nodes, nodes from other roadmaps, and edges.")
 
 (use ledger/model dep-type item item-id roadmap)
-(use ledger/core/node-states node-state state-of)
+(use ledger/core/graph/node-states node-state state-of)
 
 (export ->diagram ->epic-cluster ->external-node
         ->graph-edge ->roadmap-cluster diagram epic-cluster

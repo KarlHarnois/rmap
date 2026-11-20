@@ -2,8 +2,8 @@
   "Draws the graph of the roadmaps, their items and their dependencies, without changing the ledger.")
 
 (use ledger/model graph-format history)
-(use ledger/core/graph ->graph-view diagram-of)
-(use ledger/core/mermaid diagram->mermaid)
+(use ledger/core/graph/graph ->graph-view diagram-of)
+(use ledger/core/graph/mermaid/mermaid diagram->mermaid)
 (use ledger/sqlite/snapshot load-snapshot)
 (use ledger/sqlite/roadmaps all-roadmaps)
 

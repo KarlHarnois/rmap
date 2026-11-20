@@ -3,8 +3,9 @@
 
 (use ledger/model item item-id kind roadmap)
 
-(use ledger/core/diagram ->epic-cluster ->roadmap-cluster
-                         graph-node node-of sorted-by-id)
+(use ledger/core/graph/diagram ->epic-cluster
+                               ->roadmap-cluster graph-node
+                               node-of sorted-by-id)
 
 (export roadmap-cluster-of)
 

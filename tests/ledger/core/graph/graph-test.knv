@@ -1,7 +1,7 @@
 (use ledger/model ->roadmap-id dep-type history)
-(use ledger/core/graph ->graph-view diagram-of)
+(use ledger/core/graph/graph ->graph-view diagram-of)
 (use ledger/core/snapshot scope)
-(use ledger/core/diagram diagram roadmap-cluster)
+(use ledger/core/graph/diagram diagram roadmap-cluster)
 (use support/items id-of)
 
 (use support/graph-fixture graph-roadmaps graph-snapshot

@@ -1,5 +1,5 @@
 (use ledger/model history kind status)
-(use ledger/core/visibility visible-deps visible?)
+(use ledger/core/graph/visibility visible-deps visible?)
 (use support/items blocks-dep work-item)
 
 (deftest a-merged-item-shows-only-with-its-history

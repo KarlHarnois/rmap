@@ -1,6 +1,6 @@
 (use ledger/model ->roadmap-id history)
-(use ledger/core/graph ->graph-view diagram-of)
-(use ledger/core/mermaid diagram->mermaid)
+(use ledger/core/graph/graph ->graph-view diagram-of)
+(use ledger/core/graph/mermaid/mermaid diagram->mermaid)
 (use ledger/core/snapshot scope)
 (use support/fixtures fixture-text)
 

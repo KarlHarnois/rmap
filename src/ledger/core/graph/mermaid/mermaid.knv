@@ -2,12 +2,13 @@
   "Writes a graph as Mermaid flowchart source: roadmap and epic subgraphs, nodes, edges, then the classes.")
 
 (use ledger/model dep-type)
-(use ledger/core/mermaid-classes class-lines)
+(use ledger/core/graph/mermaid/classes class-lines)
 
-(use ledger/core/mermaid-text external-label node-id
-                              node-label subgraph-header)
+(use ledger/core/graph/mermaid/text external-label node-id
+                                    node-label
+                                    subgraph-header)
 
-(use ledger/core/diagram graph-node roadmap-cluster)
+(use ledger/core/graph/diagram graph-node roadmap-cluster)
 
 (export diagram->mermaid)
 

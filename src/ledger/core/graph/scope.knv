@@ -4,8 +4,8 @@
 (use ledger/model dep item item-id roadmap)
 (use ledger/core/snapshot in-scope? scope)
 
-(use ledger/core/diagram ->external-node node-of
-                         sorted-by-id)
+(use ledger/core/graph/diagram ->external-node node-of
+                               sorted-by-id)
 
 (export external-items external-node-of scoped-deps)
 

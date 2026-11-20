@@ -4,14 +4,18 @@
 (use ledger/model history roadmap snapshot)
 (use ledger/names case-name dep-type-names)
 (use ledger/core/snapshot scope)
-(use ledger/core/visibility visible-deps visible-items)
-(use ledger/core/node-states ready-ids)
-(use ledger/core/graph-clusters roadmap-cluster-of)
 
-(use ledger/core/graph-scope external-items external-node-of
+(use ledger/core/graph/visibility visible-deps
+                                  visible-items)
+
+(use ledger/core/graph/node-states ready-ids)
+(use ledger/core/graph/clusters roadmap-cluster-of)
+
+(use ledger/core/graph/scope external-items external-node-of
                              scoped-deps)
 
-(use ledger/core/diagram ->diagram ->graph-edge diagram)
+(use ledger/core/graph/diagram ->diagram ->graph-edge
+                               diagram)
 
 (export ->graph-view diagram-of graph-view)
 

@@ -1,9 +1,9 @@
 (module
   "Writes the Mermaid classes that color a graph's nodes by state, and marks the nodes from other roadmaps.")
 
-(use ledger/core/node-states node-class node-class-of)
-(use ledger/core/mermaid-text node-id)
-(use ledger/core/diagram graph-node)
+(use ledger/core/graph/node-states node-class node-class-of)
+(use ledger/core/graph/mermaid/text node-id)
+(use ledger/core/graph/diagram graph-node)
 
 (export class-lines)
 

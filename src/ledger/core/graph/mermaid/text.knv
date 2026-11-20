@@ -6,7 +6,7 @@
 (use ledger/names case-name kind-names origin-names
                   status-names)
 
-(use ledger/core/node-states node-state)
+(use ledger/core/graph/node-states node-state)
 
 (export escaped external-label mermaid-id node-id node-label
         subgraph-header)

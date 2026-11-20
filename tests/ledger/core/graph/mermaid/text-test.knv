@@ -1,6 +1,9 @@
 (use ledger/model kind status)
-(use ledger/core/mermaid-text escaped node-id node-label)
-(use ledger/core/node-states node-state)
+
+(use ledger/core/graph/mermaid/text escaped node-id
+                                    node-label)
+
+(use ledger/core/graph/node-states node-state)
 (use support/items id-of titled work-item)
 
 (deftest quotes-brackets-angles-and-hashes-become-entity-codes
