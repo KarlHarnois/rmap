@@ -1,0 +1,17 @@
+(use ledger/model history)
+(use ledger/core/graph/graph ->graph-view diagram-of)
+(use ledger/core/graph/drawing drawing drawing-of)
+(use ledger/core/graph/levels graph-level)
+(use ledger/core/snapshot scope)
+(use support/graph-fixture graph-roadmaps graph-snapshot)
+
+(deftest item-level-draws-the-item-graph-unchanged
+  (let (view (->graph-view :scope scope/every-roadmap
+                           :history history/without-merged))
+    (assert (= (drawing-of (ref (graph-snapshot))
+                           (ref (graph-roadmaps))
+                           (ref view)
+                           graph-level/item)
+               (drawing/items (diagram-of (ref (graph-snapshot))
+                                          (ref (graph-roadmaps))
+                                          (ref view)))))))

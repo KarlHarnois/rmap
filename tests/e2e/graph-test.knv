@@ -1,6 +1,7 @@
 (use json/value field json->text)
 
-(use support/rmap database-with-roadmap error-code run-rmap
+(use support/rmap blocked-design-id database-with-roadmap
+                  error-code research-id run-rmap
                   run-rmap-text)
 
 (deftest graph-prints-raw-mermaid-without-a-code-fence
@@ -21,5 +22,46 @@
 (deftest a-graph-format-other-than-mermaid-exits-two
   (let (reply (run-rmap (database-with-roadmap "graph-dot")
                         (vec "graph" "--format" "dot")))
+    (assert (= (:exit-code reply) 2))
+    (assert (= (error-code (ref reply)) "usage"))))
+
+(defn ledger-with-a-dependency (name)
+  (let (database (database-with-roadmap name)
+        blocker (research-id (clone database)))
+    (blocked-design-id (clone database) blocker)
+    database))
+
+(type graph-text
+  (fn (string (vec (ref str))) string))
+
+(defn graph-text (database extra)
+  (let (args (vec "--db" (as-str database) "graph"))
+    (for-each extra
+      (fn (arg) (push! args (deref arg))))
+    (clone (:stdout (run-rmap-text args)))))
+
+(deftest level-item-prints-what-graph-prints-without-a-level
+  (let (database (ledger-with-a-dependency "graph-level-item"))
+    (assert (= (graph-text (clone database) (vec "--level" "item"))
+               (graph-text database (vec))))))
+
+(deftest two-runs-at-each-level-print-the-same-graph
+  (let (database (ledger-with-a-dependency "graph-level-twice"))
+    (for-each (vec "item" "epic" "roadmap")
+      (fn (level)
+        (assert (= (graph-text (clone database)
+                               (vec "--level" (deref level)))
+                   (graph-text (clone database)
+                               (vec "--level" (deref level)))))))))
+
+(deftest level-roadmap-draws-one-node-per-roadmap
+  (let (database (ledger-with-a-dependency "graph-level-roadmap"))
+    (assert (contains? (as-str (graph-text database
+                                           (vec "--level" "roadmap" "--all")))
+                       "[\"road<br/><i>0/2 merged</i>\"]"))))
+
+(deftest an-unknown-graph-level-exits-two
+  (let (reply (run-rmap (database-with-roadmap "graph-level-module")
+                        (vec "graph" "--level" "module")))
     (assert (= (:exit-code reply) 2))
     (assert (= (error-code (ref reply)) "usage"))))

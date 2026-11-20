@@ -1,8 +1,8 @@
 (module
   "Lists each command the CLI accepts, and the boolean flags any of them takes.")
 
-(use ledger/api graph-format-names kind-names origin-names
-                status-names)
+(use ledger/api graph-format-names graph-level-names
+                kind-names origin-names status-names)
 
 (use cli/flag-specs boolean-flag boolean? choices
                     global-flags optional required)
@@ -112,10 +112,11 @@
                 :flags (vec))
        (->route :subcommand subcommand/graph
                 :words (words "graph")
-                :summary (str "Prints the roadmaps, their items and dependencies as a Mermaid flowchart. Merged items show only with --all.")
+                :summary (str "Prints the roadmaps, their items and dependencies as a Mermaid flowchart. Merged items show only with --all. --level epic or roadmap draws one node per epic or roadmap.")
                 :operands (vec)
                 :flags (vec (optional "roadmap" "<name>")
                             (boolean-flag "all")
+                            (optional "level" (choices graph-level-names))
                             (optional "format" (choices graph-format-names))))))
 
 (defn boolean-flag-names ()

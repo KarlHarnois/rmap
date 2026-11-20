@@ -1,0 +1,181 @@
+(use ledger/model ->roadmap-id history kind snapshot status)
+(use ledger/core/graph/graph ->graph-view diagram-of)
+(use ledger/core/graph/epic-level epic-rollup)
+
+(use ledger/core/graph/groups ->group-id ->progress progress
+                              rolled-node)
+
+(use ledger/core/graph/rolled-edges ->rolled-edge)
+(use ledger/core/graph/rollup node-ids rollup)
+(use ledger/core/snapshot scope)
+
+(use support/items blocks-dep child-of discovered-dep
+                   epic-item in-roadmap roadmap-of
+                   snapshot-of work-item)
+
+(def other-roadmap "rm-other")
+
+(defn roadmaps ()
+  (vec (roadmap-of "rm-road" "m")
+       (roadmap-of other-roadmap "m")))
+
+(type rolled (fn (snapshot scope history) rollup))
+
+(defn rolled (snapshot scope history)
+  (epic-rollup (ref (diagram-of (ref snapshot)
+                                (ref (roadmaps))
+                                (ref (->graph-view
+                                       :scope scope/every-roadmap
+                                       :history history/with-merged))))
+               (ref scope)
+               (ref history)))
+
+(defn everything (snapshot)
+  (rolled snapshot scope/every-roadmap history/with-merged))
+
+(defn without-merged (snapshot)
+  (rolled snapshot scope/every-roadmap history/without-merged))
+
+(defn child (id epic status)
+  (child-of (work-item id kind/build status) epic))
+
+(defn gid (id)
+  (->group-id :value (str id)))
+
+(defn edge (from to count)
+  (->rolled-edge :from (gid from) :to (gid to) :count count))
+
+(type drawn-ids
+  (fn ((ref rollup)) (vec string)))
+
+(defn drawn-ids (rollup)
+  (let (ids (vec))
+    (for-each (:clusters rollup)
+      (fn (cluster)
+        (for-each (node-ids (ref (:nodes cluster)))
+          (fn (id)
+            (push! ids (clone (:value id)))))))
+    ids))
+
+(defn ten-blocked-children ()
+  (let (items (vec (epic-item "rm-e1") (epic-item "rm-e2"))
+        deps (vec))
+    (for-each (range 0 10)
+      (fn (index)
+        (push! items (child (str "rm-a" index) "rm-e1" status/open))
+        (push! items (child (str "rm-b" index) "rm-e2" status/open))
+        (push! deps
+               (blocks-dep (str "rm-b" index) (str "rm-a" index)))))
+    (snapshot-of items deps (vec))))
+
+(deftest ten-edges-between-the-children-of-two-epics-become-one-edge-counted-ten
+  (assert (= (:edges (everything (ten-blocked-children)))
+             (vec (edge "rm-e1" "rm-e2" 10)))))
+
+(deftest an-edge-between-two-items-of-one-epic-disappears
+  (assert (empty? (:edges (everything (snapshot-of
+                                        (vec (epic-item "rm-e1")
+                                             (child "rm-a" "rm-e1" status/open)
+                                             (child "rm-b" "rm-e1" status/open))
+                                        (vec (blocks-dep "rm-b" "rm-a"))
+                                        (vec)))))))
+
+(deftest a-discovered-from-edge-is-absent
+  (assert (empty? (:edges (everything (snapshot-of
+                                        (vec (epic-item "rm-e1")
+                                             (epic-item "rm-e2")
+                                             (child "rm-a" "rm-e1" status/open)
+                                             (child "rm-b" "rm-e2" status/open))
+                                        (vec (discovered-dep "rm-b" "rm-a"))
+                                        (vec)))))))
+
+(deftest an-item-that-blocks-an-epic-rolls-up-to-an-edge-between-the-groups
+  (assert (= (:edges (everything (snapshot-of
+                                   (vec
+                                     (work-item "rm-x" kind/build status/open)
+                                     (epic-item "rm-e2")
+                                     (child "rm-b" "rm-e2" status/open))
+                                   (vec (blocks-dep "rm-e2" "rm-x"))
+                                   (vec))))
+             (vec (edge "rm-x" "rm-e2" 1)))))
+
+(defn merged-epic-blocking-another ()
+  (snapshot-of (vec (epic-item "rm-e1")
+                    (epic-item "rm-e2")
+                    (child "rm-a" "rm-e1" status/merged)
+                    (child "rm-b" "rm-e2" status/open))
+               (vec (blocks-dep "rm-b" "rm-a"))
+               (vec)))
+
+(deftest a-fully-merged-epic-and-its-edges-are-absent-without-all
+  (let (rollup (without-merged (merged-epic-blocking-another)))
+    (assert (= (drawn-ids (ref rollup))
+               (vec (str "rm-e2"))))
+    (assert (empty? (:edges rollup)))))
+
+(deftest a-fully-merged-epic-and-its-edges-appear-with-all
+  (let (rollup (everything (merged-epic-blocking-another)))
+    (assert (= (drawn-ids (ref rollup))
+               (vec (str "rm-e1") (str "rm-e2"))))
+    (assert (= (:edges rollup)
+               (vec (edge "rm-e1" "rm-e2" 1))))))
+
+(type epic-progress
+  (fn ((ref rollup))
+    (vec (pair string progress))))
+
+(defn epic-progress (rollup)
+  (let (found (vec))
+    (for-each (:clusters rollup)
+      (fn (cluster)
+        (for-each (:nodes cluster)
+          (fn (node)
+            (match node
+              ((group group)
+               (push! found
+                      (pair (clone (:value (:id group)))
+                            (clone (:progress group)))))
+              ((item _) (do)))))))
+    found))
+
+(deftest progress-counts-merged-items-without-all-and-leaves-out-dropped-ones
+  (assert (= (epic-progress (ref (without-merged
+                                   (snapshot-of
+                                     (vec (epic-item "rm-e1")
+                                          (child "rm-a" "rm-e1" status/merged)
+                                          (child "rm-b" "rm-e1" status/open)
+                                          (child "rm-c" "rm-e1" status/dropped))
+                                     (vec)
+                                     (vec)))))
+             (vec (pair (str "rm-e1") (->progress :merged 1 :total 2))))))
+
+(deftest an-empty-epic-shows-no-progress
+  (assert (= (epic-progress (ref (without-merged (snapshot-of (vec (epic-item
+                                                                     "rm-e1"))
+                                                              (vec)
+                                                              (vec)))))
+             (vec (pair (str "rm-e1") (->progress :merged 0 :total 0))))))
+
+(deftest one-roadmap-draws-a-group-of-another-roadmap-it-reaches-as-external
+  (let (rollup (rolled (snapshot-of
+                         (vec (epic-item "rm-e1")
+                              (child "rm-a" "rm-e1" status/open)
+                              (in-roadmap (epic-item "rm-e2") other-roadmap)
+                              (in-roadmap (child "rm-b" "rm-e2" status/open)
+                                          other-roadmap)
+                              (in-roadmap (epic-item "rm-e3") other-roadmap))
+                         (vec (blocks-dep "rm-b" "rm-a"))
+                         (vec))
+                       (scope/one-roadmap (->roadmap-id :value (str "rm-road")))
+                       history/without-merged))
+    (assert (= (drawn-ids (ref rollup))
+               (vec (str "rm-e1"))))
+    (assert (= (collect (map (iter (:externals rollup))
+                          (fn (external)
+                            (pair (clone (:roadmap-name external))
+                                  (match (ref (:node external))
+                                    ((group group) (clone (:value (:id group))))
+                                    ((item _) (str "item")))))))
+               (vec (pair (str other-roadmap) (str "rm-e2")))))
+    (assert (= (:edges rollup)
+               (vec (edge "rm-e1" "rm-e2" 1))))))

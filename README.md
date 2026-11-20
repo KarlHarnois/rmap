@@ -50,8 +50,8 @@ Commands:
     Makes an item come after another.
   dep rm <item> <on>
     Removes the dependency between two items.
-  graph [--roadmap <name>] [--all] [--format mermaid]
-    Prints the roadmaps, their items and dependencies as a Mermaid flowchart. Merged items show only with --all.
+  graph [--roadmap <name>] [--all] [--level item|epic|roadmap] [--format mermaid]
+    Prints the roadmaps, their items and dependencies as a Mermaid flowchart. Merged items show only with --all. --level epic or roadmap draws one node per epic or roadmap.
 
 Environment:
   RMAP_JSON   Set to 1 to print JSON, as --json does.

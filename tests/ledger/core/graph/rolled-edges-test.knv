@@ -1,0 +1,49 @@
+(use ledger/model dep-type)
+(use ledger/core/graph/diagram ->graph-edge)
+(use ledger/core/graph/groups ->group-id)
+
+(use ledger/core/graph/rolled-edges ->membership
+                                    ->rolled-edge
+                                    rolled-edges)
+
+(use support/items id-of)
+
+(defn edge (from to type)
+  (->graph-edge :from (id-of from) :to (id-of to) :type type))
+
+(defn member (item group)
+  (->membership :item (id-of item)
+                :group (->group-id :value (str group))))
+
+(defn memberships ()
+  (vec (member "rm-1" "rm-a")
+       (member "rm-2" "rm-a")
+       (member "rm-3" "rm-b")
+       (member "rm-4" "rm-b")))
+
+(defn rolled (from to count)
+  (->rolled-edge :from (->group-id :value (str from))
+                 :to (->group-id :value (str to))
+                 :count count))
+
+(deftest duplicate-edges-between-two-groups-merge-into-one-counted-edge
+  (assert (= (rolled-edges (ref (vec (edge "rm-1" "rm-3" dep-type/blocks)
+                                     (edge "rm-2" "rm-4" dep-type/blocks)
+                                     (edge "rm-1" "rm-4" dep-type/blocks)))
+                           (memberships))
+             (vec (rolled "rm-a" "rm-b" 3)))))
+
+(deftest an-edge-inside-one-group-disappears
+  (assert (empty? (rolled-edges (ref (vec (edge "rm-1" "rm-2" dep-type/blocks)))
+                                (memberships)))))
+
+(deftest a-discovered-from-edge-disappears
+  (assert (empty? (rolled-edges
+                    (ref (vec (edge "rm-1" "rm-3" dep-type/discovered-from)))
+                    (memberships)))))
+
+(deftest rolled-edges-are-ordered-by-their-ends
+  (assert (= (rolled-edges (ref (vec (edge "rm-3" "rm-1" dep-type/blocks)
+                                     (edge "rm-1" "rm-3" dep-type/blocks)))
+                           (memberships))
+             (vec (rolled "rm-a" "rm-b" 1) (rolled "rm-b" "rm-a" 1)))))

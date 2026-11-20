@@ -7,9 +7,10 @@
                   status-names)
 
 (use ledger/core/graph/node-states node-state)
+(use ledger/core/graph/groups group-node)
 
-(export escaped external-label mermaid-id node-id node-label
-        subgraph-header)
+(export escaped external-label group-label mermaid-id
+        node-id node-label subgraph-header)
 
 (def entity-codes
   (vec (pair (char "\"") "#quot;")
@@ -88,3 +89,14 @@
   (match origin
     (origin/planned (str ""))
     (_ (str " · " (case-name origin-names origin)))))
+
+(type group-label
+  (fn ((ref group-node)) string))
+
+(defn group-label (group)
+  (str (escaped (as-str (:title group)))
+       "<br/><i>"
+       (:merged (:progress group))
+       "/"
+       (:total (:progress group))
+       " merged</i>"))

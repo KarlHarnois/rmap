@@ -3,9 +3,11 @@
 
 (use ledger/core/graph/node-states node-class node-class-of)
 (use ledger/core/graph/mermaid/text node-id)
-(use ledger/core/graph/diagram graph-node)
 
-(export class-lines)
+(use ledger/core/graph/diagram diagram graph-node
+                               roadmap-cluster)
+
+(export class-lines classed-lines)
 
 (defstruct class-style
   :class node-class
@@ -31,8 +33,19 @@
 (def external-style "stroke-dasharray:5 5")
 
 (defn class-lines (diagram)
-  (let (lines (collect (map (iter state-styles) class-definition))
-        classed (classed-nodes diagram))
+  (classed-lines (classed-nodes diagram)
+                 (collect (map (iter (:externals diagram))
+                            (fn (external)
+                              (node-id (ref (:id (:item (:node
+                                                          external))))))))))
+
+(type classed-lines
+  (fn ((vec (pair string node-class))
+       (vec string))
+    (vec string)))
+
+(defn classed-lines (classed external-ids)
+  (let (lines (collect (map (iter state-styles) class-definition)))
     (push! lines
            (str "classDef " external-class " " external-style))
     (for-each state-styles
@@ -40,12 +53,7 @@
         (push-assignment! lines
                           (ids-in-class (ref classed) style)
                           (:name style))))
-    (push-assignment! lines
-                      (collect (map (iter (:externals diagram))
-                                 (fn (external)
-                                   (node-id (ref (:id (:item (:node
-                                                               external))))))))
-                      external-class)
+    (push-assignment! lines external-ids external-class)
     lines))
 
 (type class-definition
@@ -77,6 +85,10 @@
     (sort! ids)
     ids))
 
+(type classed-nodes
+  (fn ((ref diagram))
+    (vec (pair string node-class))))
+
 (defn classed-nodes (diagram)
   (let (classed (vec))
     (for-each (:clusters diagram)
@@ -89,6 +101,10 @@
         (push! classed
                (classed-node (ref (:node external))))))
     classed))
+
+(type cluster-nodes
+  (fn ((ref roadmap-cluster))
+    (vec graph-node)))
 
 (defn cluster-nodes (cluster)
   (let (nodes (clone (:nodes cluster)))

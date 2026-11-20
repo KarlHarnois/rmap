@@ -55,6 +55,7 @@
                              close-item drop-item)
 
 (use ledger/core/move ->advancement advancement kind-change)
+(use ledger/core/graph/levels graph-level graph-level-names)
 (use ledger/operations/deps add-dep remove-dep)
 
 (use ledger/operations/graph ->graph-request ->graph-source
@@ -71,15 +72,16 @@
         dep-type-names draw-graph drop-item event event-type
         event-type-names failure failure-code
         failure-message glob globs->json graph-format
-        graph-format-names graph-request graph-source
-        history ids->json init-ledger init-outcome
-        init-outcome-names init-report item item-detail
-        item-id kind kind-change kind-names list-items
-        list-roadmaps new-item new-roadmap next-action
-        next-actions next-item optional-id->json origin
-        origin-names path-conflict read-log readiness
-        ready-batch ready-items refusal refusal->message
-        refusal-catalog refusal-code-text
-        refusal-description remove-dep roadmap roadmap-id
-        roadmap-status-names session settings show-item
-        skipped-item status status-names timestamp)
+        graph-format-names graph-level graph-level-names
+        graph-request graph-source history ids->json
+        init-ledger init-outcome init-outcome-names
+        init-report item item-detail item-id kind
+        kind-change kind-names list-items list-roadmaps
+        new-item new-roadmap next-action next-actions
+        next-item optional-id->json origin origin-names
+        path-conflict read-log readiness ready-batch
+        ready-items refusal refusal->message refusal-catalog
+        refusal-code-text refusal-description remove-dep
+        roadmap roadmap-id roadmap-status-names session
+        settings show-item skipped-item status status-names
+        timestamp)

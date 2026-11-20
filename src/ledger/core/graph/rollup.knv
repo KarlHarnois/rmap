@@ -1,0 +1,85 @@
+(module
+  "Holds a zoomed-out graph as data, with the steps both zoomed-out levels share: hiding merged groups, sorting nodes, and keeping the edges a scope draws.")
+
+(use ledger/model history roadmap)
+(use ledger/core/graph/node-states node-class)
+
+(use ledger/core/graph/groups group-id rolled-node
+                              rolled-node-class
+                              rolled-node-id)
+
+(use ledger/core/graph/rolled-edges rolled-edge)
+
+(export ->external-group ->rolled-cluster ->rollup
+        edges-among edges-touching endpoint-ids
+        external-group node-ids rolled-cluster rollup
+        shown-nodes)
+
+(defstruct rolled-cluster
+  :roadmap roadmap
+  :nodes (vec rolled-node))
+
+(defstruct external-group
+  :node rolled-node
+  :roadmap-name string)
+
+(defstruct rollup
+  :clusters (vec rolled-cluster)
+  :nodes (vec rolled-node)
+  :externals (vec external-group)
+  :edges (vec rolled-edge))
+
+(type shown-nodes
+  (fn ((vec rolled-node) (ref history))
+    (vec rolled-node)))
+
+(defn shown-nodes (nodes history)
+  (let (shown (collect (map (filter (iter nodes)
+                              (fn (node) (shown? node history)))
+                            clone)))
+    (sort-by! shown
+      (fn (node)
+        (clone (:value (rolled-node-id node)))))
+    shown))
+
+(defn shown? (node history)
+  (or (= (deref history) history/with-merged)
+      (not= (rolled-node-class node) node-class/merged)))
+
+(defn node-ids (nodes)
+  (collect (map (iter nodes) rolled-node-id)))
+
+(type edges-among
+  (fn ((vec rolled-edge) (ref (vec group-id)))
+    (vec rolled-edge)))
+
+(defn edges-among (edges ids)
+  (collect (map (filter (iter edges)
+                  (fn (edge)
+                    (and (contains? ids (clone (:from edge)))
+                         (contains? ids (clone (:to edge))))))
+                clone)))
+
+(type edges-touching
+  (fn ((ref (vec rolled-edge))
+       (ref (vec group-id)))
+    (vec rolled-edge)))
+
+(defn edges-touching (edges ids)
+  (collect (map (filter (iter edges)
+                  (fn (edge)
+                    (or (contains? ids (clone (:from edge)))
+                        (contains? ids (clone (:to edge))))))
+                clone)))
+
+(type endpoint-ids
+  (fn ((ref (vec rolled-edge)))
+    (vec group-id)))
+
+(defn endpoint-ids (edges)
+  (let (ids (vec))
+    (for-each edges
+      (fn (edge)
+        (push! ids (clone (:from edge)))
+        (push! ids (clone (:to edge)))))
+    ids))

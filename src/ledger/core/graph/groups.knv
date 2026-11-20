@@ -1,0 +1,70 @@
+(module
+  "Holds the nodes of a zoomed-out graph: a group of items with its progress and rolled-up state, or one item drawn as at item level.")
+
+(use ledger/core/graph/diagram graph-node)
+(use ledger/core/graph/node-states node-class node-class-of)
+
+(export ->group-id ->group-node ->progress group-id
+        group-node group-of progress rolled-node
+        rolled-node-class rolled-node-id)
+
+(defstruct group-id
+  :value string)
+
+(defstruct progress
+  :merged int
+  :total int)
+
+(defstruct group-node
+  :id group-id
+  :title string
+  :progress progress
+  :class node-class)
+
+(defenum rolled-node
+  (group group-node)
+  (item graph-node))
+
+(defn group-of (id title members)
+  (let (classes (classes-of members))
+    (->group-node :id id
+                  :title title
+                  :progress (progress-of (ref classes))
+                  :class (rolled-class (ref classes)))))
+
+(defn classes-of (members)
+  (collect (map (iter members)
+             (fn (member)
+               (node-class-of (ref (:state member)))))))
+
+(defn progress-of (classes)
+  (->progress :merged (the int
+                           (convert (count (filter (iter classes)
+                                             (fn (class)
+                                               (merged? (deref class)))))))
+              :total (the int (convert (len classes)))))
+
+(defn rolled-class (classes)
+  (cond
+    ((all-merged? classes) node-class/merged)
+    ((contains? classes node-class/active) node-class/active)
+    ((contains? classes node-class/ready) node-class/ready)
+    (else node-class/open)))
+
+(defn all-merged? (classes)
+  (and (not (empty? classes))
+       (every? (iter classes) merged?)))
+
+(defn merged? (class)
+  (= (deref class) node-class/merged))
+
+(defn rolled-node-id (node)
+  (match node
+    ((group group) (clone (:id group)))
+    ((item item)
+     (->group-id :value (clone (:value (:id (:item item))))))))
+
+(defn rolled-node-class (node)
+  (match node
+    ((group group) (:class group))
+    ((item item) (node-class-of (ref (:state item))))))
