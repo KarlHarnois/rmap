@@ -2,9 +2,10 @@
   "Describes each ledger change as an event to record.")
 
 (use json/value text->json)
+(use ledger/model dep glob item roadmap)
 
-(use ledger/model ->event-draft dep event-draft event-type
-                  glob item roadmap)
+(use ledger/model/events ->event-draft event-draft
+                         event-type)
 
 (use ledger/names case-name dep-type-names
                   roadmap-status-names)

@@ -1,8 +1,6 @@
 (use json/value json object text->json)
-
-(use ledger/model ->event ->roadmap-id ->timestamp
-                  event-type)
-
+(use ledger/model ->roadmap-id ->timestamp)
+(use ledger/model/events ->event event-type)
 (use cli/event-text events-text)
 (use support/items id-of)
 

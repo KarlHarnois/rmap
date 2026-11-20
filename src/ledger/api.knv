@@ -2,10 +2,12 @@
   "The ledger's public functions. Code outside `src/ledger/` calls only these.")
 
 (use ledger/model ->glob ->item-id ->session blockage claim
-                  dep dep-type event event-type glob
-                  graph-format history item item-id kind
-                  origin path-conflict roadmap roadmap-id
-                  session status timestamp)
+                  dep dep-type glob graph-format history
+                  item item-id kind origin path-conflict
+                  roadmap roadmap-id session status
+                  timestamp)
+
+(use ledger/model/events event event-type)
 
 (use ledger/names action-names actor-names case-name
                   case-named dep-type-names event-type-names

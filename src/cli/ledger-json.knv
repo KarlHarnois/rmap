@@ -37,6 +37,8 @@
                      (item-id->json (ref (:id item))))
                (pair (str "roadmap_id")
                      (roadmap-id->json (ref (:roadmap-id item))))
+               (pair (str "roadmap")
+                     (text->json (as-str (:roadmap-name item))))
                (pair (str "parent_id")
                      (optional-id->json (ref (:parent item))))
                (pair (str "title")

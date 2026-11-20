@@ -1,8 +1,10 @@
 (module
   "Pairs each ledger enum case with the text that names it in the database and on the command line.")
 
-(use ledger/model dep-type event-type graph-format kind
-                  origin roadmap-status status)
+(use ledger/model/events event-type)
+
+(use ledger/model dep-type graph-format kind origin
+                  roadmap-status status)
 
 (use ledger/core/actions action actor)
 

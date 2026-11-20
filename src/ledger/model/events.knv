@@ -1,0 +1,37 @@
+(module
+  "Holds the ledger's events: what changed, who changed it and when.")
+
+(export ->event ->event-draft ->event-stamp event
+        event-draft event-stamp event-type)
+
+(use json/value json)
+(use ledger/model item-id roadmap-id timestamp)
+
+(defenum event-type
+  roadmap-created
+  item-added
+  item-claimed
+  item-advanced
+  item-closed
+  item-dropped
+  dep-added
+  dep-removed)
+
+(defstruct event-stamp
+  :at timestamp
+  :actor string)
+
+(defstruct event-draft
+  :roadmap-id (option roadmap-id)
+  :item-id (option item-id)
+  :type event-type
+  :payload json)
+
+(defstruct event
+  :id int
+  :at timestamp
+  :actor string
+  :roadmap-id (option roadmap-id)
+  :item-id (option item-id)
+  :type event-type
+  :payload json)

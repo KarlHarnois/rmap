@@ -18,6 +18,7 @@
 (defn work-item (id kind status)
   (->item :id (id-of id)
           :roadmap-id (->roadmap-id :value (str "rm-road"))
+          :roadmap-name (str "road")
           :parent none
           :title (str "work")
           :kind kind
@@ -52,7 +53,8 @@
 
 (defn in-roadmap (item roadmap-id)
   (assoc item
-         :roadmap-id (->roadmap-id :value (str roadmap-id))))
+         :roadmap-id (->roadmap-id :value (str roadmap-id))
+         :roadmap-name (str roadmap-id)))
 
 (type titled (fn (item (ref str)) item))
 
