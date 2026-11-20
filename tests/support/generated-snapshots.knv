@@ -1,0 +1,106 @@
+(use ledger/model claim dep dep-type glob item item-id kind
+                  snapshot status)
+
+(use ledger/core/ready readiness readiness-of)
+(use ledger/core/snapshot scope)
+(use ledger/core/paths conflict?)
+
+(use support/items blocks-dep child-of claimed epic-item
+                   id-of path-of snapshot-of statuses
+                   work-item)
+
+(export generated-snapshot)
+
+(def item-count 9)
+
+(def glob-pool
+  (vec "src/a/**" "src/a/b.rs" "src/b/*" "docs/*.md" "src/*"))
+
+(defn next-state (state)
+  (rem (+ (* state 1103515245) 12345) 2147483648))
+
+(defn pick (state option-count)
+  (rem (/ state 65536) option-count))
+
+(defn choice (items roll)
+  (deref (unwrap (get items
+                      (convert (pick roll
+                                     (the int (convert (len items)))))))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))
+
+(defn id-at (index)
+  (str "rm-" (+ 1000 index)))
+
+(defstruct rolls
+  :for-kind int
+  :for-status int
+  :for-claim int
+  :for-parent int
+  :for-dep int
+  :for-path int)
+
+(defn rolls-after (state)
+  (let (kind (next-state state)
+        status (next-state kind)
+        claim (next-state status)
+        parent (next-state claim)
+        dep (next-state parent)
+        path (next-state dep))
+    (->rolls :for-kind kind
+             :for-status status
+             :for-claim claim
+             :for-parent parent
+             :for-dep dep
+             :for-path path)))
+
+(defn generated-snapshot (seed)
+  (loop (index 0
+         state (next-state seed)
+         items (vec (work-item "rm-1000" kind/epic status/open))
+         deps (vec)
+         paths (vec))
+    (if (< index item-count)
+      (let (rolls (rolls-after state)
+            id (id-at (inc index)))
+        (recur (inc index)
+               (:for-path rolls)
+               (appended items
+                         (generated-item (as-str id) (ref rolls)))
+               (appended-some
+                 deps
+                 (generated-dep (as-str id) index (:for-dep rolls)))
+               (appended paths
+                         (path-of (as-str id)
+                                  (choice glob-pool (:for-path rolls))))))
+      (snapshot-of items deps paths))))
+
+(defn generated-item (id rolls)
+  (let (kind (choice (vec kind/research kind/design kind/build)
+                     (:for-kind rolls))
+        status (choice (statuses) (:for-status rolls))
+        base (work-item id kind status)
+        parented (with-parent base (:for-parent rolls)))
+    (with-claim parented (:for-claim rolls))))
+
+(defn with-parent (item roll)
+  (if (= (pick roll 3) 0)
+    (child-of item "rm-1000")
+    item))
+
+(defn with-claim (item roll)
+  (if (= (pick roll 5) 0)
+    (claimed item)
+    item))
+
+(defn generated-dep (id index roll)
+  (if (> index 0)
+    (some (blocks-dep id
+                      (as-str (id-at (pick roll (inc index))))))
+    none))
+
+(defn appended-some (items extra)
+  (match extra
+    ((some present) (appended items present))
+    (none items)))
