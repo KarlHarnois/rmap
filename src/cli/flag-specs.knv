@@ -1,9 +1,9 @@
 (module
   "Describes a flag a command takes: its name, whether it is required, and whether it takes a value.")
 
-(export boolean-flag-names boolean? choices flag-input
-        flag-spec global-flags json-flag optional presence
-        required required?)
+(export boolean-flag boolean? choices flag-input flag-spec
+        global-flags json-flag optional presence required
+        required?)
 
 (defenum presence
   required
@@ -57,8 +57,3 @@
   (vec (optional "db" "<path>")
        (optional "actor" "<name>")
        (boolean-flag json-flag)))
-
-(defn boolean-flag-names ()
-  (collect (map (filter (iter (global-flags))
-                  (fn (spec) (boolean? spec)))
-                (fn (spec) (clone (:name spec))))))

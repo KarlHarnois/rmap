@@ -1,0 +1,32 @@
+(use ledger/model kind status)
+
+(use ledger/core/graph/node-states node-class node-class-of
+                                   node-state ready-ids
+                                   state-of)
+
+(use support/items claimed snapshot-of work-item)
+
+(deftest a-ready-item-gets-the-ready-state
+  (let (item (work-item "rm-0001" kind/research status/open))
+    (assert (= (state-of (ref item)
+                         (ref (ready-ids (ref (snapshot-of (vec (clone item))
+                                                           (vec)
+                                                           (vec))))))
+               node-state/ready))))
+
+(deftest a-claimed-open-item-keeps-its-stored-state
+  (let (item (claimed (work-item "rm-0001" kind/research status/open)))
+    (assert (= (state-of (ref item)
+                         (ref (ready-ids (ref (snapshot-of (vec (clone item))
+                                                           (vec)
+                                                           (vec))))))
+               (node-state/stored status/open)))))
+
+(deftest each-state-gets-its-class
+  (assert (= (node-class-of (ref node-state/ready)) node-class/ready))
+  (assert (= (node-class-of (ref (node-state/stored status/merged)))
+             node-class/merged))
+  (assert (= (node-class-of (ref (node-state/stored status/reported)))
+             node-class/active))
+  (assert (= (node-class-of (ref (node-state/stored status/open)))
+             node-class/open)))

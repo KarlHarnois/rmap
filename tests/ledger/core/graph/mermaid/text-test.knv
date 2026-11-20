@@ -1,0 +1,22 @@
+(use ledger/model kind status)
+
+(use ledger/core/graph/mermaid/text escaped node-id
+                                    node-label)
+
+(use ledger/core/graph/node-states node-state)
+(use support/items id-of titled work-item)
+
+(deftest quotes-brackets-angles-and-hashes-become-entity-codes
+  (assert (= (escaped "say \"hi\" [now] <b> #1")
+             (str "say #quot;hi#quot; #91;now#93; #lt;b#gt; #35;1"))))
+
+(deftest a-node-id-replaces-dashes-with-underscores
+  (assert (= (node-id (ref (id-of "rm-0a0a")))
+             (str "rm_0a0a"))))
+
+(deftest a-label-escapes-the-title-and-keeps-the-real-id
+  (assert (= (node-label (ref (titled
+                                (work-item "rm-0a0a" kind/build status/open)
+                                "<\"#[x]\">"))
+                         (ref node-state/ready))
+             (str "rm-0a0a<br/>#lt;#quot;#35;#91;x#93;#quot;#gt;<br/><i>build · ready</i>"))))

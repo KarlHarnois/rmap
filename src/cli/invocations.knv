@@ -4,18 +4,18 @@
 (use ledger/api ->advancement ->item-id ->new-item
                 ->session)
 
-(use cli/routes subcommand)
+(use cli/routes boolean-flag-names subcommand)
 (use cli/arguments operand split-arguments)
 
 (use cli/route-matching check-flags-without-command
                         check-shape route-of)
 
 (use cli/flags optional-text)
-(use cli/flag-specs boolean-flag-names)
 
 (use cli/requests add-item-request advance-request
-                  claim-request drop-request log-request
-                  new-roadmap-request request text->id)
+                  claim-request drop-request graph-request
+                  log-request new-roadmap-request request
+                  text->id)
 
 (export invocation ledger-call parse-invocation)
 
@@ -89,6 +89,7 @@
       (on-ledger arguments
                  (ok (request/add-dep (text->id (operand arguments route 0))
                                       (text->id (operand arguments route 1))))))
+    (subcommand/graph (on-ledger arguments (graph-request arguments)))
     (subcommand/dep-rm (on-ledger arguments
                                   (ok (request/remove-dep
                                         (text->id (operand arguments route 0))

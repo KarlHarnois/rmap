@@ -1,0 +1,101 @@
+(module
+  "Writes a graph as Mermaid flowchart source: roadmap and epic subgraphs, nodes, edges, then the classes.")
+
+(use ledger/model dep-type)
+(use ledger/core/graph/mermaid/classes class-lines)
+
+(use ledger/core/graph/mermaid/text external-label node-id
+                                    node-label
+                                    subgraph-header)
+
+(use ledger/core/graph/diagram graph-node roadmap-cluster)
+
+(export diagram->mermaid)
+
+(def indent-unit "  ")
+
+(defn diagram->mermaid (diagram)
+  (let (lines (vec (str "flowchart LR")))
+    (for-each (:clusters diagram)
+      (fn (cluster)
+        (push-all! lines (roadmap-lines cluster))))
+    (for-each (:externals diagram)
+      (fn (external)
+        (push! lines (indented 1 (external-line external)))))
+    (for-each (:edges diagram)
+      (fn (edge)
+        (push! lines
+               (indented 1
+                         (str (node-id (ref (:from edge)))
+                              (arrow (:type edge))
+                              (node-id (ref (:to edge))))))))
+    (for-each (class-lines diagram)
+      (fn (line)
+        (push! lines (indented 1 line))))
+    (join lines "\n")))
+
+(type push-all!
+  (fn ((mut (vec string)) (vec string))
+    unit))
+
+(defn push-all! (lines extra)
+  (for-each extra
+    (fn (line) (push! lines (clone line)))))
+
+(defn indented (depth text)
+  (str (join (collect (map (range 0 depth)
+                        (fn (_) indent-unit)))
+             "")
+       text))
+
+(type roadmap-lines
+  (fn ((ref roadmap-cluster))
+    (vec string)))
+
+(defn roadmap-lines (cluster)
+  (let (roadmap (ref (:roadmap cluster))
+        lines (vec (indented 1
+                             (subgraph-header (as-str (:value (:id roadmap)))
+                                              "Roadmap"
+                                              (as-str (:name roadmap))))))
+    (for-each (:epics cluster)
+      (fn (epic)
+        (push-all! lines (epic-lines epic))))
+    (for-each (:nodes cluster)
+      (fn (node)
+        (push! lines (indented 2 (node-line node)))))
+    (push! lines (indented 1 "end"))
+    lines))
+
+(defn epic-lines (cluster)
+  (let (epic (ref (:epic cluster))
+        lines (vec (indented 2
+                             (subgraph-header (as-str (:value (:id epic)))
+                                              "Epic"
+                                              (as-str (:title epic))))))
+    (for-each (:children cluster)
+      (fn (node)
+        (push! lines (indented 3 (node-line node)))))
+    (push! lines (indented 2 "end"))
+    lines))
+
+(type node-line
+  (fn ((ref graph-node)) string))
+
+(defn node-line (node)
+  (labelled (ref (:id (:item node)))
+            (node-label (ref (:item node))
+                        (ref (:state node)))))
+
+(defn external-line (external)
+  (let (node (ref (:node external)))
+    (labelled (ref (:id (:item node)))
+              (external-label (ref (:item node))
+                              (ref (:state node))
+                              (as-str (:roadmap-name external))))))
+
+(defn labelled (id label)
+  (str (node-id id) "[\"" label "\"]"))
+
+(defn arrow (type)
+  (match type (blocks " --> ") (discovered-from " -.-> ")))

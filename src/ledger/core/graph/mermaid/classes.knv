@@ -1,0 +1,107 @@
+(module
+  "Writes the Mermaid classes that color a graph's nodes by state, and marks the nodes from other roadmaps.")
+
+(use ledger/core/graph/node-states node-class node-class-of)
+(use ledger/core/graph/mermaid/text node-id)
+(use ledger/core/graph/diagram graph-node)
+
+(export class-lines)
+
+(defstruct class-style
+  :class node-class
+  :name (ref str)
+  :style (ref str))
+
+(def state-styles
+  (vec (->class-style :class node-class/merged
+                      :name "merged"
+                      :style "fill:#eeeeee,stroke:#9e9e9e,color:#616161")
+       (->class-style :class node-class/ready
+                      :name "ready"
+                      :style "fill:#d7f5dd,stroke:#2e7d32")
+       (->class-style :class node-class/active
+                      :name "active"
+                      :style "fill:#dbe9ff,stroke:#1565c0")
+       (->class-style :class node-class/open
+                      :name "open"
+                      :style "fill:#fff6d6,stroke:#b58900")))
+
+(def external-class "external")
+
+(def external-style "stroke-dasharray:5 5")
+
+(defn class-lines (diagram)
+  (let (lines (collect (map (iter state-styles) class-definition))
+        classed (classed-nodes diagram))
+    (push! lines
+           (str "classDef " external-class " " external-style))
+    (for-each state-styles
+      (fn (style)
+        (push-assignment! lines
+                          (ids-in-class (ref classed) style)
+                          (:name style))))
+    (push-assignment! lines
+                      (collect (map (iter (:externals diagram))
+                                 (fn (external)
+                                   (node-id (ref (:id (:item (:node
+                                                               external))))))))
+                      external-class)
+    lines))
+
+(type class-definition
+  (fn ((ref class-style)) string))
+
+(defn class-definition (style)
+  (str "classDef " (:name style) " " (:style style)))
+
+(type push-assignment!
+  (fn ((mut (vec string))
+       (vec string)
+       (ref str))
+    unit))
+
+(defn push-assignment! (lines ids name)
+  (when (not (empty? ids))
+    (push! lines (str "class " (join ids ",") " " name))))
+
+(type ids-in-class
+  (fn ((ref (vec (pair string node-class)))
+       (ref class-style))
+    (vec string)))
+
+(defn ids-in-class (classed style)
+  (let (ids (collect (map (filter (iter classed)
+                            (fn (entry)
+                              (= (second entry) (:class style))))
+                          (fn (entry) (clone (first entry))))))
+    (sort! ids)
+    ids))
+
+(defn classed-nodes (diagram)
+  (let (classed (vec))
+    (for-each (:clusters diagram)
+      (fn (cluster)
+        (for-each (cluster-nodes cluster)
+          (fn (node)
+            (push! classed (classed-node node))))))
+    (for-each (:externals diagram)
+      (fn (external)
+        (push! classed
+               (classed-node (ref (:node external))))))
+    classed))
+
+(defn cluster-nodes (cluster)
+  (let (nodes (clone (:nodes cluster)))
+    (for-each (:epics cluster)
+      (fn (epic)
+        (for-each (:children epic)
+          (fn (child) (push! nodes (clone child))))))
+    nodes))
+
+(type classed-node
+  (fn ((ref graph-node))
+    (pair string node-class)))
+
+(defn classed-node (node)
+  (pair (node-id (ref (:id (:item node))))
+        (node-class-of (ref (:state node)))))

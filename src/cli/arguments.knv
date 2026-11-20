@@ -7,27 +7,32 @@
 
 (defstruct arguments
   :words (vec string)
-  :flags (vec (pair string string)))
+  :flags (vec (pair string string))
+  :switches (vec string))
 
 (defn split-arguments (args boolean-flag-names)
   (loop (index 0
          words (vec)
-         flags (vec))
+         flags (vec)
+         switches (vec))
     (cond
       ((>= index (len args))
-       (ok (->arguments :words words :flags flags)))
+       (ok (->arguments :words words :flags flags :switches switches)))
       ((boolean-flag-token? (at args index)
                             (ref boolean-flag-names))
-       (recur (inc index) words flags))
+       (recur (inc index)
+              words flags
+              (appended switches (flag-name (at args index)))))
       ((flag-name? (at args index))
        (let-try (value (flag-value (ref args) index (ref boolean-flag-names)))
          (recur (+ index 2)
                 words
                 (appended flags
-                          (pair (flag-name (at args index)) value)))))
+                          (pair (flag-name (at args index)) value))
+                switches)))
       (else (recur (inc index)
                    (appended words (clone (at args index)))
-                   flags)))))
+                   flags switches)))))
 
 (defn flag-name? (arg)
   (starts-with? (as-str arg) "--"))

@@ -1,11 +1,14 @@
 (module
   "Lists each command the CLI accepts, with its operands and its flags.")
 
-(use ledger/api kind-names origin-names status-names)
-(use cli/flag-specs choices flag-spec optional required)
+(use ledger/api graph-format-names kind-names origin-names
+                status-names)
 
-(export ->route route route-name routes subcommand
-        word-count)
+(use cli/flag-specs boolean-flag boolean? choices flag-spec
+                    global-flags optional required)
+
+(export ->route boolean-flag-names route route-name routes
+        subcommand word-count)
 
 (defenum subcommand
   help
@@ -22,7 +25,8 @@
   item-close
   item-drop
   dep-add
-  dep-rm)
+  dep-rm
+  graph)
 
 (defstruct route
   :subcommand subcommand
@@ -118,4 +122,20 @@
        (->route :subcommand subcommand/dep-rm
                 :words (words "dep rm")
                 :operands (operands (vec "item" "on"))
-                :flags (vec))))
+                :flags (vec))
+       (->route :subcommand subcommand/graph
+                :words (words "graph")
+                :operands (vec)
+                :flags (vec (optional "roadmap" "<name>")
+                            (boolean-flag "all")
+                            (optional "format" (choices graph-format-names))))))
+
+(defn boolean-flag-names ()
+  (let (specs (global-flags))
+    (for-each (routes)
+      (fn (route)
+        (for-each (:flags route)
+          (fn (spec) (push! specs (clone spec))))))
+    (collect (map (filter (iter specs)
+                    (fn (spec) (boolean? spec)))
+                  (fn (spec) (clone (:name spec)))))))

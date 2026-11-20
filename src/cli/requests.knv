@@ -1,18 +1,20 @@
 (module
   "Names each ledger request the CLI can make and builds it from the command line.")
 
-(use ledger/api ->advancement ->item-id ->new-item ->session
-                advancement case-named item-id kind-change
+(use ledger/api ->advancement ->graph-request ->item-id
+                ->new-item ->session advancement case-named
+                graph-format graph-format-names
+                graph-request history item-id kind-change
                 kind-names new-item origin origin-names
                 session status-names)
 
 (use cli/flags glob-list id-list optional-choice
                optional-number optional-text required-choice
-               required-text)
+               required-text switch-on?)
 
 (export add-item-request advance-request claim-request
-        drop-request log-request new-roadmap-request request
-        text->id)
+        drop-request graph-request log-request
+        new-roadmap-request request text->id)
 
 (defenum request
   init
@@ -28,7 +30,8 @@
   (close item-id)
   (drop item-id string)
   (add-dep item-id item-id)
-  (remove-dep item-id item-id))
+  (remove-dep item-id item-id)
+  (graph graph-request))
 
 (defn new-roadmap-request (arguments name)
   (let-try (manager (required-text arguments "manager"))
@@ -59,6 +62,17 @@
             :blocked-by (id-list arguments "after")
             :discovered-from (map-some (optional-text arguments "from")
                                        text->id))))))
+
+(defn graph-request (arguments)
+  (let-try (format (optional-choice arguments "format" graph-format-names))
+    (ok (request/graph (->graph-request
+                         :roadmap (optional-text arguments "roadmap")
+                         :history (history-of arguments)
+                         :format (unwrap-or format graph-format/mermaid))))))
+
+(defn history-of (arguments)
+  (if (switch-on? arguments "all")
+    history/with-merged history/without-merged))
 
 (defn claim-request (arguments id)
   (let-try (session (required-text arguments "session"))

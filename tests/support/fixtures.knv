@@ -1,0 +1,8 @@
+(export fixture-text)
+
+(def read-file
+  (rust "std::fs::read_to_string({0}).map_err(|failure| failure.to_string())"
+    (fn ((ref str)) (result string string))))
+
+(defn fixture-text (name)
+  (unwrap-ok (read-file (as-str (str "tests/fixtures/" name)))))

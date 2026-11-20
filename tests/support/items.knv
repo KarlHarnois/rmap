@@ -5,8 +5,9 @@
                   ->timestamp claim dep-type item kind
                   origin status)
 
-(export blocks-dep child-of claimed epic-item glob-of id-of
-        kinds path-of snapshot-of statuses work-item)
+(export blocks-dep child-of claimed discovered-dep epic-item
+        glob-of id-of in-roadmap kinds path-of snapshot-of
+        statuses titled with-origin work-item)
 
 (defn id-of (text)
   (->item-id :value (str text)))
@@ -38,6 +39,27 @@
 (defn claimed (item)
   (assoc item
          :claim (claim/claimed-by (->session :name (str "worker")))))
+
+(type in-roadmap
+  (fn (item (ref str)) item))
+
+(defn in-roadmap (item roadmap-id)
+  (assoc item
+         :roadmap-id (->roadmap-id :value (str roadmap-id))))
+
+(type titled (fn (item (ref str)) item))
+
+(defn titled (item title)
+  (assoc item :title (str title)))
+
+(type with-origin (fn (item origin) item))
+
+(defn with-origin (item origin) (assoc item :origin origin))
+
+(defn discovered-dep (item on)
+  (->dep :item (id-of item)
+         :on (id-of on)
+         :type dep-type/discovered-from))
 
 (defn blocks-dep (item on)
   (->dep :item (id-of item)

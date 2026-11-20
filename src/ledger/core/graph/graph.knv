@@ -1,0 +1,80 @@
+(module
+  "Builds the graph of a snapshot: the roadmaps in scope, the items a view shows, the items from other roadmaps their edges reach, and the edges.")
+
+(use ledger/model history roadmap snapshot)
+(use ledger/names case-name dep-type-names)
+(use ledger/core/snapshot scope)
+
+(use ledger/core/graph/visibility visible-deps
+                                  visible-items)
+
+(use ledger/core/graph/node-states ready-ids)
+(use ledger/core/graph/clusters roadmap-cluster-of)
+
+(use ledger/core/graph/scope external-items external-node-of
+                             scoped-deps)
+
+(use ledger/core/graph/diagram ->diagram ->graph-edge
+                               diagram)
+
+(export ->graph-view diagram-of graph-view)
+
+(defstruct graph-view
+  :scope scope
+  :history history)
+
+(type diagram-of
+  (fn ((ref snapshot)
+       (ref (vec roadmap))
+       (ref graph-view))
+    diagram))
+
+(defn diagram-of (snapshot roadmaps view)
+  (let (shown (visible-items (ref (:items snapshot))
+                             (ref (:history view)))
+        ready (ready-ids snapshot)
+        deps (scoped-deps (visible-deps (ref (:deps snapshot))
+                                        (ref shown))
+                          (ref shown)
+                          (ref (:scope view))))
+    (->diagram
+      :clusters (collect
+                  (map (iter (roadmaps-in-scope roadmaps (ref (:scope view))))
+                    (fn (roadmap)
+                      (roadmap-cluster-of roadmap (ref shown) (ref ready)))))
+      :externals (collect (map (iter (external-items (ref shown)
+                                                     (ref deps)
+                                                     (ref (:scope view))))
+                               (fn (item)
+                                 (external-node-of item roadmaps (ref ready)))))
+      :edges (edges-of (ref deps)))))
+
+(defn roadmaps-in-scope (roadmaps scope)
+  (let (chosen (collect (map (filter (iter roadmaps)
+                               (fn (roadmap) (roadmap-in-scope? roadmap scope)))
+                             clone)))
+    (sort-by! chosen
+      (fn (roadmap)
+        (clone (:value (:id roadmap)))))
+    chosen))
+
+(type roadmap-in-scope?
+  (fn ((ref roadmap) (ref scope)) bool))
+
+(defn roadmap-in-scope? (roadmap scope)
+  (match scope
+    (every-roadmap true)
+    ((one-roadmap id) (= (ref (:id roadmap)) id))))
+
+(defn edges-of (deps)
+  (let (edges (collect (map (iter deps)
+                         (fn (dep)
+                           (->graph-edge :from (clone (:on dep))
+                                         :to (clone (:item dep))
+                                         :type (:type dep))))))
+    (sort-by! edges
+      (fn (edge)
+        (pair (clone (:value (:from edge)))
+              (pair (clone (:value (:to edge)))
+                    (str (case-name dep-type-names (:type edge)))))))
+    edges))

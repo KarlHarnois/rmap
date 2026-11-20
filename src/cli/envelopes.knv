@@ -2,7 +2,10 @@
   "Wraps command results and errors in the JSON object the CLI prints, with its output schema version.")
 
 (use json/value array int->json json object text->json)
-(use ledger/api case-name init-outcome-names item-detail)
+
+(use ledger/api case-name graph-format-names graph-source
+                init-outcome-names item-detail)
+
 (use cli/replies reply)
 
 (use cli/ledger-json blocked->json dep->json event->json
@@ -42,7 +45,17 @@
     ((reply/items-listed items) (items-envelope items))
     ((reply/item-shown detail) (detail-envelope detail))
     ((reply/dep-added dep) (dep-envelope dep))
-    ((reply/dep-removed dep) (dep-envelope dep))))
+    ((reply/dep-removed dep) (dep-envelope dep))
+    ((reply/graph-drawn graph) (graph-envelope graph))))
+
+(type graph-envelope (fn (graph-source) json))
+
+(defn graph-envelope (graph)
+  (envelope (vec (pair (str "format")
+                       (text->json (case-name graph-format-names
+                                              (:format graph))))
+                 (pair (str "source")
+                       (text->json (as-str (:source graph)))))))
 
 (defn init-report-envelope (report)
   (envelope (vec (pair (str "ledger")

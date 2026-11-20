@@ -56,15 +56,21 @@
       (ok (do))
       (err (str "--" (join command-flags ", --") " needs a command")))))
 
-(type unlisted-flags
-  (fn ((ref arguments) (ref (vec string)))
-    (vec string)))
-
 (defn unlisted-flags (arguments listed)
-  (collect (filter (map (iter (:flags arguments))
-                     (fn (entry) (clone (first entry))))
-                   (fn (name)
-                     (not (contains? listed (clone name)))))))
+  (collect (map (filter (iter (given-flag-names arguments))
+                  (fn (name)
+                    (not (contains? listed (clone name)))))
+                clone)))
+
+(type given-flag-names
+  (fn ((ref arguments)) (vec string)))
+
+(defn given-flag-names (arguments)
+  (let (names (collect (map (iter (:flags arguments))
+                         (fn (entry) (clone (first entry))))))
+    (for-each (:switches arguments)
+      (fn (name) (push! names (clone name))))
+    names))
 
 (type known-flag-names
   (fn ((ref route)) (vec string)))

@@ -1,0 +1,36 @@
+flowchart LR
+  subgraph rm_a000["Roadmap: website"]
+    subgraph rm_1000["Epic: Login"]
+      rm_1001["rm-1001<br/>Parse<br/><i>build · ready</i>"]
+      rm_1002["rm-1002<br/>Form<br/><i>design · open</i>"]
+    end
+    subgraph rm_1008["Epic: Archive"]
+      rm_1009["rm-1009<br/>Export<br/><i>build · merged</i>"]
+    end
+    rm_1003["rm-1003<br/>Session store<br/><i>build · in_review</i>"]
+    rm_1004["rm-1004<br/>Spike<br/><i>research · reported · user-bug</i>"]
+    rm_1005["rm-1005<br/>Old login<br/><i>build · merged</i>"]
+    rm_1007["rm-1007<br/>Cookie bug<br/><i>research · dispatched · follow-up</i>"]
+  end
+  subgraph rm_b000["Roadmap: platform"]
+    subgraph rm_2000["Epic: Storage"]
+      rm_2001["rm-2001<br/>Schema<br/><i>build · fixing</i>"]
+      rm_2003["rm-2003<br/>Backups<br/><i>research · open</i>"]
+    end
+    rm_2002["rm-2002<br/>Auth API<br/><i>design · merging</i>"]
+  end
+  rm_1000 --> rm_2002
+  rm_1003 --> rm_1002
+  rm_1003 --> rm_2000
+  rm_1004 -.-> rm_1007
+  rm_1005 --> rm_1001
+  rm_2002 --> rm_1002
+  classDef merged fill:#eeeeee,stroke:#9e9e9e,color:#616161
+  classDef ready fill:#d7f5dd,stroke:#2e7d32
+  classDef active fill:#dbe9ff,stroke:#1565c0
+  classDef open fill:#fff6d6,stroke:#b58900
+  classDef external stroke-dasharray:5 5
+  class rm_1005,rm_1009 merged
+  class rm_1001 ready
+  class rm_1003,rm_1004,rm_1007,rm_2001,rm_2002 active
+  class rm_1002,rm_2003 open

@@ -1,8 +1,8 @@
 (module
   "Names each result a ledger call hands back to the CLI.")
 
-(use ledger/api dep event init-report item item-detail
-                readiness roadmap)
+(use ledger/api dep event graph-source init-report item
+                item-detail readiness roadmap)
 
 (export reply)
 
@@ -17,4 +17,5 @@
   (items-listed (vec item))
   (item-shown item-detail)
   (dep-added dep)
-  (dep-removed dep))
+  (dep-removed dep)
+  (graph-drawn graph-source))

@@ -5,10 +5,10 @@
         ->glob ->item ->item-glob ->item-id ->path-conflict
         ->roadmap ->roadmap-id ->session ->snapshot
         ->timestamp blockage claim decision-id dep dep-type
-        event event-draft event-stamp event-type glob item
-        item-glob item-id kind origin path-conflict roadmap
-        roadmap-id roadmap-status session snapshot status
-        timestamp)
+        event event-draft event-stamp event-type glob
+        graph-format history item item-glob item-id kind
+        origin path-conflict roadmap roadmap-id
+        roadmap-status session snapshot status timestamp)
 
 (use json/value json)
 
@@ -97,6 +97,12 @@
   :items (vec item)
   :deps (vec dep)
   :globs (vec item-glob))
+
+(defenum graph-format mermaid)
+
+(defenum history
+  without-merged
+  with-merged)
 
 (defstruct blockage
   :blockers (vec item-id)

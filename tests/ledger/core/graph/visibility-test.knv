@@ -1,0 +1,20 @@
+(use ledger/model history kind status)
+(use ledger/core/graph/visibility visible-deps visible?)
+(use support/items blocks-dep work-item)
+
+(deftest a-merged-item-shows-only-with-its-history
+  (let (merged (work-item "rm-0001" kind/build status/merged))
+    (assert (not (visible? (ref merged) (ref history/without-merged))))
+    (assert (visible? (ref merged) (ref history/with-merged)))))
+
+(deftest a-dropped-item-never-shows
+  (assert (not (visible? (ref (work-item "rm-0001" kind/build status/dropped))
+                         (ref history/with-merged)))))
+
+(deftest a-dep-shows-only-when-both-ends-show
+  (assert (= (visible-deps
+               (ref (vec (blocks-dep "rm-0001" "rm-0002")
+                         (blocks-dep "rm-0001" "rm-0003")))
+               (ref (vec (work-item "rm-0001" kind/build status/open)
+                         (work-item "rm-0002" kind/build status/open))))
+             (vec (blocks-dep "rm-0001" "rm-0002")))))

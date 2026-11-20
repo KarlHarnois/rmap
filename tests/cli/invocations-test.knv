@@ -1,6 +1,6 @@
 (use cli/invocations invocation parse-invocation)
 (use cli/requests request)
-(use ledger/api ->item-id)
+(use ledger/api ->item-id graph-format history)
 
 (defn parsed (words)
   (parse-invocation (collect (map (iter words)
@@ -105,3 +105,27 @@
 (deftest a-command-flag-without-a-command-is-refused
   (assert (refused-with? (vec "--roadmap" "road")
                          "--roadmap needs a command")))
+
+(defn graph-request-of (words)
+  (match (:request (unwrap (ledger-call-of words)))
+    ((request/graph graph) (some (clone graph)))
+    (_ none)))
+
+(deftest graph-leaves-out-merged-items-and-draws-mermaid-by-default
+  (let (graph (unwrap (graph-request-of (vec "graph"))))
+    (assert (= (:history graph) history/without-merged))
+    (assert (= (:format graph) graph-format/mermaid))
+    (assert (= (:roadmap graph) none))))
+
+(deftest graph-all-includes-merged-items
+  (assert (= (:history (unwrap (graph-request-of
+                                 (vec "graph" "--all" "--roadmap" "road"))))
+             history/with-merged)))
+
+(deftest graph-refuses-a-format-other-than-mermaid
+  (assert (refused-with? (vec "graph" "--format" "dot")
+                         "--format does not accept dot")))
+
+(deftest a-command-without-all-refuses-it
+  (assert (refused-with? (vec "ready" "--all")
+                         "ready does not take --all")))
