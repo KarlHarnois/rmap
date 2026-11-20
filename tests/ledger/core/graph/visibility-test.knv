@@ -18,3 +18,8 @@
                (ref (vec (work-item "rm-0001" kind/build status/open)
                          (work-item "rm-0002" kind/build status/open))))
              (vec (blocks-dep "rm-0001" "rm-0002")))))
+
+(deftest an-accepted-item-shows-only-with-its-history
+  (let (accepted (work-item "rm-0001" kind/design status/accepted))
+    (assert (not (visible? (ref accepted) (ref history/without-merged))))
+    (assert (visible? (ref accepted) (ref history/with-merged)))))

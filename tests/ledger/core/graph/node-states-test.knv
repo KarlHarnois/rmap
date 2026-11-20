@@ -30,3 +30,7 @@
              node-class/active))
   (assert (= (node-class-of (ref (node-state/stored status/open)))
              node-class/open)))
+
+(deftest an-accepted-item-looks-merged
+  (assert (= (node-class-of (ref (node-state/stored status/accepted)))
+             node-class/merged)))

@@ -1,5 +1,5 @@
 (module
-  "Decides which items and dependencies a graph shows: dropped items never, merged items only with their history.")
+  "Decides which items and dependencies a graph shows: dropped items never, merged and accepted items only with their history.")
 
 (use ledger/model dep history item item-id status)
 
@@ -12,6 +12,7 @@
   (match (:status item)
     (dropped false)
     (merged (= (deref history) history/with-merged))
+    (accepted (= (deref history) history/with-merged))
     (_ true)))
 
 (type visible-items
