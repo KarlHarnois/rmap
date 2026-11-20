@@ -1,5 +1,6 @@
 (use cli/invocations invocation parse-invocation)
 (use cli/requests request)
+(use cli/routes route-name)
 (use ledger/api ->item-id ->session graph-format history)
 
 (defn parsed (words)
@@ -17,7 +18,13 @@
 (defn ledger-call-of (words)
   (match (unwrap-ok (parsed words))
     ((invocation/on-ledger call) (some call))
-    (invocation/help none)))
+    (_ none)))
+
+(defn command-help-names (words)
+  (match (unwrap-ok (parsed words))
+    ((invocation/command-help routes)
+     (collect (map (iter routes) route-name)))
+    (_ (vec))))
 
 (deftest help-needs-no-ledger
   (assert (= (unwrap-ok (parsed (vec "help")))
@@ -157,3 +164,31 @@
 
 (deftest a-ready-limit-that-is-not-a-number-is-refused
   (assert (refused-with? (vec "ready" "--limit" "abc") "whole number")))
+
+(deftest the-help-flag-describes-a-command-without-its-required-flags
+  (assert (= (command-help-names (vec "item" "add" "--help"))
+             (vec (str "item add")))))
+
+(deftest the-help-flag-describes-every-command-of-a-group
+  (assert (= (command-help-names (vec "dep" "--help"))
+             (vec (str "dep add") (str "dep rm")))))
+
+(deftest the-help-flag-skips-the-check-of-unknown-flags
+  (assert (= (command-help-names (vec "ready" "--limit" "abc" "--help"))
+             (vec (str "ready")))))
+
+(deftest the-help-flag-is-never-a-flag-value
+  (assert (= (command-help-names (vec "next" "--help" "--roadmap" "r"))
+             (vec (str "next")))))
+
+(deftest the-help-flag-without-a-command-is-help
+  (assert (= (unwrap-ok (parsed (vec "--help")))
+             invocation/help)))
+
+(deftest the-help-flag-on-an-unknown-command-is-refused
+  (assert (refused-with? (vec "frobnicate" "--help")
+                         "unknown command: frobnicate")))
+
+(deftest the-help-flag-on-an-unknown-command-in-a-group-is-refused
+  (assert (refused-with? (vec "item" "frob" "--help")
+                         "unknown command: item frob")))

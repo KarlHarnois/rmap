@@ -1,17 +1,18 @@
 (module
-  "Parses the command line into an invocation: help, or a call to the ledger.")
+  "Parses the command line into an invocation: help, help for some commands, or a call to the ledger.")
 
 (use ledger/api ->advancement ->item-id ->new-item
                 ->session)
 
-(use cli/routes subcommand)
+(use cli/routes route subcommand)
 (use cli/commands boolean-flag-names)
 (use cli/arguments operand split-arguments)
 
 (use cli/route-matching check-flags-without-command
-                        check-shape route-of)
+                        check-shape help-routes-of route-of)
 
 (use cli/flags optional-text)
+(use cli/flag-specs help-flag)
 
 (use cli/requests add-item-request advance-request
                   claim-request drop-request graph-request
@@ -28,6 +29,7 @@
 
 (defenum invocation
   help
+  (command-help (vec route))
   (on-ledger ledger-call))
 
 (defn parse-invocation (args)
@@ -41,6 +43,18 @@
     (fn (_) invocation/help)))
 
 (defn routed-invocation (arguments)
+  (if (help-requested? arguments)
+    (command-help-invocation arguments)
+    (checked-invocation arguments)))
+
+(defn help-requested? (arguments)
+  (contains? (:switches arguments) (str help-flag)))
+
+(defn command-help-invocation (arguments)
+  (map-ok (help-routes-of arguments)
+    (fn (routes) (invocation/command-help routes))))
+
+(defn checked-invocation (arguments)
   (let-try (route (route-of arguments)
             _ (check-shape arguments (ref route)))
     (invocation-of (ref route) arguments)))

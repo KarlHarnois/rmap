@@ -1,0 +1,25 @@
+(module
+  "Lists the environment variables the CLI reads, and what each one sets.")
+
+(export actor-variable environment-variable
+        environment-variables json-variable user-variable)
+
+(defstruct environment-variable
+  :name string
+  :meaning string)
+
+(def json-variable "RMAP_JSON")
+
+(def actor-variable "RMAP_ACTOR")
+
+(def user-variable "USER")
+
+(defn environment-variables ()
+  (vec (->environment-variable :name (str json-variable)
+                               :meaning (str "Set to 1 to print JSON, as --json does."))
+       (->environment-variable :name (str actor-variable)
+                               :meaning (str "Names the actor when --actor is not given."))
+       (->environment-variable :name (str user-variable)
+                               :meaning (str "Names the actor when neither --actor nor "
+                                             actor-variable
+                                             " is given."))))

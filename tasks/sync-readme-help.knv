@@ -1,0 +1,110 @@
+(module
+  "Writes the output of `rmap help` into the code block of the README's Use section.")
+
+(use process/command ->command run-command)
+
+(def readme-path "README.md")
+
+(def use-heading "## Use")
+
+(def block-start "```text")
+
+(def block-end "```")
+
+(def help-command
+  (vec "-u" "RMAP_JSON" "knave" "run" "--" "help"))
+
+(def write-file
+  (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
+    (fn ((ref str) (ref str))
+      (result unit string))))
+
+(defenum readme-part
+  before-use
+  in-use
+  in-block
+  after-block)
+
+(defstruct transition
+  :from readme-part
+  :marker string
+  :to readme-part)
+
+(defn transitions ()
+  (vec (->transition :from readme-part/before-use
+                     :marker (str use-heading)
+                     :to readme-part/in-use)
+       (->transition :from readme-part/in-use
+                     :marker (str block-start)
+                     :to readme-part/in-block)
+       (->transition :from readme-part/in-block
+                     :marker (str block-end)
+                     :to readme-part/after-block)))
+
+(defn next-part (part line)
+  (unwrap-or (map-some (find (iter (transitions))
+                         (fn (transition)
+                           (and (= (:from transition) part)
+                                (= (:marker transition) (str line)))))
+                       (fn (transition) (:to transition)))
+             part))
+
+(defn with-help (readme help)
+  (loop (rest (collect (map (lines readme) str))
+         index 0
+         part readme-part/before-use
+         kept (vec))
+    (if (< index (len rest))
+      (let (line (at rest index)
+            next (next-part part line))
+        (recur rest
+               (inc index)
+               next
+               (with-line kept part next line help)))
+      (finished kept part))))
+
+(defn with-line (kept part next line help)
+  (cond
+    ((block-opens? part next)
+     (appended-all (appended kept (str line)) help))
+    ((= part next readme-part/in-block) kept)
+    (else (appended kept (str line)))))
+
+(defn block-opens? (part next)
+  (and (= part readme-part/in-use)
+       (= next readme-part/in-block)))
+
+(defn finished (kept part)
+  (if (= part readme-part/after-block)
+    (ok (str (join kept "\n") "\n"))
+    (err (str readme-path " has no " block-start
+              " block under " use-heading))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))
+
+(defn appended-all (items text)
+  (let (all items)
+    (for-each (lines text)
+      (fn (line) (push! all (str line))))
+    all))
+
+(defn sync ()
+  (let-try (help (rmap-help)
+            readme (map-err (slurp readme-path)
+                     (fn (failure) (str failure)))
+            synced (with-help (as-str readme) (as-str help)))
+    (write-file readme-path (as-str synced))))
+
+(defn rmap-help ()
+  (let-try (output (run-command (ref (->command :program (str "env")
+                                                :args (collect (map (iter help-command)
+                                                                    str))))))
+    (if (= (:code output) 0)
+      (ok (clone (:stdout output)))
+      (err (clone (:stderr output))))))
+
+(deftask sync-readme-help ()
+  (match (sync)
+    ((ok _) (println (str "wrote " readme-path)))
+    ((err failure) (eprintln failure) (exit 1))))

@@ -94,6 +94,13 @@ jobs:
           fi
       - name: Test
         run: knave test
+      - name: Keep the README's `rmap help` in sync with the CLI
+        run: |
+          knave task sync-readme-help
+          if ! git diff --exit-code README.md; then
+            echo "The Use section of README.md no longer matches \`rmap help\`. Run \`knave task sync-readme-help\` and commit README.md."
+            exit 1
+          fi
   nix:
     runs-on: ubuntu-latest
     steps:

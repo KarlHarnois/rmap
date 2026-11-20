@@ -5,7 +5,7 @@
                 refusal)
 
 (use cli/responses response)
-(use cli/help-text help-text)
+(use cli/help-text command-help-text help-text)
 (use cli/tables indented)
 (use cli/reply-text reply->text)
 (use cli/readiness-text blockage-lines conflict-lines)
@@ -23,6 +23,8 @@
 (defn response->printed (response)
   (match response
     (response/help (on-standard-output (help-text)))
+    ((response/command-help routes)
+     (on-standard-output (command-help-text routes)))
     ((response/replied reply)
      (on-standard-output (reply->text reply)))
     ((response/failed failure)

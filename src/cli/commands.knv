@@ -25,7 +25,7 @@
                 :flags (vec))
        (->route :subcommand subcommand/init
                 :words (words "init")
-                :summary (str "Creates the ledger for this repository.")
+                :summary (str "Creates the ledger for this repository, as ledger.db in its git directory. Pass --db to keep it elsewhere, and pass the same --db to every command.")
                 :operands (vec)
                 :flags (vec))
        (->route :subcommand subcommand/new

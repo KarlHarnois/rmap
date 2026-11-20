@@ -7,13 +7,47 @@
 (use cli/arguments arguments)
 (use cli/flags optional-text)
 
-(export check-flags-without-command check-shape route-of)
+(export check-flags-without-command check-shape
+        help-routes-of route-of)
 
 (defn route-of (arguments)
   (ok-or (map-some (find (iter (routes))
                      (fn (route) (route-matches? route arguments)))
                    clone)
-         (str "unknown command: " (join (:words arguments) " "))))
+         (unknown-command arguments)))
+
+(type unknown-command
+  (fn ((ref arguments)) string))
+
+(defn unknown-command (arguments)
+  (str "unknown command: " (join (:words arguments) " ")))
+
+(defn help-routes-of (arguments)
+  (match (route-of arguments)
+    ((ok route) (ok (vec route)))
+    ((err _) (command-group-of arguments))))
+
+(defn command-group-of (arguments)
+  (let (group (-> (iter (routes))
+                  (filter (fn (route) (in-group? route arguments)))
+                  (map clone)
+                  collect))
+    (if (empty? group)
+      (err (unknown-command arguments))
+      (ok group))))
+
+(type in-group?
+  (fn ((ref route) (ref arguments)) bool))
+
+(defn in-group? (route arguments)
+  (starts-with-words? (ref (:words route))
+                      (ref (:words arguments))))
+
+(defn starts-with-words? (words prefix)
+  (and (<= (len prefix) (len words))
+       (= (collect (map (take (iter words) (len prefix))
+                        clone))
+          (clone prefix))))
 
 (type route-matches?
   (fn ((ref route) (ref arguments)) bool))
