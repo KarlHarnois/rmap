@@ -4,7 +4,8 @@
 (use ledger/api ->advancement ->item-id ->new-item
                 ->session)
 
-(use cli/routes boolean-flag-names subcommand)
+(use cli/routes subcommand)
+(use cli/commands boolean-flag-names)
 (use cli/arguments operand split-arguments)
 
 (use cli/route-matching check-flags-without-command

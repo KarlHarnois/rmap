@@ -2,7 +2,7 @@
   "Describes the CLI in plain text: its usage, its commands, its exit codes and its refusal codes.")
 
 (use ledger/api refusal-catalog)
-(use cli/routes routes)
+(use cli/commands routes)
 
 (use cli/exit-codes exit-code->meaning exit-code->number
                     exit-codes)

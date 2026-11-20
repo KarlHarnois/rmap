@@ -5,7 +5,8 @@
                 text->json)
 
 (use ledger/api refusal-catalog refusal-description)
-(use cli/routes route-name routes)
+(use cli/routes route-name)
+(use cli/commands routes)
 
 (use cli/flag-specs boolean? flag-input flag-spec
                     global-flags required?)
