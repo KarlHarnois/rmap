@@ -71,6 +71,7 @@
 (defstruct item
   :id item-id
   :roadmap-id roadmap-id
+  :roadmap-name string
   :parent (option item-id)
   :title string
   :kind kind

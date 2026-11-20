@@ -21,6 +21,9 @@
 (def columns
   "id, roadmap_id, parent_id, title, kind, status, origin, priority, claimed_by, created_at, closed_at")
 
+(def joined-columns
+  "items.id, items.roadmap_id, items.parent_id, items.title, items.kind, items.status, items.origin, items.priority, items.claimed_by, items.created_at, items.closed_at, roadmaps.name")
+
 (type insert-item
   (fn ((ref connection) (ref item))
     (result int database-error)))
@@ -79,8 +82,10 @@
 
 (defn all-items (connection)
   (let-try (rows (query connection
-                        (as-str (str "SELECT " columns
-                                     " FROM items ORDER BY created_at, id"))
+                        (as-str (str "SELECT "
+                                     joined-columns
+                                     " FROM items JOIN roadmaps ON roadmaps.id = items.roadmap_id"
+                                     " ORDER BY items.created_at, items.id"))
                         (ref (vec))))
     (rows->values (ref rows) row->item)))
 
@@ -95,9 +100,11 @@
             priority (int-cell row 7)
             claimed-by (optional-text-cell row 8)
             created-at (text-cell row 9)
-            closed-at (optional-text-cell row 10))
+            closed-at (optional-text-cell row 10)
+            roadmap-name (text-cell row 11))
     (ok (->item :id (->item-id :value id)
                 :roadmap-id (->roadmap-id :value roadmap-id)
+                :roadmap-name roadmap-name
                 :parent (map-some parent
                           (fn (value) (->item-id :value value)))
                 :title title

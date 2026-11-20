@@ -1,0 +1,13 @@
+(use ledger/sqlite/items all-items)
+(use ledger/operations/transaction connect)
+
+(use support/ledger ledger-with-two-roadmaps
+                    other-roadmap-name research-in)
+
+(deftest a-read-item-carries-the-name-of-its-roadmap
+  (let (settings (ledger-with-two-roadmaps "read-roadmap-name")
+        _ (research-in (ref settings) other-roadmap-name)
+        connection (unwrap-ok (connect (ref settings)))
+        items (unwrap-ok (all-items (ref connection))))
+    (assert (= (:roadmap-name (unwrap (first items)))
+               (str other-roadmap-name)))))

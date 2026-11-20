@@ -73,3 +73,10 @@
                         (assoc (item-draft kind/design (vec))
                                :discovered-from (some (->item-id :value (str "rm-ffff"))))))
                (some (str "item-not-found"))))))
+
+(deftest an-added-item-carries-the-name-of-its-roadmap
+  (let (settings (ledger-with-two-roadmaps "added-roadmap-name")
+        item (unwrap-ok (add-item (ref settings)
+                                  (str other-roadmap-name)
+                                  (item-draft kind/research (vec)))))
+    (assert (= (:roadmap-name item) (str other-roadmap-name)))))

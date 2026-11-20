@@ -25,6 +25,7 @@
 (defstruct item-stamp
   :id item-id
   :roadmap-id roadmap-id
+  :roadmap-name string
   :created-at timestamp)
 
 (defn add-item (settings roadmap request)
@@ -44,6 +45,7 @@
                 (request->item (ref request)
                                (->item-stamp :id (->item-id :value id)
                                              :roadmap-id roadmap-id
+                                             :roadmap-name (str roadmap)
                                              :created-at (now transaction)))
                 (ref request))))
 
@@ -68,9 +70,11 @@
 (defn request->item (request stamp)
   (let-match ((item-stamp :id id
                           :roadmap-id roadmap-id
+                          :roadmap-name roadmap-name
                           :created-at created-at) stamp)
     (->item :id id
             :roadmap-id roadmap-id
+            :roadmap-name roadmap-name
             :parent (clone (:parent request))
             :title (clone (:title request))
             :kind (:kind request)
