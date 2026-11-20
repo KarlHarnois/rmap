@@ -1,8 +1,7 @@
 (module
   "Runs a program to completion and captures its exit code and output.")
 
-(export ->command ->command-output command command-output
-        run-command)
+(export ->command command command-output run-command)
 
 (defstruct command
   :program string
