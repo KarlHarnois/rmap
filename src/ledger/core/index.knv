@@ -1,19 +1,20 @@
 (module
   "Indexes a snapshot once: items by id, the status each item shows, and the paths active builds hold.")
 
-(use ledger/model item item-glob item-id kind snapshot
+(use ledger/model item item-id kind path-lock snapshot
                   status)
 
 (use ledger/core/epics shown-status-of)
 (use ledger/core/phases active? delivered?)
+(use ledger/core/snapshot lock-of)
 
-(export active-globs delivered-id? index-of indexed-status
+(export active-locks delivered-id? index-of indexed-status
         ledger-index with-shown-status)
 
 (defstruct ledger-index
   :items (hash-map string item)
   :statuses (hash-map string status)
-  :active-globs (vec item-glob))
+  :active-locks (vec path-lock))
 
 (type index-of
   (fn ((ref snapshot)) ledger-index))
@@ -21,8 +22,7 @@
 (defn index-of (snapshot)
   (let (items (items-by-id (ref (:items snapshot)))
         children (child-statuses (ref (:items snapshot))))
-    (->ledger-index :active-globs (active-globs-of (ref (:globs snapshot))
-                                                   (ref items))
+    (->ledger-index :active-locks (active-locks-of snapshot)
                     :statuses (shown-statuses (ref (:items snapshot))
                                               (ref children))
                     :items items)))
@@ -76,26 +76,13 @@
                                                      (get children
                                                           (as-str (:value (:id item)))))))))))
 
-(type active-globs-of
-  (fn ((ref (vec item-glob))
-       (ref (hash-map string item)))
-    (vec item-glob)))
+(type active-locks-of
+  (fn ((ref snapshot)) (vec path-lock)))
 
-(defn active-globs-of (paths items)
-  (collect (map (filter (iter paths)
-                  (fn (path)
-                    (active-build-id? items (ref (:item path)))))
-                clone)))
-
-(type active-build-id?
-  (fn ((ref (hash-map string item))
-       (ref item-id))
-    bool))
-
-(defn active-build-id? (items id)
-  (match (get items (as-str (:value id)))
-    ((some item) (active-build? item))
-    (none false)))
+(defn active-locks-of (snapshot)
+  (collect (map (filter (iter (:items snapshot))
+                  (fn (item) (active-build? item)))
+                (fn (item) (lock-of snapshot item)))))
 
 (type active-build?
   (fn ((ref item)) bool))
@@ -113,8 +100,8 @@
                  (as-str (:value id)))
             (fn (status) (deref status))))
 
-(defn active-globs (index)
-  (ref (:active-globs index)))
+(defn active-locks (index)
+  (ref (:active-locks index)))
 
 (type with-shown-status
   (fn ((ref ledger-index) (ref item))

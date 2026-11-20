@@ -2,13 +2,13 @@
   "Computes which items can start and what blocks the others.")
 
 (use ledger/model ->blockage blockage claim decision-id item
-                  kind path-conflict snapshot status)
+                  kind snapshot status)
 
 (use ledger/core/index delivered-id? index-of indexed-status
                        ledger-index)
 
 (use ledger/core/path-conflicts conflicts-with-active-builds)
-(use ledger/core/snapshot blocked-by globs-of in-scope?)
+(use ledger/core/snapshot blocked-by in-scope? lock-of)
 (use ledger/core/order ordered)
 
 (export ->blocked-item ->readiness blockage-of blocked-item
@@ -94,15 +94,6 @@
 (defn dropped? (index id)
   (= (indexed-status index id) (some status/dropped)))
 
-(type build-conflicts
-  (fn ((ref snapshot)
-       (ref ledger-index)
-       (ref item))
-    (vec path-conflict)))
-
 (defn build-conflicts (snapshot index item)
-  (if (= (:kind item) kind/build)
-    (conflicts-with-active-builds index
-                                  (ref (:id item))
-                                  (ref (globs-of snapshot (ref (:id item)))))
-    (vec)))
+  (conflicts-with-active-builds index
+                                (ref (lock-of snapshot item))))

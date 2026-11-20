@@ -1,35 +1,59 @@
 (module
-  "Finds the path conflicts between an item's globs and the paths active builds hold.")
+  "Decides which paths two items' locks both claim, and finds the path conflicts between an item and the active builds.")
 
-(use ledger/model ->path-conflict glob item-glob item-id
-                  path-conflict)
+(use ledger/model ->path-conflict glob kind path-conflict
+                  path-lock)
 
 (use ledger/core/paths conflict?)
-(use ledger/core/index active-globs ledger-index)
+(use ledger/core/index active-locks ledger-index)
 
-(export conflicts-with-active-builds)
+(export conflicts-with-active-builds lock-conflicts)
 
 (type conflicts-with-active-builds
-  (fn ((ref ledger-index)
-       (ref item-id)
-       (ref (vec glob)))
+  (fn ((ref ledger-index) (ref path-lock))
     (vec path-conflict)))
 
-(defn conflicts-with-active-builds (index id globs)
+(defn conflicts-with-active-builds (index claimant)
   (let (conflicts (vec))
-    (for-each (active-globs index)
-      (fn (held)
-        (when (not= (ref (:item held)) id)
-          (for-each globs
-            (fn (glob)
-              (when (conflict? glob (ref (:glob held)))
-                (push! conflicts (held-conflict held (clone glob)))))))))
+    (for-each (active-locks index)
+      (fn (holder)
+        (when (not= (ref (:item holder))
+                    (ref (:item claimant)))
+          (for-each (lock-conflicts claimant holder)
+            (fn (conflict)
+              (push! conflicts (clone conflict)))))))
+    conflicts))
+
+(defn lock-conflicts (claimant holder)
+  (if (and (takes-locks? claimant) (takes-locks? holder))
+    (overlapping-globs claimant holder)
+    (vec)))
+
+(type takes-locks?
+  (fn ((ref path-lock)) bool))
+
+(defn takes-locks? (lock)
+  (= (:kind lock) kind/build))
+
+(type overlapping-globs
+  (fn ((ref path-lock) (ref path-lock))
+    (vec path-conflict)))
+
+(defn overlapping-globs (claimant holder)
+  (let (conflicts (vec))
+    (for-each (:globs claimant)
+      (fn (glob)
+        (for-each (:globs holder)
+          (fn (held)
+            (when (conflict? glob held)
+              (push! conflicts (held-conflict holder glob held)))))))
     conflicts))
 
 (type held-conflict
-  (fn ((ref item-glob) glob) path-conflict))
+  (fn ((ref path-lock) (ref glob) (ref glob))
+    path-conflict))
 
-(defn held-conflict (held glob)
-  (->path-conflict :with (clone (:item held))
-                   :glob glob
-                   :other-glob (clone (:glob held))))
+(defn held-conflict (holder glob held)
+  (->path-conflict :with (clone (:item holder))
+                   :glob (clone glob)
+                   :other-glob (clone held)))

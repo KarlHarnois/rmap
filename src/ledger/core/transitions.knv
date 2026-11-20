@@ -1,7 +1,9 @@
 (module
   "Decides whether a move is a legal transition for an item in the ledger.")
 
-(use ledger/model glob item kind snapshot status)
+(use ledger/model ->path-lock glob item kind path-lock
+                  snapshot status)
+
 (use ledger/refusal refusal)
 
 (use ledger/core/move move move-type move-type-of
@@ -116,17 +118,19 @@
       (ok (do))
       (err (refusal/not-ready blockage)))))
 
-(type check-free-globs
-  (fn ((ref snapshot)
-       (ref item)
-       (ref (vec glob)))
-    (result unit refusal)))
-
 (defn check-free-globs (snapshot item globs)
   (let (conflicts (conflicts-with-active-builds (ref (index-of snapshot))
-                                                (ref (:id item))
-                                                globs))
+                                                (ref (build-lock item globs))))
     (cond
       ((empty? globs) (err refusal/build-needs-globs))
       ((empty? conflicts) (ok (do)))
       (else (err (refusal/paths-conflict conflicts))))))
+
+(type build-lock
+  (fn ((ref item) (ref (vec glob)))
+    path-lock))
+
+(defn build-lock (item globs)
+  (->path-lock :item (clone (:id item))
+               :kind kind/build
+               :globs (clone globs)))

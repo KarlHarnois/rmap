@@ -3,12 +3,13 @@
 
 (export ->blockage ->dep ->event ->event-draft ->event-stamp
         ->glob ->item ->item-glob ->item-id ->path-conflict
-        ->roadmap ->roadmap-id ->session ->snapshot
-        ->timestamp blockage claim decision-id dep dep-type
-        event event-draft event-stamp event-type glob
-        graph-format history item item-glob item-id kind
-        origin path-conflict roadmap roadmap-id
-        roadmap-status session snapshot status timestamp)
+        ->path-lock ->roadmap ->roadmap-id ->session
+        ->snapshot ->timestamp blockage claim decision-id
+        dep dep-type event event-draft event-stamp
+        event-type glob graph-format history item item-glob
+        item-id kind origin path-conflict path-lock roadmap
+        roadmap-id roadmap-status session snapshot status
+        timestamp)
 
 (use json/value json)
 
@@ -92,6 +93,11 @@
 (defstruct item-glob
   :item item-id
   :glob glob)
+
+(defstruct path-lock
+  :item item-id
+  :kind kind
+  :globs (vec glob))
 
 (defstruct snapshot
   :items (vec item)
