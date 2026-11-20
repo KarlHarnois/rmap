@@ -1,4 +1,4 @@
-(use ledger/api ->item-id kind show-item status)
+(use ledger/api ->item-id drop-item kind show-item status)
 
 (use support/ledger added-id item-draft refusal-code-of
                     scratch-ledger)
@@ -15,3 +15,44 @@
                        (item-draft kind/epic (vec))))
     (assert (= (:status (:item (unwrap-ok (show-item (ref settings) epic))))
                status/open))))
+
+(defn child-draft (epic)
+  (assoc (item-draft kind/research (vec))
+         :parent (some (clone epic))))
+
+(defn child-ids (settings id)
+  (collect (map (iter (:children (unwrap-ok (show-item settings id))))
+             (fn (child) (clone (:id child))))))
+
+(deftest an-epic-shows-its-children-ordered-by-id
+  (let (settings (scratch-ledger "epic-children-shown")
+        epic (added-id (ref settings)
+                       (item-draft kind/epic (vec)))
+        expected (vec (added-id (ref settings)
+                                (child-draft (ref epic)))
+                      (added-id (ref settings)
+                                (child-draft (ref epic)))
+                      (added-id (ref settings)
+                                (child-draft (ref epic)))))
+    (sort-by! expected
+      (fn (id) (clone (:value id))))
+    (assert (= (child-ids (ref settings) epic) expected))))
+
+(deftest an-epic-shows-its-dropped-children
+  (let (settings (scratch-ledger "epic-dropped-child-shown")
+        epic (added-id (ref settings)
+                       (item-draft kind/epic (vec)))
+        child (added-id (ref settings)
+                        (child-draft (ref epic))))
+    (assert (ok? (drop-item (ref settings)
+                            (clone child)
+                            (str "obsolete"))))
+    (assert (= (child-ids (ref settings) epic)
+               (vec child)))))
+
+(deftest an-item-without-children-shows-none
+  (let (settings (scratch-ledger "no-children-shown")
+        research (added-id (ref settings)
+                           (item-draft kind/research (vec))))
+    (assert (empty? (:children (unwrap-ok (show-item (ref settings)
+                                                     research)))))))
