@@ -5,8 +5,8 @@
 
 (export ->database-error begin begin-read connection
         database-error database-failure database-problem
-        execute finish in-write-transaction open query
-        run-batch)
+        execute finish in-write-transaction open
+        open-existing query run-batch)
 
 (rust-type connection "rusqlite::Connection")
 
@@ -25,9 +25,21 @@
     (fn ((ref str))
       (result connection (pair bool string)))))
 
+(def open-existing-raw
+  (rust "rusqlite::Connection::open_with_flags({0}, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE | rusqlite::OpenFlags::SQLITE_OPEN_URI | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string()))"
+    (fn ((ref str))
+      (result connection (pair bool string)))))
+
 (defn open (path)
-  (let-try (connection (map-err (open-raw path) raw->error)
-            _ (run-batch (ref connection)
+  (let-try (connection (map-err (open-raw path) raw->error))
+    (configured connection)))
+
+(defn open-existing (path)
+  (let-try (connection (map-err (open-existing-raw path) raw->error))
+    (configured connection)))
+
+(defn configured (connection)
+  (let-try (_ (run-batch (ref connection)
                          (as-str (str "PRAGMA busy_timeout = "
                                       busy-timeout-milliseconds
                                       ";")))

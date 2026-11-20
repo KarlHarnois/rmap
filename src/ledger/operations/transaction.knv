@@ -7,7 +7,8 @@
 
 (use ledger/sqlite/connection begin begin-read connection
                               database-error
-                              database-failure finish open)
+                              database-failure finish
+                              open-existing)
 
 (use ledger/sqlite/migrations migrate)
 (use ledger/sqlite/migration-sources migration-sources)
@@ -49,7 +50,7 @@
     (result connection failure)))
 
 (defn open-ledger (settings)
-  (let-try (connection (open (as-str (:database-path settings)))
+  (let-try (connection (open-existing (as-str (:database-path settings)))
             _ (migrate (ref connection) (migration-sources)))
     (ok connection)))
 
