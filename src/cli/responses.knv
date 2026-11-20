@@ -3,12 +3,14 @@
 
 (use ledger/api failure)
 (use cli/replies reply)
+(use cli/routes route)
 (use cli/exit-codes exit-code)
 
 (export response response-exit-code)
 
 (defenum response
   help
+  (command-help (vec route))
   (replied reply)
   (failed failure)
   (misused string))
@@ -16,6 +18,7 @@
 (defn response-exit-code (response)
   (match response
     (response/help exit-code/done)
+    ((response/command-help _) exit-code/done)
     ((response/replied _) exit-code/done)
     ((response/failed failure) (failure-exit-code failure))
     ((response/misused _) exit-code/usage)))

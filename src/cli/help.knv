@@ -17,7 +17,7 @@
 (use cli/envelopes envelope)
 (use cli/usage usage-line)
 
-(export help-document)
+(export command-help-document help-document)
 
 (defn help-document ()
   (envelope (vec (pair (str "usage")
@@ -32,6 +32,10 @@
                  (pair (str "refusal_codes")
                        (array (collect (map (iter (refusal-catalog))
                                             refusal->json)))))))
+
+(defn command-help-document (routes)
+  (envelope (vec (pair (str "commands")
+                       (array (collect (map (iter routes) route->json)))))))
 
 (defn route->json (route)
   (object (vec

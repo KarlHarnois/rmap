@@ -19,3 +19,7 @@
 (deftest help-goes-to-standard-output
   (assert (= (:stream (response->printed response/help))
              stream/standard-output)))
+
+(deftest command-help-goes-to-standard-output
+  (assert (= (:stream (response->printed (response/command-help (vec))))
+             stream/standard-output)))

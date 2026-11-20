@@ -1,0 +1,20 @@
+(use cli/help-text command-help-text)
+(use cli/routes route-name)
+(use cli/commands routes)
+
+(defn routes-named (name)
+  (collect (filter (map (iter (routes)) clone)
+             (fn (route)
+               (= (route-name route) (str name))))))
+
+(deftest command-help-shows-the-command-usage
+  (assert (starts-with? (as-str (command-help-text (routes-named "item add")))
+                        "Usage:\n  rmap item add --roadmap <name>")))
+
+(deftest command-help-shows-the-command-summary
+  (assert (contains? (as-str (command-help-text (routes-named "item add")))
+                     "Adds an item to a roadmap.")))
+
+(deftest command-help-points-to-the-full-help
+  (assert (contains? (as-str (command-help-text (routes-named "list")))
+                     "Run `rmap help` for the global flags")))

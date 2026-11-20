@@ -1,7 +1,8 @@
 (use json/value copy-of field json->bool json->items
                 json->text)
 
-(use support/rmap run-rmap)
+(use support/rmap run-rmap run-rmap-text)
+(use support/scratch scratch-database)
 
 (defn described-command (result name)
   (-> (:json result)
@@ -30,3 +31,53 @@
                (vec (str "roadmap")
                     (str "title")
                     (str "kind"))))))
+
+(defn described-names (result)
+  (-> (:json result)
+      (field "commands")
+      unwrap json->items unwrap iter
+      (map (fn (command)
+             (unwrap (json->text (unwrap (field command "command"))))))
+      collect))
+
+(defn help-for (args)
+  (run-rmap (scratch-database "command-help") args))
+
+(deftest command-help-describes-one-command-without-its-required-flags
+  (let (result (help-for (vec "item" "add" "--help"))
+        item-add (unwrap (described-command (ref result) "item add")))
+    (assert (= (:exit-code result) 0))
+    (assert (= (described-names (ref result))
+               (vec (str "item add"))))
+    (assert (= (required-flag-names (ref item-add))
+               (vec (str "roadmap")
+                    (str "title")
+                    (str "kind"))))))
+
+(deftest command-help-describes-a-command-group
+  (let (result (help-for (vec "item" "--help")))
+    (assert (= (:exit-code result) 0))
+    (assert (every? (described-names (ref result))
+              (fn (name)
+                (starts-with? (as-str name) "item "))))))
+
+(deftest command-help-ignores-unknown-flags
+  (let (result (help-for (vec "ready" "--limit" "abc" "--help")))
+    (assert (= (:exit-code result) 0))
+    (assert (= (described-names (ref result))
+               (vec (str "ready"))))))
+
+(deftest command-help-refuses-an-unknown-command
+  (assert (= (:exit-code (help-for (vec "frobnicate" "--help")))
+             2)))
+
+(deftest the-help-flag-alone-describes-every-command
+  (let (result (help-for (vec "--help")))
+    (assert (= (:exit-code result) 0))
+    (assert (some? (described-command (ref result) "dep rm")))))
+
+(deftest command-help-prints-text-on-standard-output
+  (let (output (run-rmap-text (vec "item" "show" "--help")))
+    (assert (= (:code output) 0))
+    (assert (starts-with? (as-str (:stdout output))
+                          "Usage:\n  rmap item show <id>"))))

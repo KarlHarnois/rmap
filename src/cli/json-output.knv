@@ -5,7 +5,7 @@
                 refusal)
 
 (use cli/responses response)
-(use cli/help help-document)
+(use cli/help command-help-document help-document)
 (use cli/envelopes error-envelope reply-envelope)
 (use cli/ledger-json blockage-fields conflicts->json)
 
@@ -14,6 +14,8 @@
 (defn response->json (response)
   (match response
     (response/help (help-document))
+    ((response/command-help routes)
+     (command-help-document routes))
     ((response/replied reply) (reply-envelope reply))
     ((response/failed failure) (failure-envelope (ref failure)))
     ((response/misused message) (usage-envelope message))))

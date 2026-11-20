@@ -48,6 +48,8 @@
 (defn execute (invocation)
   (match invocation
     (invocation/help response/help)
+    ((invocation/command-help routes)
+     (response/command-help routes))
     ((invocation/on-ledger call) (call-ledger call))))
 
 (defn call-ledger (call)
