@@ -1,10 +1,10 @@
 (use json/value array bool->json field float->json int->json
                 json json->bool json->float json->int
-                json->items json->string json->text null?
-                object parse same? text->json)
+                json->items json->source json->text null?
+                object parse-json same? text->json)
 
 (defn round-trips? (value)
-  (match (parse (as-str (json->string value)))
+  (match (parse-json (as-str (json->source value)))
     ((ok parsed) (same? parsed value))
     ((err _) false)))
 
@@ -57,4 +57,4 @@
     (assert (none? (field document "absent")))))
 
 (deftest invalid-text-is-refused
-  (assert (err? (parse "{not json"))))
+  (assert (err? (parse-json "{not json"))))

@@ -1,4 +1,4 @@
-(use json/value json json->string)
+(use json/value json json->source)
 
 (use ledger/api ->settings add-dep add-item advance-item
                 claim-item clock close-item
@@ -25,7 +25,7 @@
 
 (defn main ()
   (let (outcome (run (command-line-args)))
-    (println (json->string (ref (:output outcome))))
+    (println (json->source (ref (:output outcome))))
     (exit (convert (exit-code->number (:exit-code outcome))))))
 
 (defn run (args)

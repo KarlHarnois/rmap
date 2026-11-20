@@ -2,7 +2,7 @@
   "Appends to and reads the `events` table.")
 
 (use ledger/sqlite/values int->sql sql-value text->sql)
-(use json/value json->string parse)
+(use json/value json->source parse-json)
 
 (use ledger/model ->event ->item-id ->roadmap-id ->timestamp
                   event event-draft event-stamp item-id
@@ -39,7 +39,7 @@
                      (optional-roadmap->sql (ref (:roadmap-id draft)))
                      (optional-item->sql (ref (:item-id draft)))
                      (text->sql (case-name event-type-names (:type draft)))
-                     (text->sql (as-str (json->string (ref (:payload
+                     (text->sql (as-str (json->source (ref (:payload
                                                              draft)))))))))
 
 (type optional-roadmap->sql
@@ -78,7 +78,7 @@
             item-id (optional-text-cell row 4)
             type (named-cell row 5 event-type-names)
             payload-text (text-cell row 6)
-            payload (map-err (parse (as-str payload-text))
+            payload (map-err (parse-json (as-str payload-text))
                       (fn (_)
                         (database-failure (str "event " id
                                                " holds invalid JSON")))))

@@ -1,4 +1,4 @@
-(use json/value json parse)
+(use json/value json parse-json)
 (use process/command ->command command-output run-command)
 
 (export command-result run-rmap run-rmap-pair
@@ -40,12 +40,12 @@
 
 (defn output->result (output)
   (->command-result :exit-code (:code output)
-                    :output (unwrap-ok (parse (as-str (:stdout output))))))
+                    :output (unwrap-ok (parse-json (as-str (:stdout output))))))
 
 (defn waited->result (waited)
   (let-match ((pair code text) waited)
     (->command-result :exit-code code
-                      :output (unwrap-ok (parse (as-str text))))))
+                      :output (unwrap-ok (parse-json (as-str text))))))
 
 (defn rmap-command (database args)
   (->command :program (str (built-binary))
