@@ -8,21 +8,29 @@
 (use support/scratch scratch-database)
 
 (export added-id advanced blocked-research
-        blocked-research-in claimed globs-of-patterns
-        item-draft ledger-with-two-roadmaps
-        other-roadmap-name refusal-code-of reported-research
-        research research-in roadmap-name scratch-ledger
+        blocked-research-in claimed fixed-clock-settings
+        globs-of-patterns initialized-settings item-draft
+        ledger-with-two-roadmaps other-roadmap-name
+        refusal-code-of reported-research research
+        research-in roadmap-name scratch-ledger
         session-named)
 
 (def roadmap-name "road")
 
 (def other-roadmap-name "other")
 
-(defn scratch-ledger (name)
-  (let (settings (->settings :database-path (scratch-database name)
-                             :clock (clock/fixed (->timestamp :value (str "2026-03-03T00:00:00Z")))
-                             :actor (str "tester")))
+(defn fixed-clock-settings (database)
+  (->settings :database-path database
+              :clock (clock/fixed (->timestamp :value (str "2026-03-03T00:00:00Z")))
+              :actor (str "tester")))
+
+(defn initialized-settings (name)
+  (let (settings (fixed-clock-settings (scratch-database name)))
     (assert (ok? (init-ledger (ref settings))))
+    settings))
+
+(defn scratch-ledger (name)
+  (let (settings (initialized-settings name))
     (assert (ok? (new-roadmap (ref settings)
                               (str roadmap-name)
                               (session-named "manager"))))
