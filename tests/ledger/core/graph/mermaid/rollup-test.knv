@@ -39,9 +39,6 @@
                                                 :to (->group-id :value (str "rm-b"))
                                                 :count count))))))
 
-(type has-line?
-  (fn ((ref str) (ref str)) bool))
-
 (defn has-line? (source line)
   (any? (lines source)
     (fn (each) (= (trim each) line))))

@@ -1,9 +1,9 @@
-(use json/value array copy-of field json json->entries
-                json->text null? same? text->json)
+(use json/value array copy-of field json->entries json->text
+                null? same? text->json)
 
 (use ledger/model ->dep ->roadmap ->roadmap-id ->session
-                  ->timestamp dep-type item kind
-                  roadmap-status status)
+                  ->timestamp dep-type kind roadmap-status
+                  status)
 
 (use ledger/core/move move)
 (use ledger/core/deps dep-change)
@@ -13,8 +13,6 @@
                    item-moved roadmap-created)
 
 (use support/items claimed glob-of id-of work-item)
-
-(type moved-payload (fn (item item move) json))
 
 (defn moved-payload (before after move)
   (moved-payload-with-globs before after move (vec) (vec)))

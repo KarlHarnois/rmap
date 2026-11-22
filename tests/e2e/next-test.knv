@@ -1,4 +1,4 @@
-(use json/value copy-of field json json->int json->items
+(use json/value copy-of field json->int json->items
                 json->text same?)
 
 (use support/rmap database-with-roadmap research-id run-rmap
@@ -26,10 +26,6 @@
                           :claimed claimed
                           :blocked (text-at (ref blocked) "item" "id"))))
 
-(type entry-for
-  (fn ((ref json) (ref str) (ref str))
-    json))
-
 (defn entry-for (reply key id)
   (-> (unwrap (json->items (unwrap (field reply key))))
       iter
@@ -46,15 +42,9 @@
     (none (then-some (field (ref item) "id")
             (fn (id) (json->text (ref id)))))))
 
-(type first-action
-  (fn ((ref json)) json))
-
 (defn first-action (entry)
   (copy-of (unwrap (first (unwrap (json->items (unwrap (field entry
                                                               "actions"))))))))
-
-(type text-of
-  (fn ((ref json) (ref str)) string))
 
 (defn text-of (value key)
   (unwrap (json->text (unwrap (field value key)))))
@@ -103,9 +93,6 @@
       (fn (key)
         (assert (same? (ref (unwrap (field (ref reasons) (deref key))))
                        (ref (unwrap (field (ref blocked) (deref key))))))))))
-
-(type listed?
-  (fn ((ref json) (ref str)) bool))
 
 (defn listed? (reply id)
   (any? (iter (unwrap (json->items (unwrap (field reply "next")))))

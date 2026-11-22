@@ -26,9 +26,6 @@
   (collect (map (iter items)
              (fn (item) (clone (:value (:id item)))))))
 
-(type skipped-ids
-  (fn ((ref batch)) (vec string)))
-
 (defn skipped-ids (batch)
   (collect (map (iter (:skipped batch))
              (fn (skipped)
@@ -117,9 +114,6 @@
            (any? (iter (globs-of snapshot (ref (:id right))))
              (fn (other) (conflict? own other)))))))
 
-(type no-picked-pair-conflicts?
-  (fn ((ref snapshot) (ref batch)) bool))
-
 (defn no-picked-pair-conflicts? (snapshot batch)
   (let (picked (ref (:picked batch)))
     (every? (enumerate (iter picked))
@@ -155,10 +149,6 @@
                           (contains? skipped (clone id)))))
                   clone))))
 
-(type walks-the-ready-prefix?
-  (fn ((ref (vec string)) (ref batch) int)
-    bool))
-
 (defn walks-the-ready-prefix? (ready-ids batch limit)
   (let (picked-ids (ids-of (ref (:picked batch)))
         prefix (collect (map (take
@@ -173,10 +163,6 @@
 (defn position-in (ids id)
   (first (unwrap (find (enumerate (iter ids))
                    (fn (entry) (= (second entry) id))))))
-
-(type skips-name-an-earlier-pick?
-  (fn ((ref (vec string)) (ref batch))
-    bool))
 
 (defn skips-name-an-earlier-pick? (ready-ids batch)
   (let (picked-ids (ids-of (ref (:picked batch))))

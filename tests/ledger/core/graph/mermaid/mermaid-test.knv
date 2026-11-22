@@ -20,9 +20,6 @@
   (rendered-in (scope/one-roadmap (->roadmap-id :value (str platform-id)))
                history/without-merged))
 
-(type has-line?
-  (fn ((ref str) (ref str)) bool))
-
 (defn has-line? (source line)
   (any? (lines source)
     (fn (each) (= (trim each) line))))
