@@ -58,7 +58,7 @@
   (let (all items) (push! all extra) all))
 
 (type operand
-  (fn ((ref arguments) (ref route) usize)
+  (fn ((ref arguments) (ref route) int)
     string))
 
 (defn operand (arguments route index)

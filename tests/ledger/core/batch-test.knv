@@ -156,7 +156,7 @@
                   clone))))
 
 (type walks-the-ready-prefix?
-  (fn ((ref (vec string)) (ref batch) usize)
+  (fn ((ref (vec string)) (ref batch) int)
     bool))
 
 (defn walks-the-ready-prefix? (ready-ids batch limit)

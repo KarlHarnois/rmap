@@ -10,7 +10,7 @@
         batch-size-of skipped-item)
 
 (defstruct batch-size
-  :count usize)
+  :count int)
 
 (defstruct skipped-item
   :item item
@@ -24,7 +24,7 @@
 
 (defn batch-size-of (count)
   (if (>= count 1)
-    (some (->batch-size :count (convert count)))
+    (some (->batch-size :count count))
     none))
 
 (defn batch-of (readiness snapshot size)
