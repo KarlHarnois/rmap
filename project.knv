@@ -3,4 +3,7 @@
   (dependencies
     (rusqlite "0.42.0" :features ("bundled"))
     (serde_json "1.0.154"))
+  (libraries
+    (ledelint :git "https://github.com/KarlHarnois/ledelint"
+              :rev "c2c920aa36798236d22c2ff09dec7b39dd18a34a"))
   (lints (needless-type deny)))

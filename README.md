@@ -12,6 +12,19 @@ nix profile add github:KarlHarnois/rmap
 
 Without Nix, install [Rust](https://rustup.rs) and [knave](https://crates.io/crates/knave) 0.21.0, then run `knave build`. The build writes the binary to `target/knave/rmap/rmap`.
 
+## Develop
+
+Run these checks before you push:
+
+```sh
+knave check
+knave fmt --check
+knave lint
+for task in tasks/*.knv; do knave lint "$task"; done
+knave task ledelint
+knave test
+```
+
 ## Usage
 
 ```text
