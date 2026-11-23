@@ -11,9 +11,7 @@
 
 (defn checked (priority)
   (let (request (draft priority)
-        snapshot (->snapshot :items (vec)
-                             :deps (vec)
-                             :globs (vec))
+        snapshot (->snapshot :items (vec) :deps (vec))
         roadmap-id (->roadmap-id :value (str "rm-0001")))
     (check-new-item (ref snapshot)
                     (ref roadmap-id)
@@ -26,7 +24,6 @@
               :kind kind/research
               :origin origin/planned
               :priority priority
-              :globs (vec)
               :blocked-by (vec)
               :discovered-from none))
 

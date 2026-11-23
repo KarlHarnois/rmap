@@ -1,19 +1,17 @@
 (module
   "Turns ledger values into the JSON objects the CLI prints.")
 
-(use json/value array copy-of int->json json object
-                text->json)
+(use json/value copy-of int->json json object text->json)
 
 (use ledger/api case-name claim dep dep-type-names event
-                event-type-names globs->json ids->json item
-                item-id kind-names optional-id->json
+                event-type-names ids->json item item-id
+                kind-names optional-id->json
                 optional-text->json origin-names roadmap
                 roadmap-id roadmap-status-names status-names
                 timestamp)
 
-(export blockage-fields blocked->json conflicts->json
-        dep->json event->json globs->json ids->json
-        item->json item-id->json roadmap->json)
+(export blockage-fields blocked->json dep->json event->json
+        ids->json item->json item-id->json roadmap->json)
 
 (type roadmap->json
   (fn ((ref roadmap)) json))
@@ -101,12 +99,7 @@
   (vec (pair (str "blockers")
              (ids->json (ref (:blockers blockage))))
        (pair (str "dropped_blockers")
-             (ids->json (ref (:dropped-blockers blockage))))
-       (pair (str "path_conflicts")
-             (conflicts->json (ref (:path-conflicts blockage))))))
-
-(defn conflicts->json (conflicts)
-  (array (collect (map (iter conflicts) conflict->json))))
+             (ids->json (ref (:dropped-blockers blockage))))))
 
 (type item-id->json
   (fn ((ref item-id)) json))
@@ -118,14 +111,6 @@
   (match claim
     ((claimed-by session) (text->json (as-str (:name session))))
     (unclaimed json/null)))
-
-(defn conflict->json (conflict)
-  (object (vec (pair (str "with")
-                     (item-id->json (ref (:with conflict))))
-               (pair (str "glob")
-                     (text->json (as-str (:pattern (:glob conflict)))))
-               (pair (str "other_glob")
-                     (text->json (as-str (:pattern (:other-glob conflict))))))))
 
 (defn optional-roadmap-id->json (id)
   (match id

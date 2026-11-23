@@ -1,13 +1,13 @@
 (use ledger/names kind-names status-names)
 
-(use ledger/model ->dep ->glob ->item ->item-glob ->item-id
-                  ->roadmap ->roadmap-id ->session
-                  ->snapshot ->timestamp claim dep-type item
-                  kind origin roadmap-status status)
+(use ledger/model ->dep ->item ->item-id ->roadmap
+                  ->roadmap-id ->session ->snapshot
+                  ->timestamp claim dep-type item kind
+                  origin roadmap-status status)
 
 (export blocks-dep child-of claimed discovered-dep epic-item
-        glob-of id-of in-roadmap kinds path-of roadmap-of
-        snapshot-of statuses titled with-origin work-item)
+        id-of in-roadmap kinds roadmap-of snapshot-of
+        statuses titled with-origin work-item)
 
 (defn roadmap-of (id manager)
   (->roadmap :id (->roadmap-id :value (str id))
@@ -70,17 +70,11 @@
          :on (id-of on)
          :type dep-type/blocks))
 
-(defn path-of (item pattern)
-  (->item-glob :item (id-of item) :glob (glob-of pattern)))
-
 (defn id-of (text)
   (->item-id :value (str text)))
 
-(defn glob-of (pattern)
-  (->glob :pattern (str pattern)))
-
-(defn snapshot-of (items deps paths)
-  (->snapshot :items items :deps deps :globs paths))
+(defn snapshot-of (items deps)
+  (->snapshot :items items :deps deps))
 
 (defn statuses ()
   (collect (map (iter status-names)

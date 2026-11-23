@@ -10,7 +10,6 @@
   (let (item (work-item "rm-0001" kind/research status/open))
     (assert (= (state-of (ref item)
                          (ref (ready-ids (ref (snapshot-of (vec (clone item))
-                                                           (vec)
                                                            (vec))))))
                node-state/ready))))
 
@@ -18,7 +17,6 @@
   (let (item (claimed (work-item "rm-0001" kind/research status/open)))
     (assert (= (state-of (ref item)
                          (ref (ready-ids (ref (snapshot-of (vec (clone item))
-                                                           (vec)
                                                            (vec))))))
                (node-state/stored status/open)))))
 

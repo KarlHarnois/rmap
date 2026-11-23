@@ -11,9 +11,9 @@
 
 (use cli/description-flags description-of)
 
-(use cli/flags glob-list id-list optional-choice
-               optional-number optional-text required-choice
-               required-text switch-on?)
+(use cli/flags id-list optional-choice optional-number
+               optional-text required-choice required-text
+               switch-on?)
 
 (export add-item-request advance-request claim-request
         drop-request graph-request log-request
@@ -75,7 +75,6 @@
             :kind kind
             :origin (unwrap-or origin origin/planned)
             :priority (unwrap-or priority 2)
-            :globs (glob-list arguments "paths")
             :blocked-by (id-list arguments "after")
             :discovered-from (map-some (optional-text arguments "from")
                                        text->id))))))
@@ -119,15 +118,10 @@
 
 (defn kind-change-of (arguments)
   (match (optional-text arguments "kind")
-    ((some kind) (build-change arguments (as-str kind)))
-    (none (unchanged-kind arguments))))
+    ((some kind) (build-change (as-str kind)))
+    (none (ok kind-change/keep-kind))))
 
-(defn build-change (arguments kind)
+(defn build-change (kind)
   (if (= kind "build")
-    (ok (kind-change/become-build (glob-list arguments "paths")))
+    (ok kind-change/become-build)
     (err (str "--kind takes only build, got " kind))))
-
-(defn unchanged-kind (arguments)
-  (if (some? (optional-text arguments "paths"))
-    (err (str "--paths needs --kind build"))
-    (ok kind-change/keep-kind)))

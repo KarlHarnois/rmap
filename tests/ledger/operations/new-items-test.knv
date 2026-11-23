@@ -1,7 +1,7 @@
 (use ledger/api ->item-id add-item description-input kind
                 show-item)
 
-(use support/ledger added-id globs-of-patterns item-draft
+(use support/ledger added-id item-draft
                     ledger-with-two-roadmaps
                     other-roadmap-name refusal-code-of
                     research scratch-ledger)
@@ -11,7 +11,7 @@
 
 (deftest an-added-item-keeps-its-description
   (let (settings (scratch-ledger "added-description")
-        draft (assoc (item-draft kind/research (vec))
+        draft (assoc (item-draft kind/research)
                      :description (description-input/text (str "a spec")))
         id (added-id (ref settings) draft))
     (assert (= (:description (:item (unwrap-ok (show-item (ref settings) id))))
@@ -19,40 +19,24 @@
 
 (deftest an-added-item-without-a-description-keeps-none
   (let (settings (scratch-ledger "added-without-description")
-        id (added-id (ref settings)
-                     (item-draft kind/research (vec))))
+        id (added-id (ref settings) (item-draft kind/research)))
     (assert (= (:description (:item (unwrap-ok (show-item (ref settings) id))))
                none))))
 
 (deftest repeated-blockers-are-stored-once
   (let (settings (scratch-ledger "repeated-blockers")
         blocker (research (ref settings))
-        draft (assoc (item-draft kind/research (vec))
+        draft (assoc (item-draft kind/research)
                      :blocked-by (vec (clone blocker) (clone blocker)))
         blocked (added-id (ref settings) draft))
     (assert (= (len (:deps (unwrap-ok (show-item (ref settings) blocked))))
                1))))
 
-(deftest repeated-paths-are-stored-once
-  (let (settings (scratch-ledger "repeated-paths")
-        build (added-id (ref settings)
-                        (item-draft kind/build
-                                    (globs-of-patterns (vec "src/*" "src/*")))))
-    (assert (= (len (:globs (unwrap-ok (show-item (ref settings) build))))
-               1))))
-
-(deftest a-build-without-paths-is-refused
-  (let (settings (scratch-ledger "build-without-paths"))
-    (assert (= (refusal-code-of (added (ref settings)
-                                       (item-draft kind/build (vec))))
-               (some (str "build-needs-paths"))))))
-
 (deftest an-epic-with-a-parent-is-refused
   (let (settings (scratch-ledger "epic-with-parent")
-        epic (added-id (ref settings)
-                       (item-draft kind/epic (vec))))
+        epic (added-id (ref settings) (item-draft kind/epic)))
     (assert (= (refusal-code-of (added (ref settings)
-                                       (assoc (item-draft kind/epic (vec))
+                                       (assoc (item-draft kind/epic)
                                               :parent (some epic))))
                (some (str "epic-has-parent"))))))
 
@@ -60,24 +44,23 @@
   (let (settings (scratch-ledger "parent-not-epic")
         research (research (ref settings)))
     (assert (= (refusal-code-of (added (ref settings)
-                                       (assoc (item-draft kind/design (vec))
+                                       (assoc (item-draft kind/design)
                                               :parent (some research))))
                (some (str "parent-not-epic"))))))
 
 (deftest a-parent-in-another-roadmap-is-refused
   (let (settings (ledger-with-two-roadmaps "parent-in-other-roadmap")
-        epic (added-id (ref settings)
-                       (item-draft kind/epic (vec))))
+        epic (added-id (ref settings) (item-draft kind/epic)))
     (assert (= (refusal-code-of (add-item (ref settings)
                                           (str other-roadmap-name)
-                                          (assoc (item-draft kind/design (vec))
+                                          (assoc (item-draft kind/design)
                                                  :parent (some epic))))
                (some (str "parent-in-other-roadmap"))))))
 
 (deftest an-unknown-blocker-is-refused
   (let (settings (scratch-ledger "unknown-blocker"))
     (assert (= (refusal-code-of (added (ref settings)
-                                       (assoc (item-draft kind/design (vec))
+                                       (assoc (item-draft kind/design)
                                               :blocked-by (vec (->item-id
                                                                  :value (str "rm-ffff"))))))
                (some (str "item-not-found"))))))
@@ -86,7 +69,7 @@
   (let (settings (scratch-ledger "unknown-discovered-from"))
     (assert (= (refusal-code-of
                  (added (ref settings)
-                        (assoc (item-draft kind/design (vec))
+                        (assoc (item-draft kind/design)
                                :discovered-from (some (->item-id :value (str "rm-ffff"))))))
                (some (str "item-not-found"))))))
 
@@ -94,5 +77,5 @@
   (let (settings (ledger-with-two-roadmaps "added-roadmap-name")
         item (unwrap-ok (add-item (ref settings)
                                   (str other-roadmap-name)
-                                  (item-draft kind/research (vec)))))
+                                  (item-draft kind/research))))
     (assert (= (:roadmap-name item) (str other-roadmap-name)))))

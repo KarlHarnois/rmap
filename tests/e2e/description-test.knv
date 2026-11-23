@@ -123,8 +123,8 @@
                                                                                reply)
                                                                              "items")))))
                                    (fn (item)
-                                     (clone (json->text (unwrap (field item
-                                                                       "description"))))))))
+                                     (json->text
+                                       (unwrap (field item "description")))))))
     (assert (= descriptions
                (vec (some (str "a spec")) none)))))
 

@@ -8,7 +8,7 @@
 (use cli/help-text command-help-text help-text)
 (use cli/tables indented)
 (use cli/reply-text reply->text)
-(use cli/readiness-text blockage-lines conflict-lines)
+(use cli/readiness-text blockage-lines)
 
 (export printed response->printed stream)
 
@@ -61,6 +61,4 @@
 (defn refusal-details (refusal)
   (match refusal
     ((refusal/not-ready blockage) (blockage-lines blockage))
-    ((refusal/paths-conflict conflicts)
-     (conflict-lines conflicts))
     (_ (vec))))

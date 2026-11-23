@@ -1,23 +1,23 @@
-(use json/value field json->items json->text)
+(use json/value field json->items)
 
 (use support/rmap blocked-design-id database-with-roadmap
                   research-id run-rmap text-at
                   top-level-keys)
 
-(defn build-id (database pattern)
-  (let (added (run-rmap (clone database)
-                        (vec "item" "add" "--roadmap" "road"
-                             "--title" "b" "--kind" "build"
-                             "--paths" pattern)))
-    (text-at (ref added) "item" "id")))
+(defn build-id (database)
+  (text-at (ref (run-rmap (clone database)
+                          (vec "item" "add" "--roadmap"
+                               "road" "--title" "b" "--kind"
+                               "build")))
+           "item" "id"))
 
 (defn list-at (reply key)
   (unwrap (json->items (unwrap (field (:json reply) key)))))
 
-(deftest a-limited-ready-reply-holds-picked-skipped-and-blocked
+(deftest a-limited-ready-reply-holds-picked-and-blocked
   (let (database (database-with-roadmap "ready-limit-json")
-        first-build (build-id (clone database) "src/a/**")
-        _second-build (build-id (clone database) "src/a/b.rs")
+        _first-build (build-id (clone database))
+        _second-build (build-id (clone database))
         _blocked (blocked-design-id (clone database)
                                     (research-id (clone database)))
         reply (run-rmap database (vec "ready" "--limit" "2")))
@@ -25,14 +25,8 @@
     (assert (= (top-level-keys (ref reply))
                (vec (str "blocked")
                     (str "picked")
-                    (str "schema_version")
-                    (str "skipped"))))
+                    (str "schema_version"))))
     (assert (= (len (list-at (ref reply) "picked"))
                2))
     (assert (= (len (list-at (ref reply) "blocked"))
-               1))
-    (let (skipped (list-at (ref reply) "skipped"))
-      (assert (= (len skipped) 1))
-      (assert (= (json->text (unwrap (field (unwrap (first skipped))
-                                            "conflicts_with")))
-                 (some first-build))))))
+               1))))

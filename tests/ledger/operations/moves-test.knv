@@ -1,101 +1,35 @@
-(use json/value array field same? text->json)
-
 (use ledger/api ->advancement advance-item claim-item
                 close-item drop-item failure kind
-                kind-change read-log ready-items refusal
-                show-item status)
+                kind-change read-log refusal status)
 
 (use support/ledger added-id blocked-research claimed
-                    globs-of-patterns item-draft
-                    refusal-code-of reported-research
-                    research scratch-ledger session-named)
+                    item-draft refusal-code-of
+                    reported-research research
+                    scratch-ledger session-named)
 
-(defn become-build (settings id patterns)
-  (advance-item settings
-                (clone id)
-                (->advancement :to status/dispatched
-                               :kind-change (kind-change/become-build (globs-of-patterns
-                                                                        patterns)))))
-
-(defn stored-patterns (settings id)
-  (collect (map (iter (:globs (unwrap-ok (show-item settings (clone id)))))
-             (fn (glob) (clone (:pattern glob))))))
-
-(defn old-paths-recorded (settings)
-  (-> (unwrap-ok (read-log settings none 0))
-      last unwrap
-      :payload (field "changes")
-      unwrap
-      (field "paths")
-      unwrap
-      (field "old")
-      unwrap))
-
-(defn build (settings pattern)
-  (added-id settings
-            (item-draft kind/build (globs-of-patterns (vec pattern)))))
-
-(deftest given-paths-replace-the-stored-paths-of-a-new-build
-  (let (settings (scratch-ledger "build-replaces-paths")
-        research (reported-research (ref settings) (vec "src/a/**")))
-    (assert (ok? (become-build (ref settings)
-                               (ref research)
-                               (vec "docs/**"))))
-    (assert (= (stored-patterns (ref settings) (ref research))
-               (vec (str "docs/**"))))))
-
-(deftest a-new-build-records-the-paths-it-replaced
-  (let (settings (scratch-ledger "build-records-old-paths")
-        research (reported-research (ref settings) (vec "src/a/**")))
-    (assert (ok? (become-build (ref settings)
-                               (ref research)
-                               (vec "docs/**"))))
-    (assert (same? (ref (old-paths-recorded (ref settings)))
-                   (ref (array (vec (text->json "src/a/**"))))))))
-
-(deftest a-new-build-keeps-its-stored-paths-when-none-are-given
-  (let (settings (scratch-ledger "build-keeps-paths")
-        research (reported-research (ref settings) (vec "src/a/**")))
-    (assert (ok? (become-build (ref settings)
-                               (ref research)
-                               (vec))))
-    (assert (= (stored-patterns (ref settings) (ref research))
-               (vec (str "src/a/**"))))))
-
-(deftest replaced-paths-no-longer-block-other-builds
-  (let (settings (scratch-ledger "build-releases-paths")
-        research (reported-research (ref settings) (vec "src/a/**"))
-        _waiting (added-id (ref settings)
-                           (item-draft kind/build
-                                       (globs-of-patterns (vec "src/a/x.rs")))))
-    (assert (ok? (become-build (ref settings)
-                               (ref research)
-                               (vec "docs/**"))))
-    (assert (= (len (:ready (unwrap-ok (ready-items (ref settings) none))))
-               1))))
+(defn build (settings)
+  (added-id settings (item-draft kind/build)))
 
 (deftest a-kind-change-is-refused-unless-the-item-advances-to-dispatched
   (let (settings (scratch-ledger "kind-change-needs-dispatch")
-        research (reported-research (ref settings) (vec "src/a/**")))
+        research (reported-research (ref settings)))
     (assert (= (advance-item (ref settings)
                              (clone research)
-                             (->advancement :to status/dropped
-                                            :kind-change (kind-change/become-build
-                                                           (globs-of-patterns (vec
-                                                                                "docs/**")))))
+                             (->advancement
+                               :to status/dropped
+                               :kind-change kind-change/become-build))
                (err (failure/refused refusal/invalid-kind-change))))))
 
 (deftest every-event-records-the-settings-actor
   (let (settings (scratch-ledger "actor-recorded")
-        _research (reported-research (ref settings) (vec)))
+        _research (reported-research (ref settings)))
     (assert (every? (iter (unwrap-ok (read-log (ref settings) none 0)))
               (fn (event)
                 (= (:actor event) (str "tester")))))))
 
 (deftest claiming-an-epic-is-refused
   (let (settings (scratch-ledger "claim-epic")
-        epic (added-id (ref settings)
-                       (item-draft kind/epic (vec))))
+        epic (added-id (ref settings) (item-draft kind/epic)))
     (assert (= (refusal-code-of
                  (claim-item (ref settings) epic (session-named "worker")))
                (some (str "epic-status-computed"))))))
@@ -103,7 +37,7 @@
 (deftest closing-an-open-item-is-refused
   (let (settings (scratch-ledger "close-open"))
     (assert (= (refusal-code-of (close-item (ref settings)
-                                            (build (ref settings) "src/*")))
+                                            (build (ref settings))))
                (some (str "invalid-transition"))))))
 
 (deftest a-research-item-cannot-enter-review
@@ -133,33 +67,6 @@
     (assert (= (refusal-code-of
                  (claim-item (ref settings) blocked (session-named "worker")))
                (some (str "not-ready"))))))
-
-(deftest claiming-a-build-on-held-paths-is-refused
-  (let (settings (scratch-ledger "claim-held-paths")
-        _holder (claimed (ref settings)
-                         (build (ref settings) "src/a/**"))
-        waiting (build (ref settings) "src/a/b.rs"))
-    (assert (= (refusal-code-of
-                 (claim-item (ref settings) waiting (session-named "other")))
-               (some (str "not-ready"))))))
-
-(deftest becoming-a-build-on-held-paths-is-refused
-  (let (settings (scratch-ledger "build-on-held-paths")
-        _holder (claimed (ref settings)
-                         (build (ref settings) "src/**"))
-        item (reported-research (ref settings) (vec)))
-    (assert (= (refusal-code-of (become-build (ref settings)
-                                              (ref item)
-                                              (vec "src/x.rs")))
-               (some (str "path-conflict"))))))
-
-(deftest becoming-a-build-without-paths-is-refused
-  (let (settings (scratch-ledger "build-without-paths")
-        item (reported-research (ref settings) (vec)))
-    (assert (= (refusal-code-of (become-build (ref settings)
-                                              (ref item)
-                                              (vec)))
-               (some (str "build-needs-paths"))))))
 
 (deftest dropping-a-dropped-item-is-refused
   (let (settings (scratch-ledger "drop-twice")

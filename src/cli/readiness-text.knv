@@ -1,12 +1,11 @@
 (module
   "Describes in plain text which items are ready and what holds back the others.")
 
-(use ledger/api blocked-item item-id path-conflict)
+(use ledger/api blocked-item item-id)
 (use cli/tables indented)
 (use cli/item-text item-table)
 
-(export blockage-lines blocked-section conflict-lines
-        readiness-text)
+(export blockage-lines blocked-section readiness-text)
 
 (defn readiness-text (readiness)
   (let (sections (vec (ready-section (ref (:ready readiness)))))
@@ -30,23 +29,7 @@
       (push! lines
              (str "waits on dropped "
                   (ids-text (ref (:dropped-blockers blockage))))))
-    (for-each (conflict-lines (ref (:path-conflicts blockage)))
-      (fn (line) (push! lines (clone line))))
     lines))
-
-(type conflict-lines
-  (fn ((ref (vec path-conflict)))
-    (vec string)))
-
-(defn conflict-lines (conflicts)
-  (collect (map (iter conflicts)
-             (fn (conflict)
-               (str "path "
-                    (:pattern (:glob conflict))
-                    " overlaps "
-                    (:pattern (:other-glob conflict))
-                    ", held by "
-                    (:value (:with conflict)))))))
 
 (defn ready-section (items)
   (if (empty? items)

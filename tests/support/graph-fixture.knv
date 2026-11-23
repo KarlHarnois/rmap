@@ -28,8 +28,7 @@
                       (discovered-dep "rm-1007" "rm-1004")
                       (blocks-dep "rm-1002" "rm-2002")
                       (blocks-dep "rm-2000" "rm-1003")
-                      (blocks-dep "rm-2002" "rm-1000"))
-                 (vec))))
+                      (blocks-dep "rm-2002" "rm-1000")))))
 
 (defn roadmap-of (id name)
   (->roadmap :id (->roadmap-id :value (str id))

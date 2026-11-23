@@ -1,11 +1,10 @@
 (module
   "The ledger's public functions. Code outside `src/ledger/` calls only these.")
 
-(use ledger/model ->glob ->item-id ->session blockage claim
-                  dep dep-type glob graph-format history
-                  item item-id kind origin path-conflict
-                  roadmap roadmap-id session status
-                  timestamp)
+(use ledger/model ->item-id ->session blockage claim dep
+                  dep-type graph-format history item item-id
+                  kind origin roadmap roadmap-id session
+                  status timestamp)
 
 (use ledger/model/events event event-type)
 
@@ -20,9 +19,7 @@
                           refusal-description)
 
 (use ledger/core/ready blocked-item readiness)
-
-(use ledger/core/batch batch batch-size batch-size-of
-                       skipped-item)
+(use ledger/core/batch batch batch-size batch-size-of)
 
 (use ledger/core/new-items ->new-item description-input
                            new-item)
@@ -32,8 +29,7 @@
 (use ledger/operations/transaction ->settings clock
                                    settings)
 
-(use ledger/json-values globs->json ids->json
-                        optional-id->json
+(use ledger/json-values ids->json optional-id->json
                         optional-text->json)
 
 (use ledger/failure failure failure-code failure-message)
@@ -65,7 +61,7 @@
                              draw-graph graph-request
                              graph-source)
 
-(export ->advancement ->glob ->graph-request ->graph-source
+(export ->advancement ->graph-request ->graph-source
         ->item-id ->new-item ->session ->settings action
         action-names actor actor-names add-dep add-item
         advance-item advancement batch batch-size
@@ -74,18 +70,16 @@
         database-problem default-database-path dep dep-type
         dep-type-names description-input draw-graph
         drop-item event event-type event-type-names failure
-        failure-code failure-message glob globs->json
-        graph-format graph-format-names graph-level
-        graph-level-names graph-request graph-source history
-        ids->json init-ledger init-outcome
-        init-outcome-names init-report item item-detail
-        item-id kind kind-change kind-names list-items
-        list-roadmaps new-item new-roadmap next-action
-        next-actions next-item optional-id->json
-        optional-text->json origin origin-names
-        path-conflict read-log readiness ready-batch
+        failure-code failure-message graph-format
+        graph-format-names graph-level graph-level-names
+        graph-request graph-source history ids->json
+        init-ledger init-outcome init-outcome-names
+        init-report item item-detail item-id kind
+        kind-change kind-names list-items list-roadmaps
+        new-item new-roadmap next-action next-actions
+        next-item optional-id->json optional-text->json
+        origin origin-names read-log readiness ready-batch
         ready-items refusal refusal->message refusal-catalog
         refusal-code-text refusal-description remove-dep
         roadmap roadmap-id roadmap-status-names session
-        settings show-item skipped-item status status-names
-        timestamp)
+        settings show-item status status-names timestamp)

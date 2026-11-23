@@ -4,19 +4,18 @@
 (use json/value array int->json json object text->json)
 
 (use ledger/api case-name graph-format-names graph-source
-                init-outcome-names item-detail skipped-item)
+                init-outcome-names item-detail)
 
 (use cli/replies reply)
 
 (use cli/ledger-json blocked->json dep->json event->json
-                     globs->json item->json item-id->json
-                     roadmap->json)
+                     item->json roadmap->json)
 
 (use cli/next-json next-item->json)
 
 (export envelope error-envelope reply-envelope)
 
-(def output-schema-version 3)
+(def output-schema-version 4)
 
 (defn error-envelope (code message details)
   (let (fields details)
@@ -106,8 +105,6 @@
                        (item->json (ref (:item detail))))
                  (pair (str "deps")
                        (array (collect (map (iter (:deps detail)) dep->json))))
-                 (pair (str "paths")
-                       (globs->json (ref (:globs detail))))
                  (pair (str "children")
                        (array (collect (map (iter (:children detail))
                                             item->json)))))))
@@ -124,16 +121,5 @@
   (envelope
     (vec (pair (str "picked")
                (array (collect (map (iter (:picked batch)) item->json))))
-         (pair (str "skipped")
-               (array (collect (map (iter (:skipped batch)) skipped->json))))
          (pair (str "blocked")
                (array (collect (map (iter (:blocked batch)) blocked->json)))))))
-
-(type skipped->json
-  (fn ((ref skipped-item)) json))
-
-(defn skipped->json (skipped)
-  (object (vec (pair (str "item")
-                     (item->json (ref (:item skipped))))
-               (pair (str "conflicts_with")
-                     (item-id->json (ref (:conflicts-with skipped)))))))

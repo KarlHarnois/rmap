@@ -1,9 +1,8 @@
-(use ledger/model claim item kind snapshot status)
-(use ledger/core/batch batch batch-of batch-size-of)
+(use ledger/model claim item kind status)
+(use ledger/core/batch batch-of batch-size-of)
 (use ledger/core/ready readiness-of)
-(use ledger/core/snapshot globs-of scope)
-(use ledger/core/paths conflict?)
-(use support/items id-of path-of snapshot-of work-item)
+(use ledger/core/snapshot scope)
+(use support/items snapshot-of work-item)
 (use support/generated-snapshots generated-snapshot)
 
 (def seed-count 300)
@@ -14,36 +13,8 @@
   (let (readiness (readiness-of snapshot (ref scope/every-roadmap)))
     (ids-of (ref (:ready readiness)))))
 
-(defn overlapping-builds-around (middle)
-  (snapshot-of (vec (open-build "rm-0001") middle (open-build "rm-0003"))
-               (vec)
-               (vec (path-of "rm-0001" "src/a/**")
-                    (path-of "rm-0003" "src/a/b.rs"))))
-
-(defn open-build (id) (work-item id kind/build status/open))
-
-(defn no-picked-pair-conflicts? (snapshot batch)
-  (let (picked (ref (:picked batch)))
-    (every? (enumerate (iter picked))
-      (fn (entry)
-        (every? (enumerate (iter picked))
-          (fn (other)
-            (or (<= (first other) (first entry))
-                (not (builds-conflict? snapshot
-                                       (second entry)
-                                       (second other))))))))))
-
-(type builds-conflict?
-  (fn ((ref snapshot) (ref item) (ref item))
-    bool))
-
-(defn builds-conflict? (snapshot left right)
-  (and (= (:kind left) kind/build)
-       (= (:kind right) kind/build)
-       (any? (iter (globs-of snapshot (ref (:id left))))
-         (fn (own)
-           (any? (iter (globs-of snapshot (ref (:id right))))
-             (fn (other) (conflict? own other)))))))
+(defn open-item (id)
+  (work-item id kind/research status/open))
 
 (defn subsequence? (part whole)
   (= (clone part)
@@ -51,60 +22,12 @@
                      (fn (id) (contains? part (clone id))))
                    clone))))
 
-(defn walks-the-ready-prefix? (ready-ids batch limit)
-  (let (picked-ids (ids-of (ref (:picked batch)))
-        prefix (collect (map (take
-                               (iter ready-ids)
-                               (stop-point ready-ids (ref picked-ids) limit))
-                             clone)))
-    (and (= (walked-ids ready-ids batch) prefix)
-         (= (+ (len picked-ids)
-               (len (:skipped batch)))
-            (len prefix)))))
-
-(defn stop-point (ready-ids picked-ids limit)
-  (if (< (len picked-ids) limit)
-    (len ready-ids)
-    (inc (position-in ready-ids (unwrap (last picked-ids))))))
-
-(type walked-ids
-  (fn ((ref (vec string)) (ref batch))
-    (vec string)))
-
-(defn walked-ids (ready-ids batch)
-  (let (picked-ids (ids-of (ref (:picked batch)))
-        skipped (skipped-ids batch))
-    (collect (map (filter (iter ready-ids)
-                    (fn (id)
-                      (or (contains? picked-ids (clone id))
-                          (contains? skipped (clone id)))))
-                  clone))))
-
-(defn skipped-ids (batch)
-  (collect (map (iter (:skipped batch))
-             (fn (skipped)
-               (clone (:value (:id (:item skipped))))))))
-
-(defn skips-name-an-earlier-pick? (ready-ids batch)
-  (let (picked-ids (ids-of (ref (:picked batch))))
-    (every? (iter (:skipped batch))
-      (fn (skipped)
-        (let (holder (clone (:value (:conflicts-with skipped))))
-          (and (contains? picked-ids (clone holder))
-               (< (position-in ready-ids (ref holder))
-                  (position-in ready-ids
-                               (ref (:value (:id (:item skipped))))))))))))
-
 (type ids-of
   (fn ((ref (vec item))) (vec string)))
 
 (defn ids-of (items)
   (collect (map (iter items)
              (fn (item) (clone (:value (:id item)))))))
-
-(defn position-in (ids id)
-  (first (unwrap (find (enumerate (iter ids))
-                   (fn (entry) (= (second entry) id))))))
 
 (defn for-each-generated-batch (check)
   (for-each (range 0 seed-count)
@@ -114,14 +37,10 @@
           (let (snapshot (startable-snapshot seed)
                 ready-ids (ready-ids (ref snapshot))
                 batch (batch-for (ref snapshot) limit))
-            (assert (check (ref snapshot)
-                           (ref ready-ids)
-                           (ref batch)
-                           limit))))))))
+            (assert (check (ref ready-ids) (ref batch) limit))))))))
 
 (defn batch-for (snapshot limit)
   (batch-of (ref (readiness-of snapshot (ref scope/every-roadmap)))
-            snapshot
             (unwrap (batch-size-of limit))))
 
 (defn startable-snapshot (seed)
@@ -135,62 +54,25 @@
          :status status/open
          :claim claim/unclaimed))
 
-(deftest a-build-on-a-picked-path-is-skipped-naming-the-picked-item
-  (let (batch (batch-for (ref (snapshot-of (vec (open-build "rm-0001")
-                                                (open-build "rm-0002"))
-                                           (vec)
-                                           (vec (path-of "rm-0001" "src/a/**")
-                                                (path-of "rm-0002"
-                                                         "src/a/b.rs"))))
-                         5))
-    (assert (= (ids-of (ref (:picked batch)))
-               (vec (str "rm-0001"))))
-    (assert (= (skipped-ids (ref batch))
-               (vec (str "rm-0002"))))
-    (assert (= (:conflicts-with (unwrap (first (:skipped batch))))
-               (id-of "rm-0001")))))
+(defn smaller (left right)
+  (if (< left right) left right))
 
-(deftest a-research-item-between-overlapping-builds-is-picked-and-counts
-  (let (batch (batch-for (ref
-                           (overlapping-builds-around
-                             (work-item "rm-0002" kind/research status/open)))
-                         2))
-    (assert (= (ids-of (ref (:picked batch)))
+(deftest a-limit-picks-up-to-the-given-number-in-ready-order
+  (let (snapshot (snapshot-of (vec (open-item "rm-0001")
+                                   (open-item "rm-0002")
+                                   (open-item "rm-0003"))
+                              (vec)))
+    (assert (= (ids-of (ref (:picked (batch-for (ref snapshot) 2))))
                (vec (str "rm-0001") (str "rm-0002"))))
-    (assert (empty? (:skipped batch)))))
-
-(deftest a-conflict-after-the-research-item-is-skipped-when-room-is-left
-  (let (batch (batch-for (ref
-                           (overlapping-builds-around
-                             (work-item "rm-0002" kind/research status/open)))
-                         3))
-    (assert (= (ids-of (ref (:picked batch)))
-               (vec (str "rm-0001") (str "rm-0002"))))
-    (assert (= (skipped-ids (ref batch))
-               (vec (str "rm-0003"))))))
-
-(deftest a-limit-past-the-ready-list-picks-every-item-without-a-conflict
-  (let (batch (batch-for (ref (snapshot-of
-                                (vec
-                                  (open-build "rm-0001")
-                                  (open-build "rm-0002")
-                                  (work-item "rm-0003" kind/design status/open))
-                                (vec)
-                                (vec (path-of "rm-0001" "src/a/**")
-                                     (path-of "rm-0002" "docs/*.md"))))
-                         10))
-    (assert (= (ids-of (ref (:picked batch)))
+    (assert (= (ids-of (ref (:picked (batch-for (ref snapshot) 10))))
                (vec (str "rm-0001")
                     (str "rm-0002")
                     (str "rm-0003"))))))
 
 (deftest picked-items-keep-the-ready-order
-  (let (urgent (assoc (open-build "rm-0002") :priority 0)
-        ordinary (assoc (open-build "rm-0001") :priority 4)
-        snapshot (snapshot-of (vec ordinary urgent)
-                              (vec)
-                              (vec (path-of "rm-0001" "src/a/**")
-                                   (path-of "rm-0002" "docs/*.md"))))
+  (let (urgent (assoc (open-item "rm-0002") :priority 0)
+        ordinary (assoc (open-item "rm-0001") :priority 4)
+        snapshot (snapshot-of (vec ordinary urgent) (vec)))
     (assert (= (ids-of (ref (:picked (batch-for (ref snapshot) 2))))
                (vec (str "rm-0002") (str "rm-0001"))))))
 
@@ -199,28 +81,9 @@
   (assert (none? (batch-size-of -1)))
   (assert (some? (batch-size-of 1))))
 
-(deftest no-two-picked-items-conflict-over-generated-graphs
-  (for-each-generated-batch (fn (snapshot _ready-ids batch _limit)
-                              (no-picked-pair-conflicts? snapshot batch))))
-
 (deftest picked-items-keep-the-ready-order-over-generated-graphs
-  (for-each-generated-batch (fn (_snapshot ready-ids batch _limit)
-                              (subsequence? (ids-of (ref (:picked batch)))
-                                            ready-ids))))
-
-(deftest picked-and-skipped-cover-the-ready-list-up-to-the-stop-over-generated-graphs
-  (for-each-generated-batch
-    (fn (_snapshot ready-ids batch limit)
-      (and (walks-the-ready-prefix? ready-ids batch (convert limit))
-           (skips-name-an-earlier-pick? ready-ids batch)))))
-
-(deftest generated-graphs-produce-skipped-items
-  (let (skipped-total 0)
-    (for-each (range 0 seed-count)
-      (fn (seed)
-        (let (snapshot (startable-snapshot seed))
-          (set! skipped-total
-                (+ skipped-total
-                   (len (:skipped (batch-for (ref snapshot)
-                                             largest-generated-limit))))))))
-    (assert (> skipped-total 0))))
+  (for-each-generated-batch (fn (ready-ids batch limit)
+                              (and (subsequence? (ids-of (ref (:picked batch)))
+                                                 ready-ids)
+                                   (= (len (:picked batch))
+                                      (smaller limit (len ready-ids)))))))

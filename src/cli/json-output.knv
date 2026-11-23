@@ -8,7 +8,7 @@
 (use cli/help command-help-document help-document)
 (use cli/envelopes error-envelope reply-envelope)
 (use json/value int->json)
-(use cli/ledger-json blockage-fields conflicts->json)
+(use cli/ledger-json blockage-fields)
 
 (export response->json)
 
@@ -51,6 +51,4 @@
 (defn refusal-fields (refusal)
   (match refusal
     ((refusal/not-ready blockage) (blockage-fields blockage))
-    ((refusal/paths-conflict conflicts)
-     (vec (pair (str "path_conflicts") (conflicts->json conflicts))))
     (_ (vec))))

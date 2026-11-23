@@ -186,12 +186,14 @@ INSERT INTO items (id, roadmap_id, title, kind, status, priority, created_at) VA
     (assert (= (unwrap-ok (schema-version (ref connection)))
                (inc (newest-version))))))
 
-(deftest the-accepted-migration-keeps-every-row
+(deftest the-migrations-keep-existing-rows-and-drop-item-paths
   (let (connection (upgraded-from-version-one "accepted-keeps-rows"))
     (assert (= (row-count (ref connection) "items") 3))
     (assert (= (row-count (ref connection) "deps") 1))
-    (assert (= (row-count (ref connection) "item_paths") 1))
-    (assert (= (row-count (ref connection) "events") 2))))
+    (assert (= (row-count (ref connection) "events") 2))
+    (assert (= (row-count (ref connection)
+                          "sqlite_schema WHERE name = 'item_paths'")
+               0))))
 
 (deftest the-accepted-migration-allows-the-accepted-status
   (let (connection (upgraded-from-version-one "accepted-allowed"))

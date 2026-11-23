@@ -26,4 +26,5 @@
     (assert (= (json->text (unwrap (first (error-list (ref reply) "blockers"))))
                (some blocker)))
     (assert (empty? (error-list (ref reply) "dropped_blockers")))
-    (assert (empty? (error-list (ref reply) "path_conflicts")))))
+    (assert (none? (field (unwrap (field (:json reply) "error"))
+                          "path_conflicts")))))

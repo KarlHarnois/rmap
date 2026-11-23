@@ -1,5 +1,5 @@
-(use json/value array copy-of field json->entries json->text
-                null? same? text->json)
+(use json/value copy-of field json->entries json->text
+                null?)
 
 (use ledger/model ->dep ->roadmap ->roadmap-id ->session
                   ->timestamp dep-type item kind
@@ -12,17 +12,11 @@
 (use ledger/events ->applied-move dep-changed item-added
                    item-moved roadmap-created)
 
-(use support/items claimed glob-of id-of work-item)
+(use support/items claimed id-of work-item)
 
 (defn moved-payload (before after move)
-  (moved-payload-with-globs before after move (vec) (vec)))
-
-(defn moved-payload-with-globs (before after move globs-before globs-after)
-  (let (draft (item-moved (ref (->applied-move :before before
-                                               :after after
-                                               :move move
-                                               :globs-before globs-before
-                                               :globs-after globs-after))))
+  (let (draft (item-moved
+                (ref (->applied-move :before before :after after :move move))))
     (copy-of (ref (:payload draft)))))
 
 (defn closed (item)
@@ -53,7 +47,6 @@
               :kind kind/research
               :origin (work-origin)
               :priority 0
-              :globs (vec (glob-of "src/*"))
               :blocked-by (vec (id-of "rm-0002"))
               :discovered-from none))
 
@@ -100,19 +93,15 @@
                (some (str "worker"))))
     (assert (null? (ref (side payload "claimed_by" "new"))))))
 
-(deftest a-new-build-records-its-old-kind-and-paths
-  (let (payload (moved-payload-with-globs (research status/reported)
-                                          (assoc (research status/dispatched)
-                                                 :kind kind/build)
-                                          (move/advance-to-build (vec (glob-of "docs/*")))
-                                          (vec (glob-of "src/*"))
-                                          (vec (glob-of "docs/*"))))
+(deftest a-new-build-records-its-old-kind
+  (let (payload (moved-payload (research status/reported)
+                               (assoc (research status/dispatched)
+                                      :kind kind/build)
+                               move/advance-to-build))
     (assert (= (side-text payload "kind" "old")
                (some (str "research"))))
     (assert (= (side-text payload "kind" "new")
-               (some (str "build"))))
-    (assert (same? (ref (side payload "paths" "old"))
-                   (ref (array (vec (text->json "src/*"))))))))
+               (some (str "build"))))))
 
 (deftest a-drop-records-its-reason-beside-the-changes
   (let (payload (moved-payload (research status/open)
@@ -143,7 +132,6 @@
                     (str "kind")
                     (str "origin")
                     (str "parent_id")
-                    (str "paths")
                     (str "priority")
                     (str "status")
                     (str "title"))))

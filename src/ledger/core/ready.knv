@@ -7,8 +7,7 @@
 (use ledger/core/index delivered-id? index-of indexed-status
                        ledger-index)
 
-(use ledger/core/path-conflicts conflicts-with-active-builds)
-(use ledger/core/snapshot blocked-by in-scope? lock-of)
+(use ledger/core/snapshot blocked-by in-scope?)
 (use ledger/core/order ordered)
 
 (export ->blocked-item ->readiness blockage-of blocked-item
@@ -39,8 +38,7 @@
 
 (defn unblocked? (blockage)
   (and (empty? (:blockers blockage))
-       (empty? (:dropped-blockers blockage))
-       (empty? (:path-conflicts blockage))))
+       (empty? (:dropped-blockers blockage))))
 
 (type blocking-decisions
   (fn ((ref item)) (vec decision-id)))
@@ -60,8 +58,7 @@
                                         clone))
                 :dropped-blockers (collect (map (filter (iter blocking)
                                                   (fn (id) (dropped? index id)))
-                                                clone))
-                :path-conflicts (build-conflicts snapshot index item))))
+                                                clone)))))
 
 (type candidate? (fn ((ref item)) bool))
 
@@ -93,7 +90,3 @@
 
 (defn dropped? (index id)
   (= (indexed-status index id) (some status/dropped)))
-
-(defn build-conflicts (snapshot index item)
-  (conflicts-with-active-builds index
-                                (ref (lock-of snapshot item))))

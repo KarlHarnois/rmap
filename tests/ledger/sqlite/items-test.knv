@@ -16,7 +16,7 @@
 
 (deftest a-read-item-carries-its-description
   (let (settings (scratch-ledger "read-description")
-        draft (assoc (item-draft kind/research (vec))
+        draft (assoc (item-draft kind/research)
                      :description (description-input/text (str "a spec")))
         _ (unwrap-ok (add-item (ref settings) (str roadmap-name) draft))
         connection (unwrap-ok (connect (ref settings)))
