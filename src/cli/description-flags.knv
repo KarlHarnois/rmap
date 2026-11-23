@@ -10,13 +10,14 @@
   (let (file (optional-text arguments "description-file")
         text (optional-text arguments "description"))
     (match file
-      ((some path)
-       (match text
-         ((some _)
-          (err (str
-                 "--description and --description-file cannot both be given")))
-         (none (ok (description-input-of-path (str path))))))
+      ((some path) (description-from-file text (str path)))
       (none (ok (description-input-of-text text))))))
+
+(defn description-from-file (text path)
+  (match text
+    ((some _)
+     (err (str "--description and --description-file cannot both be given")))
+    (none (ok (description-input-of-path path)))))
 
 (defn description-input-of-path (path)
   (if (= (as-str path) "-")
