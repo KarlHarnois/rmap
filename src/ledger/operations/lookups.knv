@@ -10,6 +10,13 @@
 
 (export roadmap-id-named scope-named)
 
+(defn scope-named (connection name)
+  (match name
+    ((some present)
+     (map-ok (roadmap-id-named connection (as-str present))
+       (fn (id) (scope/one-roadmap id))))
+    (none (ok scope/every-roadmap))))
+
 (type roadmap-id-named
   (fn ((ref connection) (ref str))
     (result roadmap-id failure)))
@@ -19,10 +26,3 @@
     (match found
       ((some roadmap) (ok (clone (:id roadmap))))
       (none (err (failure/refused (refusal/roadmap-not-found (str name))))))))
-
-(defn scope-named (connection name)
-  (match name
-    ((some present)
-     (map-ok (roadmap-id-named connection (as-str present))
-       (fn (id) (scope/one-roadmap id))))
-    (none (ok scope/every-roadmap))))

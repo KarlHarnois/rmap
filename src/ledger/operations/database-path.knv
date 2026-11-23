@@ -6,16 +6,20 @@
 
 (export default-database-path)
 
-(defn git-common-dir-lookup ()
-  (->command :program (str "git")
-             :args (vec (str "rev-parse")
-                        (str "--path-format=absolute")
-                        (str "--git-common-dir"))))
+(defn default-database-path ()
+  (let-try (common-dir (git-common-dir))
+    (ok (str common-dir "/ledger.db"))))
 
 (defn git-common-dir ()
   (match (run-command (ref (git-common-dir-lookup)))
     ((ok output) (common-dir-of output))
     ((err message) (err (failure/no-repository message)))))
+
+(defn git-common-dir-lookup ()
+  (->command :program (str "git")
+             :args (vec (str "rev-parse")
+                        (str "--path-format=absolute")
+                        (str "--git-common-dir"))))
 
 (type common-dir-of
   (fn (command-output) (result string failure)))
@@ -24,7 +28,3 @@
   (if (= (:code output) 0)
     (ok (str (trim (as-str (:stdout output)))))
     (err (failure/no-repository (str (trim (as-str (:stderr output))))))))
-
-(defn default-database-path ()
-  (let-try (common-dir (git-common-dir))
-    (ok (str common-dir "/ledger.db"))))

@@ -24,11 +24,6 @@
       (readiness-within (ref (:connection transaction))
                         (ref roadmap)))))
 
-(defn readiness-within (connection roadmap)
-  (let-try (scope (scope-named connection roadmap)
-            snapshot (load-snapshot connection))
-    (ok (readiness-of (ref snapshot) (ref scope)))))
-
 (type ready-batch
   (fn ((ref settings) (option string) batch-size)
     (result batch failure)))
@@ -39,6 +34,11 @@
       (batch-within (ref (:connection transaction))
                     (ref roadmap)
                     (clone size)))))
+
+(defn readiness-within (connection roadmap)
+  (let-try (scope (scope-named connection roadmap)
+            snapshot (load-snapshot connection))
+    (ok (readiness-of (ref snapshot) (ref scope)))))
 
 (defn batch-within (connection roadmap size)
   (let-try (scope (scope-named connection roadmap)

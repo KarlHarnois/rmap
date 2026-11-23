@@ -11,15 +11,6 @@
 
 (rust-type connection "rusqlite::Connection")
 
-(defenum database-problem
-  busy
-  (too-new schema-versions)
-  failed)
-
-(defstruct database-error
-  :problem database-problem
-  :message string)
-
 (def busy-timeout-milliseconds 5000)
 
 (def open-raw
@@ -32,23 +23,6 @@
     (fn ((ref str))
       (result connection (pair bool string)))))
 
-(defn open (path)
-  (let-try (connection (map-err (open-raw path) raw->error))
-    (configured connection)))
-
-(defn open-existing (path)
-  (let-try (connection (map-err (open-existing-raw path) raw->error))
-    (configured connection)))
-
-(defn configured (connection)
-  (let-try (_ (run-batch (ref connection)
-                         (as-str (str "PRAGMA busy_timeout = "
-                                      busy-timeout-milliseconds
-                                      ";")))
-            _ (switch-to-wal (ref connection))
-            _ (run-batch (ref connection) "PRAGMA foreign_keys = ON;"))
-    (ok connection)))
-
 (def wal-switch-attempts 100)
 
 (def wal-switch-pause-milliseconds 20)
@@ -57,35 +31,10 @@
   (rust "std::thread::sleep(std::time::Duration::from_millis({0}))"
     (fn (u64) unit)))
 
-(defn switch-to-wal (connection)
-  (loop (attempt 1)
-    (let (outcome (query connection "PRAGMA journal_mode = WAL" (ref (vec))))
-      (cond
-        ((ok? outcome) (ok (do)))
-        ((< attempt wal-switch-attempts)
-         (pause wal-switch-pause-milliseconds)
-         (recur (inc attempt)))
-        (else (map-ok outcome (fn (_) (do))))))))
-
-(defn raw->error (raw)
-  (let-match ((pair locked message) raw)
-    (->database-error :problem (problem-of locked)
-                      :message message)))
-
-(defn database-failure (message)
-  (->database-error :problem database-problem/failed
-                    :message message))
-
-(defn problem-of (locked)
-  (if locked database-problem/busy database-problem/failed))
-
 (def run-batch-raw
   (rust "{0}.execute_batch({1}).map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string()))"
     (fn ((ref connection) (ref str))
       (result unit (pair bool string)))))
-
-(defn run-batch (connection sql)
-  (map-err (run-batch-raw connection sql) raw->error))
 
 (def execute-raw
   (rust "{0}.execute({1}, rusqlite::params_from_iter({2}.iter())).map(|changed| changed as i64).map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string()))"
@@ -94,9 +43,6 @@
          (ref (vec sql-value)))
       (result int (pair bool string)))))
 
-(defn execute (connection sql parameters)
-  (map-err (execute-raw connection sql parameters) raw->error))
-
 (def query-raw
   (rust "(|| -> Result<Vec<Vec<rusqlite::types::Value>>, (bool, String)> {{ let mut statement = {0}.prepare({1}).map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string()))?; let width = statement.column_count(); let rows = statement.query_map(rusqlite::params_from_iter({2}.iter()), |row| (0..width).map(|index| row.get::<_, rusqlite::types::Value>(index)).collect::<Result<Vec<_>, _>>()).map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string()))?; rows.collect::<Result<Vec<_>, _>>().map_err(|failure| (matches!(failure.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)), failure.to_string())) }})()"
     (fn ((ref connection)
@@ -104,6 +50,30 @@
          (ref (vec sql-value)))
       (result (vec (vec sql-value))
               (pair bool string)))))
+
+(defstruct database-error
+  :problem database-problem
+  :message string)
+
+(defenum database-problem
+  busy
+  (too-new schema-versions)
+  failed)
+
+(defn open (path)
+  (let-try (connection (map-err (open-raw path) raw->error))
+    (configured connection)))
+
+(defn open-existing (path)
+  (let-try (connection (map-err (open-existing-raw path) raw->error))
+    (configured connection)))
+
+(defn database-failure (message)
+  (->database-error :problem database-problem/failed
+                    :message message))
+
+(defn execute (connection sql parameters)
+  (map-err (execute-raw connection sql parameters) raw->error))
 
 (defn query (connection sql parameters)
   (map-err (query-raw connection sql parameters) raw->error))
@@ -132,15 +102,45 @@
        (fn (_) (ok value))))
     ((err failure) (rolled-back connection failure))))
 
-(defn rolled-back (connection failure)
-  (match (rollback connection)
-    (_ (ok (err failure)))))
-
 (defn begin-read (connection)
   (run-batch connection "BEGIN"))
 
 (defn begin (connection)
   (run-batch connection "BEGIN IMMEDIATE"))
+
+(defn run-batch (connection sql)
+  (map-err (run-batch-raw connection sql) raw->error))
+
+(defn configured (connection)
+  (let-try (_ (run-batch (ref connection)
+                         (as-str (str "PRAGMA busy_timeout = "
+                                      busy-timeout-milliseconds
+                                      ";")))
+            _ (switch-to-wal (ref connection))
+            _ (run-batch (ref connection) "PRAGMA foreign_keys = ON;"))
+    (ok connection)))
+
+(defn switch-to-wal (connection)
+  (loop (attempt 1)
+    (let (outcome (query connection "PRAGMA journal_mode = WAL" (ref (vec))))
+      (cond
+        ((ok? outcome) (ok (do)))
+        ((< attempt wal-switch-attempts)
+         (pause wal-switch-pause-milliseconds)
+         (recur (inc attempt)))
+        (else (map-ok outcome (fn (_) (do))))))))
+
+(defn raw->error (raw)
+  (let-match ((pair locked message) raw)
+    (->database-error :problem (problem-of locked)
+                      :message message)))
+
+(defn problem-of (locked)
+  (if locked database-problem/busy database-problem/failed))
+
+(defn rolled-back (connection failure)
+  (match (rollback connection)
+    (_ (ok (err failure)))))
 
 (defn rollback (connection)
   (run-batch connection "ROLLBACK"))
