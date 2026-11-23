@@ -9,6 +9,7 @@
        (refusal/parent-not-epic (sample-id))
        (refusal/parent-in-other-roadmap (sample-id))
        refusal/epic-has-parent refusal/build-needs-globs
+       (refusal/priority-out-of-range 5)
        refusal/epic-status-computed
        refusal/invalid-kind-change
        (refusal/invalid-transition status/open status/merged)

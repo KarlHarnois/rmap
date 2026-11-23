@@ -72,7 +72,9 @@
                             (optional "paths" "<globs, comma-separated>")
                             (optional "from" "<id>")
                             (optional "origin" (choices origin-names))
-                            (optional "priority" "<whole number>")))
+                            (optional
+                              "priority"
+                              "<0 (highest) to 4 (lowest), default 2>")))
        (->route :subcommand subcommand/item-list
                 :words (words "item list")
                 :summary (str "Lists the items.")

@@ -185,8 +185,9 @@
                     (str "rm-0003"))))))
 
 (deftest picked-items-keep-the-ready-order
-  (let (urgent (assoc (open-build "rm-0002") :priority 5)
-        snapshot (snapshot-of (vec (open-build "rm-0001") urgent)
+  (let (urgent (assoc (open-build "rm-0002") :priority 0)
+        ordinary (assoc (open-build "rm-0001") :priority 4)
+        snapshot (snapshot-of (vec ordinary urgent)
                               (vec)
                               (vec (path-of "rm-0001" "src/a/**")
                                    (path-of "rm-0002" "docs/*.md"))))

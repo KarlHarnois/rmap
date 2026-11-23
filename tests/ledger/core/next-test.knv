@@ -178,14 +178,15 @@
   (assert (empty? (next-in
                     (alone (work-item "rm-0001" kind/build status/dropped))))))
 
-(deftest a-higher-priority-item-comes-first-as-in-ready
-  (let (listed (next-in (snapshot-of
-                          (vec (work-item "rm-0001" kind/research status/open)
-                               (assoc
-                                 (work-item "rm-0002" kind/research status/open)
-                                 :priority 5))
-                          (vec)
-                          (vec))))
+(deftest a-lower-priority-number-comes-first-as-in-ready
+  (let (listed (next-in
+                 (snapshot-of
+                   (vec (assoc (work-item "rm-0001" kind/research status/open)
+                               :priority 4)
+                        (assoc (work-item "rm-0002" kind/research status/open)
+                               :priority 0))
+                   (vec)
+                   (vec))))
     (assert (= (ids-of (ref listed))
                (vec (str "rm-0002") (str "rm-0001"))))))
 

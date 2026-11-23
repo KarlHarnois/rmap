@@ -70,7 +70,7 @@
             :title title
             :kind kind
             :origin (unwrap-or origin origin/planned)
-            :priority (unwrap-or priority 0)
+            :priority (unwrap-or priority 2)
             :globs (glob-list arguments "paths")
             :blocked-by (id-list arguments "after")
             :discovered-from (map-some (optional-text arguments "from")

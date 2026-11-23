@@ -14,6 +14,7 @@
   (parent-in-other-roadmap item-id)
   epic-has-parent
   build-needs-globs
+  (priority-out-of-range int)
   epic-status-computed
   invalid-kind-change
   (invalid-transition status status)
@@ -38,6 +39,9 @@
           " belongs to another roadmap"))
     (epic-has-parent (str "an epic cannot have a parent"))
     (build-needs-globs (str "a build item needs at least one path"))
+    ((priority-out-of-range priority)
+     (str "a priority must be from 0 (highest) to 4 (lowest), got "
+          priority))
     (epic-status-computed (str
                             "an epic's status is computed from its children"))
     (invalid-kind-change (str "only an advance to dispatched can turn an item into a build"))

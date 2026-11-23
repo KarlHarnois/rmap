@@ -1,0 +1,24 @@
+(use cli/arguments ->arguments)
+(use cli/requests add-item-request request)
+
+(defn base-flags ()
+  (vec (pair (str "roadmap") (str "road"))
+       (pair (str "title") (str "work"))
+       (pair (str "kind") (str "research"))))
+
+(defn draft-for (flags)
+  (match (add-item-request
+           (->arguments :words (vec) :flags flags :switches (vec)))
+    ((ok (request/add-item _ draft)) (some draft))
+    (_ none)))
+
+(deftest an-item-without-a-priority-gets-the-default
+  (assert (= (:priority (unwrap (draft-for (base-flags))))
+             2)))
+
+(deftest an-item-keeps-the-priority-it-is-given
+  (let (flags (base-flags))
+    (push! flags
+           (pair (str "priority") (str "4")))
+    (assert (= (:priority (unwrap (draft-for flags)))
+               4))))
