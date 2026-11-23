@@ -23,6 +23,7 @@
   item-add
   item-list
   item-show
+  item-edit
   item-claim
   item-advance
   item-close

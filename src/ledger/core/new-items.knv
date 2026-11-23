@@ -5,14 +5,11 @@
                   snapshot)
 
 (use ledger/refusal refusal)
+(use ledger/core/priorities check-priority)
 (use ledger/core/snapshot existing find-item)
 
 (export ->new-item check-new-item description-input distinct
         new-item normalized)
-
-(def highest-priority 0)
-
-(def lowest-priority 4)
 
 (defstruct new-item
   :parent (option item-id)
@@ -32,7 +29,7 @@
 
 (defn check-new-item (snapshot roadmap-id request)
   (let-try (_ (check-epic-has-no-parent request)
-            _ (check-priority-in-range request)
+            _ (check-priority (:priority request))
             _ (check-parent snapshot roadmap-id request)
             _ (check-all-exist snapshot (ref (:blocked-by request))))
     (check-optional-exists snapshot
@@ -63,16 +60,6 @@
            (some? (:parent request)))
     (err refusal/epic-has-parent)
     (ok (do))))
-
-(type check-priority-in-range
-  (fn ((ref new-item))
-    (result unit refusal)))
-
-(defn check-priority-in-range (request)
-  (if (and (>= (:priority request) highest-priority)
-           (<= (:priority request) lowest-priority))
-    (ok (do))
-    (err (refusal/priority-out-of-range (:priority request)))))
 
 (type check-parent
   (fn ((ref snapshot)

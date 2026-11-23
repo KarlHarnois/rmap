@@ -7,9 +7,10 @@
 (use cli/replies reply)
 (use cli/tables headed table)
 
-(use cli/item-text item-added-text item-detail-text
+(use cli/item-text item-added-text item-edited-text
                    item-moved-text items-text)
 
+(use cli/item-detail-text item-detail-text)
 (use cli/readiness-text readiness-text)
 (use cli/next-text next-text)
 (use cli/batch-text batch-text)
@@ -30,6 +31,7 @@
     ((reply/batch-picked batch) (batch-text batch))
     ((reply/log-read events) (events-text (ref events)))
     ((reply/item-added item) (item-added-text item))
+    ((reply/item-edited item) (item-edited-text item))
     ((reply/item-moved item) (item-moved-text item))
     ((reply/items-listed items) (items-text (ref items)))
     ((reply/item-shown detail) (item-detail-text detail))

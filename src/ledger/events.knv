@@ -13,8 +13,7 @@
 (use ledger/core/move move)
 
 (use ledger/json-values id->json ids->json item->columns
-                        optional-ids->json
-                        optional-text->json)
+                        optional-ids->json)
 
 (use ledger/changes column-change deleted inserted
                     inserted-columns only-changed
@@ -23,8 +22,8 @@
 (use ledger/core/new-items new-item)
 (use ledger/core/deps dep-change)
 
-(export ->applied-move applied-move dep-changed item-added
-        item-moved roadmap-created)
+(export ->applied-move applied-move dep-changed edit-changes
+        item-added item-edited item-moved roadmap-created)
 
 (defstruct applied-move
   :before item
@@ -73,6 +72,20 @@
                  :payload (payload-with-changes (ref (move-changes applied))
                                                 (move-context (ref (:move applied))))))
 
+(defn edit-changes (before after)
+  (only-changed (updated-columns (ref (item->columns before))
+                                 (ref (item->columns after)))))
+
+(type item-edited
+  (fn ((ref item) (ref (vec column-change)))
+    event-draft))
+
+(defn item-edited (after changes)
+  (->event-draft :roadmap-id (some (clone (:roadmap-id after)))
+                 :item-id (some (clone (:id after)))
+                 :type event-type/edited
+                 :payload (payload-with-changes changes (vec))))
+
 (type roadmap-insert-changes
   (fn ((ref roadmap)) (vec column-change)))
 
@@ -93,9 +106,6 @@
     (push! changes
            (inserted "discovered_from"
                      (optional-ids->json (ref (:discovered-from request)))))
-    (push! changes
-           (inserted "description"
-                     (optional-text->json (ref (:description item)))))
     changes))
 
 (defn dep-row-changes (dep change)

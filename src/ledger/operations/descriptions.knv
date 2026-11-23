@@ -1,0 +1,34 @@
+(module
+  "Reads the description an item add or edit asks for.")
+
+(use ledger/core/new-items description-input)
+(use ledger/failure failure)
+
+(export resolve-description)
+
+(defn resolve-description (input)
+  (match input
+    (description-input/unspecified (ok none))
+    ((description-input/text value) (ok (some (clone value))))
+    ((description-input/from-file path)
+     (read-description-file path))
+    (description-input/from-stdin (read-description-stdin))))
+
+(type read-description-file
+  (fn (string)
+    (result (option string) failure)))
+
+(defn read-description-file (path)
+  (let-try (content (map-err (slurp path)
+                      (fn (cause)
+                        (failure/description-unreadable
+                          (str "could not read the description file "
+                               path ": " cause)))))
+    (ok (some content))))
+
+(defn read-description-stdin ()
+  (let-try (content (map-err (slurp stdin)
+                      (fn (cause)
+                        (failure/description-unreadable (str "could not read the description from stdin: "
+                                                             cause)))))
+    (ok (some content))))

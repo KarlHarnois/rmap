@@ -1,0 +1,102 @@
+(use ledger/api ->item-edit close-item description-input
+                edit-item event-type failure-code kind
+                read-log show-item)
+
+(use support/ledger added-id item-draft refusal-code-of
+                    reported-research scratch-ledger)
+
+(defn edit (title priority description)
+  (->item-edit :title title
+               :priority priority
+               :description description))
+
+(defn shown (settings id)
+  (clone (:item (unwrap-ok (show-item (ref settings) id)))))
+
+(defn events (settings)
+  (unwrap-ok (read-log (ref settings) none 0)))
+
+(deftest an-edit-changes-title-priority-and-description
+  (let (settings (scratch-ledger "edit-fields")
+        id (added-id (ref settings) (item-draft kind/research))
+        _ (unwrap-ok (edit-item (ref settings)
+                                (clone id)
+                                (edit (some (str "new title"))
+                                      (some 4)
+                                      (description-input/text (str
+                                                                "new spec")))))
+        item (shown (ref settings) id))
+    (assert (= (:title item) (str "new title")))
+    (assert (= (:priority item) 4))
+    (assert (= (:description item)
+               (some (str "new spec"))))))
+
+(deftest an-empty-description-clears-it
+  (let (settings (scratch-ledger "edit-empty-description")
+        id (added-id (ref settings)
+                     (assoc (item-draft kind/research)
+                            :description (description-input/text (str "old spec"))))
+        _ (unwrap-ok (edit-item (ref settings)
+                                (clone id)
+                                (edit none none
+                                      (description-input/text (str ""))))))
+    (assert (= (:description (shown (ref settings) id))
+               none))))
+
+(deftest an-edit-records-one-edited-event
+  (let (settings (scratch-ledger "edit-event")
+        id (added-id (ref settings) (item-draft kind/research))
+        before (len (events (ref settings)))
+        _ (unwrap-ok (edit-item (ref settings)
+                                (clone id)
+                                (edit (some (str "renamed"))
+                                      none
+                                      description-input/unspecified)))
+        after (events (ref settings))
+        last (unwrap (get after (- (len after) 1))))
+    (assert (= (len after) (+ before 1)))
+    (assert (= (:type last) event-type/edited))))
+
+(deftest an-edit-that-changes-nothing-writes-no-event
+  (let (settings (scratch-ledger "edit-noop")
+        id (added-id (ref settings) (item-draft kind/research))
+        before (events (ref settings))
+        _ (unwrap-ok (edit-item (ref settings)
+                                (clone id)
+                                (edit none none description-input/unspecified)))
+        after (events (ref settings)))
+    (assert (= (len after) (len before)))))
+
+(deftest editing-a-closed-item-is-refused
+  (let (settings (scratch-ledger "edit-closed")
+        id (reported-research (ref settings))
+        _ (unwrap-ok (close-item (ref settings) (clone id))))
+    (assert (= (refusal-code-of (edit-item (ref settings)
+                                           id
+                                           (edit
+                                             (some (str "again"))
+                                             none
+                                             description-input/unspecified)))
+               (some (str "item-closed"))))))
+
+(deftest a-priority-outside-the-range-is-refused
+  (let (settings (scratch-ledger "edit-priority-range")
+        id (added-id (ref settings) (item-draft kind/research)))
+    (assert (= (refusal-code-of
+                 (edit-item (ref settings)
+                            id
+                            (edit none (some 5) description-input/unspecified)))
+               (some (str "priority-out-of-range"))))))
+
+(deftest an-unreadable-description-file-fails
+  (let (settings (scratch-ledger "edit-unreadable")
+        id (added-id (ref settings) (item-draft kind/research))
+        outcome (edit-item (ref settings)
+                           id
+                           (edit none none
+                                 (description-input/from-file (str "/nonexistent/description.txt")))))
+    (match outcome
+      ((err error)
+       (assert (= (failure-code (ref error))
+                  (str "description-unreadable"))))
+      ((ok _) (assert false)))))

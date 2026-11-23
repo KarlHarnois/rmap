@@ -1,13 +1,15 @@
 (module
   "Names each ledger request the CLI can make and builds it from the command line.")
 
-(use ledger/api ->advancement ->graph-request ->item-id
-                ->new-item ->session advancement batch-size
-                batch-size-of case-named graph-format
+(use ledger/api ->advancement ->graph-request ->item-edit
+                ->item-id ->new-item ->session advancement
+                batch-size batch-size-of case-named
+                description-input graph-format
                 graph-format-names graph-level
                 graph-level-names graph-request history
-                item-id kind-change kind-names new-item
-                origin origin-names session status-names)
+                item-edit item-id kind-change kind-names
+                new-item origin origin-names session
+                status-names)
 
 (use cli/description-flags description-of)
 
@@ -16,9 +18,9 @@
                switch-on?)
 
 (export add-item-request advance-request claim-request
-        drop-request graph-request log-request
-        new-roadmap-request next-request ready-request
-        request text->id)
+        drop-request edit-item-request graph-request
+        log-request new-roadmap-request next-request
+        ready-request request text->id)
 
 (defenum request
   init
@@ -31,6 +33,7 @@
   (add-item string new-item)
   (list-items (option string))
   (show-item item-id)
+  (edit-item item-id item-edit)
   (claim item-id session)
   (advance item-id advancement)
   (close item-id)
@@ -78,6 +81,20 @@
             :blocked-by (id-list arguments "after")
             :discovered-from (map-some (optional-text arguments "from")
                                        text->id))))))
+
+(defn edit-item-request (arguments id)
+  (let-try (priority (optional-number arguments "priority")
+            description (description-of arguments))
+    (let (title (optional-text arguments "title")
+          given? (or (some? title)
+                     (some? priority)
+                     (not= description description-input/unspecified)))
+      (if given?
+        (ok (request/edit-item (text->id id)
+                               (->item-edit :title title
+                                            :priority priority
+                                            :description description)))
+        (err (str "item edit needs at least one of --title, --priority, --description or --description-file"))))))
 
 (defn graph-request (arguments)
   (let-try (format (optional-choice arguments "format" graph-format-names)

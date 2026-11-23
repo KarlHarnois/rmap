@@ -51,6 +51,8 @@ Commands:
     Lists the items.
   item show <id>
     Shows one item with its dependencies.
+  item edit <id> [--title <text>] [--priority <0 (highest) to 4 (lowest)>] [--description <text>] [--description-file <path|->]
+    Changes an item's title, priority or description. Give at least one of the flags, and only while the item is open.
   item claim <id> --session <name>
     Gives a ready item to a session and marks it dispatched.
   item advance <id> <open|dispatched|reported|in_review|fixing|merging|merged|accepted|dropped> [--kind build]
@@ -81,6 +83,7 @@ Refusal codes:
   roadmap-not-found        No roadmap has that name.
   roadmap-exists           A roadmap already has that name.
   item-not-found           No item has that id.
+  item-closed              A merged, accepted or dropped item cannot be edited.
   parent-not-epic          The parent is not an epic.
   parent-in-other-roadmap  The parent belongs to another roadmap.
   epic-has-parent          An epic cannot have a parent.

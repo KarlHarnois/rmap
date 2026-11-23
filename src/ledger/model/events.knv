@@ -33,5 +33,6 @@
   item-advanced
   item-closed
   item-dropped
+  edited
   dep-added
   dep-removed)

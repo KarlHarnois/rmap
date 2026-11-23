@@ -1,0 +1,236 @@
+(use json/value copy-of field json->entries json->int
+                json->items json->text same?)
+
+(use support/rmap database-with-roadmap error-code run-rmap
+                  text-at)
+
+(defn added-id (database extra)
+  (let (reply (item-add database (str "research") extra))
+    (assert (= (:exit-code reply) 0))
+    (text-at (ref reply) "item" "id")))
+
+(defn added-build (database)
+  (let (reply (item-add database
+                        (str "build")
+                        (the (vec string) (vec))))
+    (assert (= (:exit-code reply) 0))
+    (text-at (ref reply) "item" "id")))
+
+(defn item-add (database kind extra)
+  (let (args (vec (str "item")
+                  (str "add")
+                  (str "--roadmap")
+                  (str "road")
+                  (str "--title")
+                  (str "first")
+                  (str "--kind")
+                  kind))
+    (for-each extra
+      (fn (arg) (push! args (str arg))))
+    (run-rmap (clone database) args)))
+
+(defn run-edit (database id extra)
+  (let (args (vec (str "item") (str "edit") (str id)))
+    (for-each extra
+      (fn (arg) (push! args (str arg))))
+    (run-rmap (clone database) args)))
+
+(defn item-field (database id key)
+  (unwrap (field (shown-item database id) key)))
+
+(defn shown-item (database id)
+  (let (reply (run-rmap (clone database)
+                        (vec "item" "show" (as-str id))))
+    (assert (= (:exit-code reply) 0))
+    (unwrap (field (:json reply) "item"))))
+
+(defn ready-ids (database)
+  (let (reply (run-rmap (clone database) (vec "ready")))
+    (assert (= (:exit-code reply) 0))
+    (collect (map (iter (unwrap (json->items (unwrap (field (:json reply)
+                                                            "ready")))))
+                  (fn (item)
+                    (unwrap (json->text (unwrap (field item "id")))))))))
+
+(defn last-event (database id)
+  (let (reply (run-rmap (clone database)
+                        (vec "log" "--item" (as-str id))))
+    (assert (= (:exit-code reply) 0))
+    (let (events (unwrap (json->items (unwrap (field (:json reply) "events")))))
+      (copy-of (unwrap (get events (- (len events) 1)))))))
+
+(defn changes-of (event)
+  (unwrap (field (unwrap (field event "payload")) "changes")))
+
+(defn change-keys (changes)
+  (collect (map (iter (json->entries changes))
+             (fn (entry) (clone (first entry))))))
+
+(defn side (changes column which)
+  (-> (ref changes)
+      (field column)
+      unwrap
+      (field which)
+      unwrap))
+
+(defn claim (database id)
+  (assert (= (:exit-code (run-rmap
+                           (clone database)
+                           (vec "item" "claim" (as-str id) "--session" "s1")))
+             0)))
+
+(defn advance (database id status)
+  (assert (= (:exit-code (run-rmap (clone database)
+                                   (vec "item" "advance" (as-str id) status)))
+             0)))
+
+(defn close (database id)
+  (assert (= (:exit-code (run-rmap (clone database)
+                                   (vec "item" "close" (as-str id))))
+             0)))
+
+(defn drop-it (database id)
+  (assert (= (:exit-code
+               (run-rmap (clone database)
+                         (vec "item" "drop" (as-str id) "--reason" "obsolete")))
+             0)))
+
+(deftest an-edit-changes-each-field-and-show-reflects-it
+  (let (database (database-with-roadmap "edit-fields")
+        id (added-id (clone database)
+                     (the (vec string) (vec)))
+        reply (run-edit (ref database)
+                        id
+                        (vec (str "--title")
+                             (str "second")
+                             (str "--priority")
+                             (str "4")
+                             (str "--description")
+                             (str "new spec"))))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (json->text (item-field (ref database) id "title"))
+               (some (str "second"))))
+    (assert (= (json->int (item-field (ref database) id "priority"))
+               (some 4)))
+    (assert (= (json->text (item-field (ref database) id "description"))
+               (some (str "new spec"))))))
+
+(deftest an-edit-to-a-priority-reorders-ready
+  (let (database (database-with-roadmap "edit-priority-ready")
+        first (added-id (clone database)
+                        (vec (str "--priority") (str "1")))
+        second (added-id (clone database)
+                         (vec (str "--priority") (str "4"))))
+    (assert (= (ready-ids (ref database))
+               (vec (clone first) (clone second))))
+    (assert (= (:exit-code (run-edit (ref database)
+                                     second
+                                     (vec (str "--priority") (str "0"))))
+               0))
+    (assert (= (ready-ids (ref database))
+               (vec (clone second) (clone first))))))
+
+(deftest an-edit-needs-at-least-one-flag
+  (let (database (database-with-roadmap "edit-no-flags")
+        id (added-id (clone database)
+                     (the (vec string) (vec)))
+        reply (run-edit (ref database)
+                        id
+                        (the (vec string) (vec))))
+    (assert (= (:exit-code reply) 2))
+    (assert (= (error-code (ref reply))
+               (str "usage")))))
+
+(deftest a-finished-item-cannot-be-edited
+  (let (database (database-with-roadmap "edit-closed")
+        accepted (added-id (clone database)
+                           (the (vec string) (vec)))
+        _ (claim (ref database) accepted)
+        _ (advance (ref database) accepted "reported")
+        _ (close (ref database) accepted)
+        merged (added-build (clone database))
+        _ (claim (ref database) merged)
+        _ (advance (ref database) merged "in_review")
+        _ (advance (ref database) merged "merging")
+        _ (close (ref database) merged)
+        dropped (added-id (clone database)
+                          (the (vec string) (vec)))
+        _ (drop-it (ref database) dropped))
+    (for-each (vec accepted merged dropped)
+      (fn (id)
+        (let (reply (run-edit (ref database)
+                              id
+                              (vec (str "--title") (str "again"))))
+          (assert (= (:exit-code reply) 1))
+          (assert (= (error-code (ref reply))
+                     (str "item-closed"))))))))
+
+(deftest a-priority-outside-the-range-is-refused
+  (let (database (database-with-roadmap "edit-priority-refused")
+        id (added-id (clone database)
+                     (the (vec string) (vec)))
+        reply (run-edit (ref database)
+                        id
+                        (vec (str "--priority") (str "5"))))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "priority-out-of-range")))))
+
+(deftest an-edit-refuses-both-description-flags
+  (let (database (database-with-roadmap "edit-description-both")
+        id (added-id (clone database)
+                     (the (vec string) (vec)))
+        reply (run-edit (ref database)
+                        id
+                        (vec (str "--description")
+                             (str "text")
+                             (str "--description-file")
+                             (str "spec.txt"))))
+    (assert (= (:exit-code reply) 2))
+    (assert (= (error-code (ref reply))
+               (str "usage")))))
+
+(deftest an-unreadable-description-file-is-reported
+  (let (database (database-with-roadmap "edit-description-unreadable")
+        id (added-id (clone database)
+                     (the (vec string) (vec)))
+        reply (run-edit (ref database)
+                        id
+                        (vec (str "--description-file")
+                             (str "/nonexistent/description.txt"))))
+    (assert (= (:exit-code reply) 2))
+    (assert (= (error-code (ref reply))
+               (str "description-unreadable")))))
+
+(deftest the-edited-event-holds-exactly-the-fields-that-changed
+  (let (database (database-with-roadmap "edit-event")
+        id (added-id (clone database)
+                     (vec (str "--description") (str "same")))
+        _ (run-edit (ref database)
+                    id
+                    (vec (str "--title")
+                         (str "second")
+                         (str "--description")
+                         (str "same")))
+        changes (changes-of (last-event (ref database) id)))
+    (assert (= (change-keys (ref changes))
+               (vec (str "title"))))
+    (assert (= (json->text (ref (side changes "title" "old")))
+               (some (str "first"))))
+    (assert (= (json->text (ref (side changes "title" "new")))
+               (some (str "second"))))))
+
+(deftest an-edit-that-changes-nothing-writes-no-event
+  (let (database (database-with-roadmap "edit-noop")
+        id (added-id (clone database)
+                     (the (vec string) (vec)))
+        _ (run-edit (ref database)
+                    id
+                    (vec (str "--title") (str "renamed")))
+        before (last-event (ref database) id)
+        reply (run-edit (ref database)
+                        id
+                        (vec (str "--title") (str "renamed")))
+        after (last-event (ref database) id))
+    (assert (= (:exit-code reply) 0))
+    (assert (same? after before))))

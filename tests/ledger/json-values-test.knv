@@ -40,4 +40,5 @@
                   (str "priority")
                   (str "parent_id")
                   (str "claimed_by")
-                  (str "closed_at")))))
+                  (str "closed_at")
+                  (str "description")))))

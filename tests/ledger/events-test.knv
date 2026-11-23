@@ -1,5 +1,5 @@
-(use json/value copy-of field json->entries json->text
-                null?)
+(use json/value copy-of field json->entries json->int
+                json->text null?)
 
 (use ledger/model ->dep ->roadmap ->roadmap-id ->session
                   ->timestamp dep-type item kind
@@ -9,8 +9,9 @@
 (use ledger/core/deps dep-change)
 (use ledger/core/new-items ->new-item description-input)
 
-(use ledger/events ->applied-move dep-changed item-added
-                   item-moved roadmap-created)
+(use ledger/events ->applied-move dep-changed edit-changes
+                   item-added item-edited item-moved
+                   roadmap-created)
 
 (use support/items claimed id-of work-item)
 
@@ -25,6 +26,9 @@
 
 (defn side-text (payload column which)
   (json->text (ref (side payload column which))))
+
+(defn side-int (payload column which)
+  (json->int (ref (side payload column which))))
 
 (defn side (payload column which)
   (-> (ref payload)
@@ -140,6 +144,21 @@
     (assert (= (side-text payload "description" "new")
                (some (str "the spec"))))
     (assert (null? (ref (side payload "parent_id" "new"))))))
+
+(deftest an-edit-records-only-the-fields-that-changed
+  (let (before (described (research status/open))
+        after (assoc (clone before) :title (str "new") :priority 3)
+        payload (copy-of (ref (:payload (item-edited (ref after)
+                                                     (ref (edit-changes (ref before)
+                                                                        (ref after))))))))
+    (assert (= (columns payload)
+               (vec (str "priority") (str "title"))))
+    (assert (= (side-text payload "title" "old")
+               (some (str "work"))))
+    (assert (= (side-text payload "title" "new")
+               (some (str "new"))))
+    (assert (= (side-int payload "priority" "old") (some 0)))
+    (assert (= (side-int payload "priority" "new") (some 3)))))
 
 (deftest an-added-dep-records-its-row-as-new
   (let (payload (dep-payload dep-change/add))

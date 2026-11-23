@@ -1,0 +1,69 @@
+(use ledger/model kind status)
+(use ledger/refusal refusal)
+
+(use ledger/core/item-edits ->item-edit apply-edit
+                            check-edit description-edit)
+
+(use ledger/core/new-items description-input)
+(use support/items work-item)
+
+(defn edit (title priority)
+  (->item-edit :title title
+               :priority priority
+               :description description-input/unspecified))
+
+(defn refusal-of (item edit)
+  (match (check-edit (ref item) (ref edit))
+    ((err refused) (some refused))
+    ((ok _) none)))
+
+(deftest a-merged-item-cannot-be-edited
+  (let (item (work-item "rm-0001" kind/build status/merged))
+    (assert (= (refusal-of item (edit none none))
+               (some (refusal/item-closed (clone (:id item))))))))
+
+(deftest an-accepted-item-cannot-be-edited
+  (let (item (work-item "rm-0002" kind/research status/accepted))
+    (assert (= (refusal-of item (edit none none))
+               (some (refusal/item-closed (clone (:id item))))))))
+
+(deftest a-dropped-item-cannot-be-edited
+  (let (item (work-item "rm-0003" kind/research status/dropped))
+    (assert (= (refusal-of item (edit none none))
+               (some (refusal/item-closed (clone (:id item))))))))
+
+(deftest an-open-item-can-be-edited
+  (assert (= (refusal-of (work-item "rm-0004" kind/research status/open)
+                         (edit none none))
+             none)))
+
+(deftest a-priority-outside-the-range-is-refused
+  (let (item (work-item "rm-0005" kind/research status/open))
+    (assert (= (refusal-of item (edit none (some 5)))
+               (some (refusal/priority-out-of-range 5))))))
+
+(deftest an-edit-replaces-only-the-fields-it-gives
+  (let (item (assoc (work-item "rm-0006" kind/research status/open)
+                    :description (some (str "old spec")))
+        changed (apply-edit (ref item)
+                            (ref (edit (some (str "new title")) none))
+                            description-edit/keep))
+    (assert (= (:title changed) (str "new title")))
+    (assert (= (:priority changed) (:priority item)))
+    (assert (= (:description changed) (:description item)))))
+
+(deftest a-description-edit-replaces-the-description
+  (let (item (work-item "rm-0007" kind/research status/open)
+        changed (apply-edit (ref item)
+                            (ref (edit none none))
+                            (description-edit/set (some (str "new spec")))))
+    (assert (= (:description changed)
+               (some (str "new spec"))))))
+
+(deftest a-null-description-clears-the-description
+  (let (item (assoc (work-item "rm-0008" kind/research status/open)
+                    :description (some (str "old spec")))
+        changed (apply-edit (ref item)
+                            (ref (edit none none))
+                            (description-edit/set none)))
+    (assert (= (:description changed) none))))

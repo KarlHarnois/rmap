@@ -4,9 +4,10 @@
 (use ledger/model ->dep ->item ->item-id claim dep dep-type
                   item item-id roadmap-id status timestamp)
 
-(use ledger/core/new-items check-new-item description-input
-                           new-item normalized)
+(use ledger/core/new-items check-new-item new-item
+                           normalized)
 
+(use ledger/operations/descriptions resolve-description)
 (use ledger/sqlite/items insert-item)
 (use ledger/sqlite/deps insert-deps)
 (use ledger/sqlite/snapshot load-snapshot)
@@ -32,39 +33,12 @@
     (result item failure)))
 
 (defn add-item (settings roadmap request)
-  (let-try (description (resolved-description (clone (:description request))))
+  (let-try (description (resolve-description (clone (:description request))))
     (in-transaction settings
       (fn (transaction)
         (insert-new-item transaction roadmap
                          (normalized request)
                          description)))))
-
-(defn resolved-description (input)
-  (match input
-    (description-input/unspecified (ok none))
-    ((description-input/text value) (ok (some (clone value))))
-    ((description-input/from-file path)
-     (read-description-file path))
-    (description-input/from-stdin (read-description-stdin))))
-
-(type read-description-file
-  (fn (string)
-    (result (option string) failure)))
-
-(defn read-description-file (path)
-  (let-try (content (map-err (slurp path)
-                      (fn (cause)
-                        (failure/description-unreadable
-                          (str "could not read the description file "
-                               path ": " cause)))))
-    (ok (some content))))
-
-(defn read-description-stdin ()
-  (let-try (content (map-err (slurp stdin)
-                      (fn (cause)
-                        (failure/description-unreadable (str "could not read the description from stdin: "
-                                                             cause)))))
-    (ok (some content))))
 
 (defn insert-new-item (transaction roadmap request description)
   (let-try (roadmap-id (roadmap-id-named (ref (:connection transaction))
