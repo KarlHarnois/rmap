@@ -3,11 +3,13 @@
 
 (use ledger/api ->advancement ->graph-request ->item-id
                 ->new-item ->session advancement batch-size
-                batch-size-of case-named description-input
-                graph-format graph-format-names graph-level
+                batch-size-of case-named graph-format
+                graph-format-names graph-level
                 graph-level-names graph-request history
                 item-id kind-change kind-names new-item
                 origin origin-names session status-names)
+
+(use cli/description-flags description-of)
 
 (use cli/flags glob-list id-list optional-choice
                optional-number optional-text required-choice
@@ -103,28 +105,6 @@
                          (->advancement :to target :kind-change change)))))
 
 (defn text->id (text) (->item-id :value text))
-
-(defn description-of (arguments)
-  (let (file (optional-text arguments "description-file")
-        text (optional-text arguments "description"))
-    (match file
-      ((some path)
-       (match text
-         ((some _)
-          (err (str
-                 "--description and --description-file cannot both be given")))
-         (none (ok (description-input-of-path (str path))))))
-      (none (ok (description-input-of-text text))))))
-
-(defn description-input-of-path (path)
-  (if (= (as-str path) "-")
-    description-input/from-stdin
-    (description-input/from-file (str path))))
-
-(defn description-input-of-text (text)
-  (match text
-    ((some value) (description-input/text (clone value)))
-    (none description-input/unspecified)))
 
 (defn batch-request (arguments count)
   (let-try (size (ok-or (batch-size-of count)

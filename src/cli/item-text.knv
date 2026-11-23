@@ -5,6 +5,7 @@
                 item-detail item-id kind-names origin-names
                 status-names timestamp)
 
+(use cli/description-text description-text)
 (use cli/tables headed indented table)
 
 (export item-added-text item-detail-text item-moved-text
@@ -66,11 +67,6 @@
   (match id
     ((some present) (clone (:value present)))
     (none (str "-"))))
-
-(defn description-text (description)
-  (match description
-    ((some text) (str "\n\nDescription:\n" (indented text)))
-    (none (str ""))))
 
 (type item-cells
   (fn ((ref item)) (vec string)))

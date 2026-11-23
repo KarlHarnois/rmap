@@ -1,7 +1,7 @@
 (module
   "Describes each ledger change as an event to record.")
 
-(use json/value json text->json)
+(use json/value text->json)
 (use ledger/model dep glob item roadmap)
 
 (use ledger/model/events ->event-draft event-draft
@@ -13,7 +13,8 @@
 (use ledger/core/move move)
 
 (use ledger/json-values globs->json id->json ids->json
-                        item->columns optional-ids->json)
+                        item->columns optional-ids->json
+                        optional-text->json)
 
 (use ledger/changes column-change deleted inserted
                     inserted-columns only-changed
@@ -106,11 +107,6 @@
            (inserted "description"
                      (optional-text->json (ref (:description item)))))
     changes))
-
-(defn optional-text->json (text)
-  (match text
-    ((some present) (text->json (as-str present)))
-    (none json/null)))
 
 (defn dep-row-changes (dep change)
   (let (on (id->json (ref (:on dep)))

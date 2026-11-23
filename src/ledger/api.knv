@@ -33,7 +33,8 @@
                                    settings)
 
 (use ledger/json-values globs->json ids->json
-                        optional-id->json)
+                        optional-id->json
+                        optional-text->json)
 
 (use ledger/failure failure failure-code failure-message)
 (use ledger/sqlite/connection database-problem)
@@ -80,10 +81,11 @@
         init-outcome-names init-report item item-detail
         item-id kind kind-change kind-names list-items
         list-roadmaps new-item new-roadmap next-action
-        next-actions next-item optional-id->json origin
-        origin-names path-conflict read-log readiness
-        ready-batch ready-items refusal refusal->message
-        refusal-catalog refusal-code-text
-        refusal-description remove-dep roadmap roadmap-id
-        roadmap-status-names session settings show-item
-        skipped-item status status-names timestamp)
+        next-actions next-item optional-id->json
+        optional-text->json origin origin-names
+        path-conflict read-log readiness ready-batch
+        ready-items refusal refusal->message refusal-catalog
+        refusal-code-text refusal-description remove-dep
+        roadmap roadmap-id roadmap-status-names session
+        settings show-item skipped-item status status-names
+        timestamp)

@@ -1,0 +1,29 @@
+(module
+  "Reads the --description and --description-file flags into a description input.")
+
+(use ledger/api description-input)
+(use cli/flags optional-text)
+
+(export description-of)
+
+(defn description-of (arguments)
+  (let (file (optional-text arguments "description-file")
+        text (optional-text arguments "description"))
+    (match file
+      ((some path)
+       (match text
+         ((some _)
+          (err (str
+                 "--description and --description-file cannot both be given")))
+         (none (ok (description-input-of-path (str path))))))
+      (none (ok (description-input-of-text text))))))
+
+(defn description-input-of-path (path)
+  (if (= (as-str path) "-")
+    description-input/from-stdin
+    (description-input/from-file (str path))))
+
+(defn description-input-of-text (text)
+  (match text
+    ((some value) (description-input/text (clone value)))
+    (none description-input/unspecified)))

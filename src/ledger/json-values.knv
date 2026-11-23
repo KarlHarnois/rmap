@@ -9,7 +9,7 @@
 
 (export claim->json globs->json id->json ids->json
         item->columns optional-id->json optional-ids->json
-        optional-timestamp->json)
+        optional-text->json optional-timestamp->json)
 
 (defn ids->json (ids)
   (array (collect (map (iter ids) id->json))))
@@ -56,6 +56,11 @@
 
 (defn id->json (id)
   (text->json (as-str (:value id))))
+
+(defn optional-text->json (text)
+  (match text
+    ((some present) (text->json (as-str present)))
+    (none json/null)))
 
 (defn claim->json (claim)
   (match claim
