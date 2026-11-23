@@ -7,18 +7,18 @@
 (use support/graph-fixture graph-roadmaps graph-snapshot
                            platform-id)
 
-(defn rendered-in (scope history)
-  (diagram->mermaid (ref (diagram-of (ref (graph-snapshot))
-                                     (ref (graph-roadmaps))
-                                     (ref (->graph-view :scope scope
-                                                        :history history))))))
-
 (defn rendered (history)
   (rendered-in scope/every-roadmap history))
 
 (defn platform-rendered ()
   (rendered-in (scope/one-roadmap (->roadmap-id :value (str platform-id)))
                history/without-merged))
+
+(defn rendered-in (scope history)
+  (diagram->mermaid (ref (diagram-of (ref (graph-snapshot))
+                                     (ref (graph-roadmaps))
+                                     (ref (->graph-view :scope scope
+                                                        :history history))))))
 
 (defn has-line? (source line)
   (any? (lines source)

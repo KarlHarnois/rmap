@@ -15,6 +15,34 @@
                              (some (str name)))))
                       copy-of))))
 
+(defn command-summary (name)
+  (let (document (help-document)
+        commands (unwrap (json->items (unwrap (field (ref document)
+                                                     "commands")))))
+    (-> commands iter
+        (find (fn (command)
+                (= (json->text (unwrap (field command "command")))
+                   (some (str name)))))
+        unwrap
+        (field "summary")
+        unwrap json->text unwrap)))
+
+(defn described-names (document)
+  (-> document
+      (field "commands")
+      unwrap json->items unwrap iter
+      (map (fn (command)
+             (unwrap (json->text (unwrap (field command "command"))))))
+      collect))
+
+(defn environment-variable-names ()
+  (-> (help-document)
+      (field "environment")
+      unwrap json->items unwrap iter
+      (map (fn (variable)
+             (unwrap (json->text (unwrap (field variable "name"))))))
+      collect))
+
 (deftest a-boolean-flag-keeps-a-text-value-and-says-it-is-boolean
   (let (spec (global-flag "json"))
     (assert (= (json->text (unwrap (field (ref spec) "value")))
@@ -29,29 +57,9 @@
     (assert (= (json->bool (unwrap (field (ref spec) "boolean")))
                (some false)))))
 
-(defn command-summary (name)
-  (let (document (help-document)
-        commands (unwrap (json->items (unwrap (field (ref document)
-                                                     "commands")))))
-    (-> commands iter
-        (find (fn (command)
-                (= (json->text (unwrap (field command "command")))
-                   (some (str name)))))
-        unwrap
-        (field "summary")
-        unwrap json->text unwrap)))
-
 (deftest next-says-a-manager-without-roadmaps-gives-an-empty-list
   (assert (contains? (as-str (command-summary "next"))
                      "A manager with no roadmaps gives an empty list")))
-
-(defn described-names (document)
-  (-> document
-      (field "commands")
-      unwrap json->items unwrap iter
-      (map (fn (command)
-             (unwrap (json->text (unwrap (field command "command"))))))
-      collect))
 
 (deftest command-help-describes-only-the-given-commands
   (let (next-routes (collect (filter (map (iter (routes)) clone)
@@ -60,14 +68,6 @@
         document (command-help-document next-routes))
     (assert (= (described-names (ref document))
                (vec (str "next"))))))
-
-(defn environment-variable-names ()
-  (-> (help-document)
-      (field "environment")
-      unwrap json->items unwrap iter
-      (map (fn (variable)
-             (unwrap (json->text (unwrap (field variable "name"))))))
-      collect))
 
 (deftest help-lists-the-environment-variables-it-reads
   (assert (= (environment-variable-names)

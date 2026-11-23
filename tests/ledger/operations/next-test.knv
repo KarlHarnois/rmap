@@ -33,6 +33,13 @@
              (clone (:name (:roadmap entry)))))
       collect))
 
+(defn sorted (names)
+  (let (all names) (sort! all) all))
+
+(defn event-ids (settings)
+  (collect (map (iter (unwrap-ok (read-log settings none 0)))
+             (fn (event) (:id event)))))
+
 (deftest an-unknown-roadmap-is-refused
   (let (settings (ledger-with-two-roadmaps "next-unknown-roadmap"))
     (assert (= (refusal-code-of (next-actions (ref settings)
@@ -52,9 +59,6 @@
     (assert (= (sorted (roadmaps-listed (ref settings) none (some "manager")))
                (vec (str roadmap-name) (str third-roadmap-name))))))
 
-(defn sorted (names)
-  (let (all names) (sort! all) all))
-
 (deftest a-roadmap-and-its-manager-list-that-roadmap
   (let (settings (ledger-with-three-roadmaps "next-by-both"))
     (assert (= (roadmaps-listed (ref settings)
@@ -67,10 +71,6 @@
     (assert (empty? (roadmaps-listed (ref settings)
                                      (some roadmap-name)
                                      (some "other-manager"))))))
-
-(defn event-ids (settings)
-  (collect (map (iter (unwrap-ok (read-log settings none 0)))
-             (fn (event) (:id event)))))
 
 (deftest next-writes-no-event-and-changes-no-item
   (let (settings (ledger-with-three-roadmaps "next-reads-only")

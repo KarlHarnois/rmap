@@ -6,6 +6,9 @@
 (use support/rmap database-with-roadmap research-id run-rmap
                   run-rmap-text)
 
+(def legacy-payload
+  "{\"from\":\"open\",\"session\":\"s1\",\"to\":\"dispatched\"}")
+
 (defn logged-changes (name)
   (let (database (database-with-roadmap name)
         item (research-id (clone database)))
@@ -41,6 +44,37 @@
                   (field which)
                   unwrap))))
 
+(defn ledger-with-legacy-event (name)
+  (let (database (database-with-roadmap name)
+        item (research-id (clone database)))
+    (store-legacy-claim (clone database) (clone item))
+    (assert (= (:exit-code
+                 (run-rmap (clone database)
+                           (vec "item" "claim" (as-str item) "--session" "s2")))
+               0))
+    database))
+
+(defn store-legacy-claim (database item)
+  (let (connection (unwrap-ok (open (as-str database))))
+    (unwrap-ok (run-batch (ref connection)
+                          (as-str (str "INSERT INTO events (at, actor, roadmap_id, item_id, type, payload_json) SELECT '2026-01-01T00:00:00Z', 'ana', roadmap_id, id, 'item-claimed', '"
+                                       legacy-payload
+                                       "' FROM items WHERE id = '"
+                                       item "';"))))))
+
+(defn logged-payloads (database)
+  (let (reply (run-rmap database (vec "log")))
+    (assert (= (:exit-code reply) 0))
+    (collect (map (iter (unwrap (json->items (unwrap (field (ref (:json reply))
+                                                            "events")))))
+                  (fn (event)
+                    (unwrap (field event "payload")))))))
+
+(defn logged-text (database)
+  (let (output (run-rmap-text (vec "--db" (as-str database) "log")))
+    (assert (= (:code output) 0))
+    (clone (:stdout output))))
+
 (deftest the-log-records-each-change-as-old-and-new
   (let (changes (logged-changes "log-changes")
         added (copy-of (unwrap (get changes 0)))
@@ -59,35 +93,6 @@
                (some (str "s1"))))
     (assert (side-null? reopened "claimed_by" "new"))))
 
-(def legacy-payload
-  "{\"from\":\"open\",\"session\":\"s1\",\"to\":\"dispatched\"}")
-
-(defn store-legacy-claim (database item)
-  (let (connection (unwrap-ok (open (as-str database))))
-    (unwrap-ok (run-batch (ref connection)
-                          (as-str (str "INSERT INTO events (at, actor, roadmap_id, item_id, type, payload_json) SELECT '2026-01-01T00:00:00Z', 'ana', roadmap_id, id, 'item-claimed', '"
-                                       legacy-payload
-                                       "' FROM items WHERE id = '"
-                                       item "';"))))))
-
-(defn ledger-with-legacy-event (name)
-  (let (database (database-with-roadmap name)
-        item (research-id (clone database)))
-    (store-legacy-claim (clone database) (clone item))
-    (assert (= (:exit-code
-                 (run-rmap (clone database)
-                           (vec "item" "claim" (as-str item) "--session" "s2")))
-               0))
-    database))
-
-(defn logged-payloads (database)
-  (let (reply (run-rmap database (vec "log")))
-    (assert (= (:exit-code reply) 0))
-    (collect (map (iter (unwrap (json->items (unwrap (field (ref (:json reply))
-                                                            "events")))))
-                  (fn (event)
-                    (unwrap (field event "payload")))))))
-
 (deftest the-json-log-keeps-an-old-shape-payload-unchanged
   (let (payloads (logged-payloads (ledger-with-legacy-event "log-legacy-json"))
         legacy (unwrap-ok (parse-json legacy-payload)))
@@ -95,11 +100,6 @@
     (assert (same? (unwrap (get payloads 2))
                    (ref legacy)))
     (assert (some? (field (unwrap (get payloads 3)) "changes")))))
-
-(defn logged-text (database)
-  (let (output (run-rmap-text (vec "--db" (as-str database) "log")))
-    (assert (= (:code output) 0))
-    (clone (:stdout output))))
 
 (deftest the-text-log-prints-old-and-new-shape-events-side-by-side
   (let (text (logged-text (ledger-with-legacy-event "log-legacy-text")))

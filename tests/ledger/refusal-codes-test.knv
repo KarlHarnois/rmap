@@ -2,9 +2,6 @@
 (use ledger/refusal refusal)
 (use ledger/refusal-codes refusal-catalog refusal-code-text)
 
-(defn sample-id ()
-  (->item-id :value (str "rm-0001")))
-
 (defn every-refusal ()
   (vec (refusal/roadmap-not-found (str "road"))
        (refusal/roadmap-exists (str "road"))
@@ -22,6 +19,9 @@
        (refusal/cycle (sample-id) (sample-id))
        (refusal/dep-exists (sample-id) (sample-id))
        (refusal/dep-not-found (sample-id) (sample-id))))
+
+(defn sample-id ()
+  (->item-id :value (str "rm-0001")))
 
 (defn catalog-codes ()
   (collect (map (iter (refusal-catalog))

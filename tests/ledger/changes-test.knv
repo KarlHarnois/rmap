@@ -4,8 +4,6 @@
                     only-changed payload-with-changes
                     updated updated-columns)
 
-(defn text (value) (text->json value))
-
 (defn side-of (payload column side)
   (-> (ref payload)
       (field "changes")
@@ -14,6 +12,12 @@
       unwrap
       (field side)
       unwrap))
+
+(defn columns (status priority)
+  (vec (pair (str "status") (text status))
+       (pair (str "priority") (int->json priority))))
+
+(defn text (value) (text->json value))
 
 (deftest an-inserted-column-records-a-null-old-value
   (let (payload (payload-with-changes (ref (vec (inserted "title" (text "a"))))
@@ -55,10 +59,6 @@
     (assert (same? (ref (unwrap (field (ref payload) "reason")))
                    (ref (text "obsolete"))))
     (assert (some? (field (ref payload) "changes")))))
-
-(defn columns (status priority)
-  (vec (pair (str "status") (text status))
-       (pair (str "priority") (int->json priority))))
 
 (deftest inserted-columns-records-each-column-as-new
   (let (changes (inserted-columns (ref (columns "open" 0))))

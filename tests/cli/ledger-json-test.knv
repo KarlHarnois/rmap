@@ -9,17 +9,6 @@
       (field key)
       unwrap json->text unwrap))
 
-(deftest an-item-names-its-roadmap
-  (assert (= (item-text-field "roadmap") (str "road"))))
-
-(deftest an-item-keeps-its-roadmap-id
-  (assert (= (item-text-field "roadmap_id") (str "rm-road"))))
-
-(defn legacy-claim-payload ()
-  (object (vec (pair (str "from") (text->json "open"))
-               (pair (str "to") (text->json "dispatched"))
-               (pair (str "session") (text->json "s1")))))
-
 (defn legacy-claim-event ()
   (->event :id 4
            :at (->timestamp :value (str "2026-01-01T00:00:00Z"))
@@ -28,6 +17,17 @@
            :item-id (some (id-of "rm-0001"))
            :type event-type/item-claimed
            :payload (legacy-claim-payload)))
+
+(defn legacy-claim-payload ()
+  (object (vec (pair (str "from") (text->json "open"))
+               (pair (str "to") (text->json "dispatched"))
+               (pair (str "session") (text->json "s1")))))
+
+(deftest an-item-names-its-roadmap
+  (assert (= (item-text-field "roadmap") (str "road"))))
+
+(deftest an-item-keeps-its-roadmap-id
+  (assert (= (item-text-field "roadmap_id") (str "rm-road"))))
 
 (deftest an-event-in-the-old-shape-keeps-its-payload-unchanged
   (assert (same? (ref (unwrap (field (ref (event->json (ref (legacy-claim-event))))

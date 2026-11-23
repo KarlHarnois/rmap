@@ -4,8 +4,8 @@
 (use cli/batch-text batch-text)
 (use support/items id-of work-item)
 
-(defn research (id)
-  (work-item id kind/research status/open))
+(def table-header
+  "  ID       ROADMAP  KIND      STATUS  PRIORITY  TITLE\n")
 
 (defn waiting-on (id blocker)
   (->blocked-item :item (research id)
@@ -13,8 +13,8 @@
                                         :dropped-blockers (vec)
                                         :path-conflicts (vec))))
 
-(def table-header
-  "  ID       ROADMAP  KIND      STATUS  PRIORITY  TITLE\n")
+(defn research (id)
+  (work-item id kind/research status/open))
 
 (defn table-row (id)
   (str "  " id "  road     research  open    0         work"))

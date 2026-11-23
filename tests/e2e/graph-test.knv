@@ -4,6 +4,21 @@
                   error-code research-id run-rmap
                   run-rmap-text)
 
+(defn ledger-with-a-dependency (name)
+  (let (database (database-with-roadmap name)
+        blocker (research-id (clone database)))
+    (blocked-design-id (clone database) blocker)
+    database))
+
+(type graph-text
+  (fn (string (vec (ref str))) string))
+
+(defn graph-text (database extra)
+  (let (args (vec "--db" (as-str database) "graph"))
+    (for-each extra
+      (fn (arg) (push! args (deref arg))))
+    (clone (:stdout (run-rmap-text args)))))
+
 (deftest graph-prints-raw-mermaid-without-a-code-fence
   (let (database (database-with-roadmap "graph-text")
         output (run-rmap-text (vec "--db" (as-str database) "graph")))
@@ -24,21 +39,6 @@
                         (vec "graph" "--format" "dot")))
     (assert (= (:exit-code reply) 2))
     (assert (= (error-code (ref reply)) "usage"))))
-
-(defn ledger-with-a-dependency (name)
-  (let (database (database-with-roadmap name)
-        blocker (research-id (clone database)))
-    (blocked-design-id (clone database) blocker)
-    database))
-
-(type graph-text
-  (fn (string (vec (ref str))) string))
-
-(defn graph-text (database extra)
-  (let (args (vec "--db" (as-str database) "graph"))
-    (for-each extra
-      (fn (arg) (push! args (deref arg))))
-    (clone (:stdout (run-rmap-text args)))))
 
 (deftest level-item-prints-what-graph-prints-without-a-level
   (let (database (ledger-with-a-dependency "graph-level-item"))

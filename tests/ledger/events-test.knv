@@ -25,12 +25,12 @@
                                                :globs-after globs-after))))
     (copy-of (ref (:payload draft)))))
 
-(defn research (status)
-  (work-item "rm-0001" kind/research status))
-
 (defn closed (item)
   (assoc item
          :closed-at (some (->timestamp :value (str "2026-01-02T00:00:00Z")))))
+
+(defn side-text (payload column which)
+  (json->text (ref (side payload column which))))
 
 (defn side (payload column which)
   (-> (ref payload)
@@ -41,13 +41,36 @@
       (field which)
       unwrap))
 
-(defn side-text (payload column which)
-  (json->text (ref (side payload column which))))
-
 (defn columns (payload)
   (collect (map (iter (json->entries (ref (unwrap (field (ref payload)
                                                          "changes")))))
                 (fn (entry) (clone (first entry))))))
+
+(defn new-research ()
+  (->new-item :parent none
+              :title (str "work")
+              :kind kind/research
+              :origin (work-origin)
+              :priority 0
+              :globs (vec (glob-of "src/*"))
+              :blocked-by (vec (id-of "rm-0002"))
+              :discovered-from none))
+
+(defn work-origin ()
+  (:origin (research status/open)))
+
+(defn dep-payload (change)
+  (copy-of (ref (:payload (dep-changed (ref (research status/open))
+                                       (ref (blocks-row))
+                                       change)))))
+
+(defn research (status)
+  (work-item "rm-0001" kind/research status))
+
+(defn blocks-row ()
+  (->dep :item (id-of "rm-0001")
+         :on (id-of "rm-0002")
+         :type dep-type/blocks))
 
 (deftest a-claim-records-its-status-and-session-as-old-and-new
   (let (payload (moved-payload (research status/open)
@@ -102,19 +125,6 @@
     (assert (= (side-text payload "closed_at" "new")
                (some (str "2026-01-02T00:00:00Z"))))))
 
-(defn new-research ()
-  (->new-item :parent none
-              :title (str "work")
-              :kind kind/research
-              :origin (work-origin)
-              :priority 0
-              :globs (vec (glob-of "src/*"))
-              :blocked-by (vec (id-of "rm-0002"))
-              :discovered-from none))
-
-(defn work-origin ()
-  (:origin (research status/open)))
-
 (deftest an-added-item-records-every-column-it-sets
   (let (payload (copy-of (ref (:payload (item-added (ref (research status/open))
                                                     (ref (new-research)))))))
@@ -132,16 +142,6 @@
                     (str "title"))))
     (assert (null? (ref (side payload "title" "old"))))
     (assert (null? (ref (side payload "parent_id" "new"))))))
-
-(defn blocks-row ()
-  (->dep :item (id-of "rm-0001")
-         :on (id-of "rm-0002")
-         :type dep-type/blocks))
-
-(defn dep-payload (change)
-  (copy-of (ref (:payload (dep-changed (ref (research status/open))
-                                       (ref (blocks-row))
-                                       change)))))
 
 (deftest an-added-dep-records-its-row-as-new
   (let (payload (dep-payload dep-change/add))

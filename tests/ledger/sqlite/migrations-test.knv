@@ -15,12 +15,60 @@
 (def fixture-migration
   "tests/fixtures/0002-add-item-notes.sql")
 
+(def version-one-rows
+  "INSERT INTO roadmaps (id, name, manager_session, created_at) VALUES ('rm-0001', 'road', 'm1', 't');
+INSERT INTO items (id, roadmap_id, parent_id, title, kind, status, created_at) VALUES
+  ('rm-0002', 'rm-0001', NULL, 'epic', 'epic', 'open', 't'),
+  ('rm-0003', 'rm-0001', 'rm-0002', 'design', 'design', 'reported', 't'),
+  ('rm-0004', 'rm-0001', NULL, 'build', 'build', 'open', 't');
+INSERT INTO deps (item_id, on_id, type) VALUES ('rm-0004', 'rm-0003', 'blocks');
+INSERT INTO item_paths (item_id, glob) VALUES ('rm-0004', 'src/a/**');
+INSERT INTO events (at, actor, roadmap_id, item_id, type, payload_json) VALUES
+  ('t', 'm1', 'rm-0001', 'rm-0003', 'item-added', '{}'),
+  ('t', 'm1', 'rm-0001', 'rm-0004', 'item-added', '{}');")
+
 (defn embedded-files ()
   (let (files (collect (map (iter (migration-sources))
                          (fn (migration)
                            (clone (:file migration))))))
     (sort! files)
     files))
+
+(defn count-roadmaps (connection)
+  (len (unwrap-ok (query connection "SELECT id FROM roadmaps" (ref (vec))))))
+
+(defn stored-above-newest (name)
+  (let (connection (opened name))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    (unwrap-ok (run-batch (ref connection)
+                          (as-str (str "PRAGMA user_version = "
+                                       (inc (newest-version))
+                                       ";"))))
+    connection))
+
+(defn newest-version ()
+  (-> (migration-sources) iter (map :version) max unwrap))
+
+(defn upgraded-from-version-one (name)
+  (let (connection (opened name))
+    (unwrap-ok (migrate (ref connection) (first-migration-only)))
+    (unwrap-ok (run-batch (ref connection) version-one-rows))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    connection))
+
+(defn opened (name)
+  (unwrap-ok (open (as-str (scratch-database name)))))
+
+(defn first-migration-only ()
+  (collect (map (filter (iter (migration-sources))
+                  (fn (migration)
+                    (= (:version migration) 1)))
+                clone)))
+
+(defn row-count (connection table)
+  (len (unwrap-ok (query connection
+                         (as-str (str "SELECT * FROM " table))
+                         (ref (vec))))))
 
 (deftest every-migration-file-is-embedded
   (assert (= (embedded-files)
@@ -31,12 +79,6 @@
     (fn (migration)
       (assert (= (clone (:sql migration))
                  (unwrap-ok (slurp (str "migrations/" (:file migration)))))))))
-
-(defn opened (name)
-  (unwrap-ok (open (as-str (scratch-database name)))))
-
-(defn count-roadmaps (connection)
-  (len (unwrap-ok (query connection "SELECT id FROM roadmaps" (ref (vec))))))
 
 (deftest a-new-database-reaches-the-latest-version
   (let (connection (opened "latest"))
@@ -86,18 +128,6 @@
     (assert (= (migrate (ref connection) (migration-sources))
                (ok (newest-version))))))
 
-(defn newest-version ()
-  (-> (migration-sources) iter (map :version) max unwrap))
-
-(defn stored-above-newest (name)
-  (let (connection (opened name))
-    (unwrap-ok (migrate (ref connection) (migration-sources)))
-    (unwrap-ok (run-batch (ref connection)
-                          (as-str (str "PRAGMA user_version = "
-                                       (inc (newest-version))
-                                       ";"))))
-    connection))
-
 (deftest a-ledger-above-the-newest-migration-is-refused-as-too-new
   (let (connection (stored-above-newest "too-new-refused"))
     (assert (= (:problem (unwrap-err (migrate (ref connection)
@@ -110,36 +140,6 @@
     (unwrap-err (migrate (ref connection) (migration-sources)))
     (assert (= (unwrap-ok (schema-version (ref connection)))
                (inc (newest-version))))))
-
-(def version-one-rows
-  "INSERT INTO roadmaps (id, name, manager_session, created_at) VALUES ('rm-0001', 'road', 'm1', 't');
-INSERT INTO items (id, roadmap_id, parent_id, title, kind, status, created_at) VALUES
-  ('rm-0002', 'rm-0001', NULL, 'epic', 'epic', 'open', 't'),
-  ('rm-0003', 'rm-0001', 'rm-0002', 'design', 'design', 'reported', 't'),
-  ('rm-0004', 'rm-0001', NULL, 'build', 'build', 'open', 't');
-INSERT INTO deps (item_id, on_id, type) VALUES ('rm-0004', 'rm-0003', 'blocks');
-INSERT INTO item_paths (item_id, glob) VALUES ('rm-0004', 'src/a/**');
-INSERT INTO events (at, actor, roadmap_id, item_id, type, payload_json) VALUES
-  ('t', 'm1', 'rm-0001', 'rm-0003', 'item-added', '{}'),
-  ('t', 'm1', 'rm-0001', 'rm-0004', 'item-added', '{}');")
-
-(defn first-migration-only ()
-  (collect (map (filter (iter (migration-sources))
-                  (fn (migration)
-                    (= (:version migration) 1)))
-                clone)))
-
-(defn upgraded-from-version-one (name)
-  (let (connection (opened name))
-    (unwrap-ok (migrate (ref connection) (first-migration-only)))
-    (unwrap-ok (run-batch (ref connection) version-one-rows))
-    (unwrap-ok (migrate (ref connection) (migration-sources)))
-    connection))
-
-(defn row-count (connection table)
-  (len (unwrap-ok (query connection
-                         (as-str (str "SELECT * FROM " table))
-                         (ref (vec))))))
 
 (deftest the-accepted-migration-keeps-every-row
   (let (connection (upgraded-from-version-one "accepted-keeps-rows"))

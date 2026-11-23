@@ -3,16 +3,8 @@
 (use ledger/core/snapshot scope)
 (use support/items roadmap-of)
 
-(defn roadmaps ()
-  (vec (roadmap-of "road" "m1")
-       (roadmap-of "other" "m2")
-       (roadmap-of "third" "m1")))
-
 (defn one (id)
   (scope/one-roadmap (->roadmap-id :value (str id))))
-
-(defn session-named (name)
-  (->session :name (str name)))
 
 (type selected-ids
   (fn (scope (option (ref str)))
@@ -26,6 +18,14 @@
       (map (fn (roadmap)
              (clone (:value (:id roadmap)))))
       collect))
+
+(defn roadmaps ()
+  (vec (roadmap-of "road" "m1")
+       (roadmap-of "other" "m2")
+       (roadmap-of "third" "m1")))
+
+(defn session-named (name)
+  (->session :name (str name)))
 
 (deftest with-no-filter-every-roadmap-is-kept
   (assert (= (selected-ids scope/every-roadmap none)

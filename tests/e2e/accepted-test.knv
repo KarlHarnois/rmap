@@ -30,23 +30,6 @@
   (run-rmap (clone (:database ledger))
             (vec "item" "close" (as-str (:research ledger)))))
 
-(deftest closing-a-reported-research-item-accepts-it
-  (let (reply (closed (ref (reported-ledger "e2e-accept-close"))))
-    (assert (= (:exit-code reply) 0))
-    (assert (= (text-at (ref reply) "item" "status")
-               (str "accepted")))
-    (assert (not (null? (ref (-> (ref (:json reply))
-                                 (field "item")
-                                 unwrap
-                                 (field "closed_at")
-                                 unwrap)))))))
-
-(deftest closing-an-accepted-item-again-is-refused
-  (let (ledger (reported-ledger "e2e-accept-twice"))
-    (assert (= (:exit-code (closed (ref ledger))) 0))
-    (assert (= (error-code (ref (closed (ref ledger))))
-               (str "invalid-transition")))))
-
 (type last-changes
   (fn ((ref reported-ledger)) json))
 
@@ -65,17 +48,6 @@
                (field which)
                unwrap)))
 
-(deftest the-close-event-records-the-status-and-close-time
-  (let (ledger (reported-ledger "e2e-accept-event"))
-    (closed (ref ledger))
-    (let (changes (last-changes (ref ledger)))
-      (assert (= (json->text (side (ref changes) "status" "old"))
-                 (some (str "reported"))))
-      (assert (= (json->text (side (ref changes) "status" "new"))
-                 (some (str "accepted"))))
-      (assert (null? (ref (side (ref changes) "closed_at" "old"))))
-      (assert (not (null? (ref (side (ref changes) "closed_at" "new"))))))))
-
 (type ready-ids
   (fn ((ref reported-ledger))
     (vec string)))
@@ -87,6 +59,34 @@
                                                             "ready")))))
                   (fn (item)
                     (unwrap (json->text (unwrap (field item "id")))))))))
+
+(deftest closing-a-reported-research-item-accepts-it
+  (let (reply (closed (ref (reported-ledger "e2e-accept-close"))))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (text-at (ref reply) "item" "status")
+               (str "accepted")))
+    (assert (not (null? (ref (-> (ref (:json reply))
+                                 (field "item")
+                                 unwrap
+                                 (field "closed_at")
+                                 unwrap)))))))
+
+(deftest closing-an-accepted-item-again-is-refused
+  (let (ledger (reported-ledger "e2e-accept-twice"))
+    (assert (= (:exit-code (closed (ref ledger))) 0))
+    (assert (= (error-code (ref (closed (ref ledger))))
+               (str "invalid-transition")))))
+
+(deftest the-close-event-records-the-status-and-close-time
+  (let (ledger (reported-ledger "e2e-accept-event"))
+    (closed (ref ledger))
+    (let (changes (last-changes (ref ledger)))
+      (assert (= (json->text (side (ref changes) "status" "old"))
+                 (some (str "reported"))))
+      (assert (= (json->text (side (ref changes) "status" "new"))
+                 (some (str "accepted"))))
+      (assert (null? (ref (side (ref changes) "closed_at" "old"))))
+      (assert (not (null? (ref (side (ref changes) "closed_at" "new"))))))))
 
 (deftest a-dependent-waits-until-the-report-is-accepted
   (let (ledger (reported-ledger "e2e-accept-unblocks")

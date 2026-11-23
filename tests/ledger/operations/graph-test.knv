@@ -4,12 +4,6 @@
 (use support/ledger blocked-research refusal-code-of
                     research scratch-ledger)
 
-(defn mermaid-request (roadmap level)
-  (->graph-request :roadmap roadmap
-                   :history history/with-merged
-                   :level level
-                   :format graph-format/mermaid))
-
 (defn draws-without-writing? (name level)
   (let (settings (scratch-ledger name)
         blocker (research (ref settings))
@@ -21,6 +15,12 @@
             event-count)
          (= (unwrap-ok (list-items (ref settings) none))
             items-before))))
+
+(defn mermaid-request (roadmap level)
+  (->graph-request :roadmap roadmap
+                   :history history/with-merged
+                   :level level
+                   :format graph-format/mermaid))
 
 (deftest drawing-the-graph-writes-no-event-and-changes-no-row
   (assert (draws-without-writing? "graph-read-only" graph-level/item)))
