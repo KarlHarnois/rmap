@@ -31,8 +31,7 @@
   :operands (vec string)
   :flags (vec flag-spec))
 
-(type word-count
-  (fn ((ref route)) usize))
+(type word-count (fn ((ref route)) int))
 
 (defn word-count (route)
   (len (:words route)))

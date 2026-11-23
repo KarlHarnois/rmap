@@ -1,11 +1,11 @@
 (module
-  "Writes the output of `rmap help` into the code block of the README's Use section.")
+  "Writes the output of `rmap help` into the code block of the README's Usage section.")
 
 (use process/command ->command run-command)
 
 (def readme-path "README.md")
 
-(def use-heading "## Use")
+(def usage-heading "## Usage")
 
 (def block-start "```text")
 
@@ -32,7 +32,7 @@
 
 (defn transitions ()
   (vec (->transition :from readme-part/before-use
-                     :marker (str use-heading)
+                     :marker (str usage-heading)
                      :to readme-part/in-use)
        (->transition :from readme-part/in-use
                      :marker (str block-start)
@@ -78,7 +78,7 @@
   (if (= part readme-part/after-block)
     (ok (str (join kept "\n") "\n"))
     (err (str readme-path " has no " block-start
-              " block under " use-heading))))
+              " block under " usage-heading))))
 
 (defn appended (items extra)
   (let (all items) (push! all extra) all))

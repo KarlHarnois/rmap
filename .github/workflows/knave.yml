@@ -7,9 +7,6 @@ on:
 permissions:
   contents: read
 
-env:
-  KNAVE_VERSION: "0.20.1"
-
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -17,6 +14,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Read the Knave version from project.knv
+        run: |
+          versions=$(awk '{ out = ""; for (i = 1; i <= length($0); i++) { c = substr($0, i, 1); if (escaped) escaped = 0; else if (quoted && c == "\\") escaped = 1; else if (c == "\"") quoted = !quoted; else if (!quoted && c == ";") break; out = out c } print out }' project.knv | grep -o ':knave "[^"]*"' | cut -d '"' -f 2 || true)
+          test -n "$versions" || { echo "::error file=project.knv::project.knv records no :knave \"x.y.z\" on one line"; exit 1; }
+          test "$(echo "$versions" | wc -l)" -eq 1 || { echo "::error file=project.knv::project.knv records more than one :knave version"; exit 1; }
+          echo "KNAVE_VERSION=$versions" >> "$GITHUB_ENV"
       - id: knave-cache
         uses: actions/cache/restore@v4
         with:
@@ -34,26 +37,13 @@ jobs:
           key: ${{ steps.knave-cache.outputs.cache-primary-key }}
       - name: Check the layout
         run: knave fmt --check
-      - name: Lint the app
+      - name: Lint the app and its tests
         run: knave lint
       - name: Lint the tasks
         run: |
           status=0
           for task in tasks/*.knv; do
             knave lint "$task" || status=1
-          done
-          exit $status
-      - name: Lint the tests, without needless-type, from a copy that places them under src
-        run: |
-          copy="$RUNNER_TEMP/test-lint"
-          mkdir -p "$copy"
-          git archive HEAD | tar -x -C "$copy"
-          cp -r tests/. "$copy/src/"
-          sed -i 's/(needless-type [a-z]*)/(needless-type allow)/' "$copy/project.knv"
-          cd "$copy"
-          status=0
-          for test in $(cd tests && find . -name '*-test.knv' | sort); do
-            knave lint "src/${test#./}" || status=1
           done
           exit $status
       - name: Keep source files under 150 lines
@@ -92,13 +82,15 @@ jobs:
             echo "$changed"
             exit 1
           fi
+      - name: Build
+        run: knave build
       - name: Test
         run: knave test
       - name: Keep the README's `rmap help` in sync with the CLI
         run: |
           knave task sync-readme-help
           if ! git diff --exit-code README.md; then
-            echo "The Use section of README.md no longer matches \`rmap help\`. Run \`knave task sync-readme-help\` and commit README.md."
+            echo "The Usage section of README.md no longer matches \`rmap help\`. Run \`knave task sync-readme-help\` and commit README.md."
             exit 1
           fi
   nix:
