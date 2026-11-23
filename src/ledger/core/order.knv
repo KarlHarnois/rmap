@@ -1,5 +1,5 @@
 (module
-  "Orders ready items: user bugs first, then higher priority, then older, then by id.")
+  "Orders ready items: user bugs first, then a lower priority number, then older, then by id.")
 
 (use ledger/model item origin)
 
@@ -14,7 +14,7 @@
 
 (defn order-key (item)
   (pair (origin-rank (:origin item))
-        (pair (neg (:priority item))
+        (pair (:priority item)
               (pair (clone (:value (:created-at item)))
                     (clone (:value (:id item)))))))
 

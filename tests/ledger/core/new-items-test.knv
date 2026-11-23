@@ -1,0 +1,41 @@
+(use ledger/model ->roadmap-id ->snapshot kind origin)
+(use ledger/refusal refusal)
+(use ledger/core/new-items ->new-item check-new-item)
+
+(defn refusal-of (priority)
+  (match (checked priority)
+    ((err refused) (some refused))
+    ((ok _) none)))
+
+(defn checked (priority)
+  (let (request (draft priority)
+        snapshot (->snapshot :items (vec)
+                             :deps (vec)
+                             :globs (vec))
+        roadmap-id (->roadmap-id :value (str "rm-0001")))
+    (check-new-item (ref snapshot)
+                    (ref roadmap-id)
+                    (ref request))))
+
+(defn draft (priority)
+  (->new-item :parent none
+              :title (str "work")
+              :kind kind/research
+              :origin origin/planned
+              :priority priority
+              :globs (vec)
+              :blocked-by (vec)
+              :discovered-from none))
+
+(deftest a-priority-below-zero-is-refused
+  (assert (= (refusal-of -1)
+             (some (refusal/priority-out-of-range -1)))))
+
+(deftest a-priority-above-four-is-refused
+  (assert (= (refusal-of 5)
+             (some (refusal/priority-out-of-range 5)))))
+
+(deftest priorities-from-zero-to-four-are-accepted
+  (for-each (vec 0 1 2 3 4)
+    (fn (priority)
+      (assert (ok? (checked priority))))))

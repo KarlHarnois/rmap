@@ -16,7 +16,7 @@
 
 (export envelope error-envelope reply-envelope)
 
-(def output-schema-version 2)
+(def output-schema-version 3)
 
 (defn error-envelope (code message details)
   (let (fields details)

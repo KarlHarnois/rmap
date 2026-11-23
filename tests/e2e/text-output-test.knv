@@ -66,7 +66,7 @@
                (str "Ready:\n"
                     "  ID       ROADMAP  KIND      STATUS  PRIORITY  TITLE\n"
                     "  " research
-                    "  road     research  open    0         r\n"
+                    "  road     research  open    2         r\n"
                     "\n" "Blocked:\n" "  " design "  d\n"
                     "    waits on " research "\n")))))
 
@@ -114,4 +114,4 @@
                        (as-str (str "\n\nChildren:\n"
                                     "  ID       ROADMAP  KIND      STATUS  PRIORITY  TITLE\n"
                                     "  " child
-                                    "  road     research  open    0         c\n"))))))
+                                    "  road     research  open    2         c\n"))))))

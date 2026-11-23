@@ -19,7 +19,7 @@
                         (vec "new" "road" "--manager" "m1")))
     (assert (= (:exit-code reply) 0))
     (assert (= (json->int (unwrap (field (:json reply) "schema_version")))
-               (some 2)))))
+               (some 3)))))
 
 (deftest a-refusal-exits-one-with-its-code
   (let (reply (run-rmap (database-with-roadmap "exit-one")

@@ -3,6 +3,7 @@
 (use ledger/sqlite/connection database-problem execute open
                               query run-batch)
 
+(use ledger/sqlite/rows int-cell rows->values)
 (use ledger/sqlite/schema-versions ->schema-versions)
 
 (use ledger/sqlite/migrations ->migration migrate
@@ -26,6 +27,16 @@ INSERT INTO item_paths (item_id, glob) VALUES ('rm-0004', 'src/a/**');
 INSERT INTO events (at, actor, roadmap_id, item_id, type, payload_json) VALUES
   ('t', 'm1', 'rm-0001', 'rm-0003', 'item-added', '{}'),
   ('t', 'm1', 'rm-0001', 'rm-0004', 'item-added', '{}');")
+
+(def priority-rows
+  "INSERT INTO roadmaps (id, name, manager_session, created_at) VALUES ('rm-0001', 'road', 'm1', 't');
+INSERT INTO items (id, roadmap_id, title, kind, status, priority, created_at) VALUES
+  ('rm-0002', 'rm-0001', 'a', 'research', 'open', -1, 't'),
+  ('rm-0003', 'rm-0001', 'b', 'research', 'open', 0, 't'),
+  ('rm-0004', 'rm-0001', 'c', 'research', 'open', 1, 't'),
+  ('rm-0005', 'rm-0001', 'd', 'research', 'open', 2, 't'),
+  ('rm-0006', 'rm-0001', 'e', 'research', 'open', 3, 't'),
+  ('rm-0007', 'rm-0001', 'f', 'research', 'open', 7, 't');")
 
 (defn embedded-files ()
   (let (files (collect (map (iter (migration-sources))
@@ -69,6 +80,24 @@ INSERT INTO events (at, actor, roadmap_id, item_id, type, payload_json) VALUES
   (len (unwrap-ok (query connection
                          (as-str (str "SELECT * FROM " table))
                          (ref (vec))))))
+
+(defn remapped-priorities (name)
+  (let (connection (opened name))
+    (unwrap-ok (migrate (ref connection) (migrations-through 2)))
+    (unwrap-ok (run-batch (ref connection) priority-rows))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    (let-try (rows (query connection
+                          "SELECT priority FROM items ORDER BY id"
+                          (ref (vec))))
+      (rows->values (ref rows) row->priority))))
+
+(defn row->priority (row) (int-cell row 0))
+
+(defn migrations-through (version)
+  (collect (map (filter (iter (migration-sources))
+                  (fn (migration)
+                    (<= (:version migration) version)))
+                clone)))
 
 (deftest every-migration-file-is-embedded
   (assert (= (embedded-files)
@@ -171,3 +200,7 @@ INSERT INTO events (at, actor, roadmap_id, item_id, type, payload_json) VALUES
                (ref (upgraded-from-version-one "accepted-indexes"))
                "sqlite_schema WHERE name IN ('items_roadmap', 'events_item')")
              2)))
+
+(deftest the-priority-migration-remaps-existing-priorities
+  (assert (= (unwrap-ok (remapped-priorities "priority-remap"))
+             (vec 4 3 2 1 0 0))))

@@ -18,6 +18,7 @@
   parent-in-other-roadmap
   epic-has-parent
   build-needs-paths
+  priority-out-of-range
   epic-status-computed
   invalid-kind-change
   invalid-transition
@@ -38,6 +39,7 @@
                            refusal-code/parent-in-other-roadmap
                            refusal-code/epic-has-parent
                            refusal-code/build-needs-paths
+                           refusal-code/priority-out-of-range
                            refusal-code/epic-status-computed
                            refusal-code/invalid-kind-change
                            refusal-code/invalid-transition
@@ -60,6 +62,8 @@
      refusal-code/parent-in-other-roadmap)
     (refusal/epic-has-parent refusal-code/epic-has-parent)
     (refusal/build-needs-globs refusal-code/build-needs-paths)
+    ((refusal/priority-out-of-range _)
+     refusal-code/priority-out-of-range)
     (refusal/epic-status-computed refusal-code/epic-status-computed)
     (refusal/invalid-kind-change refusal-code/invalid-kind-change)
     ((refusal/invalid-transition _ _)
@@ -85,6 +89,8 @@
                                 "An epic cannot have a parent."))
     (build-needs-paths (described "build-needs-paths"
                                   "A build needs at least one path."))
+    (priority-out-of-range (described "priority-out-of-range"
+                                      "A priority must be from 0 (highest) to 4 (lowest)."))
     (epic-status-computed (described "epic-status-computed"
                                      "An epic's status comes from its children, so no command moves it."))
     (invalid-kind-change (described "invalid-kind-change"
