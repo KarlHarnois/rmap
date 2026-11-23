@@ -21,6 +21,8 @@
 (defstruct group-id
   :value string)
 
+(derive group-id clone partial-eq eq hash show ord)
+
 (defstruct progress
   :merged int
   :total int)

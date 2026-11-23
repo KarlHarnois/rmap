@@ -3,7 +3,7 @@
 
 (use ledger/model dep-type item-id)
 (use ledger/core/graph/diagram graph-edge)
-(use ledger/core/graph/groups ->group-id group-id)
+(use ledger/core/graph/groups group-id)
 
 (export ->membership ->rolled-edge membership rolled-edge
         rolled-edges)
@@ -24,24 +24,24 @@
     (collect (map (iter counts)
                (fn (entry)
                  (let-match ((pair ends count) entry)
-                   (->rolled-edge :from (->group-id :value (clone (first ends)))
-                                  :to (->group-id :value (clone (second ends)))
+                   (->rolled-edge :from (clone (first ends))
+                                  :to (clone (second ends))
                                   :count (deref count))))))))
 
 (type groups-by-item
   (fn ((vec membership))
-    (sorted-map string string)))
+    (sorted-map string group-id)))
 
 (defn groups-by-item (memberships)
   (into-sorted-map (collect (map (iter memberships)
                               (fn (membership)
                                 (pair (clone (:value (:item membership)))
-                                      (clone (:value (:group membership)))))))))
+                                      (clone (:group membership))))))))
 
 (type group-pairs
   (fn ((ref (vec graph-edge))
-       (ref (sorted-map string string)))
-    (vec (pair string string))))
+       (ref (sorted-map string group-id)))
+    (vec (pair group-id group-id))))
 
 (defn group-pairs (edges groups)
   (let (pairs (vec))
@@ -54,8 +54,8 @@
 
 (type group-pair
   (fn ((ref graph-edge)
-       (ref (sorted-map string string)))
-    (option (pair string string))))
+       (ref (sorted-map string group-id)))
+    (option (pair group-id group-id))))
 
 (defn group-pair (edge groups)
   (if (= (:type edge) dep-type/blocks)
@@ -64,9 +64,9 @@
     none))
 
 (type group-at
-  (fn ((ref (sorted-map string string))
+  (fn ((ref (sorted-map string group-id))
        (ref item-id))
-    (option string)))
+    (option group-id)))
 
 (defn group-at (groups id)
   (map-some (get groups (clone (:value id)))
