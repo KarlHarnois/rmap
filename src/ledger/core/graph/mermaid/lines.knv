@@ -1,20 +1,13 @@
 (module
   "Builds the lines of Mermaid source every level writes: indentation, labelled nodes and item nodes.")
 
+(use ledger/core/graph/append push-all!)
 (use ledger/core/graph/diagram graph-node)
 (use ledger/core/graph/mermaid/text mermaid-id node-label)
 
 (export indented labelled node-line push-all!)
 
 (def indent-unit "  ")
-
-(type push-all!
-  (fn ((mut (vec string)) (vec string))
-    unit))
-
-(defn push-all! (lines extra)
-  (for-each extra
-    (fn (line) (push! lines (clone line)))))
 
 (defn indented (depth text)
   (str (join (collect (map (range 0 depth)

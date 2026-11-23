@@ -7,6 +7,7 @@
 
 (use ledger/core/graph/rolled-edges ->rolled-edge)
 (use ledger/core/graph/rollup node-ids rollup)
+(use ledger/core/graph/mermaid/rollup rollup->mermaid)
 (use ledger/core/snapshot scope)
 
 (use support/items blocks-dep child-of discovered-dep
@@ -41,6 +42,10 @@
 
 (defn gid (id)
   (->group-id :value (str id)))
+
+(defn has-line? (source line)
+  (any? (lines source)
+    (fn (each) (= (trim each) line))))
 
 (type drawn-ids
   (fn ((ref rollup)) (vec string)))
@@ -177,5 +182,7 @@
                                     ((group group) (clone (:value (:id group))))
                                     ((item _) (str "item")))))))
                (vec (pair (str other-roadmap) (str "rm-e2")))))
+    (assert (has-line? (as-str (rollup->mermaid (ref rollup)))
+                       "class rm_e2 external"))
     (assert (= (:edges rollup)
                (vec (edge "rm-e1" "rm-e2" 1))))))

@@ -1,0 +1,60 @@
+(module
+  "Says which group each item of a graph rolls up to at roadmap level: its roadmap. Also names the roadmap's group and the work nodes it holds.")
+
+(use ledger/model roadmap-id)
+(use ledger/core/graph/append push-all!)
+
+(use ledger/core/graph/diagram diagram graph-node
+                               roadmap-cluster)
+
+(use ledger/core/graph/groups ->group-id group-id)
+(use ledger/core/graph/rolled-edges ->membership membership)
+
+(export roadmap-group-id roadmap-memberships work-nodes)
+
+(type roadmap-group-id
+  (fn ((ref roadmap-id)) group-id))
+
+(defn roadmap-group-id (id)
+  (->group-id :value (clone (:value id))))
+
+(type roadmap-memberships
+  (fn ((ref diagram)) (vec membership)))
+
+(defn roadmap-memberships (whole)
+  (let (memberships (vec))
+    (for-each (:clusters whole)
+      (fn (cluster)
+        (push-all! memberships (members-of-roadmap cluster))))
+    memberships))
+
+(type work-nodes
+  (fn ((ref roadmap-cluster))
+    (vec graph-node)))
+
+(defn work-nodes (cluster)
+  (let (nodes (clone (:nodes cluster)))
+    (for-each (:epics cluster)
+      (fn (epic)
+        (for-each (:children epic)
+          (fn (child) (push! nodes (clone child))))))
+    nodes))
+
+(type members-of-roadmap
+  (fn ((ref roadmap-cluster))
+    (vec membership)))
+
+(defn members-of-roadmap (cluster)
+  (let (group (roadmap-group-id (ref (:id (:roadmap cluster))))
+        memberships (vec))
+    (for-each (:epics cluster)
+      (fn (epic)
+        (push! memberships
+               (->membership :item (clone (:id (:epic epic)))
+                             :group (clone group)))))
+    (for-each (work-nodes cluster)
+      (fn (node)
+        (push! memberships
+               (->membership :item (clone (:id (:item node)))
+                             :group (clone group)))))
+    memberships))
