@@ -17,4 +17,8 @@
                     :sql (str "UPDATE items SET priority = MIN(4, MAX(0, 3 - priority));\n"))
        (->migration :version 4
                     :file (str "0004-item-description.sql")
-                    :sql (str "ALTER TABLE items ADD COLUMN description TEXT;\n"))))
+                    :sql (str
+                           "ALTER TABLE items ADD COLUMN description TEXT;\n"))
+       (->migration :version 5
+                    :file (str "0005-remove-item-paths.sql")
+                    :sql (str "DROP TABLE item_paths;\n"))))

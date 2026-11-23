@@ -5,7 +5,7 @@
                    item-moved-text items-text)
 
 (use support/items blocks-dep child-of claimed epic-item
-                   glob-of id-of work-item)
+                   id-of work-item)
 
 (deftest adding-an-item-names-its-id-kind-and-title
   (assert (= (item-added-text (ref
@@ -26,7 +26,7 @@
   (assert (= (items-text (ref (the (vec item) (vec))))
              (str "No items."))))
 
-(deftest item-detail-lists-its-claim-paths-and-dependencies
+(deftest item-detail-lists-its-claim-and-dependencies
   (let (detail (->item-detail :item (claimed (work-item "rm-0002"
                                                         kind/build
                                                         status/dispatched))
@@ -34,28 +34,25 @@
                                          (->dep :item (id-of "rm-0002")
                                                 :on (id-of "rm-0009")
                                                 :type dep-type/discovered-from))
-                              :globs (vec (glob-of "src/**"))
                               :children (vec)))
     (assert (= (item-detail-text (ref detail))
-               (str "rm-0002  work\n  roadmap          rm-road\n  kind             build\n  status           dispatched\n  claimed by       worker\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  paths            src/**\n  after            rm-0001\n  discovered from  rm-0009")))))
+               (str "rm-0002  work\n  roadmap          rm-road\n  kind             build\n  status           dispatched\n  claimed by       worker\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  after            rm-0001\n  discovered from  rm-0009")))))
 
 (deftest item-detail-prints-a-description-section-after-the-rows
   (let (detail (->item-detail
                  :item (assoc (work-item "rm-0001" kind/research status/open)
                               :description (some (str "line one\nline two")))
                  :deps (vec)
-                 :globs (vec)
                  :children (vec)))
     (assert (= (item-detail-text (ref detail))
-               (str "rm-0001  work\n  roadmap          rm-road\n  kind             research\n  status           open\n  claimed by       -\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  paths            -\n  after            -\n  discovered from  -\n\nDescription:\n  line one\n  line two")))))
+               (str "rm-0001  work\n  roadmap          rm-road\n  kind             research\n  status           open\n  claimed by       -\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  after            -\n  discovered from  -\n\nDescription:\n  line one\n  line two")))))
 
 (deftest an-epic-detail-lists-its-children-under-a-heading
   (let (detail (->item-detail :item (epic-item "rm-0001")
                               :deps (vec)
-                              :globs (vec)
                               :children (vec (child-of (work-item "rm-0002"
                                                                   kind/build
                                                                   status/merged)
                                                        "rm-0001"))))
     (assert (= (item-detail-text (ref detail))
-               (str "rm-0001  work\n  roadmap          rm-road\n  kind             epic\n  status           open\n  claimed by       -\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  paths            -\n  after            -\n  discovered from  -\n\nChildren:\n  ID       ROADMAP  KIND   STATUS  PRIORITY  TITLE\n  rm-0002  road     build  merged  0         work")))))
+               (str "rm-0001  work\n  roadmap          rm-road\n  kind             epic\n  status           open\n  claimed by       -\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  after            -\n  discovered from  -\n\nChildren:\n  ID       ROADMAP  KIND   STATUS  PRIORITY  TITLE\n  rm-0002  road     build  merged  0         work")))))

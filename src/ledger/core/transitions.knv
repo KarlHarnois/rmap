@@ -1,9 +1,7 @@
 (module
   "Decides whether a move is a legal transition for an item in the ledger.")
 
-(use ledger/model ->path-lock glob item kind path-lock
-                  snapshot status)
-
+(use ledger/model item kind status)
 (use ledger/refusal refusal)
 
 (use ledger/core/move move move-type move-type-of
@@ -12,9 +10,6 @@
 (use ledger/core/ready blockage-of unblocked?)
 (use ledger/core/index index-of)
 (use ledger/core/phases unfinished-statuses)
-(use ledger/core/new-items distinct)
-(use ledger/core/path-conflicts conflicts-with-active-builds)
-(use ledger/core/snapshot globs-of)
 
 (export approved-move)
 
@@ -24,25 +19,9 @@
   :steps (vec (pair status status)))
 
 (defn approved-move (snapshot item move)
-  (let (resolved (with-stored-globs snapshot item move))
-    (let-try (_ (check-table item (ref resolved))
-              _ (check-ledger snapshot item (ref resolved)))
-      (ok resolved))))
-
-(defn with-stored-globs (snapshot item move)
-  (match move
-    ((move/advance-to-build globs)
-     (move/advance-to-build (globs-or-stored snapshot item globs)))
-    (other other)))
-
-(type globs-or-stored
-  (fn ((ref snapshot) (ref item) (vec glob))
-    (vec glob)))
-
-(defn globs-or-stored (snapshot item globs)
-  (distinct (ref (if (empty? globs)
-                   (globs-of snapshot (ref (:id item)))
-                   globs))))
+  (let-try (_ (check-table item (ref move))
+            _ (check-ledger snapshot item (ref move)))
+    (ok move)))
 
 (type check-table
   (fn ((ref item) (ref move))
@@ -111,8 +90,6 @@
 (defn check-ledger (snapshot item move)
   (match move
     ((move/claim _) (check-ready snapshot item))
-    ((move/advance-to-build globs)
-     (check-free-globs snapshot item globs))
     (_ (ok (do)))))
 
 (defn check-ready (snapshot item)
@@ -120,20 +97,3 @@
     (if (unblocked? (ref blockage))
       (ok (do))
       (err (refusal/not-ready blockage)))))
-
-(defn check-free-globs (snapshot item globs)
-  (let (conflicts (conflicts-with-active-builds (ref (index-of snapshot))
-                                                (ref (build-lock item globs))))
-    (cond
-      ((empty? globs) (err refusal/build-needs-globs))
-      ((empty? conflicts) (ok (do)))
-      (else (err (refusal/paths-conflict conflicts))))))
-
-(type build-lock
-  (fn ((ref item) (ref (vec glob)))
-    path-lock))
-
-(defn build-lock (item globs)
-  (->path-lock :item (clone (:id item))
-               :kind kind/build
-               :globs (clone globs)))

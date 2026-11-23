@@ -1,11 +1,10 @@
 (module
   "Reads typed values out of the command line's flags.")
 
-(use ledger/api ->glob case-named)
+(use ledger/api ->item-id case-named)
 (use cli/arguments arguments)
-(use ledger/api ->item-id)
 
-(export glob-list id-list optional-choice optional-number
+(export id-list optional-choice optional-number
         optional-text required-choice required-text
         switch-on? text-list)
 
@@ -34,11 +33,6 @@
     ((some text)
      (map-ok (text->named (as-str text) name names) some))
     (none (ok none))))
-
-(defn glob-list (arguments name)
-  (collect (map (iter (text-list arguments name))
-             (fn (pattern)
-               (->glob :pattern (clone pattern))))))
 
 (defn id-list (arguments name)
   (collect (map (iter (text-list arguments name))

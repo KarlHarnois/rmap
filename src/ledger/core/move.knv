@@ -3,11 +3,11 @@
 
 (use ledger/refusal refusal)
 (use ledger/core/phases finished?)
-(use ledger/model claim glob item kind session status)
+(use ledger/model claim item kind session status)
 
 (export ->advancement advancement advancement->move
         kind-change move move-type move-type-of moved
-        new-globs target-status)
+        target-status)
 
 (defenum move-type
   claim
@@ -19,7 +19,7 @@
 (defenum move
   (claim session)
   (advance status)
-  (advance-to-build (vec glob))
+  advance-to-build
   close
   (drop string))
 
@@ -29,26 +29,21 @@
 
 (defenum kind-change
   keep-kind
-  (become-build (vec glob)))
+  become-build)
 
 (defn advancement->move (advancement)
   (let-match ((advancement :to target :kind-change change) advancement)
     (match change
       (keep-kind (ok (move/advance target)))
-      ((become-build globs) (build-move target globs)))))
+      (become-build (build-move target)))))
 
 (defn move-type-of (move)
   (match move
     ((move/claim _) move-type/claim)
     ((move/advance _) move-type/advance)
-    ((move/advance-to-build _) move-type/advance-to-build)
+    (move/advance-to-build move-type/advance-to-build)
     (move/close move-type/close)
     ((move/drop _) move-type/drop)))
-
-(defn new-globs (move)
-  (match move
-    ((move/advance-to-build globs) (some (clone globs)))
-    (_ none)))
 
 (defn moved (item move now)
   (let (target (target-status item move))
@@ -65,13 +60,13 @@
   (match move
     ((move/claim _) status/dispatched)
     ((move/advance target) target)
-    ((move/advance-to-build _) status/dispatched)
+    (move/advance-to-build status/dispatched)
     (move/close (closed-status (:kind item)))
     ((move/drop _) status/dropped)))
 
-(defn build-move (target globs)
+(defn build-move (target)
   (if (= target status/dispatched)
-    (ok (move/advance-to-build globs))
+    (ok move/advance-to-build)
     (err refusal/invalid-kind-change)))
 
 (defn closed-status (kind)
@@ -97,7 +92,7 @@
 
 (defn kind-after (item move)
   (match move
-    ((move/advance-to-build _) kind/build)
+    (move/advance-to-build kind/build)
     (_ (:kind item))))
 
 (defn closed-at-after (item target now)

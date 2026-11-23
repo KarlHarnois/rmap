@@ -26,7 +26,7 @@
       (map-some clone)))
 
 (defn alone (item)
-  (snapshot-of (vec item) (vec) (vec)))
+  (snapshot-of (vec item) (vec)))
 
 (defn taken-by (planned)
   (map-some planned
@@ -38,8 +38,7 @@
 (defn blocked-pair ()
   (snapshot-of (vec (work-item "rm-0001" kind/design status/open)
                     (work-item "rm-0002" kind/build status/in-review))
-               (vec (blocks-dep "rm-0001" "rm-0002"))
-               (vec)))
+               (vec (blocks-dep "rm-0001" "rm-0002"))))
 
 (defn action-of-first (snapshot)
   (clone (unwrap (first (:actions (unwrap (first (next-in (clone
@@ -167,7 +166,6 @@
                                                                   kind/build
                                                                   status/merged)
                                                        "rm-0001"))
-                                        (vec)
                                         (vec))))))
 
 (deftest a-merged-item-is-not-listed
@@ -185,7 +183,6 @@
                                :priority 4)
                         (assoc (work-item "rm-0002" kind/research status/open)
                                :priority 0))
-                   (vec)
                    (vec))))
     (assert (= (ids-of (ref listed))
                (vec (str "rm-0002") (str "rm-0001"))))))
@@ -196,7 +193,6 @@
                         (in-roadmap
                           (work-item "rm-0002" kind/research status/open)
                           "rm-other"))
-                   (vec)
                    (vec))
         listed (next-of (ref snapshot)
                         (ref (vec (roadmap-of "rm-other" "manager") (road)))))

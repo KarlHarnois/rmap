@@ -1,5 +1,5 @@
 (module
-  "Adds an item with its paths and dependencies.")
+  "Adds an item with its dependencies.")
 
 (use ledger/model ->dep ->item ->item-id claim dep dep-type
                   item item-id roadmap-id status timestamp)
@@ -9,7 +9,6 @@
 
 (use ledger/sqlite/items insert-item)
 (use ledger/sqlite/deps insert-deps)
-(use ledger/sqlite/item-paths insert-globs)
 (use ledger/sqlite/snapshot load-snapshot)
 (use ledger/sqlite/generated fresh-id)
 
@@ -91,9 +90,6 @@
 (defn store-item (transaction item request)
   (let-try (_ (insert-item (ref (:connection transaction))
                            (ref item))
-            _ (insert-globs (ref (:connection transaction))
-                            (ref (:id item))
-                            (ref (:globs request)))
             _ (insert-deps (ref (:connection transaction))
                            (ref (draft-deps (ref item) request)))
             _ (record transaction (item-added (ref item) request)))

@@ -44,34 +44,31 @@
              (fn (id) (clone (:value id))))))
 
 (deftest an-edge-between-two-items-of-one-roadmap-disappears
-  (assert (empty? (:edges (everywhere (snapshot-of (vec (task "rm-a" "rm-r1")
-                                                        (task "rm-b" "rm-r1"))
-                                                   (vec (blocks-dep "rm-b"
-                                                                    "rm-a"))
-                                                   (vec)))))))
+  (assert (empty? (:edges (everywhere (snapshot-of
+                                        (vec (task "rm-a" "rm-r1")
+                                             (task "rm-b" "rm-r1"))
+                                        (vec (blocks-dep "rm-b" "rm-a"))))))))
 
 (deftest edges-between-two-roadmaps-merge-into-one-counted-edge
   (assert (= (:edges (everywhere (snapshot-of (vec (task "rm-a" "rm-r1")
                                                    (task "rm-b" "rm-r1")
                                                    (task "rm-c" "rm-r2"))
                                               (vec (blocks-dep "rm-c" "rm-a")
-                                                   (blocks-dep "rm-c" "rm-b"))
-                                              (vec))))
+                                                   (blocks-dep "rm-c"
+                                                               "rm-b")))))
              (vec (edge "rm-r1" "rm-r2" 2)))))
 
 (deftest a-discovered-from-edge-is-absent
-  (assert (empty? (:edges (everywhere (snapshot-of (vec (task "rm-a" "rm-r1")
-                                                        (task "rm-c" "rm-r2"))
-                                                   (vec (discovered-dep "rm-c"
-                                                                        "rm-a"))
-                                                   (vec)))))))
+  (assert (empty? (:edges (everywhere
+                            (snapshot-of
+                              (vec (task "rm-a" "rm-r1") (task "rm-c" "rm-r2"))
+                              (vec (discovered-dep "rm-c" "rm-a"))))))))
 
 (deftest one-roadmap-draws-it-and-the-roadmaps-it-blocks-or-that-block-it
   (let (rollup (rolled (snapshot-of (vec (task "rm-a" "rm-r1")
                                          (task "rm-b" "rm-r2")
                                          (task "rm-c" "rm-r3"))
-                                    (vec (blocks-dep "rm-b" "rm-a"))
-                                    (vec))
+                                    (vec (blocks-dep "rm-b" "rm-a")))
                        (scope/one-roadmap (->roadmap-id :value (str "rm-r2")))))
     (assert (= (drawn-ids (ref rollup))
                (vec (str "rm-r1") (str "rm-r2"))))

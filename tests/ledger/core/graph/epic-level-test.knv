@@ -68,15 +68,14 @@
         (push! items (child (str "rm-b" index) "rm-e2" status/open))
         (push! deps
                (blocks-dep (str "rm-b" index) (str "rm-a" index)))))
-    (snapshot-of items deps (vec))))
+    (snapshot-of items deps)))
 
 (defn merged-epic-blocking-another ()
   (snapshot-of (vec (epic-item "rm-e1")
                     (epic-item "rm-e2")
                     (child "rm-a" "rm-e1" status/merged)
                     (child "rm-b" "rm-e2" status/open))
-               (vec (blocks-dep "rm-b" "rm-a"))
-               (vec)))
+               (vec (blocks-dep "rm-b" "rm-a"))))
 
 (defn child (id epic status)
   (child-of (work-item id kind/build status) epic))
@@ -108,8 +107,7 @@
                                         (vec (epic-item "rm-e1")
                                              (child "rm-a" "rm-e1" status/open)
                                              (child "rm-b" "rm-e1" status/open))
-                                        (vec (blocks-dep "rm-b" "rm-a"))
-                                        (vec)))))))
+                                        (vec (blocks-dep "rm-b" "rm-a"))))))))
 
 (deftest a-discovered-from-edge-is-absent
   (assert (empty? (:edges (everything (snapshot-of
@@ -117,8 +115,8 @@
                                              (epic-item "rm-e2")
                                              (child "rm-a" "rm-e1" status/open)
                                              (child "rm-b" "rm-e2" status/open))
-                                        (vec (discovered-dep "rm-b" "rm-a"))
-                                        (vec)))))))
+                                        (vec (discovered-dep "rm-b"
+                                                             "rm-a"))))))))
 
 (deftest an-item-that-blocks-an-epic-rolls-up-to-an-edge-between-the-groups
   (assert (= (:edges (everything (snapshot-of
@@ -126,8 +124,7 @@
                                      (work-item "rm-x" kind/build status/open)
                                      (epic-item "rm-e2")
                                      (child "rm-b" "rm-e2" status/open))
-                                   (vec (blocks-dep "rm-e2" "rm-x"))
-                                   (vec))))
+                                   (vec (blocks-dep "rm-e2" "rm-x")))))
              (vec (edge "rm-x" "rm-e2" 1)))))
 
 (deftest a-fully-merged-epic-and-its-edges-are-absent-without-all
@@ -150,14 +147,12 @@
                                           (child "rm-a" "rm-e1" status/merged)
                                           (child "rm-b" "rm-e1" status/open)
                                           (child "rm-c" "rm-e1" status/dropped))
-                                     (vec)
                                      (vec)))))
              (vec (pair (str "rm-e1") (->progress :merged 1 :total 2))))))
 
 (deftest an-empty-epic-shows-no-progress
   (assert (= (epic-progress (ref (without-merged (snapshot-of (vec (epic-item
                                                                      "rm-e1"))
-                                                              (vec)
                                                               (vec)))))
              (vec (pair (str "rm-e1") (->progress :merged 0 :total 0))))))
 
@@ -169,8 +164,7 @@
                               (in-roadmap (child "rm-b" "rm-e2" status/open)
                                           other-roadmap)
                               (in-roadmap (epic-item "rm-e3") other-roadmap))
-                         (vec (blocks-dep "rm-b" "rm-a"))
-                         (vec))
+                         (vec (blocks-dep "rm-b" "rm-a")))
                        (scope/one-roadmap (->roadmap-id :value (str "rm-road")))
                        history/without-merged))
     (assert (= (drawn-ids (ref rollup))

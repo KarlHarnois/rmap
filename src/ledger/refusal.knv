@@ -1,7 +1,7 @@
 (module
   "Names each ledger refusal and gives it a sentence for the user.")
 
-(use ledger/model blockage item-id path-conflict status)
+(use ledger/model blockage item-id status)
 (use ledger/names case-name status-names)
 
 (export refusal refusal->message)
@@ -13,13 +13,11 @@
   (parent-not-epic item-id)
   (parent-in-other-roadmap item-id)
   epic-has-parent
-  build-needs-globs
   (priority-out-of-range int)
   epic-status-computed
   invalid-kind-change
   (invalid-transition status status)
   (not-ready blockage)
-  (paths-conflict (vec path-conflict))
   (cycle item-id item-id)
   (dep-exists item-id item-id)
   (dep-not-found item-id item-id))
@@ -38,7 +36,6 @@
           (:value id)
           " belongs to another roadmap"))
     (epic-has-parent (str "an epic cannot have a parent"))
-    (build-needs-globs (str "a build item needs at least one path"))
     ((priority-out-of-range priority)
      (str "a priority must be from 0 (highest) to 4 (lowest), got "
           priority))
@@ -51,8 +48,6 @@
           " to "
           (case-name status-names to)))
     ((not-ready _) (str "the item is not ready"))
-    ((paths-conflict _)
-     (str "the paths conflict with an active build"))
     ((cycle item on)
      (str (:value item)
           " after "

@@ -1,13 +1,13 @@
 (module
-  "Answers questions about one snapshot of the ledger: which item has an id, what it depends on, which globs it holds, and which items a scope covers.")
+  "Answers questions about one snapshot of the ledger: which item has an id, what it depends on, and which items a scope covers.")
 
-(use ledger/model ->path-lock dep dep-type glob item item-id
-                  path-lock roadmap-id snapshot)
+(use ledger/model dep dep-type item item-id roadmap-id
+                  snapshot)
 
 (use ledger/refusal refusal)
 
 (export blocked-by blocks? deps-of existing find-item
-        globs-of in-scope? lock-of scope)
+        in-scope? scope)
 
 (defenum scope
   every-roadmap
@@ -26,26 +26,6 @@
       iter
       (find (fn (item) (= (ref (:id item)) id)))
       (map-some clone)))
-
-(type lock-of
-  (fn ((ref snapshot) (ref item))
-    path-lock))
-
-(defn lock-of (snapshot item)
-  (->path-lock :item (clone (:id item))
-               :kind (:kind item)
-               :globs (globs-of snapshot (ref (:id item)))))
-
-(type globs-of
-  (fn ((ref snapshot) (ref item-id))
-    (vec glob)))
-
-(defn globs-of (snapshot id)
-  (-> (:globs snapshot)
-      iter
-      (filter (fn (path) (= (ref (:item path)) id)))
-      (map (fn (path) (clone (:glob path))))
-      collect))
 
 (defn blocked-by (snapshot id)
   (collect (map (filter (iter (deps-of snapshot id))

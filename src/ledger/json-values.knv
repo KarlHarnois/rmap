@@ -1,5 +1,5 @@
 (module
-  "Turns ledger ids, globs, claims, timestamps and the columns of an item into JSON values.")
+  "Turns ledger ids, claims, timestamps and the columns of an item into JSON values.")
 
 (use json/value array int->json json text->json)
 (use ledger/model claim item item-id timestamp)
@@ -7,8 +7,8 @@
 (use ledger/names case-name kind-names origin-names
                   status-names)
 
-(export claim->json globs->json id->json ids->json
-        item->columns optional-id->json optional-ids->json
+(export claim->json id->json ids->json item->columns
+        optional-id->json optional-ids->json
         optional-text->json optional-timestamp->json)
 
 (defn ids->json (ids)
@@ -18,11 +18,6 @@
   (match id
     ((some present) (array (vec (id->json present))))
     (none (array (vec)))))
-
-(defn globs->json (globs)
-  (array (collect (map (iter globs)
-                    (fn (glob)
-                      (text->json (as-str (:pattern glob))))))))
 
 (type item->columns
   (fn ((ref item))

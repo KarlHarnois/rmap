@@ -1,20 +1,16 @@
 (module
-  "Indexes a snapshot once: items by id, the status each item shows, and the paths active builds hold.")
+  "Indexes a snapshot once: items by id and the status each item shows.")
 
-(use ledger/model item item-id kind path-lock snapshot
-                  status)
-
+(use ledger/model item item-id snapshot status)
 (use ledger/core/epics shown-status-of)
-(use ledger/core/phases active? delivered?)
-(use ledger/core/snapshot lock-of)
+(use ledger/core/phases delivered?)
 
-(export active-locks delivered-id? index-of indexed-status
-        ledger-index with-shown-status)
+(export delivered-id? index-of indexed-status ledger-index
+        with-shown-status)
 
 (defstruct ledger-index
   :items (hash-map string item)
-  :statuses (hash-map string status)
-  :active-locks (vec path-lock))
+  :statuses (hash-map string status))
 
 (type index-of
   (fn ((ref snapshot)) ledger-index))
@@ -22,13 +18,9 @@
 (defn index-of (snapshot)
   (let (items (items-by-id (ref (:items snapshot)))
         children (child-statuses (ref (:items snapshot))))
-    (->ledger-index :active-locks (active-locks-of snapshot)
-                    :statuses (shown-statuses (ref (:items snapshot))
+    (->ledger-index :statuses (shown-statuses (ref (:items snapshot))
                                               (ref children))
                     :items items)))
-
-(defn active-locks (index)
-  (ref (:active-locks index)))
 
 (type with-shown-status
   (fn ((ref ledger-index) (ref item))
@@ -108,18 +100,3 @@
                                     (shown-status-of item
                                                      (get children
                                                           (as-str (:value (:id item)))))))))))
-
-(type active-locks-of
-  (fn ((ref snapshot)) (vec path-lock)))
-
-(defn active-locks-of (snapshot)
-  (collect (map (filter (iter (:items snapshot))
-                  (fn (item) (active-build? item)))
-                (fn (item) (lock-of snapshot item)))))
-
-(type active-build?
-  (fn ((ref item)) bool))
-
-(defn active-build? (item)
-  (and (= (:kind item) kind/build)
-       (active? (:status item))))

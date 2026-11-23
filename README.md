@@ -40,20 +40,20 @@ Commands:
   list
     Lists the roadmaps.
   ready [--roadmap <name>] [--limit <whole number, at least 1>]
-    Lists the items that can start, and what holds back the others. With --limit, picks up to that many ready items whose paths do not conflict, and lists the ones it skipped.
+    Lists the items that can start, and what holds back the others. With --limit, picks up to that many ready items.
   next [--roadmap <name>] [--manager <session>]
     Lists the next action for each open item and who takes it. A manager with no roadmaps gives an empty list, not an error.
   log [--item <id>] [--since <event id>]
     Prints the events, for one item or after one event id when given.
-  item add --roadmap <name> --title <text> [--description <text>] [--description-file <path|->] --kind epic|research|design|build [--parent <epic id>] [--after <ids, comma-separated>] [--paths <globs, comma-separated>] [--from <id>] [--origin planned|user-bug|follow-up] [--priority <0 (highest) to 4 (lowest), default 2>]
+  item add --roadmap <name> --title <text> [--description <text>] [--description-file <path|->] --kind epic|research|design|build [--parent <epic id>] [--after <ids, comma-separated>] [--from <id>] [--origin planned|user-bug|follow-up] [--priority <0 (highest) to 4 (lowest), default 2>]
     Adds an item to a roadmap.
   item list [--roadmap <name>]
     Lists the items.
   item show <id>
-    Shows one item with its dependencies and paths.
+    Shows one item with its dependencies.
   item claim <id> --session <name>
     Gives a ready item to a session and marks it dispatched.
-  item advance <id> <open|dispatched|reported|in_review|fixing|merging|merged|accepted|dropped> [--kind build] [--paths <globs, comma-separated>]
+  item advance <id> <open|dispatched|reported|in_review|fixing|merging|merged|accepted|dropped> [--kind build]
     Moves an item to another status.
   item close <id>
     Marks a build merged, or a reported research or design item accepted.
@@ -84,13 +84,11 @@ Refusal codes:
   parent-not-epic          The parent is not an epic.
   parent-in-other-roadmap  The parent belongs to another roadmap.
   epic-has-parent          An epic cannot have a parent.
-  build-needs-paths        A build needs at least one path.
   priority-out-of-range    A priority must be from 0 (highest) to 4 (lowest).
   epic-status-computed     An epic's status comes from its children, so no command moves it.
   invalid-kind-change      Only an advance to dispatched can turn an item into a build.
   invalid-transition       The transition table has no such move for this item.
-  not-ready                The item is blocked or path-conflicted. The error lists blockers, dropped_blockers and path_conflicts.
-  path-conflict            The build's paths conflict with an active build. The error lists path_conflicts.
+  not-ready                The item is blocked. The error lists blockers and dropped_blockers.
   cycle                    The dependency would close a cycle of blocks dependencies.
   dep-exists               The blocks dependency already exists.
   dep-not-found            No such blocks dependency exists.

@@ -1,7 +1,7 @@
 (module
-  "Checks a new item against the ledger and drops its repeated blockers and globs.")
+  "Checks a new item against the ledger and drops its repeated blockers.")
 
-(use ledger/model glob item item-id kind origin roadmap-id
+(use ledger/model item item-id kind origin roadmap-id
                   snapshot)
 
 (use ledger/refusal refusal)
@@ -21,7 +21,6 @@
   :kind kind
   :origin origin
   :priority int
-  :globs (vec glob)
   :blocked-by (vec item-id)
   :discovered-from (option item-id))
 
@@ -33,21 +32,15 @@
 
 (defn check-new-item (snapshot roadmap-id request)
   (let-try (_ (check-epic-has-no-parent request)
-            _ (check-build-has-globs request)
             _ (check-priority-in-range request)
             _ (check-parent snapshot roadmap-id request)
             _ (check-all-exist snapshot (ref (:blocked-by request))))
     (check-optional-exists snapshot
                            (ref (:discovered-from request)))))
 
-(type normalized (fn (new-item) new-item))
-
 (defn normalized (request)
-  (let (globs (distinct (ref (:globs request)))
-        blockers (distinct (ref (:blocked-by request))))
-    (-> request
-        (assoc :globs globs)
-        (assoc :blocked-by blockers))))
+  (assoc request
+         :blocked-by (distinct (ref (:blocked-by request)))))
 
 (type distinct
   (where ((a clone partial-eq))
@@ -69,16 +62,6 @@
   (if (and (= (:kind request) kind/epic)
            (some? (:parent request)))
     (err refusal/epic-has-parent)
-    (ok (do))))
-
-(type check-build-has-globs
-  (fn ((ref new-item))
-    (result unit refusal)))
-
-(defn check-build-has-globs (request)
-  (if (and (= (:kind request) kind/build)
-           (empty? (:globs request)))
-    (err refusal/build-needs-globs)
     (ok (do))))
 
 (type check-priority-in-range

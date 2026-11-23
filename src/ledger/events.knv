@@ -2,7 +2,7 @@
   "Describes each ledger change as an event to record.")
 
 (use json/value text->json)
-(use ledger/model dep glob item roadmap)
+(use ledger/model dep item roadmap)
 
 (use ledger/model/events ->event-draft event-draft
                          event-type)
@@ -12,14 +12,13 @@
 
 (use ledger/core/move move)
 
-(use ledger/json-values globs->json id->json ids->json
-                        item->columns optional-ids->json
+(use ledger/json-values id->json ids->json item->columns
+                        optional-ids->json
                         optional-text->json)
 
 (use ledger/changes column-change deleted inserted
                     inserted-columns only-changed
-                    payload-with-changes updated
-                    updated-columns)
+                    payload-with-changes updated-columns)
 
 (use ledger/core/new-items new-item)
 (use ledger/core/deps dep-change)
@@ -30,8 +29,6 @@
 (defstruct applied-move
   :before item
   :after item
-  :globs-before (vec glob)
-  :globs-after (vec glob)
   :move move)
 
 (type roadmap-created
@@ -88,15 +85,8 @@
                  (text->json (case-name roadmap-status-names
                                         (:status roadmap))))))
 
-(type item-insert-changes
-  (fn ((ref item) (ref new-item))
-    (vec column-change)))
-
 (defn item-insert-changes (item request)
   (let (changes (inserted-columns (ref (item->columns item))))
-    (push! changes
-           (inserted "paths"
-                     (globs->json (ref (:globs request)))))
     (push! changes
            (inserted "blocked_by"
                      (ids->json (ref (:blocked-by request)))))
@@ -124,18 +114,13 @@
   (match move
     ((claim _) event-type/item-claimed)
     ((advance _) event-type/item-advanced)
-    ((advance-to-build _) event-type/item-advanced)
+    (advance-to-build event-type/item-advanced)
     (close event-type/item-closed)
     ((drop _) event-type/item-dropped)))
 
 (defn move-changes (applied)
-  (let (changes (updated-columns (ref (item->columns (ref (:before applied))))
-                                 (ref (item->columns (ref (:after applied))))))
-    (push! changes
-           (updated "paths"
-                    (globs->json (ref (:globs-before applied)))
-                    (globs->json (ref (:globs-after applied)))))
-    (only-changed changes)))
+  (only-changed (updated-columns (ref (item->columns (ref (:before applied))))
+                                 (ref (item->columns (ref (:after applied)))))))
 
 (defn move-context (move)
   (match move

@@ -97,12 +97,6 @@
   (assert (refused-with? (vec "item" "advance" "rm-0001" "ready")
                          "unknown status: ready")))
 
-(deftest paths-need-a-kind-change
-  (assert (refused-with? (vec "item" "advance" "rm-0001"
-                              "dispatched" "--paths"
-                              "src/*")
-                         "--paths needs --kind build")))
-
 (deftest only-build-is-a-kind-change
   (assert (refused-with? (vec "item" "advance" "rm-0001"
                               "dispatched" "--kind"

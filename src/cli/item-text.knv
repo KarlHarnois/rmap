@@ -107,9 +107,6 @@
                      (clone (:value (:created-at item))))
          (detail-row "closed"
                      (optional-timestamp-text (ref (:closed-at item))))
-         (detail-row "paths"
-                     (listed (collect (map (iter (:globs detail))
-                                        (fn (glob) (clone (:pattern glob)))))))
          (detail-row "after"
                      (listed (dep-targets (ref (:deps detail))
                                           dep-type/blocks)))

@@ -1,7 +1,7 @@
 (use ledger/model kind status)
 
 (use support/items blocks-dep child-of claimed in-roadmap
-                   path-of snapshot-of statuses work-item)
+                   snapshot-of statuses work-item)
 
 (export generated-roadmap-ids generated-snapshot)
 
@@ -9,24 +9,19 @@
 
 (def item-count 9)
 
-(def glob-pool
-  (vec "src/a/**" "src/a/b.rs" "src/b/*" "docs/*.md" "src/*"))
-
 (defstruct rolls
   :for-kind int
   :for-status int
   :for-claim int
   :for-parent int
   :for-dep int
-  :for-path int
   :for-roadmap int)
 
 (defn generated-snapshot (seed)
   (loop (index 0
          state (next-state seed)
          items (vec (work-item "rm-1000" kind/epic status/open))
-         deps (vec)
-         paths (vec))
+         deps (vec))
     (if (< index item-count)
       (let (rolls (rolls-after state)
             id (id-at (inc index)))
@@ -36,11 +31,8 @@
                          (generated-item (as-str id) (ref rolls)))
                (appended-some
                  deps
-                 (generated-dep (as-str id) index (:for-dep rolls)))
-               (appended paths
-                         (path-of (as-str id)
-                                  (choice glob-pool (:for-path rolls))))))
-      (snapshot-of items deps paths))))
+                 (generated-dep (as-str id) index (:for-dep rolls)))))
+      (snapshot-of items deps))))
 
 (defn rolls-after (state)
   (let (kind (next-state state)
@@ -48,14 +40,12 @@
         claim (next-state status)
         parent (next-state claim)
         dep (next-state parent)
-        path (next-state dep)
-        roadmap (next-state path))
+        roadmap (next-state dep))
     (->rolls :for-kind kind
              :for-status status
              :for-claim claim
              :for-parent parent
              :for-dep dep
-             :for-path path
              :for-roadmap roadmap)))
 
 (defn next-state (state)

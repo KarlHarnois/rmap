@@ -44,5 +44,4 @@
   (let-try (scope (scope-named connection roadmap)
             snapshot (load-snapshot connection))
     (ok (batch-of (ref (readiness-of (ref snapshot) (ref scope)))
-                  (ref snapshot)
                   size))))

@@ -1,13 +1,11 @@
 (module
-  "Holds the ledger's values: roadmaps, items, dependencies, globs and blockages.")
+  "Holds the ledger's values: roadmaps, items, dependencies and blockages.")
 
-(export ->blockage ->dep ->glob ->item ->item-glob ->item-id
-        ->path-conflict ->path-lock ->roadmap ->roadmap-id
-        ->session ->snapshot ->timestamp blockage claim
-        decision-id dep dep-type glob graph-format history
-        item item-glob item-id kind origin path-conflict
-        path-lock roadmap roadmap-id roadmap-status session
-        snapshot status timestamp)
+(export ->blockage ->dep ->item ->item-id ->roadmap
+        ->roadmap-id ->session ->snapshot ->timestamp
+        blockage claim decision-id dep dep-type graph-format
+        history item item-id kind origin roadmap roadmap-id
+        roadmap-status session snapshot status timestamp)
 
 (defstruct decision-id
   :value string)
@@ -24,15 +22,9 @@
   paused
   done)
 
-(defstruct path-lock
-  :item item-id
-  :kind kind
-  :globs (vec glob))
-
 (defstruct snapshot
   :items (vec item)
-  :deps (vec dep)
-  :globs (vec item-glob))
+  :deps (vec dep))
 
 (defstruct item
   :id item-id
@@ -93,10 +85,6 @@
   blocks
   discovered-from)
 
-(defstruct item-glob
-  :item item-id
-  :glob glob)
-
 (defenum graph-format mermaid)
 
 (defenum history
@@ -105,16 +93,7 @@
 
 (defstruct blockage
   :blockers (vec item-id)
-  :dropped-blockers (vec item-id)
-  :path-conflicts (vec path-conflict))
-
-(defstruct path-conflict
-  :with item-id
-  :glob glob
-  :other-glob glob)
+  :dropped-blockers (vec item-id))
 
 (defstruct item-id
   :value string)
-
-(defstruct glob
-  :pattern string)

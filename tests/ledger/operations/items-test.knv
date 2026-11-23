@@ -4,7 +4,7 @@
                     scratch-ledger)
 
 (defn child-draft (epic)
-  (assoc (item-draft kind/research (vec))
+  (assoc (item-draft kind/research)
          :parent (some (clone epic))))
 
 (defn child-ids (settings id)
@@ -19,15 +19,13 @@
 
 (deftest an-epic-shows-the-status-its-children-give-it
   (let (settings (scratch-ledger "epic-status-shown")
-        epic (added-id (ref settings)
-                       (item-draft kind/epic (vec))))
+        epic (added-id (ref settings) (item-draft kind/epic)))
     (assert (= (:status (:item (unwrap-ok (show-item (ref settings) epic))))
                status/open))))
 
 (deftest an-epic-shows-its-children-ordered-by-id
   (let (settings (scratch-ledger "epic-children-shown")
-        epic (added-id (ref settings)
-                       (item-draft kind/epic (vec)))
+        epic (added-id (ref settings) (item-draft kind/epic))
         expected (vec (added-id (ref settings)
                                 (child-draft (ref epic)))
                       (added-id (ref settings)
@@ -40,8 +38,7 @@
 
 (deftest an-epic-shows-its-dropped-children
   (let (settings (scratch-ledger "epic-dropped-child-shown")
-        epic (added-id (ref settings)
-                       (item-draft kind/epic (vec)))
+        epic (added-id (ref settings) (item-draft kind/epic))
         child (added-id (ref settings)
                         (child-draft (ref epic))))
     (assert (ok? (drop-item (ref settings)
@@ -52,7 +49,6 @@
 
 (deftest an-item-without-children-shows-none
   (let (settings (scratch-ledger "no-children-shown")
-        research (added-id (ref settings)
-                           (item-draft kind/research (vec))))
+        research (added-id (ref settings) (item-draft kind/research)))
     (assert (empty? (:children (unwrap-ok (show-item (ref settings)
                                                      research)))))))
