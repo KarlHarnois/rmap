@@ -1,5 +1,5 @@
 (defproject rmap
-  :knave "0.21.0"
+  :knave "0.21.1"
   (dependencies
     (rusqlite "0.42.0" :features ("bundled"))
     (serde_json "1.0.154"))
