@@ -9,24 +9,11 @@
         optional-text required-choice required-text
         switch-on? text-list)
 
-(type optional-text
-  (fn ((ref arguments) (ref str))
-    (option string)))
-
-(defn optional-text (arguments name)
-  (map-some (find (iter (:flags arguments))
-              (fn (entry) (= (first entry) name)))
-            (fn (entry) (clone (second entry)))))
-
 (type switch-on?
   (fn ((ref arguments) (ref str)) bool))
 
 (defn switch-on? (arguments name)
   (contains? (:switches arguments) (str name)))
-
-(defn required-text (arguments name)
-  (ok-or (optional-text arguments name)
-         (str "--" name " is required")))
 
 (defn optional-number (arguments name)
   (match (optional-text arguments name)
@@ -34,37 +21,19 @@
      (map-ok (text->number (as-str text) name) some))
     (none (ok none))))
 
-(defn text->number (text name)
-  (match (the (result int (parse-error int))
-              (parse text))
-    ((ok number) (ok number))
-    ((err _)
-     (err (str "--" name " takes a whole number, got " text)))))
-
 (defn required-choice (arguments name names)
   (let-try (text (required-text arguments name))
     (text->named (as-str text) name names)))
+
+(defn required-text (arguments name)
+  (ok-or (optional-text arguments name)
+         (str "--" name " is required")))
 
 (defn optional-choice (arguments name names)
   (match (optional-text arguments name)
     ((some text)
      (map-ok (text->named (as-str text) name names) some))
     (none (ok none))))
-
-(defn text->named (text name names)
-  (ok-or (case-named names text)
-         (str "--" name " does not accept " text)))
-
-(defn text-list (arguments name)
-  (match (optional-text arguments name)
-    ((some text) (comma-separated (as-str text)))
-    (none (vec))))
-
-(defn comma-separated (text)
-  (collect (map (filter (split text ",")
-                  (fn (part)
-                    (not (empty? (trim (deref part))))))
-                (fn (part) (str (trim part))))))
 
 (defn glob-list (arguments name)
   (collect (map (iter (text-list arguments name))
@@ -75,3 +44,34 @@
   (collect (map (iter (text-list arguments name))
              (fn (text)
                (->item-id :value (clone text))))))
+
+(defn text-list (arguments name)
+  (match (optional-text arguments name)
+    ((some text) (comma-separated (as-str text)))
+    (none (vec))))
+
+(type optional-text
+  (fn ((ref arguments) (ref str))
+    (option string)))
+
+(defn optional-text (arguments name)
+  (map-some (find (iter (:flags arguments))
+              (fn (entry) (= (first entry) name)))
+            (fn (entry) (clone (second entry)))))
+
+(defn text->number (text name)
+  (match (the (result int (parse-error int))
+              (parse text))
+    ((ok number) (ok number))
+    ((err _)
+     (err (str "--" name " takes a whole number, got " text)))))
+
+(defn text->named (text name names)
+  (ok-or (case-named names text)
+         (str "--" name " does not accept " text)))
+
+(defn comma-separated (text)
+  (collect (map (filter (split text ",")
+                  (fn (part)
+                    (not (empty? (trim (deref part))))))
+                (fn (part) (str (trim part))))))

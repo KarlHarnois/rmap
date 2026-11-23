@@ -5,6 +5,13 @@
 
 (export ->route route route-name subcommand word-count)
 
+(defstruct route
+  :subcommand subcommand
+  :words (vec string)
+  :summary string
+  :operands (vec string)
+  :flags (vec flag-spec))
+
 (defenum subcommand
   help
   init
@@ -23,13 +30,6 @@
   dep-add
   dep-rm
   graph)
-
-(defstruct route
-  :subcommand subcommand
-  :words (vec string)
-  :summary string
-  :operands (vec string)
-  :flags (vec flag-spec))
 
 (type word-count (fn ((ref route)) int))
 

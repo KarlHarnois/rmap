@@ -11,11 +11,15 @@
 
 (export boolean-flag-names routes)
 
-(defn words (text)
-  (collect (map (split text " ") str)))
-
-(defn operands (names)
-  (collect (map (iter names) str)))
+(defn boolean-flag-names ()
+  (let (specs (global-flags))
+    (for-each (routes)
+      (fn (route)
+        (for-each (:flags route)
+          (fn (spec) (push! specs (clone spec))))))
+    (collect (map (filter (iter specs)
+                    (fn (spec) (boolean? spec)))
+                  (fn (spec) (clone (:name spec)))))))
 
 (defn routes ()
   (vec (->route :subcommand subcommand/help
@@ -119,12 +123,8 @@
                             (optional "level" (choices graph-level-names))
                             (optional "format" (choices graph-format-names))))))
 
-(defn boolean-flag-names ()
-  (let (specs (global-flags))
-    (for-each (routes)
-      (fn (route)
-        (for-each (:flags route)
-          (fn (spec) (push! specs (clone spec))))))
-    (collect (map (filter (iter specs)
-                    (fn (spec) (boolean? spec)))
-                  (fn (spec) (clone (:name spec)))))))
+(defn words (text)
+  (collect (map (split text " ") str)))
+
+(defn operands (names)
+  (collect (map (iter names) str)))

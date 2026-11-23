@@ -5,11 +5,11 @@
 
 (export output-format output-format-of)
 
+(def json-variable-value "1")
+
 (defenum output-format
   text
   json)
-
-(def json-variable-value "1")
 
 (defn output-format-of (args json-variable)
   (if (or (contains? args (str "--" json-flag))

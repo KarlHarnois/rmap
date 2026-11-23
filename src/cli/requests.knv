@@ -47,13 +47,6 @@
       ((some count) (batch-request arguments count))
       (none (ok (request/ready (optional-text arguments "roadmap")))))))
 
-(defn batch-request (arguments count)
-  (let-try (size (ok-or (batch-size-of count)
-                        (str "--limit takes a whole number of at least 1, got "
-                             count)))
-    (ok (request/ready-batch (optional-text arguments "roadmap")
-                             size))))
-
 (defn log-request (arguments)
   (let-try (since (optional-number arguments "since"))
     (ok (request/log (map-some (optional-text arguments "item") text->id)
@@ -63,8 +56,6 @@
   (request/next (optional-text arguments "roadmap")
                 (map-some (optional-text arguments "manager")
                   (fn (name) (->session :name name)))))
-
-(defn text->id (text) (->item-id :value text))
 
 (defn add-item-request (arguments)
   (let-try (roadmap (required-text arguments "roadmap")
@@ -94,10 +85,6 @@
                          :level (unwrap-or level graph-level/item)
                          :format (unwrap-or format graph-format/mermaid))))))
 
-(defn history-of (arguments)
-  (if (switch-on? arguments "all")
-    history/with-merged history/without-merged))
-
 (defn claim-request (arguments id)
   (let-try (session (required-text arguments "session"))
     (ok (request/claim (text->id id) (->session :name session)))))
@@ -112,6 +99,19 @@
             change (kind-change-of arguments))
     (ok (request/advance (text->id id)
                          (->advancement :to target :kind-change change)))))
+
+(defn text->id (text) (->item-id :value text))
+
+(defn batch-request (arguments count)
+  (let-try (size (ok-or (batch-size-of count)
+                        (str "--limit takes a whole number of at least 1, got "
+                             count)))
+    (ok (request/ready-batch (optional-text arguments "roadmap")
+                             size))))
+
+(defn history-of (arguments)
+  (if (switch-on? arguments "all")
+    history/with-merged history/without-merged))
 
 (defn kind-change-of (arguments)
   (match (optional-text arguments "kind")

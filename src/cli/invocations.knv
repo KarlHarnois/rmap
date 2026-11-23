@@ -22,15 +22,15 @@
 
 (export invocation ledger-call parse-invocation)
 
-(defstruct ledger-call
-  :database (option string)
-  :actor (option string)
-  :request request)
-
 (defenum invocation
   help
   (command-help (vec route))
   (on-ledger ledger-call))
+
+(defstruct ledger-call
+  :database (option string)
+  :actor (option string)
+  :request request)
 
 (defn parse-invocation (args)
   (let-try (arguments (split-arguments args (boolean-flag-names)))
@@ -58,14 +58,6 @@
   (let-try (route (route-of arguments)
             _ (check-shape arguments (ref route)))
     (invocation-of (ref route) arguments)))
-
-(defn on-ledger (arguments requested)
-  (map-ok requested
-    (fn (request)
-      (invocation/on-ledger (->ledger-call
-                              :database (optional-text arguments "db")
-                              :actor (optional-text arguments "actor")
-                              :request request)))))
 
 (defn invocation-of (route arguments)
   (match (:subcommand route)
@@ -110,3 +102,11 @@
                                         (text->id (operand arguments route 0))
                                         (text->id
                                           (operand arguments route 1))))))))
+
+(defn on-ledger (arguments requested)
+  (map-ok requested
+    (fn (request)
+      (invocation/on-ledger (->ledger-call
+                              :database (optional-text arguments "db")
+                              :actor (optional-text arguments "actor")
+                              :request request)))))

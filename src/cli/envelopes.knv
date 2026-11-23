@@ -18,13 +18,6 @@
 
 (def output-schema-version 2)
 
-(defn envelope (fields)
-  (let (all fields)
-    (push! all
-           (pair (str "schema_version")
-                 (int->json output-schema-version)))
-    (object all)))
-
 (defn error-envelope (code message details)
   (let (fields details)
     (push! fields
@@ -32,6 +25,13 @@
     (push! fields
            (pair (str "message") (text->json message)))
     (envelope (vec (pair (str "error") (object fields))))))
+
+(defn envelope (fields)
+  (let (all fields)
+    (push! all
+           (pair (str "schema_version")
+                 (int->json output-schema-version)))
+    (object all)))
 
 (defn reply-envelope (reply)
   (match reply
