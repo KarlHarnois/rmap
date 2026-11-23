@@ -1,0 +1,10 @@
+(use ledger/refusal refusal refusal->message)
+
+(deftest a-priority-below-zero-message-names-the-range-and-the-value
+  (assert (= (refusal->message (refusal/priority-out-of-range -1))
+             (str
+               "a priority must be from 0 (highest) to 4 (lowest), got -1"))))
+
+(deftest a-priority-above-four-message-names-the-range-and-the-value
+  (assert (= (refusal->message (refusal/priority-out-of-range 5))
+             (str "a priority must be from 0 (highest) to 4 (lowest), got 5"))))

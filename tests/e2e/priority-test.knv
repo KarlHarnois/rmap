@@ -1,0 +1,66 @@
+(use json/value field json->int)
+
+(use support/rmap database-with-roadmap error-code run-rmap
+                  text-at)
+
+(defn added-item (database extra)
+  (let (reply (item-add (clone database) extra))
+    (assert (= (:exit-code reply) 0))
+    (text-at (ref reply) "item" "id")))
+
+(defn item-add (database extra)
+  (let (args (vec (str "item")
+                  (str "add")
+                  (str "--roadmap")
+                  (str "road")
+                  (str "--title")
+                  (str "w")
+                  (str "--kind")
+                  (str "design")))
+    (for-each extra
+      (fn (arg) (push! args (str arg))))
+    (run-rmap (clone database) args)))
+
+(defn priority-of (database id)
+  (let (reply (run-rmap (clone database)
+                        (vec "item" "show" (as-str id))))
+    (assert (= (:exit-code reply) 0))
+    (unwrap (json->int (unwrap (field (unwrap (field (:json reply) "item"))
+                                      "priority"))))))
+
+(deftest an-item-without-a-priority-gets-the-default
+  (let (database (database-with-roadmap "priority-default")
+        id (added-item (ref database)
+                       (the (vec string) (vec))))
+    (assert (= (priority-of (ref database) (clone id))
+               2))))
+
+(deftest the-highest-priority-is-accepted
+  (let (database (database-with-roadmap "priority-highest")
+        id (added-item (ref database)
+                       (vec (str "--priority") (str "0"))))
+    (assert (= (priority-of (ref database) (clone id))
+               0))))
+
+(deftest the-lowest-priority-is-accepted
+  (let (database (database-with-roadmap "priority-lowest")
+        id (added-item (ref database)
+                       (vec (str "--priority") (str "4"))))
+    (assert (= (priority-of (ref database) (clone id))
+               4))))
+
+(deftest a-priority-below-zero-is-refused
+  (let (database (database-with-roadmap "priority-below")
+        reply (item-add (ref database)
+                        (vec (str "--priority") (str "-1"))))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "priority-out-of-range")))))
+
+(deftest a-priority-above-four-is-refused
+  (let (database (database-with-roadmap "priority-above")
+        reply (item-add (ref database)
+                        (vec (str "--priority") (str "5"))))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "priority-out-of-range")))))

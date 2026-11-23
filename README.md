@@ -45,7 +45,7 @@ Commands:
     Lists the next action for each open item and who takes it. A manager with no roadmaps gives an empty list, not an error.
   log [--item <id>] [--since <event id>]
     Prints the events, for one item or after one event id when given.
-  item add --roadmap <name> --title <text> --kind epic|research|design|build [--parent <epic id>] [--after <ids, comma-separated>] [--paths <globs, comma-separated>] [--from <id>] [--origin planned|user-bug|follow-up] [--priority <whole number>]
+  item add --roadmap <name> --title <text> --kind epic|research|design|build [--parent <epic id>] [--after <ids, comma-separated>] [--paths <globs, comma-separated>] [--from <id>] [--origin planned|user-bug|follow-up] [--priority <0 (highest) to 4 (lowest), default 2>]
     Adds an item to a roadmap.
   item list [--roadmap <name>]
     Lists the items.
@@ -85,6 +85,7 @@ Refusal codes:
   parent-in-other-roadmap  The parent belongs to another roadmap.
   epic-has-parent          An epic cannot have a parent.
   build-needs-paths        A build needs at least one path.
+  priority-out-of-range    A priority must be from 0 (highest) to 4 (lowest).
   epic-status-computed     An epic's status comes from its children, so no command moves it.
   invalid-kind-change      Only an advance to dispatched can turn an item into a build.
   invalid-transition       The transition table has no such move for this item.

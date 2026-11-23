@@ -28,22 +28,33 @@
 (deftest user-bugs-come-first
   (assert (= (ids-of (ordered (vec (ready-item "rm-0001"
                                                (->rank :origin origin/planned
-                                                       :priority 9
+                                                       :priority 0
                                                        :created-at (str "2026-01-01")))
                                    (ready-item "rm-0002"
                                                (->rank :origin origin/user-bug
-                                                       :priority 0
+                                                       :priority 4
                                                        :created-at (str "2026-01-02"))))))
              (vec (str "rm-0002") (str "rm-0001")))))
 
-(deftest equal-origins-order-by-higher-priority
+(deftest equal-origins-order-by-lower-priority-number
   (assert (= (ids-of (ordered (vec (ready-item "rm-0001"
                                                (->rank :origin origin/follow-up
-                                                       :priority 1
+                                                       :priority 4
                                                        :created-at (str "2026-01-01")))
                                    (ready-item "rm-0002"
                                                (->rank :origin origin/planned
-                                                       :priority 5
+                                                       :priority 1
+                                                       :created-at (str "2026-01-02"))))))
+             (vec (str "rm-0002") (str "rm-0001")))))
+
+(deftest highest-priority-comes-before-lowest
+  (assert (= (ids-of (ordered (vec (ready-item "rm-0001"
+                                               (->rank :origin origin/planned
+                                                       :priority 4
+                                                       :created-at (str "2026-01-01")))
+                                   (ready-item "rm-0002"
+                                               (->rank :origin origin/planned
+                                                       :priority 0
                                                        :created-at (str "2026-01-02"))))))
              (vec (str "rm-0002") (str "rm-0001")))))
 
