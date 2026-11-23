@@ -46,6 +46,8 @@ jobs:
             knave lint "$task" || status=1
           done
           exit $status
+      - name: Check each file reads top-down
+        run: knave task ledelint
       - name: Keep source files under 150 lines
         run: |
           long=$(git ls-files '*.knv' ':!:tests/' | xargs wc -l | awk '$2 != "total" && $1 > 150 {print $2 ": " $1 " lines"}')

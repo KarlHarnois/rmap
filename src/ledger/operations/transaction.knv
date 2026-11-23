@@ -21,14 +21,14 @@
 (export ->settings clock connect in-read-transaction
         in-transaction now record settings transaction)
 
-(defenum clock
-  system
-  (fixed timestamp))
-
 (defstruct settings
   :database-path string
   :clock clock
   :actor string)
+
+(defenum clock
+  system
+  (fixed timestamp))
 
 (defstruct transaction
   :connection connection
@@ -47,6 +47,25 @@
       (file-presence/absent (err (failure/no-ledger (clone (:database-path
                                                              settings))))))))
 
+(defn in-transaction (settings work)
+  (run-transaction settings begin work))
+
+(defn in-read-transaction (settings work)
+  (run-transaction settings begin-read work))
+
+(defn now (transaction)
+  (clone (:at (:stamp transaction))))
+
+(type record
+  (fn ((ref transaction) event-draft)
+    (result unit failure)))
+
+(defn record (transaction draft)
+  (let-try (_ (append-event (ref (:connection transaction))
+                            (ref (:stamp transaction))
+                            (ref draft)))
+    (ok (do))))
+
 (type open-ledger
   (fn ((ref settings))
     (result connection failure)))
@@ -55,12 +74,6 @@
   (let-try (connection (open-existing (as-str (:database-path settings)))
             _ (migrate (ref connection) (migration-sources)))
     (ok connection)))
-
-(defn in-transaction (settings work)
-  (run-transaction settings begin work))
-
-(defn in-read-transaction (settings work)
-  (run-transaction settings begin-read work))
 
 (type run-transaction
   (where (a)
@@ -92,16 +105,3 @@
   (match clock
     (system (let-try (at (database-now connection)) (ok at)))
     ((fixed at) (ok (clone at)))))
-
-(defn now (transaction)
-  (clone (:at (:stamp transaction))))
-
-(type record
-  (fn ((ref transaction) event-draft)
-    (result unit failure)))
-
-(defn record (transaction draft)
-  (let-try (_ (append-event (ref (:connection transaction))
-                            (ref (:stamp transaction))
-                            (ref draft)))
-    (ok (do))))

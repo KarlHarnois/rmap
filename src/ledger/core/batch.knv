@@ -9,18 +9,18 @@
 (export ->batch ->skipped-item batch batch-of batch-size
         batch-size-of skipped-item)
 
+(defstruct batch
+  :size batch-size
+  :picked (vec item)
+  :skipped (vec skipped-item)
+  :blocked (vec blocked-item))
+
 (defstruct batch-size
   :count int)
 
 (defstruct skipped-item
   :item item
   :conflicts-with item-id)
-
-(defstruct batch
-  :size batch-size
-  :picked (vec item)
-  :skipped (vec skipped-item)
-  :blocked (vec blocked-item))
 
 (defn batch-size-of (count)
   (if (>= count 1)

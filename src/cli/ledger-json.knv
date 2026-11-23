@@ -30,39 +30,6 @@
                (pair (str "created_at")
                      (timestamp->json (ref (:created-at roadmap)))))))
 
-(type item->json (fn ((ref item)) json))
-
-(defn item->json (item)
-  (object (vec (pair (str "id")
-                     (item-id->json (ref (:id item))))
-               (pair (str "roadmap_id")
-                     (roadmap-id->json (ref (:roadmap-id item))))
-               (pair (str "roadmap")
-                     (text->json (as-str (:roadmap-name item))))
-               (pair (str "parent_id")
-                     (optional-id->json (ref (:parent item))))
-               (pair (str "title")
-                     (text->json (as-str (:title item))))
-               (pair (str "kind")
-                     (text->json (case-name kind-names (:kind item))))
-               (pair (str "status")
-                     (text->json (case-name status-names (:status item))))
-               (pair (str "origin")
-                     (text->json (case-name origin-names (:origin item))))
-               (pair (str "priority")
-                     (int->json (:priority item)))
-               (pair (str "claimed_by")
-                     (claim->json (ref (:claim item))))
-               (pair (str "created_at")
-                     (timestamp->json (ref (:created-at item))))
-               (pair (str "closed_at")
-                     (optional-timestamp->json (ref (:closed-at item)))))))
-
-(defn claim->json (claim)
-  (match claim
-    ((claimed-by session) (text->json (as-str (:name session))))
-    (unclaimed json/null)))
-
 (type event->json
   (fn ((ref event)) json))
 
@@ -99,6 +66,34 @@
                  (item->json (ref (:item blocked)))))
     (object fields)))
 
+(type item->json (fn ((ref item)) json))
+
+(defn item->json (item)
+  (object (vec (pair (str "id")
+                     (item-id->json (ref (:id item))))
+               (pair (str "roadmap_id")
+                     (roadmap-id->json (ref (:roadmap-id item))))
+               (pair (str "roadmap")
+                     (text->json (as-str (:roadmap-name item))))
+               (pair (str "parent_id")
+                     (optional-id->json (ref (:parent item))))
+               (pair (str "title")
+                     (text->json (as-str (:title item))))
+               (pair (str "kind")
+                     (text->json (case-name kind-names (:kind item))))
+               (pair (str "status")
+                     (text->json (case-name status-names (:status item))))
+               (pair (str "origin")
+                     (text->json (case-name origin-names (:origin item))))
+               (pair (str "priority")
+                     (int->json (:priority item)))
+               (pair (str "claimed_by")
+                     (claim->json (ref (:claim item))))
+               (pair (str "created_at")
+                     (timestamp->json (ref (:created-at item))))
+               (pair (str "closed_at")
+                     (optional-timestamp->json (ref (:closed-at item)))))))
+
 (defn blockage-fields (blockage)
   (vec (pair (str "blockers")
              (ids->json (ref (:blockers blockage))))
@@ -110,6 +105,17 @@
 (defn conflicts->json (conflicts)
   (array (collect (map (iter conflicts) conflict->json))))
 
+(type item-id->json
+  (fn ((ref item-id)) json))
+
+(defn item-id->json (id)
+  (text->json (as-str (:value id))))
+
+(defn claim->json (claim)
+  (match claim
+    ((claimed-by session) (text->json (as-str (:name session))))
+    (unclaimed json/null)))
+
 (defn conflict->json (conflict)
   (object (vec (pair (str "with")
                      (item-id->json (ref (:with conflict))))
@@ -118,11 +124,10 @@
                (pair (str "other_glob")
                      (text->json (as-str (:pattern (:other-glob conflict))))))))
 
-(type item-id->json
-  (fn ((ref item-id)) json))
-
-(defn item-id->json (id)
-  (text->json (as-str (:value id))))
+(defn optional-roadmap-id->json (id)
+  (match id
+    ((some present) (roadmap-id->json present))
+    (none json/null)))
 
 (type roadmap-id->json
   (fn ((ref roadmap-id)) json))
@@ -130,9 +135,9 @@
 (defn roadmap-id->json (id)
   (text->json (as-str (:value id))))
 
-(defn optional-roadmap-id->json (id)
-  (match id
-    ((some present) (roadmap-id->json present))
+(defn optional-timestamp->json (at)
+  (match at
+    ((some present) (timestamp->json present))
     (none json/null)))
 
 (type timestamp->json
@@ -140,8 +145,3 @@
 
 (defn timestamp->json (at)
   (text->json (as-str (:value at))))
-
-(defn optional-timestamp->json (at)
-  (match at
-    ((some present) (timestamp->json present))
-    (none json/null)))

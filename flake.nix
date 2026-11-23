@@ -27,6 +27,14 @@
           doCheck = false;
         };
 
+        ledelintRevision = "c2c920aa36798236d22c2ff09dec7b39dd18a34a";
+
+        ledelintSource = pkgs.fetchgit {
+          url = "https://github.com/KarlHarnois/ledelint";
+          rev = ledelintRevision;
+          hash = "sha256-nl6675dAYNNQ28UIdwOZM4O3OlDoAJjy1xHySWvYlcA=";
+        };
+
         vendoredCrates = pkgs.rustPlatform.importCargoLock {
           lockFile = ./Cargo.lock;
         };
@@ -50,6 +58,9 @@
             [net]
             offline = true
             CONFIG
+            export XDG_CACHE_HOME=$TMPDIR/xdg-cache
+            mkdir -p "$XDG_CACHE_HOME/knave/git"
+            cp -r "${ledelintSource}" "$XDG_CACHE_HOME/knave/git/${ledelintRevision}"
             knave build
           '';
           installPhase = ''

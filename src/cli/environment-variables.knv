@@ -4,15 +4,15 @@
 (export actor-variable environment-variable
         environment-variables json-variable user-variable)
 
-(defstruct environment-variable
-  :name string
-  :meaning string)
-
 (def json-variable "RMAP_JSON")
 
 (def actor-variable "RMAP_ACTOR")
 
 (def user-variable "USER")
+
+(defstruct environment-variable
+  :name string
+  :meaning string)
 
 (defn environment-variables ()
   (vec (->environment-variable :name (str json-variable)

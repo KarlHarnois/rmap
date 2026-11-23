@@ -13,24 +13,30 @@
 
 (def platform-id "rm-b000")
 
+(defn graph-roadmaps ()
+  (vec (roadmap-of platform-id "platform")
+       (roadmap-of website-id "website")))
+
+(defn graph-snapshot ()
+  (let (items (website-items))
+    (for-each (platform-items)
+      (fn (item) (push! items (clone item))))
+    (snapshot-of items
+                 (vec (blocks-dep "rm-1002" "rm-1003")
+                      (blocks-dep "rm-1001" "rm-1005")
+                      (discovered-dep "rm-1004" "rm-1006")
+                      (discovered-dep "rm-1007" "rm-1004")
+                      (blocks-dep "rm-1002" "rm-2002")
+                      (blocks-dep "rm-2000" "rm-1003")
+                      (blocks-dep "rm-2002" "rm-1000"))
+                 (vec))))
+
 (defn roadmap-of (id name)
   (->roadmap :id (->roadmap-id :value (str id))
              :name (str name)
              :manager (->session :name (str "manager"))
              :status roadmap-status/active
              :created-at (->timestamp :value (str "2026-01-01T00:00:00Z"))))
-
-(defn graph-roadmaps ()
-  (vec (roadmap-of platform-id "platform")
-       (roadmap-of website-id "website")))
-
-(defn website-item (id title kind status)
-  (titled (in-roadmap (work-item id kind status) website-id)
-          title))
-
-(defn platform-item (id title kind status)
-  (titled (in-roadmap (work-item id kind status) platform-id)
-          title))
 
 (defn website-items ()
   (vec (titled (in-roadmap (epic-item "rm-1000") website-id)
@@ -58,6 +64,10 @@
        (child-of (website-item "rm-1009" "Export" kind/build status/merged)
                  "rm-1008")))
 
+(defn website-item (id title kind status)
+  (titled (in-roadmap (work-item id kind status) website-id)
+          title))
+
 (defn platform-items ()
   (vec (titled (in-roadmap (epic-item "rm-2000") platform-id)
                "Storage")
@@ -70,16 +80,6 @@
                                          status/open))
                  "rm-2000")))
 
-(defn graph-snapshot ()
-  (let (items (website-items))
-    (for-each (platform-items)
-      (fn (item) (push! items (clone item))))
-    (snapshot-of items
-                 (vec (blocks-dep "rm-1002" "rm-1003")
-                      (blocks-dep "rm-1001" "rm-1005")
-                      (discovered-dep "rm-1004" "rm-1006")
-                      (discovered-dep "rm-1007" "rm-1004")
-                      (blocks-dep "rm-1002" "rm-2002")
-                      (blocks-dep "rm-2000" "rm-1003")
-                      (blocks-dep "rm-2002" "rm-1000"))
-                 (vec))))
+(defn platform-item (id title kind status)
+  (titled (in-roadmap (work-item id kind status) platform-id)
+          title))

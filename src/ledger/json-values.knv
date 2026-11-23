@@ -11,17 +11,6 @@
         item->columns optional-id->json optional-ids->json
         optional-timestamp->json)
 
-(type id->json
-  (fn ((ref item-id)) json))
-
-(defn id->json (id)
-  (text->json (as-str (:value id))))
-
-(defn optional-id->json (id)
-  (match id
-    ((some present) (id->json present))
-    (none json/null)))
-
 (defn ids->json (ids)
   (array (collect (map (iter ids) id->json))))
 
@@ -34,19 +23,6 @@
   (array (collect (map (iter globs)
                     (fn (glob)
                       (text->json (as-str (:pattern glob))))))))
-
-(defn claim->json (claim)
-  (match claim
-    ((claimed-by session) (text->json (as-str (:name session))))
-    (unclaimed json/null)))
-
-(type optional-timestamp->json
-  (fn ((ref (option timestamp))) json))
-
-(defn optional-timestamp->json (at)
-  (match at
-    ((some present) (text->json (as-str (:value present))))
-    (none json/null)))
 
 (type item->columns
   (fn ((ref item))
@@ -69,3 +45,27 @@
              (claim->json (ref (:claim item))))
        (pair (str "closed_at")
              (optional-timestamp->json (ref (:closed-at item))))))
+
+(defn optional-id->json (id)
+  (match id
+    ((some present) (id->json present))
+    (none json/null)))
+
+(type id->json
+  (fn ((ref item-id)) json))
+
+(defn id->json (id)
+  (text->json (as-str (:value id))))
+
+(defn claim->json (claim)
+  (match claim
+    ((claimed-by session) (text->json (as-str (:name session))))
+    (unclaimed json/null)))
+
+(type optional-timestamp->json
+  (fn ((ref (option timestamp))) json))
+
+(defn optional-timestamp->json (at)
+  (match at
+    ((some present) (text->json (as-str (:value present))))
+    (none json/null)))

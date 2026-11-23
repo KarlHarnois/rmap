@@ -11,15 +11,15 @@
 (defn edge (from to type)
   (->graph-edge :from (id-of from) :to (id-of to) :type type))
 
-(defn member (item group)
-  (->membership :item (id-of item)
-                :group (->group-id :value (str group))))
-
 (defn memberships ()
   (vec (member "rm-1" "rm-a")
        (member "rm-2" "rm-a")
        (member "rm-3" "rm-b")
        (member "rm-4" "rm-b")))
+
+(defn member (item group)
+  (->membership :item (id-of item)
+                :group (->group-id :value (str group))))
 
 (defn rolled (from to count)
   (->rolled-edge :from (->group-id :value (str from))

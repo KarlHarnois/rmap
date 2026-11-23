@@ -3,6 +3,14 @@
 (use support/ledger added-id item-draft refusal-code-of
                     scratch-ledger)
 
+(defn child-draft (epic)
+  (assoc (item-draft kind/research (vec))
+         :parent (some (clone epic))))
+
+(defn child-ids (settings id)
+  (collect (map (iter (:children (unwrap-ok (show-item settings id))))
+             (fn (child) (clone (:id child))))))
+
 (deftest showing-an-unknown-item-is-refused
   (let (settings (scratch-ledger "unknown-item"))
     (assert (= (refusal-code-of (show-item (ref settings)
@@ -15,14 +23,6 @@
                        (item-draft kind/epic (vec))))
     (assert (= (:status (:item (unwrap-ok (show-item (ref settings) epic))))
                status/open))))
-
-(defn child-draft (epic)
-  (assoc (item-draft kind/research (vec))
-         :parent (some (clone epic))))
-
-(defn child-ids (settings id)
-  (collect (map (iter (:children (unwrap-ok (show-item settings id))))
-             (fn (child) (clone (:id child))))))
 
 (deftest an-epic-shows-its-children-ordered-by-id
   (let (settings (scratch-ledger "epic-children-shown")

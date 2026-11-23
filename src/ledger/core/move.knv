@@ -23,24 +23,19 @@
   close
   (drop string))
 
-(defenum kind-change
-  keep-kind
-  (become-build (vec glob)))
-
 (defstruct advancement
   :to status
   :kind-change kind-change)
+
+(defenum kind-change
+  keep-kind
+  (become-build (vec glob)))
 
 (defn advancement->move (advancement)
   (let-match ((advancement :to target :kind-change change) advancement)
     (match change
       (keep-kind (ok (move/advance target)))
       ((become-build globs) (build-move target globs)))))
-
-(defn build-move (target globs)
-  (if (= target status/dispatched)
-    (ok (move/advance-to-build globs))
-    (err refusal/invalid-kind-change)))
 
 (defn move-type-of (move)
   (match move
@@ -49,23 +44,6 @@
     ((move/advance-to-build _) move-type/advance-to-build)
     (move/close move-type/close)
     ((move/drop _) move-type/drop)))
-
-(type target-status
-  (fn ((ref item) (ref move)) status))
-
-(defn target-status (item move)
-  (match move
-    ((move/claim _) status/dispatched)
-    ((move/advance target) target)
-    ((move/advance-to-build _) status/dispatched)
-    (move/close (closed-status (:kind item)))
-    ((move/drop _) status/dropped)))
-
-(defn closed-status (kind)
-  (match kind
-    (research status/accepted)
-    (design status/accepted)
-    (_ status/merged)))
 
 (defn new-globs (move)
   (match move
@@ -79,6 +57,28 @@
         (assoc :claim (claim-after item move))
         (assoc :kind (kind-after item move))
         (assoc :closed-at (closed-at-after item target now)))))
+
+(type target-status
+  (fn ((ref item) (ref move)) status))
+
+(defn target-status (item move)
+  (match move
+    ((move/claim _) status/dispatched)
+    ((move/advance target) target)
+    ((move/advance-to-build _) status/dispatched)
+    (move/close (closed-status (:kind item)))
+    ((move/drop _) status/dropped)))
+
+(defn build-move (target globs)
+  (if (= target status/dispatched)
+    (ok (move/advance-to-build globs))
+    (err refusal/invalid-kind-change)))
+
+(defn closed-status (kind)
+  (match kind
+    (research status/accepted)
+    (design status/accepted)
+    (_ status/merged)))
 
 (defn claim-after (item move)
   (match move

@@ -11,14 +11,24 @@
 
 (export all-deps delete-dep insert-dep insert-deps)
 
-(defn insert-dep (connection dep)
-  (execute connection
-           "INSERT INTO deps (item_id, on_id, type) VALUES (?1, ?2, ?3)"
-           (ref (dep->row dep))))
-
 (defn delete-dep (connection dep)
   (execute connection
            "DELETE FROM deps WHERE item_id = ?1 AND on_id = ?2 AND type = ?3"
+           (ref (dep->row dep))))
+
+(defn all-deps (connection)
+  (let-try (rows (query connection
+                        "SELECT item_id, on_id, type FROM deps ORDER BY item_id, on_id"
+                        (ref (vec))))
+    (rows->values (ref rows) row->dep)))
+
+(defn insert-deps (connection deps)
+  (try-each deps
+    (fn (dep) (insert-dep connection dep))))
+
+(defn insert-dep (connection dep)
+  (execute connection
+           "INSERT INTO deps (item_id, on_id, type) VALUES (?1, ?2, ?3)"
            (ref (dep->row dep))))
 
 (type dep->row
@@ -29,12 +39,6 @@
        (text->sql (as-str (:value (:on dep))))
        (text->sql (case-name dep-type-names (:type dep)))))
 
-(defn all-deps (connection)
-  (let-try (rows (query connection
-                        "SELECT item_id, on_id, type FROM deps ORDER BY item_id, on_id"
-                        (ref (vec))))
-    (rows->values (ref rows) row->dep)))
-
 (defn row->dep (row)
   (let-try (item (text-cell row 0)
             on (text-cell row 1)
@@ -42,7 +46,3 @@
     (ok (->dep :item (->item-id :value item)
                :on (->item-id :value on)
                :type type))))
-
-(defn insert-deps (connection deps)
-  (try-each deps
-    (fn (dep) (insert-dep connection dep))))

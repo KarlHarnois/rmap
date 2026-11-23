@@ -22,12 +22,6 @@
              "")
        text))
 
-(type labelled
-  (fn ((ref str) string) string))
-
-(defn labelled (id label)
-  (str (mermaid-id id) "[\"" label "\"]"))
-
 (type node-line
   (fn ((ref graph-node)) string))
 
@@ -35,3 +29,9 @@
   (labelled (as-str (:value (:id (:item node))))
             (node-label (ref (:item node))
                         (ref (:state node)))))
+
+(type labelled
+  (fn ((ref str) string) string))
+
+(defn labelled (id label)
+  (str (mermaid-id id) "[\"" label "\"]"))

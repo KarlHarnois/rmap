@@ -7,6 +7,22 @@
                     other-roadmap-name refusal-code-of
                     research roadmap-name scratch-ledger)
 
+(defn readiness-in (settings roadmap)
+  (unwrap-ok (ready-items settings (some (str roadmap)))))
+
+(defn accepted (settings id)
+  (let (reported (advanced settings (claimed settings id) status/reported))
+    (assert (ok? (close-item settings (clone reported))))
+    reported))
+
+(defn overlapping-build (settings)
+  (added-id settings
+            (item-draft kind/build (globs-of-patterns (vec "src/a/**")))))
+
+(defn event-ids (settings)
+  (collect (map (iter (unwrap-ok (read-log settings none 0)))
+             (fn (event) (:id event)))))
+
 (deftest an-unknown-roadmap-is-refused
   (let (settings (scratch-ledger "unknown-roadmap"))
     (assert (= (refusal-code-of (ready-items (ref settings)
@@ -20,9 +36,6 @@
                0))
     (assert (= (len (:ready (readiness-in (ref settings) roadmap-name)))
                1))))
-
-(defn readiness-in (settings roadmap)
-  (unwrap-ok (ready-items settings (some (str roadmap)))))
 
 (deftest an-open-blocker-in-another-roadmap-keeps-an-item-waiting
   (let (settings (ledger-with-two-roadmaps "cross-roadmap-waiting")
@@ -55,19 +68,6 @@
                             status/reported))
     (assert (= (len (:ready (readiness-in (ref settings) other-roadmap-name)))
                0))))
-
-(defn accepted (settings id)
-  (let (reported (advanced settings (claimed settings id) status/reported))
-    (assert (ok? (close-item settings (clone reported))))
-    reported))
-
-(defn overlapping-build (settings)
-  (added-id settings
-            (item-draft kind/build (globs-of-patterns (vec "src/a/**")))))
-
-(defn event-ids (settings)
-  (collect (map (iter (unwrap-ok (read-log settings none 0)))
-             (fn (event) (:id event)))))
 
 (deftest picking-a-batch-writes-no-event-and-changes-no-row
   (let (settings (ledger-with-two-roadmaps "batch-is-read-only")

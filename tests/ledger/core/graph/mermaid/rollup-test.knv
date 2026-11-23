@@ -23,12 +23,6 @@
                                        :history history/without-merged))
                                 level)))
 
-(defn group (id title)
-  (rolled-node/group (->group-node :id (->group-id :value (str id))
-                                   :title (str title)
-                                   :progress (->progress :merged 3 :total 7)
-                                   :class node-class/open)))
-
 (defn two-groups-joined-by (count)
   (rollup->mermaid (ref (->rollup :clusters (vec)
                                   :nodes (vec (group "rm-a" "A")
@@ -38,6 +32,12 @@
                                                 :from (->group-id :value (str "rm-a"))
                                                 :to (->group-id :value (str "rm-b"))
                                                 :count count))))))
+
+(defn group (id title)
+  (rolled-node/group (->group-node :id (->group-id :value (str id))
+                                   :title (str title)
+                                   :progress (->progress :merged 3 :total 7)
+                                   :class node-class/open)))
 
 (defn has-line? (source line)
   (any? (lines source)

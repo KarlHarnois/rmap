@@ -25,17 +25,6 @@
         (push! rows (item-cells item))))
     (table rows)))
 
-(type item-cells
-  (fn ((ref item)) (vec string)))
-
-(defn item-cells (item)
-  (vec (clone (:value (:id item)))
-       (clone (:roadmap-name item))
-       (str (case-name kind-names (:kind item)))
-       (str (case-name status-names (:status item)))
-       (str (:priority item))
-       (clone (:title item))))
-
 (type item-added-text
   (fn ((ref item)) string))
 
@@ -68,6 +57,25 @@
          "\n"
          (indented (table (detail-rows detail)))
          (children-text (ref (:children detail))))))
+
+(type optional-id-text
+  (fn ((ref (option item-id))) string))
+
+(defn optional-id-text (id)
+  (match id
+    ((some present) (clone (:value present)))
+    (none (str "-"))))
+
+(type item-cells
+  (fn ((ref item)) (vec string)))
+
+(defn item-cells (item)
+  (vec (clone (:value (:id item)))
+       (clone (:roadmap-name item))
+       (str (case-name kind-names (:kind item)))
+       (str (case-name status-names (:status item)))
+       (str (:priority item))
+       (clone (:title item))))
 
 (defn children-text (children)
   (if (empty? children)
@@ -128,14 +136,6 @@
   (if (empty? values)
     (str "-")
     (join values ", ")))
-
-(type optional-id-text
-  (fn ((ref (option item-id))) string))
-
-(defn optional-id-text (id)
-  (match id
-    ((some present) (clone (:value present)))
-    (none (str "-"))))
 
 (type optional-timestamp-text
   (fn ((ref (option timestamp))) string))

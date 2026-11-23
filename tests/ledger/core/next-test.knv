@@ -13,14 +13,11 @@
 
 (def seed-count 300)
 
-(defn road () (roadmap-of "rm-road" "manager"))
+(defn worker ()
+  (some (->session :name (str "worker"))))
 
-(defn next-in (snapshot)
-  (next-of (ref snapshot)
-           (ref (vec (road)))))
-
-(defn alone (item)
-  (snapshot-of (vec item) (vec) (vec)))
+(defn claimed-in (status)
+  (taken-by (sole-action (claimed (work-item "rm-0001" kind/build status)))))
 
 (defn sole-action (item)
   (-> (next-in (alone item))
@@ -28,8 +25,8 @@
       (then-some (fn (entry) (first (:actions entry))))
       (map-some clone)))
 
-(defn worker ()
-  (some (->session :name (str "worker"))))
+(defn alone (item)
+  (snapshot-of (vec item) (vec) (vec)))
 
 (defn taken-by (planned)
   (map-some planned
@@ -37,14 +34,6 @@
       (pair (:action present)
             (pair (:actor present)
                   (clone (:session present)))))))
-
-(defn claimed-in (status)
-  (taken-by (sole-action (claimed (work-item "rm-0001" kind/build status)))))
-
-(deftest an-open-ready-item-is-dispatched-by-the-controller
-  (assert (= (taken-by (sole-action
-                         (work-item "rm-0001" kind/research status/open)))
-             (some (pair action/dispatch (pair actor/controller none))))))
 
 (defn blocked-pair ()
   (snapshot-of (vec (work-item "rm-0001" kind/design status/open)
@@ -55,6 +44,91 @@
 (defn action-of-first (snapshot)
   (clone (unwrap (first (:actions (unwrap (first (next-in (clone
                                                             snapshot)))))))))
+
+(defn next-in (snapshot)
+  (next-of (ref snapshot)
+           (ref (vec (road)))))
+
+(defn road () (roadmap-of "rm-road" "manager"))
+
+(type ids-of
+  (fn ((ref (vec next-item)))
+    (vec string)))
+
+(defn ids-of (listed)
+  (collect (map (iter listed)
+             (fn (entry)
+               (clone (:value (:id (:item entry))))))))
+
+(defn wait-reasons-match-ready? (snapshot)
+  (let (blocked (:blocked (readiness-of snapshot (ref scope/every-roadmap))))
+    (every? (iter (generated-next snapshot))
+      (fn (entry)
+        (every? (iter (:actions entry))
+          (fn (planned)
+            (or (not= (:action planned) action/wait)
+                (any? (iter blocked)
+                  (fn (held)
+                    (and (= (:id (:item held))
+                            (:id (:item entry)))
+                         (= (:reasons planned)
+                            (some (clone (:blockage held))))))))))))))
+
+(defn actors-from-table? (snapshot)
+  (every? (iter (generated-next snapshot))
+    (fn (entry)
+      (and (not (empty? (:actions entry)))
+           (every? (iter (:actions entry))
+             (fn (planned)
+               (= (:actor planned)
+                  (actor-of (:action planned)))))))))
+
+(defn dispatch-order-matches-ready? (snapshot)
+  (let (listed (generated-next snapshot)
+        ready (:ready (readiness-of snapshot (ref scope/every-roadmap))))
+    (every? (iter generated-roadmap-ids)
+      (fn (roadmap-id)
+        (= (dispatched-ids-in (ref listed) (deref roadmap-id))
+           (ready-ids-in ready (deref roadmap-id)))))))
+
+(defn generated-next (snapshot)
+  (next-of snapshot (ref (generated-roadmaps))))
+
+(defn generated-roadmaps ()
+  (collect (map (iter generated-roadmap-ids)
+             (fn (id)
+               (roadmap-of (deref id) "manager")))))
+
+(type dispatched-ids-in
+  (fn ((ref (vec next-item)) (ref str))
+    (vec string)))
+
+(defn dispatched-ids-in (listed roadmap-id)
+  (collect (map (filter (iter listed)
+                  (fn (entry)
+                    (and (= (as-str (:value (:roadmap-id (:item entry))))
+                            roadmap-id)
+                         (any? (iter (:actions entry))
+                           (fn (planned)
+                             (= (:action planned) action/dispatch))))))
+                (fn (entry)
+                  (clone (:value (:id (:item entry))))))))
+
+(type ready-ids-in
+  (fn ((ref (vec item)) (ref str))
+    (vec string)))
+
+(defn ready-ids-in (ready roadmap-id)
+  (collect (map (filter (iter ready)
+                  (fn (item)
+                    (= (as-str (:value (:roadmap-id item)))
+                       roadmap-id)))
+                (fn (item) (clone (:value (:id item)))))))
+
+(deftest an-open-ready-item-is-dispatched-by-the-controller
+  (assert (= (taken-by (sole-action
+                         (work-item "rm-0001" kind/research status/open)))
+             (some (pair action/dispatch (pair actor/controller none))))))
 
 (deftest an-open-blocked-item-waits-on-the-controller
   (assert (= (taken-by (some (action-of-first (ref (blocked-pair)))))
@@ -134,89 +208,15 @@
                                                   status/open)))
                            (ref (vec (roadmap-of "rm-other" "manager")))))))
 
-(type ids-of
-  (fn ((ref (vec next-item)))
-    (vec string)))
-
-(defn ids-of (listed)
-  (collect (map (iter listed)
-             (fn (entry)
-               (clone (:value (:id (:item entry))))))))
-
-(defn generated-roadmaps ()
-  (collect (map (iter generated-roadmap-ids)
-             (fn (id)
-               (roadmap-of (deref id) "manager")))))
-
-(defn generated-next (snapshot)
-  (next-of snapshot (ref (generated-roadmaps))))
-
-(defn wait-reasons-match-ready? (snapshot)
-  (let (blocked (:blocked (readiness-of snapshot (ref scope/every-roadmap))))
-    (every? (iter (generated-next snapshot))
-      (fn (entry)
-        (every? (iter (:actions entry))
-          (fn (planned)
-            (or (not= (:action planned) action/wait)
-                (any? (iter blocked)
-                  (fn (held)
-                    (and (= (:id (:item held))
-                            (:id (:item entry)))
-                         (= (:reasons planned)
-                            (some (clone (:blockage held))))))))))))))
-
 (deftest a-waiting-item-gives-the-reasons-ready-gives
   (for-each (range 0 seed-count)
     (fn (seed)
       (assert (wait-reasons-match-ready? (ref (generated-snapshot seed)))))))
 
-(defn actors-from-table? (snapshot)
-  (every? (iter (generated-next snapshot))
-    (fn (entry)
-      (and (not (empty? (:actions entry)))
-           (every? (iter (:actions entry))
-             (fn (planned)
-               (= (:actor planned)
-                  (actor-of (:action planned)))))))))
-
 (deftest every-actor-comes-from-the-actions-table
   (for-each (range 0 seed-count)
     (fn (seed)
       (assert (actors-from-table? (ref (generated-snapshot seed)))))))
-
-(type dispatched-ids-in
-  (fn ((ref (vec next-item)) (ref str))
-    (vec string)))
-
-(defn dispatched-ids-in (listed roadmap-id)
-  (collect (map (filter (iter listed)
-                  (fn (entry)
-                    (and (= (as-str (:value (:roadmap-id (:item entry))))
-                            roadmap-id)
-                         (any? (iter (:actions entry))
-                           (fn (planned)
-                             (= (:action planned) action/dispatch))))))
-                (fn (entry)
-                  (clone (:value (:id (:item entry))))))))
-
-(type ready-ids-in
-  (fn ((ref (vec item)) (ref str))
-    (vec string)))
-
-(defn ready-ids-in (ready roadmap-id)
-  (collect (map (filter (iter ready)
-                  (fn (item)
-                    (= (as-str (:value (:roadmap-id item)))
-                       roadmap-id)))
-                (fn (item) (clone (:value (:id item)))))))
-
-(defn dispatch-order-matches-ready? (snapshot)
-  (let (listed (generated-next snapshot)
-        ready (:ready (readiness-of snapshot (ref scope/every-roadmap))))
-    (every? (iter generated-roadmap-ids)
-      (fn (roadmap-id)
-        (= (dispatched-ids-in (ref listed) (deref roadmap-id))
-           (ready-ids-in ready (deref roadmap-id)))))))
 
 (deftest within-each-roadmap-dispatch-follows-the-order-of-ready
   (for-each (range 0 seed-count)

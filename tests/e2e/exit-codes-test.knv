@@ -8,6 +8,12 @@
 (use support/scratch scratch-database)
 (use process/command ->command run-command)
 
+(defn regular-file (name)
+  (let (path (scratch-database name))
+    (assert (ok? (run-command (ref (->command :program (str "touch")
+                                              :args (vec (clone path)))))))
+    path))
+
 (deftest a-command-that-runs-exits-zero-with-the-schema-version
   (let (reply (run-rmap (initialized-database "exit-zero")
                         (vec "new" "road" "--manager" "m1")))
@@ -36,12 +42,6 @@
     (run-rmap (clone database) (vec "list"))
     (assert (= (file-presence-at (as-str database))
                (ok file-presence/absent)))))
-
-(defn regular-file (name)
-  (let (path (scratch-database name))
-    (assert (ok? (run-command (ref (->command :program (str "touch")
-                                              :args (vec (clone path)))))))
-    path))
 
 (deftest a-ledger-path-through-a-regular-file-exits-three
   (let (reply (run-rmap (str (regular-file "not-a-directory") "/ledger.db")

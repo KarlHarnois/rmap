@@ -9,15 +9,6 @@
 
 (use support/scratch scratch-database)
 
-(defn newest-version ()
-  (-> (migration-sources) iter (map :version) max unwrap))
-
-(defn set-stored-version (database version)
-  (let (connection (unwrap-ok (open (as-str database))))
-    (unwrap-ok (run-batch (ref connection)
-                          (as-str (str "PRAGMA user_version = "
-                                       version ";"))))))
-
 (def ledger-state-columns 4)
 
 (defn ledger-state (database)
@@ -36,6 +27,15 @@
     (set-stored-version (clone database)
                         (inc (newest-version)))
     (pair database item)))
+
+(defn newest-version ()
+  (-> (migration-sources) iter (map :version) max unwrap))
+
+(defn set-stored-version (database version)
+  (let (connection (unwrap-ok (open (as-str database))))
+    (unwrap-ok (run-batch (ref connection)
+                          (as-str (str "PRAGMA user_version = "
+                                       version ";"))))))
 
 (defn every-command (item)
   (vec (vec (str "init"))
@@ -93,6 +93,19 @@
   (run-rmap database
             (collect (map (iter args) as-str))))
 
+(defn error-int (reply key)
+  (json->int (unwrap (field (unwrap (field (:json reply) "error"))
+                            key))))
+
+(defn all-but-newest-migration ()
+  (let (older (migration-sources))
+    (pop! older)
+    older))
+
+(defn stored-version (database)
+  (let (connection (unwrap-ok (open (as-str database))))
+    (unwrap-ok (schema-version (ref connection)))))
+
 (deftest every-command-on-a-ledger-from-a-newer-rmap-exits-three-with-ledger-too-new
   (let-match ((pair database item) (too-new-ledger "too-new-every-command"))
     (for-each (every-command item)
@@ -110,10 +123,6 @@
           (do)))
       (assert (= (ledger-state database) before)))))
 
-(defn error-int (reply key)
-  (json->int (unwrap (field (unwrap (field (:json reply) "error"))
-                            key))))
-
 (deftest the-json-error-names-the-ledger-and-binary-versions
   (let-match ((pair database _) (too-new-ledger "too-new-json"))
     (let (reply (run-rmap database (vec "list")))
@@ -122,11 +131,6 @@
       (assert (= (error-int (ref reply) "binary_version")
                  (some (newest-version)))))))
 
-(defn all-but-newest-migration ()
-  (let (older (migration-sources))
-    (pop! older)
-    older))
-
 (deftest a-ledger-at-an-older-version-migrates-and-runs
   (let (database (scratch-database "too-new-older"))
     (let (connection (unwrap-ok (open (as-str database))))
@@ -134,7 +138,3 @@
     (assert (= (:exit-code (run-rmap (clone database) (vec "list")))
                0))
     (assert (= (stored-version database) (newest-version)))))
-
-(defn stored-version (database)
-  (let (connection (unwrap-ok (open (as-str database))))
-    (unwrap-ok (schema-version (ref connection)))))

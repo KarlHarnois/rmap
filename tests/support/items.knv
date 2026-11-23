@@ -9,11 +9,14 @@
         glob-of id-of in-roadmap kinds path-of roadmap-of
         snapshot-of statuses titled with-origin work-item)
 
-(defn id-of (text)
-  (->item-id :value (str text)))
+(defn roadmap-of (id manager)
+  (->roadmap :id (->roadmap-id :value (str id))
+             :name (str id)
+             :manager (->session :name (str manager))
+             :status roadmap-status/active
+             :created-at (->timestamp :value (str "2026-01-01T00:00:00Z"))))
 
-(defn glob-of (pattern)
-  (->glob :pattern (str pattern)))
+(defn epic-item (id) (work-item id kind/epic status/open))
 
 (defn work-item (id kind status)
   (->item :id (id-of id)
@@ -28,15 +31,6 @@
           :claim claim/unclaimed
           :created-at (->timestamp :value (str "2026-01-01T00:00:00Z"))
           :closed-at none))
-
-(defn roadmap-of (id manager)
-  (->roadmap :id (->roadmap-id :value (str id))
-             :name (str id)
-             :manager (->session :name (str manager))
-             :status roadmap-status/active
-             :created-at (->timestamp :value (str "2026-01-01T00:00:00Z"))))
-
-(defn epic-item (id) (work-item id kind/epic status/open))
 
 (type child-of
   (fn (item (ref str)) item))
@@ -77,6 +71,12 @@
 
 (defn path-of (item pattern)
   (->item-glob :item (id-of item) :glob (glob-of pattern)))
+
+(defn id-of (text)
+  (->item-id :value (str text)))
+
+(defn glob-of (pattern)
+  (->glob :pattern (str pattern)))
 
 (defn snapshot-of (items deps paths)
   (->snapshot :items items :deps deps :globs paths))

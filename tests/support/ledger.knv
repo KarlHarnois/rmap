@@ -19,14 +19,11 @@
 
 (def other-roadmap-name "other")
 
-(defn fixed-clock-settings (database)
-  (->settings :database-path database
-              :clock (clock/fixed (->timestamp :value (str "2026-03-03T00:00:00Z")))
-              :actor (str "tester")))
-
-(defn initialized-settings (name)
-  (let (settings (fixed-clock-settings (scratch-database name)))
-    (assert (ok? (init-ledger (ref settings))))
+(defn ledger-with-two-roadmaps (name)
+  (let (settings (scratch-ledger name))
+    (assert (ok? (new-roadmap (ref settings)
+                              (str other-roadmap-name)
+                              (session-named "other-manager"))))
     settings))
 
 (defn scratch-ledger (name)
@@ -36,15 +33,38 @@
                               (session-named "manager"))))
     settings))
 
-(defn ledger-with-two-roadmaps (name)
-  (let (settings (scratch-ledger name))
-    (assert (ok? (new-roadmap (ref settings)
-                              (str other-roadmap-name)
-                              (session-named "other-manager"))))
+(defn initialized-settings (name)
+  (let (settings (fixed-clock-settings (scratch-database name)))
+    (assert (ok? (init-ledger (ref settings))))
     settings))
 
-(defn session-named (name)
-  (->session :name (str name)))
+(defn fixed-clock-settings (database)
+  (->settings :database-path database
+              :clock (clock/fixed (->timestamp :value (str "2026-03-03T00:00:00Z")))
+              :actor (str "tester")))
+
+(defn research (settings)
+  (research-in settings roadmap-name))
+
+(defn research-in (settings roadmap)
+  (added-id-in settings roadmap
+               (item-draft kind/research (vec))))
+
+(defn blocked-research (settings blocker)
+  (blocked-research-in settings roadmap-name blocker))
+
+(defn blocked-research-in (settings roadmap blocker)
+  (added-id-in settings roadmap
+               (assoc (item-draft kind/research (vec))
+                      :blocked-by (vec blocker))))
+
+(defn reported-research (settings patterns)
+  (advanced settings
+            (claimed settings
+                     (added-id settings
+                               (item-draft kind/research
+                                           (globs-of-patterns patterns))))
+            status/reported))
 
 (type globs-of-patterns
   (fn ((vec (ref str))) (vec glob)))
@@ -67,27 +87,12 @@
 (defn added-id (settings draft)
   (added-id-in settings roadmap-name draft))
 
-(defn added-id-in (settings roadmap draft)
-  (clone (:id (unwrap-ok (add-item settings (str roadmap) draft)))))
-
-(defn research (settings)
-  (research-in settings roadmap-name))
-
-(defn research-in (settings roadmap)
-  (added-id-in settings roadmap
-               (item-draft kind/research (vec))))
-
-(defn blocked-research (settings blocker)
-  (blocked-research-in settings roadmap-name blocker))
-
-(defn blocked-research-in (settings roadmap blocker)
-  (added-id-in settings roadmap
-               (assoc (item-draft kind/research (vec))
-                      :blocked-by (vec blocker))))
-
 (defn claimed (settings id)
   (assert (ok? (claim-item settings (clone id) (session-named "worker"))))
   id)
+
+(defn session-named (name)
+  (->session :name (str name)))
 
 (defn advanced (settings id target)
   (assert (ok? (advance-item settings
@@ -97,15 +102,10 @@
                                :kind-change kind-change/keep-kind))))
   id)
 
-(defn reported-research (settings patterns)
-  (advanced settings
-            (claimed settings
-                     (added-id settings
-                               (item-draft kind/research
-                                           (globs-of-patterns patterns))))
-            status/reported))
-
 (defn refusal-code-of (outcome)
   (match outcome
     ((ok _) none)
     ((err failure) (some (failure-code (ref failure))))))
+
+(defn added-id-in (settings roadmap draft)
+  (clone (:id (unwrap-ok (add-item settings (str roadmap) draft)))))

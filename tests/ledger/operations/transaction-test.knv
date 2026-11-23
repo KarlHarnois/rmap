@@ -12,6 +12,18 @@
 (use ledger/failure failure)
 (use support/ledger initialized-settings)
 
+(type write-then-refuse
+  (fn ((ref transaction))
+    (result unit failure)))
+
+(defn write-then-refuse (transaction)
+  (let-try (_ (write-roadmap transaction (ref (sample-roadmap))))
+    (err (failure/refused refusal/epic-has-parent))))
+
+(defn write-twice (transaction)
+  (let-try (_ (write-roadmap transaction (ref (sample-roadmap))))
+    (write-roadmap transaction (ref (sample-roadmap)))))
+
 (defn sample-roadmap ()
   (->roadmap :id (->roadmap-id :value (str "rm-0001"))
              :name (str "road")
@@ -28,27 +40,15 @@
             _ (record transaction (roadmap-created roadmap)))
     (ok (do))))
 
-(type write-then-refuse
-  (fn ((ref transaction))
-    (result unit failure)))
-
-(defn write-then-refuse (transaction)
-  (let-try (_ (write-roadmap transaction (ref (sample-roadmap))))
-    (err (failure/refused refusal/epic-has-parent))))
-
-(defn write-twice (transaction)
-  (let-try (_ (write-roadmap transaction (ref (sample-roadmap))))
-    (write-roadmap transaction (ref (sample-roadmap)))))
+(defn kept-roadmaps-and-events (settings)
+  (pair (row-count settings "roadmaps")
+        (row-count settings "events")))
 
 (defn row-count (settings table)
   (let (connection (unwrap-ok (connect settings)))
     (len (unwrap-ok (query (ref connection)
                            (as-str (str "SELECT * FROM " table))
                            (ref (vec)))))))
-
-(defn kept-roadmaps-and-events (settings)
-  (pair (row-count settings "roadmaps")
-        (row-count settings "events")))
 
 (deftest a-write-that-succeeds-keeps-its-row-and-its-event
   (let (settings (initialized-settings "transaction-commit"))

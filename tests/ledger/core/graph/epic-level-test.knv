@@ -15,9 +15,11 @@
 
 (def other-roadmap "rm-other")
 
-(defn roadmaps ()
-  (vec (roadmap-of "rm-road" "m")
-       (roadmap-of other-roadmap "m")))
+(defn everything (snapshot)
+  (rolled snapshot scope/every-roadmap history/with-merged))
+
+(defn without-merged (snapshot)
+  (rolled snapshot scope/every-roadmap history/without-merged))
 
 (type rolled (fn (snapshot scope history) rollup))
 
@@ -30,20 +32,15 @@
                (ref scope)
                (ref history)))
 
-(defn everything (snapshot)
-  (rolled snapshot scope/every-roadmap history/with-merged))
-
-(defn without-merged (snapshot)
-  (rolled snapshot scope/every-roadmap history/without-merged))
-
-(defn child (id epic status)
-  (child-of (work-item id kind/build status) epic))
-
-(defn gid (id)
-  (->group-id :value (str id)))
+(defn roadmaps ()
+  (vec (roadmap-of "rm-road" "m")
+       (roadmap-of other-roadmap "m")))
 
 (defn edge (from to count)
   (->rolled-edge :from (gid from) :to (gid to) :count count))
+
+(defn gid (id)
+  (->group-id :value (str id)))
 
 (type drawn-ids
   (fn ((ref rollup)) (vec string)))
@@ -67,6 +64,35 @@
         (push! deps
                (blocks-dep (str "rm-b" index) (str "rm-a" index)))))
     (snapshot-of items deps (vec))))
+
+(defn merged-epic-blocking-another ()
+  (snapshot-of (vec (epic-item "rm-e1")
+                    (epic-item "rm-e2")
+                    (child "rm-a" "rm-e1" status/merged)
+                    (child "rm-b" "rm-e2" status/open))
+               (vec (blocks-dep "rm-b" "rm-a"))
+               (vec)))
+
+(defn child (id epic status)
+  (child-of (work-item id kind/build status) epic))
+
+(type epic-progress
+  (fn ((ref rollup))
+    (vec (pair string progress))))
+
+(defn epic-progress (rollup)
+  (let (found (vec))
+    (for-each (:clusters rollup)
+      (fn (cluster)
+        (for-each (:nodes cluster)
+          (fn (node)
+            (match node
+              ((group group)
+               (push! found
+                      (pair (clone (:value (:id group)))
+                            (clone (:progress group)))))
+              ((item _) (do)))))))
+    found))
 
 (deftest ten-edges-between-the-children-of-two-epics-become-one-edge-counted-ten
   (assert (= (:edges (everything (ten-blocked-children)))
@@ -99,14 +125,6 @@
                                    (vec))))
              (vec (edge "rm-x" "rm-e2" 1)))))
 
-(defn merged-epic-blocking-another ()
-  (snapshot-of (vec (epic-item "rm-e1")
-                    (epic-item "rm-e2")
-                    (child "rm-a" "rm-e1" status/merged)
-                    (child "rm-b" "rm-e2" status/open))
-               (vec (blocks-dep "rm-b" "rm-a"))
-               (vec)))
-
 (deftest a-fully-merged-epic-and-its-edges-are-absent-without-all
   (let (rollup (without-merged (merged-epic-blocking-another)))
     (assert (= (drawn-ids (ref rollup))
@@ -119,24 +137,6 @@
                (vec (str "rm-e1") (str "rm-e2"))))
     (assert (= (:edges rollup)
                (vec (edge "rm-e1" "rm-e2" 1))))))
-
-(type epic-progress
-  (fn ((ref rollup))
-    (vec (pair string progress))))
-
-(defn epic-progress (rollup)
-  (let (found (vec))
-    (for-each (:clusters rollup)
-      (fn (cluster)
-        (for-each (:nodes cluster)
-          (fn (node)
-            (match node
-              ((group group)
-               (push! found
-                      (pair (clone (:value (:id group)))
-                            (clone (:progress group)))))
-              ((item _) (do)))))))
-    found))
 
 (deftest progress-counts-merged-items-without-all-and-leaves-out-dropped-ones
   (assert (= (epic-progress (ref (without-merged

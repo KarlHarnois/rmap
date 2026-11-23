@@ -15,16 +15,6 @@
   (ok-or (first rows)
          (database-failure (str "the query returned no row"))))
 
-(defn raw-cell (row index)
-  (ok-or (get row index)
-         (database-failure (str "a row has no column " index))))
-
-(defn text-cell (row index)
-  (let-try (cell (raw-cell row index))
-    (match cell
-      ((text content) (ok (clone content)))
-      (_ (err (database-failure (str "column " index " is not text")))))))
-
 (defn int-cell (row index)
   (let-try (cell (raw-cell row index))
     (match cell
@@ -43,6 +33,12 @@
            (database-failure
              (str "column " index " holds an unknown name: " text)))))
 
+(defn text-cell (row index)
+  (let-try (cell (raw-cell row index))
+    (match cell
+      ((text content) (ok (clone content)))
+      (_ (err (database-failure (str "column " index " is not text")))))))
+
 (type rows->values
   (where (a)
     (fn ((ref (vec (vec sql-value)))
@@ -58,9 +54,6 @@
         (recur (inc index) (appended values value)))
       (ok values))))
 
-(defn appended (items extra)
-  (let (all items) (push! all extra) all))
-
 (type try-each
   (where (a b)
     (fn ((ref (vec a))
@@ -73,3 +66,10 @@
       (let-try (_ (step (at values index)))
         (recur (inc index)))
       (ok (do)))))
+
+(defn raw-cell (row index)
+  (ok-or (get row index)
+         (database-failure (str "a row has no column " index))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))

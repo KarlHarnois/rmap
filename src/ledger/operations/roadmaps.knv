@@ -25,6 +25,11 @@
   (in-transaction settings
     (fn (transaction) (create-roadmap transaction name manager))))
 
+(defn list-roadmaps (settings)
+  (in-read-transaction settings
+    (fn (transaction)
+      (roadmaps-within (ref (:connection transaction))))))
+
 (defn create-roadmap (transaction name manager)
   (let-try (_ (check-name-free (ref (:connection transaction))
                                (as-str name))
@@ -56,11 +61,6 @@
       ((some _)
        (err (failure/refused (refusal/roadmap-exists (str name)))))
       (none (ok (do))))))
-
-(defn list-roadmaps (settings)
-  (in-read-transaction settings
-    (fn (transaction)
-      (roadmaps-within (ref (:connection transaction))))))
 
 (type roadmaps-within
   (fn ((ref connection))

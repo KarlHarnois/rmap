@@ -11,6 +11,50 @@
 (rust-type json-map
   "serde_json::Map<String, serde_json::Value>")
 
+(def object
+  (rust "serde_json::Value::Object({0}.into_iter().collect())"
+    (fn ((vec (pair string json))) json)))
+
+(def int->json
+  (rust "serde_json::Value::from({0})" (fn (int) json)))
+
+(def float->json
+  (rust "serde_json::Value::from({0})" (fn (float) json)))
+
+(def entry
+  (rust "{0}.get({1}).cloned()"
+    (fn ((ref json-map) (ref str))
+      (option json))))
+
+(def map-entries
+  (rust "{0}.iter().map(|(key, value)| (key.clone(), value.clone())).collect()"
+    (fn ((ref json-map))
+      (vec (pair string json)))))
+
+(def number->int
+  (rust "{0}.as_i64()"
+    (fn ((ref json-number)) (option int))))
+
+(def number->float
+  (rust "{0}.as_f64()"
+    (fn ((ref json-number)) (option float))))
+
+(def same?
+  (rust "{0} == {1}"
+    (fn ((ref json) (ref json)) bool)))
+
+(def parse-raw
+  (rust "serde_json::from_str::<serde_json::Value>({0}).map_err(|failure| failure.to_string())"
+    (fn ((ref str)) (result json string))))
+
+(def json->source
+  (rust "{0}.to_string()"
+    (fn ((ref json)) string)))
+
+(def copy-of
+  (rust "{0}.clone()"
+    (fn ((ref json)) json)))
+
 (defenum json
   (rust "serde_json::Value")
   null
@@ -23,37 +67,17 @@
 (defstruct json-error
   :cause string)
 
-(def object
-  (rust "serde_json::Value::Object({0}.into_iter().collect())"
-    (fn ((vec (pair string json))) json)))
-
 (defn array (items) (json/array items))
 
 (defn text->json (text)
   (json/string (str text)))
 
-(def int->json
-  (rust "serde_json::Value::from({0})" (fn (int) json)))
-
-(def float->json
-  (rust "serde_json::Value::from({0})" (fn (float) json)))
-
 (defn bool->json (flag) (json/bool flag))
-
-(def entry
-  (rust "{0}.get({1}).cloned()"
-    (fn ((ref json-map) (ref str))
-      (option json))))
 
 (defn field (value key)
   (match value
     ((object entries) (entry entries key))
     (_ none)))
-
-(def map-entries
-  (rust "{0}.iter().map(|(key, value)| (key.clone(), value.clone())).collect()"
-    (fn ((ref json-map))
-      (vec (pair string json)))))
 
 (defn json->entries (value)
   (match value
@@ -65,18 +89,10 @@
     ((string text) (some (clone text)))
     (_ none)))
 
-(def number->int
-  (rust "{0}.as_i64()"
-    (fn ((ref json-number)) (option int))))
-
 (defn json->int (value)
   (match value
     ((number number) (number->int number))
     (_ none)))
-
-(def number->float
-  (rust "{0}.as_f64()"
-    (fn ((ref json-number)) (option float))))
 
 (defn json->float (value)
   (match value
@@ -96,22 +112,6 @@
 (defn null? (value)
   (match value (null true) (_ false)))
 
-(def same?
-  (rust "{0} == {1}"
-    (fn ((ref json) (ref json)) bool)))
-
-(def parse-raw
-  (rust "serde_json::from_str::<serde_json::Value>({0}).map_err(|failure| failure.to_string())"
-    (fn ((ref str)) (result json string))))
-
 (defn parse-json (text)
   (map-err (parse-raw text)
     (fn (message) (->json-error :cause message))))
-
-(def json->source
-  (rust "{0}.to_string()"
-    (fn ((ref json)) string)))
-
-(def copy-of
-  (rust "{0}.clone()"
-    (fn ((ref json)) json)))

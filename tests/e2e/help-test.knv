@@ -23,15 +23,6 @@
              (unwrap (json->text (unwrap (field spec "name"))))))
       collect))
 
-(deftest help-describes-commands-without-a-database
-  (let (result (run-rmap (str "/nonexistent/rmap/ledger.db") (vec "help"))
-        item-add (unwrap (described-command (ref result) "item add")))
-    (assert (= (:exit-code result) 0))
-    (assert (= (required-flag-names (ref item-add))
-               (vec (str "roadmap")
-                    (str "title")
-                    (str "kind"))))))
-
 (defn described-names (result)
   (-> (:json result)
       (field "commands")
@@ -42,6 +33,15 @@
 
 (defn help-for (args)
   (run-rmap (scratch-database "command-help") args))
+
+(deftest help-describes-commands-without-a-database
+  (let (result (run-rmap (str "/nonexistent/rmap/ledger.db") (vec "help"))
+        item-add (unwrap (described-command (ref result) "item add")))
+    (assert (= (:exit-code result) 0))
+    (assert (= (required-flag-names (ref item-add))
+               (vec (str "roadmap")
+                    (str "title")
+                    (str "kind"))))))
 
 (deftest command-help-describes-one-command-without-its-required-flags
   (let (result (help-for (vec "item" "add" "--help"))

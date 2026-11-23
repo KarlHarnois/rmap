@@ -17,6 +17,11 @@
   (vec (collect (map (iter headers)
                   (fn (header) (str header))))))
 
+(defn indented (text)
+  (join (collect (map (lines (as-str text))
+                   (fn (line) (str indent line))))
+        "\n"))
+
 (defn column-widths (rows)
   (match (first rows)
     ((some header)
@@ -53,8 +58,3 @@
 (defn spaces (count)
   (join (collect (map (range 0 count) (fn (_) " ")))
         ""))
-
-(defn indented (text)
-  (join (collect (map (lines (as-str text))
-                   (fn (line) (str indent line))))
-        "\n"))

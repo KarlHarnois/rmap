@@ -9,6 +9,43 @@
   :claimed string
   :blocked string)
 
+(defn entry-for (reply key id)
+  (-> (unwrap (json->items (unwrap (field reply key))))
+      iter
+      (find (fn (entry)
+              (= (entry-id entry) (some (str id)))))
+      unwrap copy-of))
+
+(defn first-action (entry)
+  (copy-of (unwrap (first (unwrap (json->items (unwrap (field entry
+                                                              "actions"))))))))
+
+(defn text-of (value key)
+  (unwrap (json->text (unwrap (field value key)))))
+
+(defn listed? (reply id)
+  (any? (iter (unwrap (json->items (unwrap (field reply "next")))))
+    (fn (entry)
+      (= (entry-id entry) (some (str id))))))
+
+(defn entry-id (entry)
+  (then-some (field entry "item") item-id-of))
+
+(defn item-id-of (item)
+  (match (json->text (ref item))
+    ((some id) (some id))
+    (none (then-some (field (ref item) "id")
+            (fn (id) (json->text (ref id)))))))
+
+(defn reported-research-ledger (name)
+  (let (ledger (ledger-in-progress name))
+    (assert (= (:exit-code (run-rmap (clone (:database ledger))
+                                     (vec "item" "advance"
+                                          (as-str (:claimed ledger))
+                                          "reported")))
+               0))
+    ledger))
+
 (defn ledger-in-progress (name)
   (let (database (database-with-roadmap name)
         claimed (research-id (clone database))
@@ -25,29 +62,6 @@
     (->ledger-in-progress :database database
                           :claimed claimed
                           :blocked (text-at (ref blocked) "item" "id"))))
-
-(defn entry-for (reply key id)
-  (-> (unwrap (json->items (unwrap (field reply key))))
-      iter
-      (find (fn (entry)
-              (= (entry-id entry) (some (str id)))))
-      unwrap copy-of))
-
-(defn entry-id (entry)
-  (then-some (field entry "item") item-id-of))
-
-(defn item-id-of (item)
-  (match (json->text (ref item))
-    ((some id) (some id))
-    (none (then-some (field (ref item) "id")
-            (fn (id) (json->text (ref id)))))))
-
-(defn first-action (entry)
-  (copy-of (unwrap (first (unwrap (json->items (unwrap (field entry
-                                                              "actions"))))))))
-
-(defn text-of (value key)
-  (unwrap (json->text (unwrap (field value key)))))
 
 (deftest next-lists-each-item-with-its-action-actor-and-session
   (let (ledger (ledger-in-progress "e2e-next-shape")
@@ -93,20 +107,6 @@
       (fn (key)
         (assert (same? (ref (unwrap (field (ref reasons) (deref key))))
                        (ref (unwrap (field (ref blocked) (deref key))))))))))
-
-(defn listed? (reply id)
-  (any? (iter (unwrap (json->items (unwrap (field reply "next")))))
-    (fn (entry)
-      (= (entry-id entry) (some (str id))))))
-
-(defn reported-research-ledger (name)
-  (let (ledger (ledger-in-progress name))
-    (assert (= (:exit-code (run-rmap (clone (:database ledger))
-                                     (vec "item" "advance"
-                                          (as-str (:claimed ledger))
-                                          "reported")))
-               0))
-    ledger))
 
 (deftest a-reported-item-is-listed-for-accept-report
   (let (ledger (reported-research-ledger "e2e-next-reported")

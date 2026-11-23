@@ -1,7 +1,7 @@
 (module
   "Writes the output of `rmap help` into the code block of the README's Usage section.")
 
-(use process/command ->command run-command)
+(use process/command ->command command-output run-command)
 
 (def readme-path "README.md")
 
@@ -19,35 +19,28 @@
     (fn ((ref str) (ref str))
       (result unit string))))
 
+(defstruct transition
+  :from readme-part
+  :marker string
+  :to readme-part)
+
 (defenum readme-part
   before-use
   in-use
   in-block
   after-block)
 
-(defstruct transition
-  :from readme-part
-  :marker string
-  :to readme-part)
+(deftask sync-readme-help ()
+  (match (sync)
+    ((ok _) (println (str "wrote " readme-path)))
+    ((err failure) (eprintln failure) (exit 1))))
 
-(defn transitions ()
-  (vec (->transition :from readme-part/before-use
-                     :marker (str usage-heading)
-                     :to readme-part/in-use)
-       (->transition :from readme-part/in-use
-                     :marker (str block-start)
-                     :to readme-part/in-block)
-       (->transition :from readme-part/in-block
-                     :marker (str block-end)
-                     :to readme-part/after-block)))
-
-(defn next-part (part line)
-  (unwrap-or (map-some (find (iter (transitions))
-                         (fn (transition)
-                           (and (= (:from transition) part)
-                                (= (:marker transition) (str line)))))
-                       (fn (transition) (:to transition)))
-             part))
+(defn sync ()
+  (let-try (help (rmap-help)
+            readme (map-err (slurp readme-path)
+                     (fn (failure) (str failure)))
+            synced (with-help (as-str readme) (as-str help)))
+    (write-file readme-path (as-str synced))))
 
 (defn with-help (readme help)
   (loop (rest (collect (map (lines readme) str))
@@ -62,6 +55,25 @@
                next
                (with-line kept part next line help)))
       (finished kept part))))
+
+(defn next-part (part line)
+  (unwrap-or (map-some (find (iter (transitions))
+                         (fn (transition)
+                           (and (= (:from transition) part)
+                                (= (:marker transition) (str line)))))
+                       (fn (transition) (:to transition)))
+             part))
+
+(defn transitions ()
+  (vec (->transition :from readme-part/before-use
+                     :marker (str usage-heading)
+                     :to readme-part/in-use)
+       (->transition :from readme-part/in-use
+                     :marker (str block-start)
+                     :to readme-part/in-block)
+       (->transition :from readme-part/in-block
+                     :marker (str block-end)
+                     :to readme-part/after-block)))
 
 (defn with-line (kept part next line help)
   (cond
@@ -89,22 +101,11 @@
       (fn (line) (push! all (str line))))
     all))
 
-(defn sync ()
-  (let-try (help (rmap-help)
-            readme (map-err (slurp readme-path)
-                     (fn (failure) (str failure)))
-            synced (with-help (as-str readme) (as-str help)))
-    (write-file readme-path (as-str synced))))
-
 (defn rmap-help ()
   (let-try (output (run-command (ref (->command :program (str "env")
                                                 :args (collect (map (iter help-command)
                                                                     str))))))
-    (if (= (:code output) 0)
+    (if (= (:code (the (ref command-output) (ref output)))
+           0)
       (ok (clone (:stdout output)))
       (err (clone (:stderr output))))))
-
-(deftask sync-readme-help ()
-  (match (sync)
-    ((ok _) (println (str "wrote " readme-path)))
-    ((err failure) (eprintln failure) (exit 1))))

@@ -28,6 +28,27 @@
     (check-optional-exists snapshot
                            (ref (:discovered-from request)))))
 
+(type normalized (fn (new-item) new-item))
+
+(defn normalized (request)
+  (let (globs (distinct (ref (:globs request)))
+        blockers (distinct (ref (:blocked-by request))))
+    (-> request
+        (assoc :globs globs)
+        (assoc :blocked-by blockers))))
+
+(type distinct
+  (where ((a clone partial-eq))
+    (fn ((ref (vec a))) (vec a))))
+
+(defn distinct (values)
+  (let (unique (vec))
+    (for-each values
+      (fn (value)
+        (when (not (contains? (ref unique) (clone value)))
+          (push! unique (clone value)))))
+    unique))
+
 (type check-epic-has-no-parent
   (fn ((ref new-item))
     (result unit refusal)))
@@ -87,24 +108,3 @@
      (map-ok (existing snapshot present)
        (fn (_) (do))))
     (none (ok (do)))))
-
-(type distinct
-  (where ((a clone partial-eq))
-    (fn ((ref (vec a))) (vec a))))
-
-(defn distinct (values)
-  (let (unique (vec))
-    (for-each values
-      (fn (value)
-        (when (not (contains? (ref unique) (clone value)))
-          (push! unique (clone value)))))
-    unique))
-
-(type normalized (fn (new-item) new-item))
-
-(defn normalized (request)
-  (let (globs (distinct (ref (:globs request)))
-        blockers (distinct (ref (:blocked-by request))))
-    (-> request
-        (assoc :globs globs)
-        (assoc :blocked-by blockers))))

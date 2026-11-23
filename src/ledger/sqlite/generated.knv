@@ -20,6 +20,14 @@
         (else (err (database-failure
                      (str "no free id after " id-attempts " attempts"))))))))
 
+(defn database-now (connection)
+  (let-try (rows (query connection
+                        "SELECT strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
+                        (ref (vec)))
+            row (single-row (ref rows))
+            text (text-cell row 0))
+    (ok (->timestamp :value text))))
+
 (defn random-id (connection)
   (let-try (rows (query connection
                         "SELECT 'rm-' || lower(hex(randomblob(2)))"
@@ -32,11 +40,3 @@
                         "SELECT id FROM items WHERE id = ?1 UNION SELECT id FROM roadmaps WHERE id = ?1"
                         (ref (vec (text->sql candidate)))))
     (ok (not (empty? rows)))))
-
-(defn database-now (connection)
-  (let-try (rows (query connection
-                        "SELECT strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
-                        (ref (vec)))
-            row (single-row (ref rows))
-            text (text-cell row 0))
-    (ok (->timestamp :value text))))

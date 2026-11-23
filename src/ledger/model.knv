@@ -9,28 +9,8 @@
         path-lock roadmap roadmap-id roadmap-status session
         snapshot status timestamp)
 
-(defstruct roadmap-id
-  :value string)
-
-(defstruct item-id
-  :value string)
-
-(defstruct session
-  :name string)
-
-(defstruct glob
-  :pattern string)
-
-(defstruct timestamp
-  :value string)
-
 (defstruct decision-id
   :value string)
-
-(defenum roadmap-status
-  active
-  paused
-  done)
 
 (defstruct roadmap
   :id roadmap-id
@@ -38,6 +18,41 @@
   :manager session
   :status roadmap-status
   :created-at timestamp)
+
+(defenum roadmap-status
+  active
+  paused
+  done)
+
+(defstruct path-lock
+  :item item-id
+  :kind kind
+  :globs (vec glob))
+
+(defstruct snapshot
+  :items (vec item)
+  :deps (vec dep)
+  :globs (vec item-glob))
+
+(defstruct item
+  :id item-id
+  :roadmap-id roadmap-id
+  :roadmap-name string
+  :parent (option item-id)
+  :title string
+  :kind kind
+  :status status
+  :origin origin
+  :priority int
+  :claim claim
+  :created-at timestamp
+  :closed-at (option timestamp))
+
+(defstruct roadmap-id
+  :value string)
+
+(defstruct timestamp
+  :value string)
 
 (defenum kind
   epic
@@ -65,42 +80,21 @@
   unclaimed
   (claimed-by session))
 
-(defstruct item
-  :id item-id
-  :roadmap-id roadmap-id
-  :roadmap-name string
-  :parent (option item-id)
-  :title string
-  :kind kind
-  :status status
-  :origin origin
-  :priority int
-  :claim claim
-  :created-at timestamp
-  :closed-at (option timestamp))
-
-(defenum dep-type
-  blocks
-  discovered-from)
+(defstruct session
+  :name string)
 
 (defstruct dep
   :item item-id
   :on item-id
   :type dep-type)
 
+(defenum dep-type
+  blocks
+  discovered-from)
+
 (defstruct item-glob
   :item item-id
   :glob glob)
-
-(defstruct path-lock
-  :item item-id
-  :kind kind
-  :globs (vec glob))
-
-(defstruct snapshot
-  :items (vec item)
-  :deps (vec dep)
-  :globs (vec item-glob))
 
 (defenum graph-format mermaid)
 
@@ -117,3 +111,9 @@
   :with item-id
   :glob glob
   :other-glob glob)
+
+(defstruct item-id
+  :value string)
+
+(defstruct glob
+  :pattern string)

@@ -9,10 +9,8 @@
 (use support/items blocks-dep discovered-dep in-roadmap
                    roadmap-of snapshot-of work-item)
 
-(defn roadmaps ()
-  (vec (roadmap-of "rm-r1" "m")
-       (roadmap-of "rm-r2" "m")
-       (roadmap-of "rm-r3" "m")))
+(defn everywhere (snapshot)
+  (rolled snapshot scope/every-roadmap))
 
 (type rolled (fn (snapshot scope) rollup))
 
@@ -25,8 +23,10 @@
                   (ref scope)
                   (ref history/with-merged)))
 
-(defn everywhere (snapshot)
-  (rolled snapshot scope/every-roadmap))
+(defn roadmaps ()
+  (vec (roadmap-of "rm-r1" "m")
+       (roadmap-of "rm-r2" "m")
+       (roadmap-of "rm-r3" "m")))
 
 (defn task (id roadmap)
   (in-roadmap (work-item id kind/build status/open) roadmap))

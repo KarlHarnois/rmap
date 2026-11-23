@@ -5,6 +5,9 @@
                     other-roadmap-name refusal-code-of
                     research scratch-ledger)
 
+(defn added (settings draft)
+  (add-item settings (str "road") draft))
+
 (deftest repeated-blockers-are-stored-once
   (let (settings (scratch-ledger "repeated-blockers")
         blocker (research (ref settings))
@@ -21,9 +24,6 @@
                                     (globs-of-patterns (vec "src/*" "src/*")))))
     (assert (= (len (:globs (unwrap-ok (show-item (ref settings) build))))
                1))))
-
-(defn added (settings draft)
-  (add-item settings (str "road") draft))
 
 (deftest a-build-without-paths-is-refused
   (let (settings (scratch-ledger "build-without-paths"))

@@ -5,6 +5,15 @@
 
 (export visible-deps visible-items visible?)
 
+(type visible-items
+  (fn ((ref (vec item)) (ref history))
+    (vec item)))
+
+(defn visible-items (items history)
+  (collect (map (filter (iter items)
+                  (fn (item) (visible? item history)))
+                clone)))
+
 (type visible?
   (fn ((ref item) (ref history)) bool))
 
@@ -14,15 +23,6 @@
     (merged (= (deref history) history/with-merged))
     (accepted (= (deref history) history/with-merged))
     (_ true)))
-
-(type visible-items
-  (fn ((ref (vec item)) (ref history))
-    (vec item)))
-
-(defn visible-items (items history)
-  (collect (map (filter (iter items)
-                  (fn (item) (visible? item history)))
-                clone)))
 
 (type visible-deps
   (fn ((ref (vec dep)) (ref (vec item)))

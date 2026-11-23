@@ -5,6 +5,10 @@
 
 (def rounds 20)
 
+(def fresh-rounds 5)
+
+(def first-users 6)
+
 (defn winners (database item)
   (let-match ((pair first second) (run-rmap-pair
                                     (clone database)
@@ -20,18 +24,6 @@
     (+ (if (= (:exit-code first) 0) 1 0)
        (if (= (:exit-code second) 0) 1 0))))
 
-(deftest two-processes-claiming-one-item-leave-exactly-one-winner
-  (let (database (database-with-roadmap "claim-race"))
-    (for-each (range 0 rounds)
-      (fn (_)
-        (assert (= (winners (ref database)
-                            (research-id (ref database)))
-                   1))))))
-
-(def fresh-rounds 5)
-
-(def first-users 6)
-
 (defn racing-inits (round)
   (run-rmap-together (scratch-database (as-str (str "fresh-race-" round)))
                      (vec "init")
@@ -41,6 +33,14 @@
   (count (filter (iter replies)
            (fn (reply)
              (= (text-at reply "ledger" "outcome") "created")))))
+
+(deftest two-processes-claiming-one-item-leave-exactly-one-winner
+  (let (database (database-with-roadmap "claim-race"))
+    (for-each (range 0 rounds)
+      (fn (_)
+        (assert (= (winners (ref database)
+                            (research-id (ref database)))
+                   1))))))
 
 (deftest processes-initializing-one-new-ledger-at-once-all-succeed
   (for-each (range 0 fresh-rounds)

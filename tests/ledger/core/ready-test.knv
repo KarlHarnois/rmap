@@ -10,11 +10,113 @@
 
 (use support/generated-snapshots generated-snapshot)
 
+(def seed-count 300)
+
 (defn ready-ids (snapshot)
   (-> (:ready (readiness-of (ref snapshot) (ref scope/every-roadmap)))
       iter
       (map (fn (item) (clone (:value (:id item)))))
       collect))
+
+(defn agrees-with-oracle? (seed)
+  (let (snapshot (generated-snapshot seed)
+        readiness (readiness-of (ref snapshot) (ref scope/every-roadmap))
+        ready (:ready readiness))
+    (and (every? (iter ready)
+           (fn (item)
+             (startable? (ref snapshot) item)))
+         (every? (iter (:items snapshot))
+           (fn (item)
+             (or (not (startable? (ref snapshot) item))
+                 (any? (iter ready)
+                   (fn (other) (= (:id other) (:id item))))))))))
+
+(type startable?
+  (fn ((ref snapshot) (ref item)) bool))
+
+(defn startable? (snapshot item)
+  (and (not= (:kind item) kind/epic)
+       (= (:status item) status/open)
+       (= (:claim item) claim/unclaimed)
+       (blockers-done? snapshot item)
+       (or (not= (:kind item) kind/build)
+           (paths-free? snapshot item))))
+
+(type blockers-done?
+  (fn ((ref snapshot) (ref item)) bool))
+
+(defn blockers-done? (snapshot item)
+  (every? (iter (:deps snapshot))
+    (fn (dep)
+      (or (not= (:item dep) (:id item))
+          (not= (:type dep) dep-type/blocks)
+          (done-for-dependents? snapshot (ref (:on dep)))))))
+
+(defn done-for-dependents? (snapshot id)
+  (match (find-in snapshot id)
+    ((some target) (target-done? snapshot (ref target)))
+    (none false)))
+
+(type target-done?
+  (fn ((ref snapshot) (ref item)) bool))
+
+(defn target-done? (snapshot target)
+  (match (:kind target)
+    (epic (epic-done? snapshot (ref (:id target))))
+    (build (= (:status target) status/merged))
+    (_ (= (:status target) status/accepted))))
+
+(type epic-done?
+  (fn ((ref snapshot) (ref item-id)) bool))
+
+(defn epic-done? (snapshot epic)
+  (let (children (collect (filter (iter (:items snapshot))
+                            (fn (item)
+                              (= (ref (:parent item))
+                                 (ref (some (clone epic))))))))
+    (and (not (empty? children))
+         (every? (iter children)
+           (fn (child)
+             (contains? (finished-statuses) (:status child)))))))
+
+(type paths-free?
+  (fn ((ref snapshot) (ref item)) bool))
+
+(defn paths-free? (snapshot item)
+  (every? (iter (:globs snapshot))
+    (fn (own)
+      (or (not= (:item own) (:id item))
+          (every? (iter (:globs snapshot))
+            (fn (other)
+              (or (= (:item other) (:id item))
+                  (not (held-by-active-build? snapshot (ref (:item other))))
+                  (not (conflict? (ref (:glob own))
+                                  (ref (:glob other)))))))))))
+
+(defn held-by-active-build? (snapshot id)
+  (match (find-in snapshot id)
+    ((some holder) (active? (ref holder)))
+    (none false)))
+
+(type find-in
+  (fn ((ref snapshot) (ref item-id))
+    (option item)))
+
+(defn find-in (snapshot id)
+  (-> (:items snapshot)
+      iter
+      (find (fn (item) (= (ref (:id item)) id)))
+      (map-some clone)))
+
+(type active? (fn ((ref item)) bool))
+
+(defn active? (item)
+  (and (= (:kind item) kind/build)
+       (not= (:status item) status/open)
+       (not (contains? (finished-statuses) (:status item)))))
+
+(defn finished-statuses ()
+  (vec status/merged status/accepted status/dropped))
 
 (deftest an-open-unclaimed-item-is-ready
   (assert (= (ready-ids (snapshot-of
@@ -154,108 +256,6 @@
                           (vec (path-of "rm-0001" "src/a/x.rs")
                                (path-of "rm-0002" "src/a/**"))))
              (vec (str "rm-0001")))))
-
-(def seed-count 300)
-
-(type find-in
-  (fn ((ref snapshot) (ref item-id))
-    (option item)))
-
-(defn find-in (snapshot id)
-  (-> (:items snapshot)
-      iter
-      (find (fn (item) (= (ref (:id item)) id)))
-      (map-some clone)))
-
-(defn done-for-dependents? (snapshot id)
-  (match (find-in snapshot id)
-    ((some target) (target-done? snapshot (ref target)))
-    (none false)))
-
-(type target-done?
-  (fn ((ref snapshot) (ref item)) bool))
-
-(defn target-done? (snapshot target)
-  (match (:kind target)
-    (epic (epic-done? snapshot (ref (:id target))))
-    (build (= (:status target) status/merged))
-    (_ (= (:status target) status/accepted))))
-
-(type epic-done?
-  (fn ((ref snapshot) (ref item-id)) bool))
-
-(defn epic-done? (snapshot epic)
-  (let (children (collect (filter (iter (:items snapshot))
-                            (fn (item)
-                              (= (ref (:parent item))
-                                 (ref (some (clone epic))))))))
-    (and (not (empty? children))
-         (every? (iter children)
-           (fn (child)
-             (contains? (finished-statuses) (:status child)))))))
-
-(type blockers-done?
-  (fn ((ref snapshot) (ref item)) bool))
-
-(defn blockers-done? (snapshot item)
-  (every? (iter (:deps snapshot))
-    (fn (dep)
-      (or (not= (:item dep) (:id item))
-          (not= (:type dep) dep-type/blocks)
-          (done-for-dependents? snapshot (ref (:on dep)))))))
-
-(defn held-by-active-build? (snapshot id)
-  (match (find-in snapshot id)
-    ((some holder) (active? (ref holder)))
-    (none false)))
-
-(type active? (fn ((ref item)) bool))
-
-(defn active? (item)
-  (and (= (:kind item) kind/build)
-       (not= (:status item) status/open)
-       (not (contains? (finished-statuses) (:status item)))))
-
-(defn finished-statuses ()
-  (vec status/merged status/accepted status/dropped))
-
-(type paths-free?
-  (fn ((ref snapshot) (ref item)) bool))
-
-(defn paths-free? (snapshot item)
-  (every? (iter (:globs snapshot))
-    (fn (own)
-      (or (not= (:item own) (:id item))
-          (every? (iter (:globs snapshot))
-            (fn (other)
-              (or (= (:item other) (:id item))
-                  (not (held-by-active-build? snapshot (ref (:item other))))
-                  (not (conflict? (ref (:glob own))
-                                  (ref (:glob other)))))))))))
-
-(type startable?
-  (fn ((ref snapshot) (ref item)) bool))
-
-(defn startable? (snapshot item)
-  (and (not= (:kind item) kind/epic)
-       (= (:status item) status/open)
-       (= (:claim item) claim/unclaimed)
-       (blockers-done? snapshot item)
-       (or (not= (:kind item) kind/build)
-           (paths-free? snapshot item))))
-
-(defn agrees-with-oracle? (seed)
-  (let (snapshot (generated-snapshot seed)
-        readiness (readiness-of (ref snapshot) (ref scope/every-roadmap))
-        ready (:ready readiness))
-    (and (every? (iter ready)
-           (fn (item)
-             (startable? (ref snapshot) item)))
-         (every? (iter (:items snapshot))
-           (fn (item)
-             (or (not (startable? (ref snapshot) item))
-                 (any? (iter ready)
-                   (fn (other) (= (:id other) (:id item))))))))))
 
 (deftest ready-matches-an-independent-oracle-over-generated-graphs
   (for-each (range 0 seed-count)

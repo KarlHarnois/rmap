@@ -6,6 +6,10 @@
 (export refusal-catalog refusal-code-text
         refusal-description)
 
+(defstruct refusal-description
+  :code string
+  :meaning string)
+
 (defenum refusal-code
   roadmap-not-found
   roadmap-exists
@@ -23,9 +27,27 @@
   dep-exists
   dep-not-found)
 
-(defstruct refusal-description
-  :code string
-  :meaning string)
+(defn refusal-code-text (refused)
+  (clone (:code (description-of (code-of refused)))))
+
+(defn refusal-catalog ()
+  (collect (map (iter (vec refusal-code/roadmap-not-found
+                           refusal-code/roadmap-exists
+                           refusal-code/item-not-found
+                           refusal-code/parent-not-epic
+                           refusal-code/parent-in-other-roadmap
+                           refusal-code/epic-has-parent
+                           refusal-code/build-needs-paths
+                           refusal-code/epic-status-computed
+                           refusal-code/invalid-kind-change
+                           refusal-code/invalid-transition
+                           refusal-code/not-ready
+                           refusal-code/path-conflict
+                           refusal-code/cycle
+                           refusal-code/dep-exists
+                           refusal-code/dep-not-found))
+                (fn (code)
+                  (description-of (deref code))))))
 
 (defn code-of (refused)
   (match refused
@@ -47,10 +69,6 @@
     ((refusal/cycle _ _) refusal-code/cycle)
     ((refusal/dep-exists _ _) refusal-code/dep-exists)
     ((refusal/dep-not-found _ _) refusal-code/dep-not-found)))
-
-(defn described (code meaning)
-  (->refusal-description :code (str code)
-                         :meaning (str meaning)))
 
 (defn description-of (code)
   (match code
@@ -85,24 +103,6 @@
     (dep-not-found (described "dep-not-found"
                               "No such blocks dependency exists."))))
 
-(defn refusal-code-text (refused)
-  (clone (:code (description-of (code-of refused)))))
-
-(defn refusal-catalog ()
-  (collect (map (iter (vec refusal-code/roadmap-not-found
-                           refusal-code/roadmap-exists
-                           refusal-code/item-not-found
-                           refusal-code/parent-not-epic
-                           refusal-code/parent-in-other-roadmap
-                           refusal-code/epic-has-parent
-                           refusal-code/build-needs-paths
-                           refusal-code/epic-status-computed
-                           refusal-code/invalid-kind-change
-                           refusal-code/invalid-transition
-                           refusal-code/not-ready
-                           refusal-code/path-conflict
-                           refusal-code/cycle
-                           refusal-code/dep-exists
-                           refusal-code/dep-not-found))
-                (fn (code)
-                  (description-of (deref code))))))
+(defn described (code meaning)
+  (->refusal-description :code (str code)
+                         :meaning (str meaning)))

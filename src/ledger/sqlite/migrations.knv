@@ -27,6 +27,11 @@
     (fn (locked)
       (apply-pending-after-version locked migrations))))
 
+(defn schema-version (connection)
+  (let-try (rows (query connection "PRAGMA user_version" (ref (vec)))
+            row (single-row (ref rows)))
+    (int-cell row 0)))
+
 (defn apply-pending-after-version (connection migrations)
   (let-try (_ (check-unique-versions migrations)
             current (schema-version connection)
@@ -34,11 +39,6 @@
             _ (apply-pending connection
                              (pending-after migrations current)))
     (ok current)))
-
-(defn schema-version (connection)
-  (let-try (rows (query connection "PRAGMA user_version" (ref (vec)))
-            row (single-row (ref rows)))
-    (int-cell row 0)))
 
 (defn check-not-newer (current migrations)
   (let (versions (->schema-versions :ledger current

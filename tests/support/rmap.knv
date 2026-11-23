@@ -9,13 +9,9 @@
         run-rmap-pair run-rmap-text run-rmap-together
         text-at top-level-keys)
 
-(defstruct reply
-  :exit-code i32
-  :json json)
+(rust-type child "std::process::Child")
 
 (def binary-path "target/knave/rmap/rmap")
-
-(rust-type child "std::process::Child")
 
 (def spawn-raw
   (rust "std::process::Command::new({0}).args({1}).stdout(std::process::Stdio::piped()).spawn().map_err(|failure| failure.to_string())"
@@ -31,49 +27,15 @@
   (rust "{{ static BUILT: std::sync::OnceLock<bool> = std::sync::OnceLock::new(); *BUILT.get_or_init({0}) }}"
     (fn ((fn () bool)) bool)))
 
-(defn build-succeeds? ()
-  (= (:code (unwrap-ok (run-command (ref (->command :program (str "knave")
-                                                    :args (vec (str
-                                                                 "build")))))))
-     0))
-
-(defn built-binary ()
-  (assert (once build-succeeds?))
-  binary-path)
-
-(type output->result (fn (command-output) reply))
-
-(defn output->result (output)
-  (->reply :exit-code (:code output)
-           :json (unwrap-ok (parse-json (as-str (:stdout output))))))
-
-(defn waited->result (waited)
-  (let-match ((pair code text) waited)
-    (->reply :exit-code code
-             :json (unwrap-ok (parse-json (as-str text))))))
-
-(defn rmap-command (database args)
-  (->command :program (str (built-binary))
-             :args (with-database database args)))
-
-(defn run-rmap (database args)
-  (output->result (unwrap-ok (run-command (ref (rmap-command database args))))))
-
-(defn spawned (command)
-  (unwrap-ok (spawn-raw (as-str (:program command))
-                        (ref (:args command)))))
+(defstruct reply
+  :exit-code i32
+  :json json)
 
 (defn run-rmap-pair (database first-args second-args)
   (let (first (spawned (rmap-command (clone database) first-args))
         second (spawned (rmap-command database second-args)))
     (pair (waited->result (unwrap-ok (wait-raw first)))
           (waited->result (unwrap-ok (wait-raw second))))))
-
-(defn with-database (database args)
-  (let (all (vec (str "--json") (str "--db") database))
-    (for-each args
-      (fn (arg) (push! all (str arg))))
-    all))
 
 (type run-rmap-together
   (fn (string (vec (ref str)) int)
@@ -87,35 +49,18 @@
                (spawned (rmap-command (clone database) (clone args))))))
     (waited-replies children)))
 
-(defn waited-replies (children)
-  (let (pending children
-        replies (vec))
-    (for-each (range 0 (len pending))
-      (fn (_)
-        (push! replies
-               (waited->result (unwrap-ok (wait-raw (unwrap (pop!
-                                                              pending))))))))
-    replies))
-
-(defn text-at (reply object key)
-  (-> (:json reply)
-      (field object)
-      unwrap
-      (field key)
-      unwrap json->text unwrap))
-
 (defn error-code (reply) (text-at reply "error" "code"))
-
-(defn initialized-database (name)
-  (let (database (scratch-database name))
-    (assert (= (:exit-code (run-rmap (clone database) (vec "init")))
-               0))
-    database))
 
 (defn database-with-roadmap (name)
   (let (database (initialized-database name))
     (assert (= (:exit-code (run-rmap (clone database)
                                      (vec "new" "road" "--manager" "m1")))
+               0))
+    database))
+
+(defn initialized-database (name)
+  (let (database (scratch-database name))
+    (assert (= (:exit-code (run-rmap (clone database) (vec "init")))
                0))
     database))
 
@@ -135,6 +80,16 @@
                                (as-str blocker))))
            "item" "id"))
 
+(defn run-rmap (database args)
+  (output->result (unwrap-ok (run-command (ref (rmap-command database args))))))
+
+(defn text-at (reply object key)
+  (-> (:json reply)
+      (field object)
+      unwrap
+      (field key)
+      unwrap json->text unwrap))
+
 (defn top-level-keys (reply)
   (collect (map (iter (json->entries (ref (:json reply))))
              (fn (entry) (clone (first entry))))))
@@ -150,3 +105,48 @@
       (fn (arg) (push! env-args (str arg))))
     (unwrap-ok (run-command (ref (->command :program (str "env")
                                             :args env-args))))))
+
+(type output->result (fn (command-output) reply))
+
+(defn output->result (output)
+  (->reply :exit-code (:code output)
+           :json (unwrap-ok (parse-json (as-str (:stdout output))))))
+
+(defn rmap-command (database args)
+  (->command :program (str (built-binary))
+             :args (with-database database args)))
+
+(defn built-binary ()
+  (assert (once build-succeeds?))
+  binary-path)
+
+(defn build-succeeds? ()
+  (= (:code (unwrap-ok (run-command (ref (->command :program (str "knave")
+                                                    :args (vec (str
+                                                                 "build")))))))
+     0))
+
+(defn spawned (command)
+  (unwrap-ok (spawn-raw (as-str (:program command))
+                        (ref (:args command)))))
+
+(defn with-database (database args)
+  (let (all (vec (str "--json") (str "--db") database))
+    (for-each args
+      (fn (arg) (push! all (str arg))))
+    all))
+
+(defn waited-replies (children)
+  (let (pending children
+        replies (vec))
+    (for-each (range 0 (len pending))
+      (fn (_)
+        (push! replies
+               (waited->result (unwrap-ok (wait-raw (unwrap (pop!
+                                                              pending))))))))
+    replies))
+
+(defn waited->result (waited)
+  (let-match ((pair code text) waited)
+    (->reply :exit-code code
+             :json (unwrap-ok (parse-json (as-str text))))))

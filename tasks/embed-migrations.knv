@@ -1,18 +1,67 @@
 (module
   "Writes the migration-sources module from the numbered `.sql` files in `migrations/`.")
 
+(use files/directory file-names-ending-with)
+(use process/command ->command command-output run-command)
+
 (def migrations-directory "migrations")
 
 (def sources-module
   "src/ledger/sqlite/migration-sources.knv")
 
-(use files/directory file-names-ending-with)
-(use process/command ->command run-command)
-
 (def write-file
   (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
     (fn ((ref str) (ref str))
       (result unit string))))
+
+(deftask embed-migrations ()
+  (match (embed)
+    ((ok _) (println (str "wrote " sources-module)))
+    ((err failure) (eprintln failure) (exit 1))))
+
+(defn embed ()
+  (let-try (files (file-names-ending-with migrations-directory ".sql")
+            forms (collect-forms files)
+            _ (write-file sources-module (as-str (module-text forms))))
+    (formatted sources-module)))
+
+(defn module-text (forms)
+  (str "(module\n  \"Holds the SQL of each migration, generated from `migrations/` by `knave task embed-migrations`.\")\n\n"
+       "(use ledger/sqlite/migrations ->migration)\n\n"
+       "(export migration-sources)\n\n"
+       "(defn migration-sources ()\n  (vec "
+       (join forms "\n")
+       "))\n"))
+
+(defn formatted (path)
+  (match (run-command (ref (->command :program (str "knave")
+                                      :args (vec (str "fmt") (str path)))))
+    ((ok output) (formatting-outcome output))
+    ((err message) (err message))))
+
+(defn formatting-outcome (output)
+  (if (= (:code (the (ref command-output) (ref output)))
+         0)
+    (ok (do))
+    (err (clone (:stderr output)))))
+
+(defn collect-forms (files)
+  (loop (index 0
+         forms (vec))
+    (if (< index (len files))
+      (let-try (form (migration-form (at files index)))
+        (recur (inc index) (appended forms form)))
+      (ok forms))))
+
+(defn migration-form (file-name)
+  (let-try (version (version-of file-name)
+            sql (map-err (slurp (str migrations-directory "/" file-name))
+                  (fn (failure) (str failure))))
+    (ok (str "(->migration :version " version " :file (str "
+             (pr-str file-name)
+             ")" " :sql (str "
+             (pr-str sql)
+             "))"))))
 
 (defn version-of (file-name)
   (let (parts (collect (split (as-str file-name) "-")))
@@ -28,53 +77,5 @@
     ((ok number) (some number))
     ((err _) none)))
 
-(defn migration-form (file-name)
-  (let-try (version (version-of file-name)
-            sql (map-err (slurp (str migrations-directory "/" file-name))
-                  (fn (failure) (str failure))))
-    (ok (str "(->migration :version " version " :file (str "
-             (pr-str file-name)
-             ")" " :sql (str "
-             (pr-str sql)
-             "))"))))
-
-(defn module-text (forms)
-  (str "(module\n  \"Holds the SQL of each migration, generated from `migrations/` by `knave task embed-migrations`.\")\n\n"
-       "(use ledger/sqlite/migrations ->migration)\n\n"
-       "(export migration-sources)\n\n"
-       "(defn migration-sources ()\n  (vec "
-       (join forms "\n")
-       "))\n"))
-
-(defn embed ()
-  (let-try (files (file-names-ending-with migrations-directory ".sql")
-            forms (collect-forms files)
-            _ (write-file sources-module (as-str (module-text forms))))
-    (formatted sources-module)))
-
-(defn formatted (path)
-  (match (run-command (ref (->command :program (str "knave")
-                                      :args (vec (str "fmt") (str path)))))
-    ((ok output) (formatting-outcome output))
-    ((err message) (err message))))
-
-(defn formatting-outcome (output)
-  (if (= (:code output) 0)
-    (ok (do))
-    (err (clone (:stderr output)))))
-
-(defn collect-forms (files)
-  (loop (index 0
-         forms (vec))
-    (if (< index (len files))
-      (let-try (form (migration-form (at files index)))
-        (recur (inc index) (appended forms form)))
-      (ok forms))))
-
 (defn appended (items extra)
   (let (all items) (push! all extra) all))
-
-(deftask embed-migrations ()
-  (match (embed)
-    ((ok _) (println (str "wrote " sources-module)))
-    ((err failure) (eprintln failure) (exit 1))))

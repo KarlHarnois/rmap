@@ -12,8 +12,68 @@
   :to status
   :kinds (vec kind))
 
-(defn work-kinds ()
-  (vec kind/research kind/design kind/build))
+(defstruct attempt
+  :command string
+  :proposed-move move
+  :target status)
+
+(defn grid-matches-spec? (kind from)
+  (let (item (work-item "rm-0001" kind from))
+    (every? (iter (attempts kind))
+      (fn (attempt)
+        (= (verdict (ref item)
+                    (ref (:proposed-move attempt)))
+           (expected-refusal (ref item) attempt))))))
+
+(defn attempts (kind)
+  (let (all (vec (->attempt :command (str "claim")
+                            :proposed-move (move/claim (->session :name (str "s1")))
+                            :target status/dispatched)
+                 (->attempt :command (str "build")
+                            :proposed-move (move/advance-to-build (vec (glob-of "src/*")))
+                            :target status/dispatched)
+                 (->attempt :command (str "close")
+                            :proposed-move move/close
+                            :target (close-target kind))
+                 (->attempt :command (str "drop")
+                            :proposed-move (move/drop (str "no longer needed"))
+                            :target status/dropped)))
+    (for-each (statuses)
+      (fn (target)
+        (push! all
+               (->attempt :command (str "advance")
+                          :proposed-move (move/advance (deref target))
+                          :target (deref target)))))
+    all))
+
+(defn close-target (kind)
+  (match kind
+    (research status/accepted)
+    (design status/accepted)
+    (_ status/merged)))
+
+(type expected-refusal
+  (fn ((ref item) (ref attempt))
+    (option refusal)))
+
+(defn expected-refusal (item attempt)
+  (cond
+    ((= (:kind item) kind/epic)
+     (some refusal/epic-status-computed))
+    ((spec-allows? item attempt) none)
+    (else (some (refusal/invalid-transition (:status item)
+                                            (:target attempt))))))
+
+(type spec-allows?
+  (fn ((ref item) (ref attempt)) bool))
+
+(defn spec-allows? (item attempt)
+  (any? (iter (spec-table))
+    (fn (row)
+      (and (= (:command row) (:command attempt))
+           (= (:from row) (:status item))
+           (= (:to row) (:target attempt))
+           (contains? (:kinds row) (:kind item))))))
 
 (defn spec-table ()
   (vec (->allowed-move :command (str "claim")
@@ -85,65 +145,8 @@
                        :to status/dropped
                        :kinds (work-kinds))))
 
-(defstruct attempt
-  :command string
-  :proposed-move move
-  :target status)
-
-(defn close-target (kind)
-  (match kind
-    (research status/accepted)
-    (design status/accepted)
-    (_ status/merged)))
-
-(defn attempts (kind)
-  (let (all (vec (->attempt :command (str "claim")
-                            :proposed-move (move/claim (->session :name (str "s1")))
-                            :target status/dispatched)
-                 (->attempt :command (str "build")
-                            :proposed-move (move/advance-to-build (vec (glob-of "src/*")))
-                            :target status/dispatched)
-                 (->attempt :command (str "close")
-                            :proposed-move move/close
-                            :target (close-target kind))
-                 (->attempt :command (str "drop")
-                            :proposed-move (move/drop (str "no longer needed"))
-                            :target status/dropped)))
-    (for-each (statuses)
-      (fn (target)
-        (push! all
-               (->attempt :command (str "advance")
-                          :proposed-move (move/advance (deref target))
-                          :target (deref target)))))
-    all))
-
-(type spec-allows?
-  (fn ((ref item) (ref attempt)) bool))
-
-(defn spec-allows? (item attempt)
-  (any? (iter (spec-table))
-    (fn (row)
-      (and (= (:command row) (:command attempt))
-           (= (:from row) (:status item))
-           (= (:to row) (:target attempt))
-           (contains? (:kinds row) (:kind item))))))
-
-(defn refusal-of (outcome)
-  (match outcome
-    ((ok _) none)
-    ((err refused) (some refused))))
-
-(type expected-refusal
-  (fn ((ref item) (ref attempt))
-    (option refusal)))
-
-(defn expected-refusal (item attempt)
-  (cond
-    ((= (:kind item) kind/epic)
-     (some refusal/epic-status-computed))
-    ((spec-allows? item attempt) none)
-    (else (some (refusal/invalid-transition (:status item)
-                                            (:target attempt))))))
+(defn work-kinds ()
+  (vec kind/research kind/design kind/build))
 
 (defn verdict (item move)
   (refusal-of (approved-move (ref (snapshot-of (vec (clone item))
@@ -152,13 +155,10 @@
                              item
                              (clone move))))
 
-(defn grid-matches-spec? (kind from)
-  (let (item (work-item "rm-0001" kind from))
-    (every? (iter (attempts kind))
-      (fn (attempt)
-        (= (verdict (ref item)
-                    (ref (:proposed-move attempt)))
-           (expected-refusal (ref item) attempt))))))
+(defn refusal-of (outcome)
+  (match outcome
+    ((ok _) none)
+    ((err refused) (some refused))))
 
 (deftest every-move-from-every-status-of-every-kind-follows-the-table
   (for-each (kinds)

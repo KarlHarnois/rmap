@@ -13,35 +13,12 @@
 
 (export all-item-paths insert-globs replace-globs)
 
-(type insert-item-glob
-  (fn ((ref connection) (ref item-glob))
-    (result int database-error)))
-
-(defn insert-item-glob (connection path)
-  (execute connection
-           "INSERT INTO item_paths (item_id, glob) VALUES (?1, ?2)"
-           (ref (vec (text->sql (as-str (:value (:item path))))
-                     (text->sql (as-str (:pattern (:glob path))))))))
-
 (defn all-item-paths (connection)
   (let-try (rows (query
                    connection
                    "SELECT item_id, glob FROM item_paths ORDER BY item_id, glob"
                    (ref (vec))))
     (rows->values (ref rows) row->path)))
-
-(defn row->path (row)
-  (let-try (item (text-cell row 0)
-            pattern (text-cell row 1))
-    (ok (->item-glob :item (->item-id :value item)
-                     :glob (->glob :pattern pattern)))))
-
-(defn insert-globs (connection id globs)
-  (try-each globs
-    (fn (glob)
-      (insert-item-glob connection
-                        (ref (->item-glob :item (clone id)
-                                          :glob (clone glob)))))))
 
 (type replace-globs
   (fn ((ref connection)
@@ -54,3 +31,26 @@
                        "DELETE FROM item_paths WHERE item_id = ?1"
                        (ref (vec (text->sql (as-str (:value id)))))))
     (insert-globs connection id globs)))
+
+(defn insert-globs (connection id globs)
+  (try-each globs
+    (fn (glob)
+      (insert-item-glob connection
+                        (ref (->item-glob :item (clone id)
+                                          :glob (clone glob)))))))
+
+(type insert-item-glob
+  (fn ((ref connection) (ref item-glob))
+    (result int database-error)))
+
+(defn insert-item-glob (connection path)
+  (execute connection
+           "INSERT INTO item_paths (item_id, glob) VALUES (?1, ?2)"
+           (ref (vec (text->sql (as-str (:value (:item path))))
+                     (text->sql (as-str (:pattern (:glob path))))))))
+
+(defn row->path (row)
+  (let-try (item (text-cell row 0)
+            pattern (text-cell row 1))
+    (ok (->item-glob :item (->item-id :value item)
+                     :glob (->glob :pattern pattern)))))

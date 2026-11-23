@@ -15,27 +15,10 @@
              (blocked-section (ref (:blocked readiness)))))
     (join sections "\n\n")))
 
-(defn ready-section (items)
-  (if (empty? items)
-    (str "Nothing is ready.")
-    (str "Ready:\n" (indented (item-table items)))))
-
 (defn blocked-section (blocked)
   (str "Blocked:\n"
        (indented (join (collect (map (iter blocked) blocked-text))
                        "\n"))))
-
-(type blocked-text
-  (fn ((ref blocked-item)) string))
-
-(defn blocked-text (blocked)
-  (let (item (ref (:item blocked)))
-    (str (:value (:id item))
-         "  "
-         (:title item)
-         "\n"
-         (indented (join (blockage-lines (ref (:blockage blocked)))
-                         "\n")))))
 
 (defn blockage-lines (blockage)
   (let (lines (vec))
@@ -64,6 +47,23 @@
                     (:pattern (:other-glob conflict))
                     ", held by "
                     (:value (:with conflict)))))))
+
+(defn ready-section (items)
+  (if (empty? items)
+    (str "Nothing is ready.")
+    (str "Ready:\n" (indented (item-table items)))))
+
+(type blocked-text
+  (fn ((ref blocked-item)) string))
+
+(defn blocked-text (blocked)
+  (let (item (ref (:item blocked)))
+    (str (:value (:id item))
+         "  "
+         (:title item)
+         "\n"
+         (indented (join (blockage-lines (ref (:blockage blocked)))
+                         "\n")))))
 
 (type ids-text
   (fn ((ref (vec item-id))) string))

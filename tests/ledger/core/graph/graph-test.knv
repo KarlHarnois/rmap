@@ -7,17 +7,28 @@
 (use support/graph-fixture graph-roadmaps graph-snapshot
                            platform-id website-id)
 
-(defn diagram-for (scope history)
-  (diagram-of (ref (graph-snapshot))
-              (ref (graph-roadmaps))
-              (ref (->graph-view :scope scope :history history))))
-
 (defn every-roadmap (history)
   (diagram-for scope/every-roadmap history))
 
 (defn platform-only ()
   (diagram-for (scope/one-roadmap (->roadmap-id :value (str platform-id)))
                history/without-merged))
+
+(defn diagram-for (scope history)
+  (diagram-of (ref (graph-snapshot))
+              (ref (graph-roadmaps))
+              (ref (->graph-view :scope scope :history history))))
+
+(type drawn-ids
+  (fn ((ref diagram)) (vec string)))
+
+(defn drawn-ids (diagram)
+  (let (ids (vec))
+    (for-each (:clusters diagram)
+      (fn (cluster)
+        (for-each (cluster-ids cluster)
+          (fn (id) (push! ids (clone id))))))
+    ids))
 
 (type cluster-ids
   (fn ((ref roadmap-cluster))
@@ -33,17 +44,6 @@
           (fn (child)
             (push! ids
                    (clone (:value (:id (:item child)))))))))
-    ids))
-
-(type drawn-ids
-  (fn ((ref diagram)) (vec string)))
-
-(defn drawn-ids (diagram)
-  (let (ids (vec))
-    (for-each (:clusters diagram)
-      (fn (cluster)
-        (for-each (cluster-ids cluster)
-          (fn (id) (push! ids (clone id))))))
     ids))
 
 (type edge-pairs

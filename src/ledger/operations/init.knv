@@ -10,10 +10,6 @@
 (export ->init-report init-ledger init-outcome
         init-outcome-names init-report)
 
-(defenum init-outcome
-  created
-  existing)
-
 (def init-outcome-names
   (vec (pair init-outcome/created "created")
        (pair init-outcome/existing "existing")))
@@ -21,6 +17,10 @@
 (defstruct init-report
   :database-path string
   :outcome init-outcome)
+
+(defenum init-outcome
+  created
+  existing)
 
 (type init-ledger
   (fn ((ref settings))

@@ -37,6 +37,16 @@
       (items-within (ref (:connection transaction))
                     (ref roadmap)))))
 
+(type show-item
+  (fn ((ref settings) item-id)
+    (result item-detail failure)))
+
+(defn show-item (settings id)
+  (in-read-transaction settings
+    (fn (transaction)
+      (detail-within (ref (:connection transaction))
+                     (ref id)))))
+
 (defn items-within (connection roadmap)
   (let-try (scope (scope-named connection roadmap)
             snapshot (load-snapshot connection))
@@ -48,16 +58,6 @@
                     (fn (item) (in-scope? item scope)))
                   (fn (item)
                     (with-shown-status (ref index) item))))))
-
-(type show-item
-  (fn ((ref settings) item-id)
-    (result item-detail failure)))
-
-(defn show-item (settings id)
-  (in-read-transaction settings
-    (fn (transaction)
-      (detail-within (ref (:connection transaction))
-                     (ref id)))))
 
 (type detail-within
   (fn ((ref connection) (ref item-id))

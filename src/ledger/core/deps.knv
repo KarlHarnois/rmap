@@ -8,6 +8,23 @@
 
 (export check-dep-change dep-change)
 
+(defenum dep-change
+  add
+  remove)
+
+(type check-dep-change
+  (fn ((ref snapshot) (ref dep) dep-change)
+    (result unit refusal)))
+
+(defn check-dep-change (snapshot dep change)
+  (match change
+    (add (check-new-dep snapshot
+                        (ref (:item dep))
+                        (ref (:on dep))))
+    (remove (check-dep-removal snapshot
+                               (ref (:item dep))
+                               (ref (:on dep))))))
+
 (defn check-new-dep (snapshot item on)
   (let-try (_ (existing snapshot item)
             _ (existing snapshot on))
@@ -35,20 +52,3 @@
       (and (blocks? dep)
            (= (ref (:item dep)) item)
            (= (ref (:on dep)) on)))))
-
-(defenum dep-change
-  add
-  remove)
-
-(type check-dep-change
-  (fn ((ref snapshot) (ref dep) dep-change)
-    (result unit refusal)))
-
-(defn check-dep-change (snapshot dep change)
-  (match change
-    (add (check-new-dep snapshot
-                        (ref (:item dep))
-                        (ref (:on dep))))
-    (remove (check-dep-removal snapshot
-                               (ref (:item dep))
-                               (ref (:on dep))))))

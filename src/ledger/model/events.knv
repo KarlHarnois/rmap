@@ -7,16 +7,6 @@
 (use json/value json)
 (use ledger/model item-id roadmap-id timestamp)
 
-(defenum event-type
-  roadmap-created
-  item-added
-  item-claimed
-  item-advanced
-  item-closed
-  item-dropped
-  dep-added
-  dep-removed)
-
 (defstruct event-stamp
   :at timestamp
   :actor string)
@@ -35,3 +25,13 @@
   :item-id (option item-id)
   :type event-type
   :payload json)
+
+(defenum event-type
+  roadmap-created
+  item-added
+  item-claimed
+  item-advanced
+  item-closed
+  item-dropped
+  dep-added
+  dep-removed)

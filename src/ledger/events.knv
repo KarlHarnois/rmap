@@ -44,18 +44,6 @@
                                                        roadmap))
                                                 (vec))))
 
-(type roadmap-insert-changes
-  (fn ((ref roadmap)) (vec column-change)))
-
-(defn roadmap-insert-changes (roadmap)
-  (vec (inserted "name"
-                 (text->json (as-str (:name roadmap))))
-       (inserted "manager_session"
-                 (text->json (as-str (:name (:manager roadmap)))))
-       (inserted "status"
-                 (text->json (case-name roadmap-status-names
-                                        (:status roadmap))))))
-
 (type item-added
   (fn ((ref item) (ref new-item))
     event-draft))
@@ -67,6 +55,37 @@
                  :payload (payload-with-changes
                             (ref (item-insert-changes item request))
                             (vec))))
+
+(type dep-changed
+  (fn ((ref item) (ref dep) dep-change)
+    event-draft))
+
+(defn dep-changed (owner dep change)
+  (->event-draft :roadmap-id (some (clone (:roadmap-id owner)))
+                 :item-id (some (clone (:item dep)))
+                 :type (dep-change->event-type change)
+                 :payload (payload-with-changes (ref (dep-row-changes dep
+                                                                      change))
+                                                (vec))))
+
+(defn item-moved (applied)
+  (->event-draft :roadmap-id (some (clone (:roadmap-id (:after applied))))
+                 :item-id (some (clone (:id (:after applied))))
+                 :type (event-type-of (ref (:move applied)))
+                 :payload (payload-with-changes (ref (move-changes applied))
+                                                (move-context (ref (:move applied))))))
+
+(type roadmap-insert-changes
+  (fn ((ref roadmap)) (vec column-change)))
+
+(defn roadmap-insert-changes (roadmap)
+  (vec (inserted "name"
+                 (text->json (as-str (:name roadmap))))
+       (inserted "manager_session"
+                 (text->json (as-str (:name (:manager roadmap)))))
+       (inserted "status"
+                 (text->json (case-name roadmap-status-names
+                                        (:status roadmap))))))
 
 (type item-insert-changes
   (fn ((ref item) (ref new-item))
@@ -85,18 +104,6 @@
                      (optional-ids->json (ref (:discovered-from request)))))
     changes))
 
-(type dep-changed
-  (fn ((ref item) (ref dep) dep-change)
-    event-draft))
-
-(defn dep-changed (owner dep change)
-  (->event-draft :roadmap-id (some (clone (:roadmap-id owner)))
-                 :item-id (some (clone (:item dep)))
-                 :type (dep-change->event-type change)
-                 :payload (payload-with-changes (ref (dep-row-changes dep
-                                                                      change))
-                                                (vec))))
-
 (defn dep-row-changes (dep change)
   (let (on (id->json (ref (:on dep)))
         type (text->json (case-name dep-type-names (:type dep))))
@@ -108,13 +115,6 @@
   (match change
     (add event-type/dep-added)
     (remove event-type/dep-removed)))
-
-(defn item-moved (applied)
-  (->event-draft :roadmap-id (some (clone (:roadmap-id (:after applied))))
-                 :item-id (some (clone (:id (:after applied))))
-                 :type (event-type-of (ref (:move applied)))
-                 :payload (payload-with-changes (ref (move-changes applied))
-                                                (move-context (ref (:move applied))))))
 
 (defn event-type-of (move)
   (match move

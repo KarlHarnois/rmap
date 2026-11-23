@@ -22,12 +22,6 @@
     ((no-repository _) (str "no-repository"))
     ((no-ledger _) (str "no-ledger"))))
 
-(defn database-code (problem)
-  (match (:problem problem)
-    (database-problem/busy (str "busy"))
-    ((database-problem/too-new _) (str "ledger-too-new"))
-    (database-problem/failed (str "database"))))
-
 (defn failure-message (failure)
   (match failure
     ((refused refusal) (refusal->message refusal))
@@ -36,3 +30,9 @@
      (str "rmap needs a git repository or --db: " detail))
     ((no-ledger path)
      (str "no ledger at " path "; run `rmap init` to create it"))))
+
+(defn database-code (problem)
+  (match (:problem problem)
+    (database-problem/busy (str "busy"))
+    ((database-problem/too-new _) (str "ledger-too-new"))
+    (database-problem/failed (str "database"))))

@@ -13,6 +13,10 @@
   every-roadmap
   (one-roadmap roadmap-id))
 
+(defn existing (snapshot id)
+  (ok-or (find-item snapshot id)
+         (refusal/item-not-found (clone id))))
+
 (type find-item
   (fn ((ref snapshot) (ref item-id))
     (option item)))
@@ -23,9 +27,14 @@
       (find (fn (item) (= (ref (:id item)) id)))
       (map-some clone)))
 
-(defn existing (snapshot id)
-  (ok-or (find-item snapshot id)
-         (refusal/item-not-found (clone id))))
+(type lock-of
+  (fn ((ref snapshot) (ref item))
+    path-lock))
+
+(defn lock-of (snapshot item)
+  (->path-lock :item (clone (:id item))
+               :kind (:kind item)
+               :globs (globs-of snapshot (ref (:id item)))))
 
 (type globs-of
   (fn ((ref snapshot) (ref item-id))
@@ -38,14 +47,10 @@
       (map (fn (path) (clone (:glob path))))
       collect))
 
-(type lock-of
-  (fn ((ref snapshot) (ref item))
-    path-lock))
-
-(defn lock-of (snapshot item)
-  (->path-lock :item (clone (:id item))
-               :kind (:kind item)
-               :globs (globs-of snapshot (ref (:id item)))))
+(defn blocked-by (snapshot id)
+  (collect (map (filter (iter (deps-of snapshot id))
+                  (fn (dep) (blocks? dep)))
+                (fn (dep) (clone (:on dep))))))
 
 (type deps-of
   (fn ((ref snapshot) (ref item-id))
@@ -60,11 +65,6 @@
 
 (defn blocks? (dep)
   (= (:type dep) dep-type/blocks))
-
-(defn blocked-by (snapshot id)
-  (collect (map (filter (iter (deps-of snapshot id))
-                  (fn (dep) (blocks? dep)))
-                (fn (dep) (clone (:on dep))))))
 
 (type in-scope?
   (fn ((ref item) (ref scope)) bool))

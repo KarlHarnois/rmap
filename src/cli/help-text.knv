@@ -14,6 +14,9 @@
 
 (export command-help-text help-text)
 
+(def full-help-pointer
+  "Run `rmap help` for the global flags, environment variables, exit codes and refusal codes.")
+
 (defn help-text ()
   (join (vec (str "Usage: " (usage-line))
              (section "Commands" (entries (routes) command-entry))
@@ -21,9 +24,6 @@
              (section "Exit codes" (table (exit-code-rows)))
              (section "Refusal codes" (table (refusal-rows))))
         "\n\n"))
-
-(def full-help-pointer
-  "Run `rmap help` for the global flags, environment variables, exit codes and refusal codes.")
 
 (defn command-help-text (routes)
   (join (vec (section "Usage" (entries routes rmap-command-entry))

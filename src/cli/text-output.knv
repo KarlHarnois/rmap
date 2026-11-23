@@ -12,13 +12,13 @@
 
 (export printed response->printed stream)
 
-(defenum stream
-  standard-output
-  standard-error)
-
 (defstruct printed
   :stream stream
   :text string)
+
+(defenum stream
+  standard-output
+  standard-error)
 
 (defn response->printed (response)
   (match response

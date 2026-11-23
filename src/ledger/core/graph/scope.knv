@@ -20,6 +20,17 @@
                         (id-in-scope? shown (ref (:on dep)) scope))))
                 clone)))
 
+(defn external-items (shown deps scope)
+  (sorted-by-id (collect (map (filter (iter shown)
+                                (fn (item)
+                                  (and (not (in-scope? item scope))
+                                       (endpoint? deps (ref (:id item))))))
+                              clone))))
+
+(defn external-node-of (item roadmaps ready)
+  (->external-node :node (node-of item ready)
+                   :roadmap-name (roadmap-name-of roadmaps item)))
+
 (type id-in-scope?
   (fn ((ref (vec item))
        (ref item-id)
@@ -32,13 +43,6 @@
       (and (= (ref (:id item)) id)
            (in-scope? item scope)))))
 
-(defn external-items (shown deps scope)
-  (sorted-by-id (collect (map (filter (iter shown)
-                                (fn (item)
-                                  (and (not (in-scope? item scope))
-                                       (endpoint? deps (ref (:id item))))))
-                              clone))))
-
 (type endpoint?
   (fn ((ref (vec dep)) (ref item-id))
     bool))
@@ -48,10 +52,6 @@
     (fn (dep)
       (or (= (ref (:item dep)) id)
           (= (ref (:on dep)) id)))))
-
-(defn external-node-of (item roadmaps ready)
-  (->external-node :node (node-of item ready)
-                   :roadmap-name (roadmap-name-of roadmaps item)))
 
 (type roadmap-name-of
   (fn ((ref (vec roadmap)) (ref item))

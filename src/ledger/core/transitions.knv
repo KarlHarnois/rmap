@@ -23,46 +23,6 @@
   :kinds (vec kind)
   :steps (vec (pair status status)))
 
-(defn work-kinds ()
-  (vec kind/research kind/design kind/build))
-
-(defn reporting-kinds () (vec kind/research kind/design))
-
-(defn allowances ()
-  (vec (->allowance :move-type move-type/claim
-                    :kinds (work-kinds)
-                    :steps (vec (pair status/open status/dispatched)))
-       (->allowance :move-type move-type/advance
-                    :kinds (work-kinds)
-                    :steps (vec (pair status/dispatched status/open)))
-       (->allowance :move-type move-type/advance
-                    :kinds (reporting-kinds)
-                    :steps (vec (pair status/dispatched status/reported)))
-       (->allowance :move-type move-type/advance
-                    :kinds (vec kind/build)
-                    :steps (vec (pair status/dispatched status/in-review)
-                                (pair status/in-review status/fixing)
-                                (pair status/in-review status/merging)
-                                (pair status/fixing status/in-review)
-                                (pair status/merging status/fixing)))
-       (->allowance :move-type move-type/advance-to-build
-                    :kinds (reporting-kinds)
-                    :steps (vec (pair status/reported status/dispatched)))
-       (->allowance :move-type move-type/close
-                    :kinds (vec kind/build)
-                    :steps (vec (pair status/merging status/merged)))
-       (->allowance :move-type move-type/close
-                    :kinds (reporting-kinds)
-                    :steps (vec (pair status/reported status/accepted)))
-       (->allowance :move-type move-type/drop
-                    :kinds (work-kinds)
-                    :steps (steps-to-dropped))))
-
-(defn steps-to-dropped ()
-  (collect (map (iter (unfinished-statuses))
-             (fn (status)
-               (pair (deref status) status/dropped)))))
-
 (defn approved-move (snapshot item move)
   (let (resolved (with-stored-globs snapshot item move))
     (let-try (_ (check-table item (ref resolved))
@@ -107,6 +67,46 @@
         (and (= (:move-type allowance) type)
              (contains? (:kinds allowance) (:kind item))
              (contains? (:steps allowance) step))))))
+
+(defn allowances ()
+  (vec (->allowance :move-type move-type/claim
+                    :kinds (work-kinds)
+                    :steps (vec (pair status/open status/dispatched)))
+       (->allowance :move-type move-type/advance
+                    :kinds (work-kinds)
+                    :steps (vec (pair status/dispatched status/open)))
+       (->allowance :move-type move-type/advance
+                    :kinds (reporting-kinds)
+                    :steps (vec (pair status/dispatched status/reported)))
+       (->allowance :move-type move-type/advance
+                    :kinds (vec kind/build)
+                    :steps (vec (pair status/dispatched status/in-review)
+                                (pair status/in-review status/fixing)
+                                (pair status/in-review status/merging)
+                                (pair status/fixing status/in-review)
+                                (pair status/merging status/fixing)))
+       (->allowance :move-type move-type/advance-to-build
+                    :kinds (reporting-kinds)
+                    :steps (vec (pair status/reported status/dispatched)))
+       (->allowance :move-type move-type/close
+                    :kinds (vec kind/build)
+                    :steps (vec (pair status/merging status/merged)))
+       (->allowance :move-type move-type/close
+                    :kinds (reporting-kinds)
+                    :steps (vec (pair status/reported status/accepted)))
+       (->allowance :move-type move-type/drop
+                    :kinds (work-kinds)
+                    :steps (steps-to-dropped))))
+
+(defn work-kinds ()
+  (vec kind/research kind/design kind/build))
+
+(defn reporting-kinds () (vec kind/research kind/design))
+
+(defn steps-to-dropped ()
+  (collect (map (iter (unfinished-statuses))
+             (fn (status)
+               (pair (deref status) status/dropped)))))
 
 (defn check-ledger (snapshot item move)
   (match move

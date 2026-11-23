@@ -34,15 +34,13 @@
                    (appended words (clone (at args index)))
                    flags switches)))))
 
-(defn flag-name? (arg)
-  (starts-with? (as-str arg) "--"))
+(type operand
+  (fn ((ref arguments) (ref route) int)
+    string))
 
-(defn flag-name (arg)
-  (str (subs (as-str arg) 2 (len arg))))
-
-(defn boolean-flag-token? (arg boolean-flag-names)
-  (and (flag-name? arg)
-       (contains? boolean-flag-names (flag-name arg))))
+(defn operand (arguments route index)
+  (clone (at (:words arguments)
+             (+ (word-count route) index))))
 
 (defn flag-value (args index boolean-flag-names)
   (ok-or (then-some (get args (inc index))
@@ -54,13 +52,15 @@
     none
     (some (clone value))))
 
+(defn boolean-flag-token? (arg boolean-flag-names)
+  (and (flag-name? arg)
+       (contains? boolean-flag-names (flag-name arg))))
+
+(defn flag-name? (arg)
+  (starts-with? (as-str arg) "--"))
+
+(defn flag-name (arg)
+  (str (subs (as-str arg) 2 (len arg))))
+
 (defn appended (items extra)
   (let (all items) (push! all extra) all))
-
-(type operand
-  (fn ((ref arguments) (ref route) int)
-    string))
-
-(defn operand (arguments route index)
-  (clone (at (:words arguments)
-             (+ (word-count route) index))))

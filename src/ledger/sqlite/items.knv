@@ -58,6 +58,15 @@
                      (claim->sql (ref (:claim item)))
                      (closed-at->sql (ref (:closed-at item)))))))
 
+(defn all-items (connection)
+  (let-try (rows (query connection
+                        (as-str (str "SELECT "
+                                     joined-columns
+                                     " FROM items JOIN roadmaps ON roadmaps.id = items.roadmap_id"
+                                     " ORDER BY items.created_at, items.id"))
+                        (ref (vec))))
+    (rows->values (ref rows) row->item)))
+
 (type optional-id->sql
   (fn ((ref (option item-id))) sql-value))
 
@@ -79,15 +88,6 @@
   (match closed-at
     ((some at) (text->sql (as-str (:value at))))
     (none sql-value/null)))
-
-(defn all-items (connection)
-  (let-try (rows (query connection
-                        (as-str (str "SELECT "
-                                     joined-columns
-                                     " FROM items JOIN roadmaps ON roadmaps.id = items.roadmap_id"
-                                     " ORDER BY items.created_at, items.id"))
-                        (ref (vec))))
-    (rows->values (ref rows) row->item)))
 
 (defn row->item (row)
   (let-try (id (text-cell row 0)

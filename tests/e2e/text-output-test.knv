@@ -5,6 +5,27 @@
 (use support/scratch scratch-database)
 (use json/value field json->items json->text)
 
+(defn epic-id (database)
+  (text-at (ref (run-rmap database
+                          (vec "item" "add" "--roadmap"
+                               "road" "--title" "e" "--kind"
+                               "epic")))
+           "item" "id"))
+
+(defn child-id (database epic)
+  (text-at (ref (run-rmap database
+                          (vec "item" "add" "--roadmap"
+                               "road" "--title" "c" "--kind"
+                               "research" "--parent"
+                               (as-str epic))))
+           "item" "id"))
+
+(defn child-ids-at (reply)
+  (collect (map (iter (unwrap (json->items (unwrap (field (:json reply)
+                                                          "children")))))
+                (fn (child)
+                  (unwrap (json->text (unwrap (field child "id"))))))))
+
 (deftest a-command-prints-text-by-default
   (let (database (initialized-database "text-by-default")
         output (run-rmap-text
@@ -67,27 +88,6 @@
                (str "road")))
     (assert (starts-with? (as-str (text-at (ref reply) "item" "roadmap_id"))
                           "rm-"))))
-
-(defn epic-id (database)
-  (text-at (ref (run-rmap database
-                          (vec "item" "add" "--roadmap"
-                               "road" "--title" "e" "--kind"
-                               "epic")))
-           "item" "id"))
-
-(defn child-id (database epic)
-  (text-at (ref (run-rmap database
-                          (vec "item" "add" "--roadmap"
-                               "road" "--title" "c" "--kind"
-                               "research" "--parent"
-                               (as-str epic))))
-           "item" "id"))
-
-(defn child-ids-at (reply)
-  (collect (map (iter (unwrap (json->items (unwrap (field (:json reply)
-                                                          "children")))))
-                (fn (child)
-                  (unwrap (json->text (unwrap (field child "id"))))))))
 
 (deftest item-show-replies-with-the-children-of-an-epic
   (let (database (database-with-roadmap "item-children")

@@ -17,9 +17,6 @@
 
 (def database-file-suffixes (vec "" "-wal" "-shm"))
 
-(defn scratch-directory ()
-  (str (temp-directory) "/rmap-tests-" (process-id)))
-
 (defn scratch-database (name)
   (let (directory (scratch-directory)
         path (str directory "/" name ".db"))
@@ -28,3 +25,6 @@
       (fn (suffix)
         (remove-file (as-str (str path suffix)))))
     path))
+
+(defn scratch-directory ()
+  (str (temp-directory) "/rmap-tests-" (process-id)))
