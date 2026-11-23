@@ -19,13 +19,13 @@
 (defn drawing-of (snapshot roadmaps view level)
   (match level
     (item (drawing/items (diagram-of snapshot roadmaps view)))
-    (epic (drawing/groups (epic-rollup (ref (whole-diagram snapshot roadmaps))
-                                       (ref (:scope view))
-                                       (ref (:history view)))))
-    (roadmap (drawing/groups (roadmap-rollup (ref (whole-diagram snapshot
-                                                                 roadmaps))
-                                             (ref (:scope view))
-                                             (ref (:history view)))))))
+    (epic (group-drawing snapshot roadmaps view epic-rollup))
+    (roadmap (group-drawing snapshot roadmaps view roadmap-rollup))))
+
+(defn group-drawing (snapshot roadmaps view rollup-of)
+  (drawing/groups (rollup-of (ref (whole-diagram snapshot roadmaps))
+                             (ref (:scope view))
+                             (ref (:history view)))))
 
 (defn whole-diagram (snapshot roadmaps)
   (diagram-of snapshot roadmaps
