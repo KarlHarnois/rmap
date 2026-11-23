@@ -2,6 +2,7 @@
   "Says which group each item of a graph rolls up to at epic level: its epic, or itself when it has no epic.")
 
 (use ledger/model item)
+(use ledger/core/graph/append push-all!)
 (use ledger/core/graph/diagram diagram)
 (use ledger/core/graph/groups ->group-id group-id)
 (use ledger/core/graph/rolled-edges ->membership membership)
@@ -47,12 +48,3 @@
   (->membership :item (clone (:id item))
                 :group (group-id-of item)))
 
-(type push-all!
-  (fn ((mut (vec membership))
-       (vec membership))
-    unit))
-
-(defn push-all! (memberships extra)
-  (for-each extra
-    (fn (membership)
-      (push! memberships (clone membership)))))

@@ -1,0 +1,12 @@
+(module
+  "Appends the items of one vector to another, in place.")
+
+(export push-all!)
+
+(type push-all!
+  (where ((a clone))
+    (fn ((mut (vec a)) (vec a)) unit)))
+
+(defn push-all! (items extra)
+  (for-each extra
+    (fn (item) (push! items (clone item)))))

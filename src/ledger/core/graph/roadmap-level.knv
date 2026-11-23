@@ -1,17 +1,18 @@
 (module
   "Draws a graph at roadmap level: one node per roadmap, with an edge where an item in one roadmap blocks an item in another.")
 
-(use ledger/model history roadmap-id)
+(use ledger/model history)
 (use ledger/core/snapshot scope)
+(use ledger/core/graph/diagram diagram roadmap-cluster)
 
-(use ledger/core/graph/diagram diagram graph-node
-                               roadmap-cluster)
+(use ledger/core/graph/groups group-of rolled-node
+                              rolled-node-id)
 
-(use ledger/core/graph/groups ->group-id group-id group-of
-                              rolled-node rolled-node-id)
+(use ledger/core/graph/rolled-edges rolled-edges)
 
-(use ledger/core/graph/rolled-edges ->membership membership
-                                    rolled-edges)
+(use ledger/core/graph/roadmap-memberships roadmap-group-id
+                                           roadmap-memberships
+                                           work-nodes)
 
 (use ledger/core/graph/rollup ->rollup edges-among
                               edges-touching endpoint-ids
@@ -45,38 +46,6 @@
                                (clone (:name (:roadmap cluster)))
                                (ref (work-nodes cluster)))))
 
-(type roadmap-memberships
-  (fn ((ref diagram)) (vec membership)))
-
-(defn roadmap-memberships (whole)
-  (let (memberships (vec))
-    (for-each (:clusters whole)
-      (fn (cluster)
-        (let (group (roadmap-group-id (ref (:id (:roadmap cluster)))))
-          (for-each (:epics cluster)
-            (fn (epic)
-              (push! memberships
-                     (->membership :item (clone (:id (:epic epic)))
-                                   :group (clone group)))))
-          (for-each (work-nodes cluster)
-            (fn (node)
-              (push! memberships
-                     (->membership :item (clone (:id (:item node)))
-                                   :group (clone group))))))))
-    memberships))
-
-(type work-nodes
-  (fn ((ref roadmap-cluster))
-    (vec graph-node)))
-
-(defn work-nodes (cluster)
-  (let (nodes (clone (:nodes cluster)))
-    (for-each (:epics cluster)
-      (fn (epic)
-        (for-each (:children epic)
-          (fn (child) (push! nodes (clone child))))))
-    nodes))
-
 (defn neighborhood-of (nodes edges id)
   (let (named (roadmap-group-id id)
         kept (edges-touching edges
@@ -89,12 +58,6 @@
                                    (contains? ends node-id)))))
                          clone))
            kept)))
-
-(type roadmap-group-id
-  (fn ((ref roadmap-id)) group-id))
-
-(defn roadmap-group-id (id)
-  (->group-id :value (clone (:value id))))
 
 (defn drawn (nodes edges)
   (->rollup :clusters (vec)
