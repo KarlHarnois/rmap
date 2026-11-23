@@ -47,4 +47,3 @@
 (defn own-membership (item)
   (->membership :item (clone (:id item))
                 :group (group-id-of item)))
-

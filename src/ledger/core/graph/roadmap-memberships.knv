@@ -12,6 +12,12 @@
 
 (export roadmap-group-id roadmap-memberships work-nodes)
 
+(type roadmap-group-id
+  (fn ((ref roadmap-id)) group-id))
+
+(defn roadmap-group-id (id)
+  (->group-id :value (clone (:value id))))
+
 (type roadmap-memberships
   (fn ((ref diagram)) (vec membership)))
 
@@ -21,6 +27,18 @@
       (fn (cluster)
         (push-all! memberships (members-of-roadmap cluster))))
     memberships))
+
+(type work-nodes
+  (fn ((ref roadmap-cluster))
+    (vec graph-node)))
+
+(defn work-nodes (cluster)
+  (let (nodes (clone (:nodes cluster)))
+    (for-each (:epics cluster)
+      (fn (epic)
+        (for-each (:children epic)
+          (fn (child) (push! nodes (clone child))))))
+    nodes))
 
 (type members-of-roadmap
   (fn ((ref roadmap-cluster))
@@ -40,21 +58,3 @@
                (->membership :item (clone (:id (:item node)))
                              :group (clone group)))))
     memberships))
-
-(type roadmap-group-id
-  (fn ((ref roadmap-id)) group-id))
-
-(defn roadmap-group-id (id)
-  (->group-id :value (clone (:value id))))
-
-(type work-nodes
-  (fn ((ref roadmap-cluster))
-    (vec graph-node)))
-
-(defn work-nodes (cluster)
-  (let (nodes (clone (:nodes cluster)))
-    (for-each (:epics cluster)
-      (fn (epic)
-        (for-each (:children epic)
-          (fn (child) (push! nodes (clone child))))))
-    nodes))
