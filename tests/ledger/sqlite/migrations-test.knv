@@ -3,7 +3,9 @@
 (use ledger/sqlite/connection database-problem execute open
                               query run-batch)
 
-(use ledger/sqlite/rows int-cell rows->values)
+(use ledger/sqlite/rows int-cell optional-text-cell
+                        rows->values)
+
 (use ledger/sqlite/schema-versions ->schema-versions)
 
 (use ledger/sqlite/migrations ->migration migrate
@@ -67,6 +69,13 @@ INSERT INTO items (id, roadmap_id, title, kind, status, priority, created_at) VA
     (unwrap-ok (migrate (ref connection) (migration-sources)))
     connection))
 
+(defn upgraded-from-version-three (name)
+  (let (connection (opened name))
+    (unwrap-ok (migrate (ref connection) (migrations-through 3)))
+    (unwrap-ok (run-batch (ref connection) version-one-rows))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    connection))
+
 (defn opened (name)
   (unwrap-ok (open (as-str (scratch-database name)))))
 
@@ -80,6 +89,13 @@ INSERT INTO items (id, roadmap_id, title, kind, status, priority, created_at) VA
   (len (unwrap-ok (query connection
                          (as-str (str "SELECT * FROM " table))
                          (ref (vec))))))
+
+(defn descriptions (connection)
+  (let-try (rows (query connection
+                        "SELECT description FROM items ORDER BY id"
+                        (ref (vec))))
+    (rows->values (ref rows)
+      (fn (row) (optional-text-cell row 0)))))
 
 (defn remapped-priorities (name)
   (let (connection (opened name))
@@ -204,3 +220,8 @@ INSERT INTO items (id, roadmap_id, title, kind, status, priority, created_at) VA
 (deftest the-priority-migration-remaps-existing-priorities
   (assert (= (unwrap-ok (remapped-priorities "priority-remap"))
              (vec 4 3 2 1 0 0))))
+
+(deftest the-description-migration-gives-old-items-no-description
+  (let (connection (upgraded-from-version-three "description-null"))
+    (assert (= (unwrap-ok (descriptions (ref connection)))
+               (vec none none none)))))

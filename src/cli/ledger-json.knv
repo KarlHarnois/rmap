@@ -7,8 +7,9 @@
 (use ledger/api case-name claim dep dep-type-names event
                 event-type-names globs->json ids->json item
                 item-id kind-names optional-id->json
-                origin-names roadmap roadmap-id
-                roadmap-status-names status-names timestamp)
+                optional-text->json origin-names roadmap
+                roadmap-id roadmap-status-names status-names
+                timestamp)
 
 (export blockage-fields blocked->json conflicts->json
         dep->json event->json globs->json ids->json
@@ -79,6 +80,8 @@
                      (optional-id->json (ref (:parent item))))
                (pair (str "title")
                      (text->json (as-str (:title item))))
+               (pair (str "description")
+                     (optional-text->json (ref (:description item))))
                (pair (str "kind")
                      (text->json (case-name kind-names (:kind item))))
                (pair (str "status")

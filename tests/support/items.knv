@@ -24,6 +24,7 @@
           :roadmap-name (str "road")
           :parent none
           :title (str "work")
+          :description none
           :kind kind
           :status status
           :origin origin/planned

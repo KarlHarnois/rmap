@@ -5,6 +5,7 @@
                 item-detail item-id kind-names origin-names
                 status-names timestamp)
 
+(use cli/description-text description-text)
 (use cli/tables headed indented table)
 
 (export item-added-text item-detail-text item-moved-text
@@ -56,6 +57,7 @@
          (:title item)
          "\n"
          (indented (table (detail-rows detail)))
+         (description-text (ref (:description item)))
          (children-text (ref (:children detail))))))
 
 (type optional-id-text

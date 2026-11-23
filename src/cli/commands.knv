@@ -66,6 +66,8 @@
                 :operands (vec)
                 :flags (vec (required "roadmap" "<name>")
                             (required "title" "<text>")
+                            (optional "description" "<text>")
+                            (optional "description-file" "<path|->")
                             (required "kind" (choices kind-names))
                             (optional "parent" "<epic id>")
                             (optional "after" "<ids, comma-separated>")

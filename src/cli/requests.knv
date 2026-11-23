@@ -9,6 +9,8 @@
                 item-id kind-change kind-names new-item
                 origin origin-names session status-names)
 
+(use cli/description-flags description-of)
+
 (use cli/flags glob-list id-list optional-choice
                optional-number optional-text required-choice
                required-text switch-on?)
@@ -62,12 +64,14 @@
             title (required-text arguments "title")
             kind (required-choice arguments "kind" kind-names)
             origin (optional-choice arguments "origin" origin-names)
-            priority (optional-number arguments "priority"))
+            priority (optional-number arguments "priority")
+            description (description-of arguments))
     (ok (request/add-item
           roadmap
           (->new-item
             :parent (map-some (optional-text arguments "parent") text->id)
             :title title
+            :description description
             :kind kind
             :origin (unwrap-or origin origin/planned)
             :priority (unwrap-or priority 2)

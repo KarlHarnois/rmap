@@ -45,7 +45,7 @@ Commands:
     Lists the next action for each open item and who takes it. A manager with no roadmaps gives an empty list, not an error.
   log [--item <id>] [--since <event id>]
     Prints the events, for one item or after one event id when given.
-  item add --roadmap <name> --title <text> --kind epic|research|design|build [--parent <epic id>] [--after <ids, comma-separated>] [--paths <globs, comma-separated>] [--from <id>] [--origin planned|user-bug|follow-up] [--priority <0 (highest) to 4 (lowest), default 2>]
+  item add --roadmap <name> --title <text> [--description <text>] [--description-file <path|->] --kind epic|research|design|build [--parent <epic id>] [--after <ids, comma-separated>] [--paths <globs, comma-separated>] [--from <id>] [--origin planned|user-bug|follow-up] [--priority <0 (highest) to 4 (lowest), default 2>]
     Adds an item to a roadmap.
   item list [--roadmap <name>]
     Lists the items.
@@ -74,7 +74,7 @@ Environment:
 Exit codes:
   0  The command ran.
   1  The ledger refused the command. The error holds a code and a message.
-  2  The call is incomplete. The error has the code usage when the arguments match no command, no-repository when no --db was given outside a git repository, or no-ledger when no ledger exists at the path yet.
+  2  The call cannot be completed. The error has the code usage when the arguments match no command, no-repository when no --db was given outside a git repository, no-ledger when no ledger exists at the path yet, or description-unreadable when a --description-file or stdin read fails.
   3  The database could not be opened, read or written. The error has the code busy when the wait for the lock timed out, ledger-too-new when a newer rmap migrated the ledger, otherwise database.
 
 Refusal codes:

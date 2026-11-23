@@ -7,8 +7,8 @@
 (use ledger/refusal refusal)
 (use ledger/core/snapshot existing find-item)
 
-(export ->new-item check-new-item distinct new-item
-        normalized)
+(export ->new-item check-new-item description-input distinct
+        new-item normalized)
 
 (def highest-priority 0)
 
@@ -17,12 +17,19 @@
 (defstruct new-item
   :parent (option item-id)
   :title string
+  :description description-input
   :kind kind
   :origin origin
   :priority int
   :globs (vec glob)
   :blocked-by (vec item-id)
   :discovered-from (option item-id))
+
+(defenum description-input
+  unspecified
+  (text string)
+  (from-file string)
+  from-stdin)
 
 (defn check-new-item (snapshot roadmap-id request)
   (let-try (_ (check-epic-has-no-parent request)

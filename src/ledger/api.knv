@@ -24,14 +24,17 @@
 (use ledger/core/batch batch batch-size batch-size-of
                        skipped-item)
 
-(use ledger/core/new-items ->new-item new-item)
+(use ledger/core/new-items ->new-item description-input
+                           new-item)
+
 (use ledger/operations/database-path default-database-path)
 
 (use ledger/operations/transaction ->settings clock
                                    settings)
 
 (use ledger/json-values globs->json ids->json
-                        optional-id->json)
+                        optional-id->json
+                        optional-text->json)
 
 (use ledger/failure failure failure-code failure-message)
 (use ledger/sqlite/connection database-problem)
@@ -69,16 +72,17 @@
         batch-size-of blockage blocked-item case-name
         case-named claim claim-item clock close-item
         database-problem default-database-path dep dep-type
-        dep-type-names draw-graph drop-item event event-type
-        event-type-names failure failure-code
-        failure-message glob globs->json graph-format
-        graph-format-names graph-level graph-level-names
-        graph-request graph-source history ids->json
-        init-ledger init-outcome init-outcome-names
-        init-report item item-detail item-id kind
-        kind-change kind-names list-items list-roadmaps
-        new-item new-roadmap next-action next-actions
-        next-item optional-id->json origin origin-names
+        dep-type-names description-input draw-graph
+        drop-item event event-type event-type-names failure
+        failure-code failure-message glob globs->json
+        graph-format graph-format-names graph-level
+        graph-level-names graph-request graph-source history
+        ids->json init-ledger init-outcome
+        init-outcome-names init-report item item-detail
+        item-id kind kind-change kind-names list-items
+        list-roadmaps new-item new-roadmap next-action
+        next-actions next-item optional-id->json
+        optional-text->json origin origin-names
         path-conflict read-log readiness ready-batch
         ready-items refusal refusal->message refusal-catalog
         refusal-code-text refusal-description remove-dep

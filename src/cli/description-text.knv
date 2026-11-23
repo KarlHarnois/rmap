@@ -1,0 +1,11 @@
+(module
+  "Prints an item's description as the section below its detail rows.")
+
+(use cli/tables indented)
+
+(export description-text)
+
+(defn description-text (description)
+  (match description
+    ((some text) (str "\n\nDescription:\n" (indented text)))
+    (none (str ""))))

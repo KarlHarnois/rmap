@@ -2,12 +2,12 @@
                 null? same? text->json)
 
 (use ledger/model ->dep ->roadmap ->roadmap-id ->session
-                  ->timestamp dep-type kind roadmap-status
-                  status)
+                  ->timestamp dep-type item kind
+                  roadmap-status status)
 
 (use ledger/core/move move)
 (use ledger/core/deps dep-change)
-(use ledger/core/new-items ->new-item)
+(use ledger/core/new-items ->new-item description-input)
 
 (use ledger/events ->applied-move dep-changed item-added
                    item-moved roadmap-created)
@@ -49,12 +49,18 @@
 (defn new-research ()
   (->new-item :parent none
               :title (str "work")
+              :description description-input/unspecified
               :kind kind/research
               :origin (work-origin)
               :priority 0
               :globs (vec (glob-of "src/*"))
               :blocked-by (vec (id-of "rm-0002"))
               :discovered-from none))
+
+(type described (fn (item) item))
+
+(defn described (item)
+  (assoc item :description (some (str "the spec"))))
 
 (defn work-origin ()
   (:origin (research status/open)))
@@ -126,12 +132,13 @@
                (some (str "2026-01-02T00:00:00Z"))))))
 
 (deftest an-added-item-records-every-column-it-sets
-  (let (payload (copy-of (ref (:payload (item-added (ref (research status/open))
+  (let (payload (copy-of (ref (:payload (item-added (ref (described (research status/open)))
                                                     (ref (new-research)))))))
     (assert (= (columns payload)
                (vec (str "blocked_by")
                     (str "claimed_by")
                     (str "closed_at")
+                    (str "description")
                     (str "discovered_from")
                     (str "kind")
                     (str "origin")
@@ -141,6 +148,9 @@
                     (str "status")
                     (str "title"))))
     (assert (null? (ref (side payload "title" "old"))))
+    (assert (null? (ref (side payload "description" "old"))))
+    (assert (= (side-text payload "description" "new")
+               (some (str "the spec"))))
     (assert (null? (ref (side payload "parent_id" "new"))))))
 
 (deftest an-added-dep-records-its-row-as-new

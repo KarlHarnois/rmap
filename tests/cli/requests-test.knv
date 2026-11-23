@@ -1,5 +1,16 @@
+(use ledger/api description-input)
 (use cli/arguments ->arguments)
 (use cli/requests add-item-request request)
+
+(type flags-with
+  (fn ((iterator (ref (pair string string))))
+    (vec (pair string string))))
+
+(defn flags-with (extra)
+  (let (flags (base-flags))
+    (for-each extra
+      (fn (entry) (push! flags (clone entry))))
+    flags))
 
 (defn base-flags ()
   (vec (pair (str "roadmap") (str "road"))
@@ -22,3 +33,31 @@
            (pair (str "priority") (str "4")))
     (assert (= (:priority (unwrap (draft-for flags)))
                4))))
+
+(deftest an-item-without-a-description-has-none
+  (assert (= (:description (unwrap (draft-for (base-flags))))
+             description-input/unspecified)))
+
+(deftest an-item-keeps-the-description-it-is-given
+  (assert (= (:description (unwrap (draft-for (flags-with (vec (pair (str "description")
+                                                                     (str "the spec")))))))
+             (description-input/text (str "the spec")))))
+
+(deftest an-item-reads-its-description-from-a-file
+  (assert (= (:description (unwrap (draft-for (flags-with (vec (pair (str "description-file")
+                                                                     (str "specs.txt")))))))
+             (description-input/from-file (str "specs.txt")))))
+
+(deftest an-item-reads-its-description-from-stdin
+  (assert (= (:description (unwrap (draft-for (flags-with (vec (pair (str "description-file")
+                                                                     (str "-")))))))
+             description-input/from-stdin)))
+
+(deftest an-item-refuses-a-description-and-a-description-file
+  (assert (err? (add-item-request (->arguments :words (vec)
+                                               :flags (flags-with (vec
+                                                                    (pair (str "description")
+                                                                          (str "the spec"))
+                                                                    (pair (str "description-file")
+                                                                          (str "specs.txt"))))
+                                               :switches (vec))))))

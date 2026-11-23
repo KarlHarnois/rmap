@@ -40,6 +40,7 @@
   :roadmap-name string
   :parent (option item-id)
   :title string
+  :description (option string)
   :kind kind
   :status status
   :origin origin

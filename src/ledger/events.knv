@@ -13,7 +13,8 @@
 (use ledger/core/move move)
 
 (use ledger/json-values globs->json id->json ids->json
-                        item->columns optional-ids->json)
+                        item->columns optional-ids->json
+                        optional-text->json)
 
 (use ledger/changes column-change deleted inserted
                     inserted-columns only-changed
@@ -102,6 +103,9 @@
     (push! changes
            (inserted "discovered_from"
                      (optional-ids->json (ref (:discovered-from request)))))
+    (push! changes
+           (inserted "description"
+                     (optional-text->json (ref (:description item)))))
     changes))
 
 (defn dep-row-changes (dep change)

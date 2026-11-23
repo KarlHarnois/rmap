@@ -1,0 +1,138 @@
+(use json/value field json->items json->text null?
+                parse-json)
+
+(use support/rmap database-with-roadmap error-code run-rmap
+                  run-rmap-text text-at)
+
+(use support/scratch scratch-database)
+
+(def binary-path "target/knave/rmap/rmap")
+
+(def write-file
+  (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
+    (fn ((ref str) (ref str))
+      (result unit string))))
+
+(def run-with-stdin
+  (rust "{{ match std::process::Command::new({0}).args({1}).stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).spawn() {{ Ok(mut child) => {{ let written = match child.stdin.as_mut() {{ Some(stdin) => std::io::Write::write_all(stdin, {2}.as_bytes()).map_err(|failure| failure.to_string()), None => Err(\"the process has no stdin\".to_string()), }}; match written {{ Ok(_) => match child.wait_with_output() {{ Ok(output) => Ok((output.status.code().unwrap_or(-1), String::from_utf8_lossy(&output.stdout).to_string())), Err(failure) => Err(failure.to_string()), }}, Err(failure) => Err(failure), }} }}, Err(failure) => Err(failure.to_string()), }} }}"
+    (fn ((ref str) (ref (vec string)) (ref str))
+      (result (pair i32 string) string))))
+
+(defn item-add (database extra)
+  (let (args (vec (str "item")
+                  (str "add")
+                  (str "--roadmap")
+                  (str "road")
+                  (str "--title")
+                  (str "w")
+                  (str "--kind")
+                  (str "research")))
+    (for-each extra
+      (fn (arg) (push! args (str arg))))
+    (run-rmap (clone database) args)))
+
+(defn stdin-reply (database args text)
+  (let-match ((pair code stdout) (unwrap-ok (run-with-stdin binary-path
+                                                            (json-args database
+                                                                       args)
+                                                            (as-str text))))
+    (assert (= code 0))
+    (unwrap-ok (parse-json (as-str stdout)))))
+
+(defn json-args (database args)
+  (let (all (vec (str "--json")
+                 (str "--db")
+                 (clone database)))
+    (for-each args
+      (fn (arg) (push! all (str arg))))
+    all))
+
+(defn item-description (database id)
+  (unwrap (field (shown-item database id) "description")))
+
+(defn shown-item (database id)
+  (let (reply (run-rmap (clone database)
+                        (vec "item" "show" (as-str id))))
+    (assert (= (:exit-code reply) 0))
+    (unwrap (field (:json reply) "item"))))
+
+(deftest adding-an-item-with-a-description-keeps-it
+  (let (database (database-with-roadmap "description-text")
+        added (item-add (ref database)
+                        (vec (str "--description") (str "line one\nline two")))
+        id (text-at (ref added) "item" "id"))
+    (assert (= (json->text (ref (item-description (ref database) id)))
+               (some (str "line one\nline two"))))))
+
+(deftest adding-an-item-without-a-description-keeps-null
+  (let (database (database-with-roadmap "description-absent")
+        added (item-add (ref database)
+                        (the (vec string) (vec)))
+        id (text-at (ref added) "item" "id"))
+    (assert (null? (ref (item-description (ref database) id))))))
+
+(deftest an-item-reads-its-description-from-a-file
+  (let (database (database-with-roadmap "description-file")
+        path (str (scratch-database "description-file-source") ".txt")
+        text (str "from a file\nsecond line"))
+    (unwrap-ok (write-file (as-str path) (as-str text)))
+    (let (added (item-add (ref database)
+                          (vec (str "--description-file") (str path)))
+          id (text-at (ref added) "item" "id"))
+      (assert (= (json->text (ref (item-description (ref database) id)))
+                 (some text))))))
+
+(deftest an-item-reads-its-description-from-stdin
+  (let (database (database-with-roadmap "description-stdin")
+        reply (stdin-reply database
+                           (vec (str "item")
+                                (str "add")
+                                (str "--roadmap")
+                                (str "road")
+                                (str "--title")
+                                (str "w")
+                                (str "--kind")
+                                (str "research")
+                                (str "--description-file")
+                                (str "-"))
+                           (str "from stdin\nsecond line"))
+        description (unwrap (field (unwrap (field reply "item"))
+                                   "description")))
+    (assert (= (json->text (ref description))
+               (some (str "from stdin\nsecond line"))))))
+
+(deftest item-show-prints-a-description-section-in-text
+  (let (database (database-with-roadmap "description-show-text")
+        added (item-add (ref database)
+                        (vec (str "--description") (str "line one\nline two")))
+        id (text-at (ref added) "item" "id")
+        output (run-rmap-text
+                 (vec "--db" (as-str database) "item" "show" (as-str id)))
+        expected (str "Description:\n  line one\n  line two"))
+    (assert (= (:code output) 0))
+    (assert (contains? (:stdout output) (as-str expected)))))
+
+(deftest item-list-json-includes-each-description
+  (let (database (database-with-roadmap "description-list")
+        _ (item-add (ref database)
+                    (vec (str "--description") (str "a spec")))
+        _ (item-add (ref database)
+                    (the (vec string) (vec)))
+        reply (run-rmap (clone database) (vec "item" "list"))
+        descriptions (collect (map (iter (unwrap (json->items (unwrap (field (:json
+                                                                               reply)
+                                                                             "items")))))
+                                   (fn (item)
+                                     (clone (json->text (unwrap (field item
+                                                                       "description"))))))))
+    (assert (= descriptions
+               (vec (some (str "a spec")) none)))))
+
+(deftest an-unreadable-description-file-is-reported
+  (let (database (database-with-roadmap "description-unreadable")
+        reply (item-add (ref database)
+                        (vec (str "--description-file")
+                             (str "/nonexistent/description.txt"))))
+    (assert (= (:exit-code reply) 2))
+    (assert (= (error-code (ref reply))
+               (str "description-unreadable")))))
