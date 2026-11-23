@@ -3,12 +3,12 @@
 
 (export graph-level graph-level-names)
 
-(defenum graph-level
-  item
-  epic
-  roadmap)
-
 (def graph-level-names
   (vec (pair graph-level/item "item")
        (pair graph-level/epic "epic")
        (pair graph-level/roadmap "roadmap")))
+
+(defenum graph-level
+  item
+  epic
+  roadmap)

@@ -15,6 +15,12 @@
         external-group node-ids rolled-cluster rollup
         shown-nodes)
 
+(defstruct rollup
+  :clusters (vec rolled-cluster)
+  :nodes (vec rolled-node)
+  :externals (vec external-group)
+  :edges (vec rolled-edge))
+
 (defstruct rolled-cluster
   :roadmap roadmap
   :nodes (vec rolled-node))
@@ -22,12 +28,6 @@
 (defstruct external-group
   :node rolled-node
   :roadmap-name string)
-
-(defstruct rollup
-  :clusters (vec rolled-cluster)
-  :nodes (vec rolled-node)
-  :externals (vec external-group)
-  :edges (vec rolled-edge))
 
 (type shown-nodes
   (fn ((vec rolled-node) (ref history))
@@ -41,10 +41,6 @@
       (fn (node)
         (clone (:value (rolled-node-id node)))))
     shown))
-
-(defn shown? (node history)
-  (or (= (deref history) history/with-merged)
-      (not= (rolled-node-class node) node-class/merged)))
 
 (defn node-ids (nodes)
   (collect (map (iter nodes) rolled-node-id)))
@@ -83,3 +79,7 @@
         (push! ids (clone (:from edge)))
         (push! ids (clone (:to edge)))))
     ids))
+
+(defn shown? (node history)
+  (or (= (deref history) history/with-merged)
+      (not= (rolled-node-class node) node-class/merged)))

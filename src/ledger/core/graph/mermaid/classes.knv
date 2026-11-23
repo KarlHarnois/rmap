@@ -9,11 +9,6 @@
 
 (export class-lines classed-lines)
 
-(defstruct class-style
-  :class node-class
-  :name (ref str)
-  :style (ref str))
-
 (def state-styles
   (vec (->class-style :class node-class/merged
                       :name "merged"
@@ -31,6 +26,11 @@
 (def external-class "external")
 
 (def external-style "stroke-dasharray:5 5")
+
+(defstruct class-style
+  :class node-class
+  :name (ref str)
+  :style (ref str))
 
 (defn class-lines (diagram)
   (classed-lines (classed-nodes diagram)

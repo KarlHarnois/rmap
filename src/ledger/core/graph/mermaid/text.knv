@@ -20,31 +20,11 @@
        (pair (char "[") "#91;")
        (pair (char "]") "#93;")))
 
-(defn escaped (text)
-  (join (collect (map (chars text) escaped-char))
-        ""))
-
-(defn escaped-char (character)
-  (match (find (iter entity-codes)
-           (fn (entry)
-             (= (first (deref entry)) character)))
-    ((some entry) (str (second (deref entry))))
-    (none (str character))))
-
 (type node-id
   (fn ((ref item-id)) string))
 
 (defn node-id (id)
   (mermaid-id (as-str (:value id))))
-
-(defn mermaid-id (id)
-  (join (collect (map (chars id) id-char))
-        ""))
-
-(defn id-char (character)
-  (if (= character (char "-"))
-    (str "_")
-    (str character)))
 
 (type subgraph-header
   (fn ((ref str) (ref str) (ref str))
@@ -56,6 +36,17 @@
        "[\"" prefix ": "
        (escaped title)
        "\"]"))
+
+(defn mermaid-id (id)
+  (join (collect (map (chars id) id-char))
+        ""))
+
+(type external-label
+  (fn ((ref item) (ref node-state) (ref str))
+    string))
+
+(defn external-label (item state roadmap-name)
+  (str (node-label item state) "<br/>" (escaped roadmap-name)))
 
 (type node-label
   (fn ((ref item) (ref node-state))
@@ -72,12 +63,32 @@
        (origin-text (:origin item))
        "</i>"))
 
-(type external-label
-  (fn ((ref item) (ref node-state) (ref str))
-    string))
+(type group-label
+  (fn ((ref group-node)) string))
 
-(defn external-label (item state roadmap-name)
-  (str (node-label item state) "<br/>" (escaped roadmap-name)))
+(defn group-label (group)
+  (str (escaped (as-str (:title group)))
+       "<br/><i>"
+       (:merged (:progress group))
+       "/"
+       (:total (:progress group))
+       " merged</i>"))
+
+(defn escaped (text)
+  (join (collect (map (chars text) escaped-char))
+        ""))
+
+(defn escaped-char (character)
+  (match (find (iter entity-codes)
+           (fn (entry)
+             (= (first (deref entry)) character)))
+    ((some entry) (str (second (deref entry))))
+    (none (str character))))
+
+(defn id-char (character)
+  (if (= character (char "-"))
+    (str "_")
+    (str character)))
 
 (defn state-text (state)
   (match (deref state)
@@ -89,14 +100,3 @@
   (match origin
     (origin/planned (str ""))
     (_ (str " · " (case-name origin-names origin)))))
-
-(type group-label
-  (fn ((ref group-node)) string))
-
-(defn group-label (group)
-  (str (escaped (as-str (:title group)))
-       "<br/><i>"
-       (:merged (:progress group))
-       "/"
-       (:total (:progress group))
-       " merged</i>"))

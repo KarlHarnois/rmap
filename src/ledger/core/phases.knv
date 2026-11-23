@@ -12,21 +12,6 @@
   active
   finished)
 
-(defn phase-of (status)
-  (match status
-    (open phase/waiting)
-    (dispatched phase/active)
-    (reported phase/active)
-    (in-review phase/active)
-    (fixing phase/active)
-    (merging phase/active)
-    (merged phase/finished)
-    (accepted phase/finished)
-    (dropped phase/finished)))
-
-(defn finished? (status)
-  (= (phase-of status) phase/finished))
-
 (defn active? (status)
   (= (phase-of status) phase/active))
 
@@ -44,3 +29,18 @@
                      (fn (entry) (first (deref entry))))
                    (fn (status)
                      (not (finished? (deref status)))))))
+
+(defn finished? (status)
+  (= (phase-of status) phase/finished))
+
+(defn phase-of (status)
+  (match status
+    (open phase/waiting)
+    (dispatched phase/active)
+    (reported phase/active)
+    (in-review phase/active)
+    (fixing phase/active)
+    (merging phase/active)
+    (merged phase/finished)
+    (accepted phase/finished)
+    (dropped phase/finished)))

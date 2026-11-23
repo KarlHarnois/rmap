@@ -52,18 +52,6 @@
                                  (clone (:title epic))
                                  (ref (:children cluster))))))
 
-(type drawn-ids
-  (fn ((ref (vec rolled-cluster)))
-    (vec group-id)))
-
-(defn drawn-ids (clusters)
-  (let (ids (vec))
-    (for-each clusters
-      (fn (cluster)
-        (for-each (node-ids (ref (:nodes cluster)))
-          (fn (id) (push! ids (clone id))))))
-    ids))
-
 (defn scoped (clusters edges scope)
   (match scope
     (every-roadmap (->rollup :clusters clusters
@@ -90,6 +78,18 @@
               :nodes (vec)
               :externals (externals-of (ref clusters) id (ref ends))
               :edges kept)))
+
+(type drawn-ids
+  (fn ((ref (vec rolled-cluster)))
+    (vec group-id)))
+
+(defn drawn-ids (clusters)
+  (let (ids (vec))
+    (for-each clusters
+      (fn (cluster)
+        (for-each (node-ids (ref (:nodes cluster)))
+          (fn (id) (push! ids (clone id))))))
+    ids))
 
 (type externals-of
   (fn ((ref (vec rolled-cluster))

@@ -24,6 +24,12 @@
                    (own-membership (ref (:item node))))))))
     memberships))
 
+(type group-id-of
+  (fn ((ref item)) group-id))
+
+(defn group-id-of (item)
+  (->group-id :value (clone (:value (:id item)))))
+
 (defn members-of-epic (cluster)
   (let (group (group-id-of (ref (:epic cluster)))
         memberships (vec (own-membership (ref (:epic cluster)))))
@@ -40,12 +46,6 @@
 (defn own-membership (item)
   (->membership :item (clone (:id item))
                 :group (group-id-of item)))
-
-(type group-id-of
-  (fn ((ref item)) group-id))
-
-(defn group-id-of (item)
-  (->group-id :value (clone (:value (:id item)))))
 
 (type push-all!
   (fn ((mut (vec membership))

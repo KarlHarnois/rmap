@@ -45,24 +45,6 @@
                                (clone (:name (:roadmap cluster)))
                                (ref (work-nodes cluster)))))
 
-(type roadmap-group-id
-  (fn ((ref roadmap-id)) group-id))
-
-(defn roadmap-group-id (id)
-  (->group-id :value (clone (:value id))))
-
-(type work-nodes
-  (fn ((ref roadmap-cluster))
-    (vec graph-node)))
-
-(defn work-nodes (cluster)
-  (let (nodes (clone (:nodes cluster)))
-    (for-each (:epics cluster)
-      (fn (epic)
-        (for-each (:children epic)
-          (fn (child) (push! nodes (clone child))))))
-    nodes))
-
 (type roadmap-memberships
   (fn ((ref diagram)) (vec membership)))
 
@@ -83,11 +65,17 @@
                                    :group (clone group))))))))
     memberships))
 
-(defn drawn (nodes edges)
-  (->rollup :clusters (vec)
-            :nodes nodes
-            :externals (vec)
-            :edges edges))
+(type work-nodes
+  (fn ((ref roadmap-cluster))
+    (vec graph-node)))
+
+(defn work-nodes (cluster)
+  (let (nodes (clone (:nodes cluster)))
+    (for-each (:epics cluster)
+      (fn (epic)
+        (for-each (:children epic)
+          (fn (child) (push! nodes (clone child))))))
+    nodes))
 
 (defn neighborhood-of (nodes edges id)
   (let (named (roadmap-group-id id)
@@ -101,3 +89,15 @@
                                    (contains? ends node-id)))))
                          clone))
            kept)))
+
+(type roadmap-group-id
+  (fn ((ref roadmap-id)) group-id))
+
+(defn roadmap-group-id (id)
+  (->group-id :value (clone (:value id))))
+
+(defn drawn (nodes edges)
+  (->rollup :clusters (vec)
+            :nodes nodes
+            :externals (vec)
+            :edges edges))

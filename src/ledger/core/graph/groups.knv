@@ -8,12 +8,9 @@
         group-node group-of progress rolled-node
         rolled-node-class rolled-node-id)
 
-(defstruct group-id
-  :value string)
-
-(defstruct progress
-  :merged int
-  :total int)
+(defenum rolled-node
+  (group group-node)
+  (item graph-node))
 
 (defstruct group-node
   :id group-id
@@ -21,9 +18,12 @@
   :progress progress
   :class node-class)
 
-(defenum rolled-node
-  (group group-node)
-  (item graph-node))
+(defstruct group-id
+  :value string)
+
+(defstruct progress
+  :merged int
+  :total int)
 
 (defn group-of (id title members)
   (let (classes (classes-of members))
@@ -31,6 +31,17 @@
                   :title title
                   :progress (progress-of (ref classes))
                   :class (rolled-class (ref classes)))))
+
+(defn rolled-node-id (node)
+  (match node
+    ((group group) (clone (:id group)))
+    ((item item)
+     (->group-id :value (clone (:value (:id (:item item))))))))
+
+(defn rolled-node-class (node)
+  (match node
+    ((group group) (:class group))
+    ((item item) (node-class-of (ref (:state item))))))
 
 (defn classes-of (members)
   (collect (map (iter members)
@@ -57,14 +68,3 @@
 
 (defn merged? (class)
   (= (deref class) node-class/merged))
-
-(defn rolled-node-id (node)
-  (match node
-    ((group group) (clone (:id group)))
-    ((item item)
-     (->group-id :value (clone (:value (:id (:item item))))))))
-
-(defn rolled-node-class (node)
-  (match node
-    ((group group) (:class group))
-    ((item item) (node-class-of (ref (:state item))))))

@@ -3,8 +3,11 @@
 
 (export conflict?)
 
-(defn wildcard? (character)
-  (contains? "*?[{" (as-str (str character))))
+(defn conflict? (left right)
+  (let (left-prefix (literal-prefix (:pattern left))
+        right-prefix (literal-prefix (:pattern right)))
+    (or (starts-with? left-prefix (as-str right-prefix))
+        (starts-with? right-prefix (as-str left-prefix)))))
 
 (defn literal-prefix (pattern)
   (-> pattern as-str chars
@@ -14,8 +17,5 @@
       collect
       (join "")))
 
-(defn conflict? (left right)
-  (let (left-prefix (literal-prefix (:pattern left))
-        right-prefix (literal-prefix (:pattern right)))
-    (or (starts-with? left-prefix (as-str right-prefix))
-        (starts-with? right-prefix (as-str left-prefix)))))
+(defn wildcard? (character)
+  (contains? "*?[{" (as-str (str character))))

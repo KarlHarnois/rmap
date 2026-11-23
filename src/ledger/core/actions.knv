@@ -5,6 +5,12 @@
 
 (export action actor actor-of next-action planned)
 
+(defstruct next-action
+  :action action
+  :actor actor
+  :session (option session)
+  :reasons (option blockage))
+
 (defenum action
   dispatch
   wait
@@ -20,6 +26,12 @@
   worker
   user)
 
+(defn planned (action session reasons)
+  (->next-action :action action
+                 :actor (actor-of action)
+                 :session session
+                 :reasons reasons))
+
 (defn actor-of (action)
   (match action
     (dispatch actor/controller)
@@ -29,15 +41,3 @@
     (review actor/agent)
     (fix actor/worker)
     (merge actor/controller)))
-
-(defstruct next-action
-  :action action
-  :actor actor
-  :session (option session)
-  :reasons (option blockage))
-
-(defn planned (action session reasons)
-  (->next-action :action action
-                 :actor (actor-of action)
-                 :session session
-                 :reasons reasons))

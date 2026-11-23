@@ -9,32 +9,32 @@
         external-node graph-edge graph-node node-of
         roadmap-cluster sorted-by-id)
 
-(defstruct graph-node
-  :item item
-  :state node-state)
-
-(defstruct epic-cluster
-  :epic item
-  :children (vec graph-node))
+(defstruct diagram
+  :clusters (vec roadmap-cluster)
+  :externals (vec external-node)
+  :edges (vec graph-edge))
 
 (defstruct roadmap-cluster
   :roadmap roadmap
   :epics (vec epic-cluster)
   :nodes (vec graph-node))
 
+(defstruct epic-cluster
+  :epic item
+  :children (vec graph-node))
+
 (defstruct external-node
   :node graph-node
   :roadmap-name string)
+
+(defstruct graph-node
+  :item item
+  :state node-state)
 
 (defstruct graph-edge
   :from item-id
   :to item-id
   :type dep-type)
-
-(defstruct diagram
-  :clusters (vec roadmap-cluster)
-  :externals (vec external-node)
-  :edges (vec graph-edge))
 
 (defn node-of (item ready)
   (->graph-node :item (clone item)

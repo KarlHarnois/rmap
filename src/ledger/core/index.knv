@@ -27,6 +27,39 @@
                                               (ref children))
                     :items items)))
 
+(defn active-locks (index)
+  (ref (:active-locks index)))
+
+(type with-shown-status
+  (fn ((ref ledger-index) (ref item))
+    item))
+
+(defn with-shown-status (index item)
+  (assoc (clone item)
+         :status (unwrap-or (indexed-status index (ref (:id item)))
+                            (:status item))))
+
+(type delivered-id?
+  (fn ((ref ledger-index) (ref item-id))
+    bool))
+
+(defn delivered-id? (index id)
+  (match (get (:items index)
+              (as-str (:value id)))
+    ((some item)
+     (delivered? (:kind item)
+                 (unwrap-or (indexed-status index id) (:status item))))
+    (none false)))
+
+(type indexed-status
+  (fn ((ref ledger-index) (ref item-id))
+    (option status)))
+
+(defn indexed-status (index id)
+  (map-some (get (:statuses index)
+                 (as-str (:value id)))
+            (fn (status) (deref status))))
+
 (type items-by-id
   (fn ((ref (vec item)))
     (hash-map string item)))
@@ -90,36 +123,3 @@
 (defn active-build? (item)
   (and (= (:kind item) kind/build)
        (active? (:status item))))
-
-(type indexed-status
-  (fn ((ref ledger-index) (ref item-id))
-    (option status)))
-
-(defn indexed-status (index id)
-  (map-some (get (:statuses index)
-                 (as-str (:value id)))
-            (fn (status) (deref status))))
-
-(defn active-locks (index)
-  (ref (:active-locks index)))
-
-(type with-shown-status
-  (fn ((ref ledger-index) (ref item))
-    item))
-
-(defn with-shown-status (index item)
-  (assoc (clone item)
-         :status (unwrap-or (indexed-status index (ref (:id item)))
-                            (:status item))))
-
-(type delivered-id?
-  (fn ((ref ledger-index) (ref item-id))
-    bool))
-
-(defn delivered-id? (index id)
-  (match (get (:items index)
-              (as-str (:value id)))
-    ((some item)
-     (delivered? (:kind item)
-                 (unwrap-or (indexed-status index id) (:status item))))
-    (none false)))
