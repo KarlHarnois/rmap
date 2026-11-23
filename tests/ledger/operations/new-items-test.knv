@@ -1,4 +1,5 @@
-(use ledger/api ->item-id add-item kind show-item)
+(use ledger/api ->item-id add-item description-input kind
+                show-item)
 
 (use support/ledger added-id globs-of-patterns item-draft
                     ledger-with-two-roadmaps
@@ -7,6 +8,21 @@
 
 (defn added (settings draft)
   (add-item settings (str "road") draft))
+
+(deftest an-added-item-keeps-its-description
+  (let (settings (scratch-ledger "added-description")
+        draft (assoc (item-draft kind/research (vec))
+                     :description (description-input/text (str "a spec")))
+        id (added-id (ref settings) draft))
+    (assert (= (:description (:item (unwrap-ok (show-item (ref settings) id))))
+               (some (str "a spec"))))))
+
+(deftest an-added-item-without-a-description-keeps-none
+  (let (settings (scratch-ledger "added-without-description")
+        id (added-id (ref settings)
+                     (item-draft kind/research (vec))))
+    (assert (= (:description (:item (unwrap-ok (show-item (ref settings) id))))
+               none))))
 
 (deftest repeated-blockers-are-stored-once
   (let (settings (scratch-ledger "repeated-blockers")

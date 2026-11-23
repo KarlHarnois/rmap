@@ -79,6 +79,8 @@
                      (optional-id->json (ref (:parent item))))
                (pair (str "title")
                      (text->json (as-str (:title item))))
+               (pair (str "description")
+                     (optional-text->json (ref (:description item))))
                (pair (str "kind")
                      (text->json (case-name kind-names (:kind item))))
                (pair (str "status")
@@ -110,6 +112,11 @@
 
 (defn item-id->json (id)
   (text->json (as-str (:value id))))
+
+(defn optional-text->json (text)
+  (match text
+    ((some present) (text->json (as-str present)))
+    (none json/null)))
 
 (defn claim->json (claim)
   (match claim

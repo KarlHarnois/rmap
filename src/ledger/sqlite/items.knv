@@ -19,10 +19,10 @@
 (export all-items insert-item update-item)
 
 (def columns
-  "id, roadmap_id, parent_id, title, kind, status, origin, priority, claimed_by, created_at, closed_at")
+  "id, roadmap_id, parent_id, title, kind, status, origin, priority, claimed_by, created_at, closed_at, description")
 
 (def joined-columns
-  "items.id, items.roadmap_id, items.parent_id, items.title, items.kind, items.status, items.origin, items.priority, items.claimed_by, items.created_at, items.closed_at, roadmaps.name")
+  "items.id, items.roadmap_id, items.parent_id, items.title, items.kind, items.status, items.origin, items.priority, items.claimed_by, items.created_at, items.closed_at, items.description, roadmaps.name")
 
 (type insert-item
   (fn ((ref connection) (ref item))
@@ -30,9 +30,8 @@
 
 (defn insert-item (connection item)
   (execute connection
-           (as-str (str
-                     "INSERT INTO items (" columns
-                     ") VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"))
+           (as-str (str "INSERT INTO items (" columns
+                        ") VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"))
            (ref (vec (text->sql (as-str (:value (:id item))))
                      (text->sql (as-str (:value (:roadmap-id item))))
                      (optional-id->sql (ref (:parent item)))
@@ -43,7 +42,8 @@
                      (int->sql (:priority item))
                      (claim->sql (ref (:claim item)))
                      (text->sql (as-str (:value (:created-at item))))
-                     (closed-at->sql (ref (:closed-at item)))))))
+                     (closed-at->sql (ref (:closed-at item)))
+                     (optional-text->sql (ref (:description item)))))))
 
 (type update-item
   (fn ((ref connection) (ref item))
@@ -89,6 +89,11 @@
     ((some at) (text->sql (as-str (:value at))))
     (none sql-value/null)))
 
+(defn optional-text->sql (text)
+  (match text
+    ((some present) (text->sql (as-str present)))
+    (none sql-value/null)))
+
 (defn row->item (row)
   (let-try (id (text-cell row 0)
             roadmap-id (text-cell row 1)
@@ -101,13 +106,15 @@
             claimed-by (optional-text-cell row 8)
             created-at (text-cell row 9)
             closed-at (optional-text-cell row 10)
-            roadmap-name (text-cell row 11))
+            description (optional-text-cell row 11)
+            roadmap-name (text-cell row 12))
     (ok (->item :id (->item-id :value id)
                 :roadmap-id (->roadmap-id :value roadmap-id)
                 :roadmap-name roadmap-name
                 :parent (map-some parent
                           (fn (value) (->item-id :value value)))
                 :title title
+                :description description
                 :kind kind
                 :status status
                 :origin origin

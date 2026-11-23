@@ -4,8 +4,8 @@
 (use ledger/model ->dep ->item ->item-id claim dep dep-type
                   item item-id roadmap-id status timestamp)
 
-(use ledger/core/new-items check-new-item new-item
-                           normalized)
+(use ledger/core/new-items check-new-item description-input
+                           new-item normalized)
 
 (use ledger/sqlite/items insert-item)
 (use ledger/sqlite/deps insert-deps)
@@ -14,7 +14,7 @@
 (use ledger/sqlite/generated fresh-id)
 
 (use ledger/operations/transaction in-transaction now record
-                                   transaction)
+                                   settings transaction)
 
 (use ledger/failure failure)
 (use ledger/operations/lookups roadmap-id-named)
@@ -28,12 +28,46 @@
   :roadmap-name string
   :created-at timestamp)
 
-(defn add-item (settings roadmap request)
-  (in-transaction settings
-    (fn (transaction)
-      (insert-new-item transaction roadmap (normalized request)))))
+(type add-item
+  (fn ((ref settings) string new-item)
+    (result item failure)))
 
-(defn insert-new-item (transaction roadmap request)
+(defn add-item (settings roadmap request)
+  (let-try (description (resolved-description (clone (:description request))))
+    (in-transaction settings
+      (fn (transaction)
+        (insert-new-item transaction roadmap
+                         (normalized request)
+                         description)))))
+
+(defn resolved-description (input)
+  (match input
+    (description-input/unspecified (ok none))
+    ((description-input/text value) (ok (some (clone value))))
+    ((description-input/from-file path)
+     (read-description-file path))
+    (description-input/from-stdin (read-description-stdin))))
+
+(type read-description-file
+  (fn (string)
+    (result (option string) failure)))
+
+(defn read-description-file (path)
+  (let-try (content (map-err (slurp path)
+                      (fn (cause)
+                        (failure/description-unreadable
+                          (str "could not read the description file "
+                               path ": " cause)))))
+    (ok (some content))))
+
+(defn read-description-stdin ()
+  (let-try (content (map-err (slurp stdin)
+                      (fn (cause)
+                        (failure/description-unreadable (str "could not read the description from stdin: "
+                                                             cause)))))
+    (ok (some content))))
+
+(defn insert-new-item (transaction roadmap request description)
   (let-try (roadmap-id (roadmap-id-named (ref (:connection transaction))
                                          (as-str roadmap))
             snapshot (load-snapshot (ref (:connection transaction)))
@@ -46,7 +80,8 @@
                                (->item-stamp :id (->item-id :value id)
                                              :roadmap-id roadmap-id
                                              :roadmap-name (str roadmap)
-                                             :created-at (now transaction)))
+                                             :created-at (now transaction))
+                               description)
                 (ref request))))
 
 (type store-item
@@ -65,9 +100,10 @@
     (ok item)))
 
 (type request->item
-  (fn ((ref new-item) item-stamp) item))
+  (fn ((ref new-item) item-stamp (option string))
+    item))
 
-(defn request->item (request stamp)
+(defn request->item (request stamp description)
   (let-match ((item-stamp :id id
                           :roadmap-id roadmap-id
                           :roadmap-name roadmap-name
@@ -77,6 +113,7 @@
             :roadmap-name roadmap-name
             :parent (clone (:parent request))
             :title (clone (:title request))
+            :description description
             :kind (:kind request)
             :status status/open
             :origin (:origin request)

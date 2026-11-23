@@ -39,6 +39,16 @@
     (assert (= (item-detail-text (ref detail))
                (str "rm-0002  work\n  roadmap          rm-road\n  kind             build\n  status           dispatched\n  claimed by       worker\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  paths            src/**\n  after            rm-0001\n  discovered from  rm-0009")))))
 
+(deftest item-detail-prints-a-description-section-after-the-rows
+  (let (detail (->item-detail
+                 :item (assoc (work-item "rm-0001" kind/research status/open)
+                              :description (some (str "line one\nline two")))
+                 :deps (vec)
+                 :globs (vec)
+                 :children (vec)))
+    (assert (= (item-detail-text (ref detail))
+               (str "rm-0001  work\n  roadmap          rm-road\n  kind             research\n  status           open\n  claimed by       -\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  paths            -\n  after            -\n  discovered from  -\n\nDescription:\n  line one\n  line two")))))
+
 (deftest an-epic-detail-lists-its-children-under-a-heading
   (let (detail (->item-detail :item (epic-item "rm-0001")
                               :deps (vec)

@@ -1,6 +1,8 @@
 (use ledger/model ->roadmap-id ->snapshot kind origin)
 (use ledger/refusal refusal)
-(use ledger/core/new-items ->new-item check-new-item)
+
+(use ledger/core/new-items ->new-item check-new-item
+                           description-input)
 
 (defn refusal-of (priority)
   (match (checked priority)
@@ -20,6 +22,7 @@
 (defn draft (priority)
   (->new-item :parent none
               :title (str "work")
+              :description description-input/unspecified
               :kind kind/research
               :origin origin/planned
               :priority priority

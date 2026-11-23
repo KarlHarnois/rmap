@@ -2,8 +2,9 @@
 
 (use ledger/api ->advancement ->glob ->new-item ->session
                 ->settings add-item advance-item claim-item
-                clock failure-code glob init-ledger kind
-                kind-change new-roadmap origin status)
+                clock description-input failure-code glob
+                init-ledger kind kind-change new-roadmap
+                origin status)
 
 (use support/scratch scratch-database)
 
@@ -77,6 +78,7 @@
 (defn item-draft (kind globs)
   (->new-item :parent none
               :title (str "work")
+              :description description-input/unspecified
               :kind kind
               :origin origin/planned
               :priority 0

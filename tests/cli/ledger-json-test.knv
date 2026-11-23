@@ -1,7 +1,10 @@
 (use ledger/model ->roadmap-id ->timestamp kind status)
 (use ledger/model/events ->event event-type)
 (use cli/ledger-json event->json item->json)
-(use json/value field json->text object same? text->json)
+
+(use json/value field json->text null? object same?
+                text->json)
+
 (use support/items id-of work-item)
 
 (defn item-text-field (key)
@@ -23,11 +26,26 @@
                (pair (str "to") (text->json "dispatched"))
                (pair (str "session") (text->json "s1")))))
 
+(defn item-field (item key)
+  (-> (item->json (ref item))
+      (field key)
+      unwrap))
+
 (deftest an-item-names-its-roadmap
   (assert (= (item-text-field "roadmap") (str "road"))))
 
 (deftest an-item-keeps-its-roadmap-id
   (assert (= (item-text-field "roadmap_id") (str "rm-road"))))
+
+(deftest an-item-without-a-description-prints-null
+  (assert (null? (ref (item-field (work-item "rm-0001" kind/build status/open)
+                                  "description")))))
+
+(deftest an-item-prints-its-description
+  (let (item (assoc (work-item "rm-0001" kind/build status/open)
+                    :description (some (str "a spec"))))
+    (assert (= (json->text (ref (item-field item "description")))
+               (some (str "a spec"))))))
 
 (deftest an-event-in-the-old-shape-keeps-its-payload-unchanged
   (assert (same? (ref (unwrap (field (ref (event->json (ref (legacy-claim-event))))

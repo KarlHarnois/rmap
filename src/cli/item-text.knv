@@ -56,6 +56,7 @@
          (:title item)
          "\n"
          (indented (table (detail-rows detail)))
+         (description-text (ref (:description item)))
          (children-text (ref (:children detail))))))
 
 (type optional-id-text
@@ -65,6 +66,11 @@
   (match id
     ((some present) (clone (:value present)))
     (none (str "-"))))
+
+(defn description-text (description)
+  (match description
+    ((some text) (str "\n\nDescription:\n" (indented text)))
+    (none (str ""))))
 
 (type item-cells
   (fn ((ref item)) (vec string)))
