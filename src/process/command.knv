@@ -3,6 +3,11 @@
 
 (export ->command command command-output run-command)
 
+(def run-raw
+  (rust "std::process::Command::new({0}).args({1}).output().map(|output| (output.status.code().unwrap_or(-1), (String::from_utf8_lossy(&output.stdout).to_string(), String::from_utf8_lossy(&output.stderr).to_string()))).map_err(|failure| failure.to_string())"
+    (fn ((ref str) (ref (vec string)))
+      (result (pair i32 (pair string string)) string))))
+
 (defstruct command
   :program string
   :args (vec string))
@@ -11,11 +16,6 @@
   :code i32
   :stdout string
   :stderr string)
-
-(def run-raw
-  (rust "std::process::Command::new({0}).args({1}).output().map(|output| (output.status.code().unwrap_or(-1), (String::from_utf8_lossy(&output.stdout).to_string(), String::from_utf8_lossy(&output.stderr).to_string()))).map_err(|failure| failure.to_string())"
-    (fn ((ref str) (ref (vec string)))
-      (result (pair i32 (pair string string)) string))))
 
 (defn run-command (command)
   (map-ok (run-raw (as-str (:program command))

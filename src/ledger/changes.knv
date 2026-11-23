@@ -12,18 +12,10 @@
   :old json
   :new json)
 
-(defn inserted (column value)
-  (->column-change :column (str column)
-                   :old json/null
-                   :new value))
-
 (defn deleted (column value)
   (->column-change :column (str column)
                    :old value
                    :new json/null))
-
-(defn updated (column old new)
-  (->column-change :column (str column) :old old :new new))
 
 (type inserted-columns
   (fn ((ref (vec (pair string json))))
@@ -34,6 +26,11 @@
              (fn (column)
                (inserted (as-str (first column))
                          (copy-of (second column)))))))
+
+(defn inserted (column value)
+  (->column-change :column (str column)
+                   :old json/null
+                   :new value))
 
 (type updated-columns
   (fn ((ref (vec (pair string json)))
@@ -47,6 +44,21 @@
                         (value-named before (first column))
                         (copy-of (second column)))))))
 
+(defn updated (column old new)
+  (->column-change :column (str column) :old old :new new))
+
+(defn only-changed (changes)
+  (-> changes iter
+      (filter changed?)
+      (map copy-change)
+      collect))
+
+(defn payload-with-changes (changes context)
+  (let (entries context)
+    (push! entries
+           (pair (str "changes") (changes->json changes)))
+    (object entries)))
+
 (type value-named
   (fn ((ref (vec (pair string json)))
        (ref string))
@@ -58,12 +70,6 @@
     ((some column) (copy-of (second column)))
     (none json/null)))
 
-(defn only-changed (changes)
-  (-> changes iter
-      (filter changed?)
-      (map copy-change)
-      collect))
-
 (defn changed? (change)
   (not (same? (ref (:old change))
               (ref (:new change)))))
@@ -72,12 +78,6 @@
   (->column-change :column (clone (:column change))
                    :old (copy-of (ref (:old change)))
                    :new (copy-of (ref (:new change)))))
-
-(defn payload-with-changes (changes context)
-  (let (entries context)
-    (push! entries
-           (pair (str "changes") (changes->json changes)))
-    (object entries)))
 
 (defn changes->json (changes)
   (object (collect (map (iter changes) change-entry))))

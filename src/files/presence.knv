@@ -3,13 +3,13 @@
 
 (export file-presence file-presence-at)
 
-(defenum file-presence
-  present
-  absent)
-
 (def path-exists
   (rust "std::path::Path::new({0}).try_exists().map_err(|failure| failure.to_string())"
     (fn ((ref str)) (result bool string))))
+
+(defenum file-presence
+  present
+  absent)
 
 (defn file-presence-at (path)
   (map-ok (path-exists path) exists->presence))
