@@ -1,38 +1,77 @@
-(use support/rmap database-with-roadmap research-id
-                  run-rmap-pair run-rmap-together text-at)
+(use support/rmap database-with-roadmap error-code
+                  research-id run-rmap run-rmap-pair
+                  run-rmap-together text-at)
 
 (use support/scratch scratch-database)
 
 (def rounds 20)
+
+(def settle-attempts 5)
 
 (def fresh-rounds 5)
 
 (def first-users 6)
 
 (defn winners (database item)
-  (let-match ((pair first second) (run-rmap-pair
-                                    (clone database)
-                                    (vec "item" "claim"
-                                         (as-str item)
-                                         "--session" "left")
-                                    (vec "item" "claim"
-                                         (as-str item)
-                                         "--session"
-                                         "right")))
-    (assert (and (<= (:exit-code first) 1)
-                 (<= (:exit-code second) 1)))
-    (+ (if (= (:exit-code first) 0) 1 0)
-       (if (= (:exit-code second) 0) 1 0))))
+  (let-match ((pair first second) (run-rmap-pair (clone database)
+                                                 (claim-args (ref item) "left")
+                                                 (claim-args (ref item)
+                                                             "right")))
+    (let (left (settled (fn ()
+                          (run-rmap (clone database)
+                                    (claim-args (ref item) "left")))
+                        first)
+          right (settled (fn ()
+                           (run-rmap (clone database)
+                                     (claim-args (ref item) "right")))
+                         second))
+      (assert (and (<= (:exit-code left) 1)
+                   (<= (:exit-code right) 1)))
+      (+ (if (= (:exit-code left) 0) 1 0)
+         (if (= (:exit-code right) 0) 1 0)))))
+
+(defn claim-args (item session)
+  (vec "item" "claim" (as-str item) "--session" session))
 
 (defn racing-inits (round)
-  (run-rmap-together (scratch-database (as-str (str "fresh-race-" round)))
-                     (vec "init")
-                     first-users))
+  (let (database (scratch-database (as-str (str "fresh-race-" round))))
+    (settled-all (clone database)
+                 (run-rmap-together (clone database)
+                                    (vec "init")
+                                    first-users))))
+
+(defn settled-all (database replies)
+  (let (pending replies
+        done (vec))
+    (for-each (range 0 (len pending))
+      (fn (_)
+        (push! done
+               (settled (fn ()
+                          (run-rmap (clone database) (vec "init")))
+                        (unwrap (pop! pending))))))
+    done))
+
+(defn settled (rerun reply)
+  (loop (attempt 1
+         outcome reply)
+    (if (and (busy? (ref outcome))
+             (< attempt settle-attempts))
+      (recur (inc attempt) (rerun))
+      outcome)))
+
+(defn busy? (reply)
+  (if (= (:exit-code reply) 3)
+    (= (error-code (ref reply)) "busy")
+    false))
 
 (defn created-count (replies)
   (count (filter (iter replies)
-           (fn (reply)
-             (= (text-at reply "ledger" "outcome") "created")))))
+           (fn (reply) (created? reply)))))
+
+(defn created? (reply)
+  (if (= (:exit-code reply) 0)
+    (= (text-at reply "ledger" "outcome") "created")
+    false))
 
 (deftest two-processes-claiming-one-item-leave-exactly-one-winner
   (let (database (database-with-roadmap "claim-race"))
