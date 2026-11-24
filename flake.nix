@@ -11,12 +11,12 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
-        knaveVersion = "0.21.0";
+        knaveVersion = "0.21.1";
 
         knaveSource = pkgs.fetchCrate {
           pname = "knave";
           version = knaveVersion;
-          hash = "sha256-GNolHEPpXKyscR5O908opvUAfo9G2Js4qbNKxQftQMI=";
+          hash = "sha256-8V4/oHyzjdC+q8znuaowR0OJYtHUjcAbGbUcyK9XQSg=";
         };
 
         knave = pkgs.rustPlatform.buildRustPackage {
@@ -27,12 +27,12 @@
           doCheck = false;
         };
 
-        ledelintRevision = "c2c920aa36798236d22c2ff09dec7b39dd18a34a";
+        ledelintRevision = "67d735e0d9c632fc04508b53d4c42dcd1102e95b";
 
         ledelintSource = pkgs.fetchgit {
           url = "https://github.com/KarlHarnois/ledelint";
           rev = ledelintRevision;
-          hash = "sha256-nl6675dAYNNQ28UIdwOZM4O3OlDoAJjy1xHySWvYlcA=";
+          hash = "sha256-10RYPOSnMQE826i4NGTInQwSPQ+9rgxtIOBtu3GXOL4=";
         };
 
         vendoredCrates = pkgs.rustPlatform.importCargoLock {
