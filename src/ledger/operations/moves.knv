@@ -107,8 +107,5 @@
         item (ref (:id (:after applied))))
     (match (:session-change applied)
       ((started session) (start-session connection item session))
-      ((ended reason)
-       (end-session connection item
-                    (clone reason)
-                    (ref (now transaction))))
+      ((ended end) (end-session connection item end))
       (kept (ok 0)))))

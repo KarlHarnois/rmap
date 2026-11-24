@@ -52,7 +52,7 @@
 (defn session-change-of (item move now)
   (match move
     ((move/claim start) (starting start now))
-    (_ (ending item (target-status item move)))))
+    (_ (ending item (target-status item move) now))))
 
 (defn moved (item move change now)
   (let (target (target-status item move))

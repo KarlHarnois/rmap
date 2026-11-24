@@ -1,6 +1,6 @@
 (use json/value copy-of field json->text null?)
 (use ledger/model ->timestamp kind status)
-(use ledger/model/sessions end-reason)
+(use ledger/model/sessions ->session-end end-reason)
 (use ledger/core/move move)
 (use ledger/core/session-changes session-change)
 (use ledger/move-events ->applied-move item-moved)
@@ -22,6 +22,10 @@
                                                :move move
                                                :session-change change))))
     (copy-of (ref (:payload draft)))))
+
+(defn ended (reason)
+  (session-change/ended (->session-end :reason reason
+                                       :at (->timestamp :value (str "2026-01-03T00:00:00Z")))))
 
 (defn closed (item)
   (assoc item
@@ -58,16 +62,25 @@
     (assert (= (side-text payload "status" "new")
                (some (str "dispatched"))))))
 
-(deftest reopening-records-the-session-it-ends
+(deftest reopening-records-the-session-it-ends-and-when-and-why
   (let (payload (moved-payload (claimed (research status/dispatched))
                                (research status/open)
                                (move/advance status/open)
-                               (session-change/ended end-reason/reopened)))
+                               (ended end-reason/reopened)))
     (assert (= (columns payload)
-               (vec (str "session") (str "status"))))
+               (vec (str "end_reason")
+                    (str "ended_at")
+                    (str "session")
+                    (str "status"))))
     (assert (= (side-text payload "session" "old")
                (some (str "worker"))))
-    (assert (null? (ref (side payload "session" "new"))))))
+    (assert (null? (ref (side payload "session" "new"))))
+    (assert (null? (ref (side payload "ended_at" "old"))))
+    (assert (= (side-text payload "ended_at" "new")
+               (some (str "2026-01-03T00:00:00Z"))))
+    (assert (null? (ref (side payload "end_reason" "old"))))
+    (assert (= (side-text payload "end_reason" "new")
+               (some (str "reopened"))))))
 
 (deftest a-new-build-records-its-old-kind
   (let (payload (moved-payload (research status/reported)
@@ -94,10 +107,12 @@
   (let (payload (moved-payload (claimed (research status/merging))
                                (closed (research status/merged))
                                move/close
-                               (session-change/ended end-reason/finished)))
+                               (ended end-reason/finished)))
     (assert (null? (ref (side payload "closed_at" "old"))))
     (assert (= (side-text payload "closed_at" "new")
                (some (str "2026-01-02T00:00:00Z"))))
     (assert (= (side-text payload "session" "old")
                (some (str "worker"))))
-    (assert (null? (ref (side payload "session" "new"))))))
+    (assert (null? (ref (side payload "session" "new"))))
+    (assert (= (side-text payload "end_reason" "new")
+               (some (str "finished"))))))

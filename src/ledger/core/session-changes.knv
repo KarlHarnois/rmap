@@ -4,7 +4,9 @@
 (use ledger/model ->work-session claim runtime session-kind
                   status timestamp work-session)
 
-(use ledger/model/sessions end-reason session-start)
+(use ledger/model/sessions ->session-end end-reason
+                           session-end session-start)
+
 (use ledger/core/phases finished?)
 
 (export claim-after ending session-change starting)
@@ -12,7 +14,7 @@
 (defenum session-change
   kept
   (started work-session)
-  (ended end-reason))
+  (ended session-end))
 
 (type starting
   (fn ((ref session-start) (ref timestamp))
@@ -26,9 +28,9 @@
                                           :base (some (clone (:base start)))
                                           :started-at (clone now))))
 
-(defn ending (item target)
+(defn ending (item target now)
   (match (:claim item)
-    ((claimed-by _) (ending-for target))
+    ((claimed-by _) (ending-for target now))
     (unclaimed session-change/kept)))
 
 (defn claim-after (item change)
@@ -37,10 +39,11 @@
     ((ended _) claim/unclaimed)
     (kept (clone (:claim item)))))
 
-(defn ending-for (target)
+(defn ending-for (target now)
   (cond
-    ((= target status/open)
-     (session-change/ended end-reason/reopened))
-    ((finished? target)
-     (session-change/ended end-reason/finished))
+    ((= target status/open) (ended-at end-reason/reopened now))
+    ((finished? target) (ended-at end-reason/finished now))
     (else session-change/kept)))
+
+(defn ended-at (reason now)
+  (session-change/ended (->session-end :reason reason :at (clone now))))

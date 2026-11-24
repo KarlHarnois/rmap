@@ -93,7 +93,10 @@
                (some (str "s1"))))
     (assert (= (side-text reopened "session" "old")
                (some (str "s1"))))
-    (assert (side-null? reopened "session" "new"))))
+    (assert (side-null? reopened "session" "new"))
+    (assert (= (side-text reopened "end_reason" "new")
+               (some (str "reopened"))))
+    (assert (side-null? reopened "ended_at" "old"))))
 
 (deftest the-json-log-keeps-an-old-shape-payload-unchanged
   (let (payloads (logged-payloads (ledger-with-legacy-event "log-legacy-json"))

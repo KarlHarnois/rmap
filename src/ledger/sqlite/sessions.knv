@@ -4,9 +4,9 @@
 (use ledger/sqlite/values optional-text->sql text->sql)
 
 (use ledger/model ->session ->timestamp ->work-session claim
-                  item-id timestamp work-session)
+                  item-id work-session)
 
-(use ledger/model/sessions end-reason)
+(use ledger/model/sessions session-end)
 
 (use ledger/names case-name end-reason-names runtime-names
                   session-kind-names)
@@ -46,16 +46,15 @@
 (type end-session
   (fn ((ref connection)
        (ref item-id)
-       end-reason
-       (ref timestamp))
+       (ref session-end))
     (result int database-error)))
 
-(defn end-session (connection item reason now)
+(defn end-session (connection item end)
   (execute connection
            "UPDATE sessions SET ended_at = ?2, end_reason = ?3 WHERE item_id = ?1 AND ended_at IS NULL"
            (ref (vec (text->sql (as-str (:value item)))
-                     (text->sql (as-str (:value now)))
-                     (text->sql (case-name end-reason-names reason))))))
+                     (text->sql (as-str (:value (:at end))))
+                     (text->sql (case-name end-reason-names (:reason end)))))))
 
 (defn row->claim (row first-column)
   (let-try (name (optional-text-cell row first-column))
