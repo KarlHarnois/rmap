@@ -120,6 +120,15 @@
                                              (ref (with-database database args))
                                              (as-str text)))))
 
+(defn reported-done (database id)
+  (assert (= (:exit-code
+               (run-rmap (clone database)
+                         (vec "report"
+                              (as-str id)
+                              "--session" "s1" "--kind"
+                              "done" "--text" "found it")))
+             0)))
+
 (type output->result (fn (command-output) reply))
 
 (defn output->result (output)
@@ -164,12 +173,3 @@
   (let-match ((pair code text) waited)
     (->reply :exit-code code
              :json (unwrap-ok (parse-json (as-str text))))))
-
-(defn reported-done (database id)
-  (assert (= (:exit-code
-               (run-rmap (clone database)
-                         (vec "report"
-                              (as-str id)
-                              "--session" "s1" "--kind"
-                              "done" "--text" "found it")))
-             0)))

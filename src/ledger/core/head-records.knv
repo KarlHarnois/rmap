@@ -1,8 +1,6 @@
 (module
   "Decides the head a manager records for a build's pull request when its branch moved without a report: a full commit SHA other than the head the ledger holds.")
 
-(use ledger/model item)
-(use ledger/model/pull-requests pull-request)
 (use ledger/refusal pull-request-refusal refusal)
 (use ledger/core/heads head-of)
 

@@ -95,12 +95,6 @@
                            (claim-by (as-str (worker-name (ref id)))))))
   id)
 
-(type worker-name
-  (fn ((ref item-id)) string))
-
-(defn worker-name (id)
-  (str "worker-" (:value id)))
-
 (defn session-named (name)
   (->session :name (str name)))
 
@@ -128,3 +122,9 @@
 
 (defn added-id-in (settings roadmap draft)
   (clone (:id (unwrap-ok (add-item settings (str roadmap) draft)))))
+
+(type worker-name
+  (fn ((ref item-id)) string))
+
+(defn worker-name (id)
+  (str "worker-" (:value id)))

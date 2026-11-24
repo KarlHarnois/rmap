@@ -10,12 +10,6 @@
 
 (def hex-digits "0123456789abcdef")
 
-(defn head-of (text)
-  (if (full-sha? text)
-    (ok (->head :sha (clone text)))
-    (err (refusal/pull-request (pull-request-refusal/invalid-head (clone
-                                                                    text))))))
-
 (type current-head
   (fn ((ref pull-request) (ref string))
     (result head refusal)))
@@ -28,6 +22,12 @@
       (err (refusal/pull-request (pull-request-refusal/head-not-current
                                    head
                                    (clone (:head pull-request))))))))
+
+(defn head-of (text)
+  (if (full-sha? text)
+    (ok (->head :sha (clone text)))
+    (err (refusal/pull-request (pull-request-refusal/invalid-head (clone
+                                                                    text))))))
 
 (defn full-sha? (text)
   (and (= (len text) head-length)

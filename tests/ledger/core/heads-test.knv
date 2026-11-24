@@ -9,8 +9,17 @@
 
 (def full-sha "0123456789abcdef0123456789abcdef01234567")
 
+(def other-sha "1111111111111111111111111111111111111111")
+
 (defn invalid (text)
   (err (refusal/pull-request (pull-request-refusal/invalid-head (str text)))))
+
+(defn pull-request-at (sha)
+  (->pull-request :item (->item-id :value (str "rm-0001"))
+                  :pr-number (->pr-number :value 12)
+                  :head (->head :sha (str sha))
+                  :opened-at (->timestamp :value (str "2026-01-02T00:00:00Z"))
+                  :reviews (vec)))
 
 (deftest a-full-lowercase-sha-is-a-head
   (assert (= (head-of (ref (str full-sha)))
@@ -27,15 +36,6 @@
 (deftest a-sha-with-other-letters-is-refused
   (assert (= (head-of (ref (str "z123456789abcdef0123456789abcdef01234567")))
              (invalid "z123456789abcdef0123456789abcdef01234567"))))
-
-(def other-sha "1111111111111111111111111111111111111111")
-
-(defn pull-request-at (sha)
-  (->pull-request :item (->item-id :value (str "rm-0001"))
-                  :pr-number (->pr-number :value 12)
-                  :head (->head :sha (str sha))
-                  :opened-at (->timestamp :value (str "2026-01-02T00:00:00Z"))
-                  :reviews (vec)))
 
 (deftest the-current-head-is-accepted
   (assert (= (current-head (ref (pull-request-at full-sha))

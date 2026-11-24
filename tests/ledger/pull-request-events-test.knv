@@ -73,6 +73,18 @@
 (defn at ()
   (->timestamp :value (str "2026-01-03T00:00:00Z")))
 
+(defn head-recorded-draft ()
+  (let (before (claimed (work-item "rm-0001" kind/build status/merging)))
+    (head-recorded
+      (ref (->applied-move :before (clone before)
+                           :after (assoc before :status status/in-review)
+                           :move move/record-head
+                           :session-change session-change/kept))
+      (ref (pr-change-columns (ref (some (opened)))
+                              (ref (pr-change/pushed (->head :sha (str second-sha))))
+                              (ref (at))))
+      (ref (opened)))))
+
 (deftest an-opened-pull-request-inserts-its-number-head-and-time
   (let (payload (payload-of none
                             (pr-change/opened (->pr-number :value 12)
@@ -120,18 +132,6 @@
                (some 4)))
     (assert (= (json->int (ref (unwrap (field (ref payload) "pr_number"))))
                (some 12)))))
-
-(defn head-recorded-draft ()
-  (let (before (claimed (work-item "rm-0001" kind/build status/merging)))
-    (head-recorded
-      (ref (->applied-move :before (clone before)
-                           :after (assoc before :status status/in-review)
-                           :move move/record-head
-                           :session-change session-change/kept))
-      (ref (pr-change-columns (ref (some (opened)))
-                              (ref (pr-change/pushed (->head :sha (str second-sha))))
-                              (ref (at))))
-      (ref (opened)))))
 
 (deftest a-recorded-head-event-moves-the-status-and-the-head
   (let (draft (head-recorded-draft))

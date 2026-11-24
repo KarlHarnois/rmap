@@ -1,7 +1,7 @@
 (module
   "Decides the requirements a move must meet beyond the transition table: a build moves to merging only when the reviews on its pull request's head approve it.")
 
-(use ledger/model item session status)
+(use ledger/model session status)
 
 (use ledger/model/pull-requests ->approval head pull-request
                                 review verdict)
