@@ -26,6 +26,9 @@
   decision-not-found
   decision-frozen
   decision-incomplete
+  invalid-decision-transition
+  option-not-found
+  already-asked
   not-blockable
   decision-in-other-roadmap
   supersede-target-not-accepted
@@ -65,6 +68,11 @@
     ((refusal/decision-frozen _ _) refusal-code/decision-frozen)
     ((refusal/decision-incomplete _)
      refusal-code/decision-incomplete)
+    ((refusal/invalid-decision-transition _ _ _)
+     refusal-code/invalid-decision-transition)
+    ((refusal/option-not-found _ _)
+     refusal-code/option-not-found)
+    ((refusal/already-asked _) refusal-code/already-asked)
     ((refusal/not-blockable _) refusal-code/not-blockable)
     ((refusal/decision-in-other-roadmap _)
      refusal-code/decision-in-other-roadmap)

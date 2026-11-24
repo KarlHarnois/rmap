@@ -1,0 +1,54 @@
+(use ledger/model/decisions decision-status)
+(use ledger/refusal refusal)
+
+(use ledger/core/decision-transitions approved-decision-move
+                                      decision-move-type)
+
+(use support/decisions decision-id-of sample-decision)
+
+(defn refused-code (status type)
+  (unwrap-err (approved-decision-move (ref (sample-decision status)) type)))
+
+(deftest a-proposed-decision-can-be-asked-accepted-or-rejected
+  (assert (ok? (approved-decision-move (ref (sample-decision
+                                              decision-status/proposed))
+                                       decision-move-type/ask)))
+  (assert (ok? (approved-decision-move (ref (sample-decision
+                                              decision-status/proposed))
+                                       decision-move-type/accept)))
+  (assert (ok? (approved-decision-move (ref (sample-decision
+                                              decision-status/proposed))
+                                       decision-move-type/reject))))
+
+(deftest an-accepted-decision-can-be-deprecated-or-superseded
+  (assert (ok? (approved-decision-move (ref (sample-decision
+                                              decision-status/accepted))
+                                       decision-move-type/deprecate)))
+  (assert (ok? (approved-decision-move (ref (sample-decision
+                                              decision-status/accepted))
+                                       decision-move-type/supersede))))
+
+(deftest a-rejected-decision-can-be-superseded
+  (assert (ok? (approved-decision-move (ref (sample-decision
+                                              decision-status/rejected))
+                                       decision-move-type/supersede))))
+
+(deftest a-proposed-decision-cannot-be-deprecated
+  (assert (= (refused-code decision-status/proposed
+                           decision-move-type/deprecate)
+             (refusal/invalid-decision-transition (decision-id-of "rm-d001")
+                                                  decision-status/proposed
+                                                  decision-status/deprecated))))
+
+(deftest an-accepted-decision-cannot-be-accepted-again
+  (assert (= (refused-code decision-status/accepted
+                           decision-move-type/accept)
+             (refusal/invalid-decision-transition (decision-id-of "rm-d001")
+                                                  decision-status/accepted
+                                                  decision-status/accepted))))
+
+(deftest asking-a-settled-decision-says-it-is-frozen
+  (assert (= (refused-code decision-status/accepted
+                           decision-move-type/ask)
+             (refusal/decision-frozen (decision-id-of "rm-d001")
+                                      decision-status/accepted))))

@@ -1,0 +1,139 @@
+(module
+  "Asks, accepts, rejects and deprecates decisions, each in one transaction that also records its event.")
+
+(use ledger/model decision-id)
+(use ledger/model/decisions decision)
+
+(use ledger/core/decision-moves ->acceptance acceptance
+                                accepted-decision
+                                asked-decision check-askable
+                                check-option
+                                deprecated-decision
+                                rejected-decision takeover)
+
+(use ledger/core/decision-transitions approved-decision-move
+                                      decision-move-type)
+
+(use ledger/core/decisions check-supersede-target)
+(use ledger/sqlite/decision-blocks move-blocks)
+
+(use ledger/sqlite/decision-state mark-asked mark-superseded
+                                  settle-decision)
+
+(use ledger/operations/transaction in-transaction now record
+                                   transaction)
+
+(use ledger/operations/lookups existing-decision)
+
+(use ledger/decision-events decision-accepted decision-asked
+                            decision-deprecated
+                            decision-rejected)
+
+(use ledger/failure failure)
+(use ledger/sqlite/connection connection)
+
+(export accept-decision ask-decision deprecate-decision
+        reject-decision)
+
+(defn ask-decision (settings id)
+  (in-transaction settings
+    (fn (transaction) (apply-ask transaction id))))
+
+(defn accept-decision (settings id acceptance)
+  (in-transaction settings
+    (fn (transaction) (apply-accept transaction id acceptance))))
+
+(defn reject-decision (settings id reason)
+  (in-transaction settings
+    (fn (transaction) (apply-reject transaction id reason))))
+
+(defn deprecate-decision (settings id reason)
+  (in-transaction settings
+    (fn (transaction) (apply-deprecate transaction id reason))))
+
+(defn apply-ask (transaction id)
+  (let (connection (ref (:connection transaction)))
+    (let-try (before (existing-decision connection id)
+              _ (check-askable (ref before)))
+      (let (after (asked-decision (ref before) (now transaction)))
+        (let-try (_ (mark-asked connection (ref after))
+                  _ (record transaction
+                            (decision-asked (ref before) (ref after))))
+          (ok after))))))
+
+(type apply-accept
+  (fn ((ref transaction) (ref decision-id) acceptance)
+    (result decision failure)))
+
+(defn apply-accept (transaction id acceptance)
+  (let (connection (ref (:connection transaction)))
+    (let-try (before (existing-decision connection id)
+              _ (approved-decision-move (ref before)
+                                        decision-move-type/accept)
+              _ (check-option (ref before) (:option acceptance))
+              target (superseded-target connection (ref before)))
+      (let (after (accepted-decision (ref before)
+                                     acceptance
+                                     (clone (:actor (:stamp transaction)))
+                                     (now transaction))
+            taken (takeover (ref after) target))
+        (let-try (_ (settle-decision connection (ref taken))
+                  _ (supersede transaction (ref taken) target)
+                  _ (record
+                      transaction
+                      (decision-accepted (ref before) (ref taken) target)))
+          (ok taken))))))
+
+(defn apply-reject (transaction id reason)
+  (let (connection (ref (:connection transaction)))
+    (let-try (before (existing-decision connection id)
+              _ (approved-decision-move (ref before)
+                                        decision-move-type/reject))
+      (let (after (rejected-decision (ref before)
+                                     reason
+                                     (clone (:actor (:stamp transaction)))
+                                     (now transaction)))
+        (let-try (_ (settle-decision connection (ref after))
+                  _ (record transaction
+                            (decision-rejected (ref before) (ref after))))
+          (ok after))))))
+
+(defn apply-deprecate (transaction id reason)
+  (let (connection (ref (:connection transaction)))
+    (let-try (before (existing-decision connection id)
+              _ (approved-decision-move (ref before)
+                                        decision-move-type/deprecate))
+      (let (after (deprecated-decision (ref before) reason))
+        (let-try (_ (settle-decision connection (ref after))
+                  _ (record transaction
+                            (decision-deprecated (ref before) (ref after))))
+          (ok after))))))
+
+(type superseded-target
+  (fn ((ref connection) (ref decision))
+    (result (option decision) failure)))
+
+(defn superseded-target (connection decision)
+  (match (:supersedes decision)
+    ((some id)
+     (let-try (target (existing-decision connection id)
+               _ (check-supersede-target (ref target)
+                                         (ref (:roadmap-id decision))))
+       (ok (some target))))
+    (none (ok none))))
+
+(type supersede
+  (fn ((ref transaction)
+       (ref decision)
+       (ref (option decision)))
+    (result unit failure)))
+
+(defn supersede (transaction accepting target)
+  (match target
+    ((some present)
+     (let-try (_ (mark-superseded (ref (:connection transaction)) present)
+               _ (move-blocks (ref (:connection transaction))
+                              (ref (:id present))
+                              (ref (:id accepting))))
+       (ok (do))))
+    (none (ok (do)))))

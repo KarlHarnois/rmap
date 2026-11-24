@@ -76,6 +76,10 @@
        (pair event-type/dep-removed "dep-removed")
        (pair event-type/decision-proposed "decision-proposed")
        (pair event-type/decision-revised "decision-revised")
+       (pair event-type/decision-asked "decision-asked")
+       (pair event-type/decision-accepted "decision-accepted")
+       (pair event-type/decision-rejected "decision-rejected")
+       (pair event-type/decision-deprecated "decision-deprecated")
        (pair event-type/item-reported "item-reported")
        (pair event-type/report-read "report-read")))
 

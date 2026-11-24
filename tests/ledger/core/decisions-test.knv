@@ -95,3 +95,9 @@
                                                                                "rm-d009"))))))
     (assert (= (:supersedes revised)
                (some (decision-id-of "rm-d009"))))))
+
+(deftest a-revision-can-clear-what-it-supersedes
+  (let (revised (revised-decision (ref (asked-decision))
+                                  (ref (revision supersedes-change/clear))))
+    (assert (none? (:supersedes revised)))
+    (assert (none? (:asked-at revised)))))

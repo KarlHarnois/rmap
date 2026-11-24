@@ -1,0 +1,91 @@
+(module
+  "Writes the settled state of a decision: its status, outcome, deprecation and when it was asked.")
+
+(use ledger/model decision-id)
+(use ledger/model/decisions decision outcome)
+(use ledger/names case-name decision-status-names)
+
+(use ledger/sqlite/values optional-int->sql
+                          optional-text->sql sql-value
+                          text->sql)
+
+(use ledger/sqlite/connection connection database-error
+                              execute)
+
+(export mark-asked mark-superseded settle-decision)
+
+(type settle-decision
+  (fn ((ref connection) (ref decision))
+    (result int database-error)))
+
+(defn settle-decision (connection decision)
+  (execute connection
+           "UPDATE decisions SET status = ?2, chosen_option = ?3, justification = ?4, consequences = ?5, deprecation_reason = ?6, decided_by = ?7, decided_at = ?8 WHERE id = ?1"
+           (ref (vec (decision-id->sql (ref (:id decision)))
+                     (text->sql (case-name decision-status-names
+                                           (:status decision)))
+                     (chosen-option->sql (ref (:outcome decision)))
+                     (justification->sql (ref (:outcome decision)))
+                     (consequences->sql (ref (:outcome decision)))
+                     (optional-text->sql (ref (:deprecation-reason decision)))
+                     (decided-by->sql (ref (:outcome decision)))
+                     (decided-at->sql (ref (:outcome decision)))))))
+
+(type mark-asked
+  (fn ((ref connection) (ref decision))
+    (result int database-error)))
+
+(defn mark-asked (connection decision)
+  (execute connection
+           "UPDATE decisions SET asked_at = ?2 WHERE id = ?1"
+           (ref (vec (decision-id->sql (ref (:id decision)))
+                     (optional-text->sql (map-some (clone (:asked-at decision))
+                                           (fn (at) (clone (:value at)))))))))
+
+(type mark-superseded
+  (fn ((ref connection) (ref decision))
+    (result int database-error)))
+
+(defn mark-superseded (connection decision)
+  (execute connection
+           "UPDATE decisions SET status = 'superseded' WHERE id = ?1"
+           (ref (vec (decision-id->sql (ref (:id decision)))))))
+
+(type decision-id->sql
+  (fn ((ref decision-id)) sql-value))
+
+(defn decision-id->sql (id)
+  (text->sql (as-str (:value id))))
+
+(type chosen-option->sql
+  (fn ((ref (option outcome))) sql-value))
+
+(defn chosen-option->sql (outcome)
+  (optional-int->sql (then-some (clone outcome)
+                       (fn (present) (:option present)))))
+
+(type justification->sql
+  (fn ((ref (option outcome))) sql-value))
+
+(defn justification->sql (outcome)
+  (optional-text->sql (map-some (clone outcome)
+                        (fn (present)
+                          (clone (:justification present))))))
+
+(type consequences->sql
+  (fn ((ref (option outcome))) sql-value))
+
+(defn consequences->sql (outcome)
+  (optional-text->sql (ref (then-some (clone outcome)
+                             (fn (present)
+                               (clone (:consequences present)))))))
+
+(defn decided-by->sql (outcome)
+  (optional-text->sql (map-some (clone outcome)
+                        (fn (present)
+                          (clone (:decided-by present))))))
+
+(defn decided-at->sql (outcome)
+  (optional-text->sql (map-some (clone outcome)
+                        (fn (present)
+                          (clone (:value (:decided-at present)))))))

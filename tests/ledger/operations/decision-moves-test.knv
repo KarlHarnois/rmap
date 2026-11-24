@@ -1,0 +1,186 @@
+(use ledger/api ->acceptance accept-decision ask-decision
+                deprecate-decision event-type
+                propose-decision reject-decision
+                show-decision)
+
+(use ledger/model/decisions decision-status)
+
+(use support/ledger all-events refusal-code-of research
+                    roadmap-name scratch-ledger)
+
+(use support/decisions proposal-in proposed-id)
+
+(defn accepted (settings id)
+  (unwrap-ok (accept-decision settings (clone id) (acceptance 1))))
+
+(defn acceptance (option)
+  (->acceptance :option option
+                :justification (str "Because.")
+                :consequences (str "Do it.")))
+
+(defn last-event-type (settings)
+  (:type (unwrap (last (unwrap-ok (all-events settings))))))
+
+(deftest asking-records-the-moment-as-asked
+  (let (settings (scratch-ledger "decision-ask")
+        id (proposed-id (ref settings))
+        asked (unwrap-ok (ask-decision (ref settings) (clone id))))
+    (assert (some? (:asked-at asked)))
+    (assert (= (last-event-type (ref settings))
+               event-type/decision-asked))))
+
+(deftest asking-twice-is-refused
+  (let (settings (scratch-ledger "decision-ask-twice")
+        id (proposed-id (ref settings)))
+    (unwrap-ok (ask-decision (ref settings) (clone id)))
+    (assert (= (refusal-code-of (ask-decision (ref settings) (clone id)))
+               (some (str "already-asked"))))))
+
+(deftest asking-a-settled-decision-is-refused
+  (let (settings (scratch-ledger "decision-ask-frozen")
+        id (:id (accepted (ref settings)
+                          (proposed-id (ref settings)))))
+    (assert (= (refusal-code-of (ask-decision (ref settings) (clone id)))
+               (some (str "decision-frozen"))))))
+
+(deftest accepting-records-the-option-actor-and-reasons
+  (let (settings (scratch-ledger "decision-accept")
+        id (proposed-id (ref settings))
+        accepted (unwrap-ok (accept-decision (ref settings)
+                                             (clone id)
+                                             (acceptance 2)))
+        outcome (unwrap (clone (:outcome accepted))))
+    (assert (= (:status accepted) decision-status/accepted))
+    (assert (= (:option outcome) (some 2)))
+    (assert (= (:justification outcome) (str "Because.")))
+    (assert (= (:consequences outcome)
+               (some (str "Do it."))))
+    (assert (= (:decided-by outcome) (str "tester")))
+    (assert (= (last-event-type (ref settings))
+               event-type/decision-accepted))))
+
+(deftest accepting-an-option-that-does-not-exist-is-refused
+  (let (settings (scratch-ledger "decision-accept-option")
+        id (proposed-id (ref settings)))
+    (assert (= (refusal-code-of (accept-decision (ref settings)
+                                                 (clone id)
+                                                 (acceptance 3)))
+               (some (str "option-not-found"))))))
+
+(deftest rejecting-records-the-reason
+  (let (settings (scratch-ledger "decision-reject")
+        id (proposed-id (ref settings))
+        rejected (unwrap-ok (reject-decision (ref settings)
+                                             (clone id)
+                                             (str "Not now.")))
+        outcome (unwrap (clone (:outcome rejected))))
+    (assert (= (:status rejected) decision-status/rejected))
+    (assert (= (:option outcome) none))
+    (assert (= (:justification outcome) (str "Not now.")))
+    (assert (= (:consequences outcome) none))
+    (assert (= (last-event-type (ref settings))
+               event-type/decision-rejected))))
+
+(deftest rejecting-a-settled-decision-is-refused
+  (let (settings (scratch-ledger "decision-reject-frozen")
+        id (:id (accepted (ref settings)
+                          (proposed-id (ref settings)))))
+    (assert (= (refusal-code-of (reject-decision (ref settings)
+                                                 (clone id)
+                                                 (str "No.")))
+               (some (str "invalid-decision-transition"))))))
+
+(deftest deprecating-records-the-reason
+  (let (settings (scratch-ledger "decision-deprecate")
+        id (:id (accepted (ref settings)
+                          (proposed-id (ref settings))))
+        deprecated (unwrap-ok (deprecate-decision (ref settings)
+                                                  (clone id)
+                                                  (str "Replaced by ADR 12."))))
+    (assert (= (:status deprecated) decision-status/deprecated))
+    (assert (= (:deprecation-reason deprecated)
+               (some (str "Replaced by ADR 12."))))
+    (assert (= (last-event-type (ref settings))
+               event-type/decision-deprecated))))
+
+(deftest deprecating-a-proposed-decision-is-refused
+  (let (settings (scratch-ledger "decision-deprecate-frozen")
+        id (proposed-id (ref settings)))
+    (assert (= (refusal-code-of (deprecate-decision (ref settings)
+                                                    (clone id)
+                                                    (str "No.")))
+               (some (str "invalid-decision-transition"))))))
+
+(deftest accepting-a-superseding-decision-supersedes-the-target-and-takes-its-blocks
+  (let (settings (scratch-ledger "decision-supersede")
+        item (research (ref settings))
+        target (clone (:id (unwrap-ok (propose-decision
+                                        (ref settings)
+                                        (assoc (proposal-in roadmap-name)
+                                               :blocks (vec (clone item)))))))
+        _ (accepted (ref settings) (clone target))
+        replacing (clone (:id (unwrap-ok (propose-decision
+                                           (ref settings)
+                                           (assoc (proposal-in roadmap-name)
+                                                  :supersedes (some (clone target)))))))
+        accepted (unwrap-ok (accept-decision (ref settings)
+                                             (clone replacing)
+                                             (acceptance 2)))
+        old (unwrap-ok (show-decision (ref settings) (clone target))))
+    (assert (= (:status old) decision-status/superseded))
+    (assert (= (:superseded-by old)
+               (some (clone replacing))))
+    (assert (= (:supersedes accepted)
+               (some (clone target))))
+    (assert (= (:blocks accepted)
+               (vec (clone item))))
+    (assert (empty? (:blocks old)))))
+
+(deftest accepting-a-decision-that-supersedes-a-rejected-one-of-its-roadmap-supersedes-it
+  (let (settings (scratch-ledger "decision-supersede-rejected")
+        target (proposed-id (ref settings))
+        _ (unwrap-ok (reject-decision (ref settings)
+                                      (clone target)
+                                      (str "Not now.")))
+        replacing (unwrap-ok (propose-decision (ref settings)
+                                               (assoc (proposal-in roadmap-name)
+                                                      :supersedes (some (clone target))))))
+    (assert (= (:status (accepted (ref settings)
+                                  (clone (:id replacing))))
+               decision-status/accepted))
+    (assert (= (:status (unwrap-ok (show-decision (ref settings) target)))
+               decision-status/superseded))))
+
+(deftest a-second-decision-cannot-supersede-the-same-target
+  (let (settings (scratch-ledger "decision-supersede-twice")
+        target (:id (accepted (ref settings)
+                              (proposed-id (ref settings))))
+        first (clone (:id (unwrap-ok
+                            (propose-decision (ref settings)
+                                              (assoc (proposal-in roadmap-name)
+                                                     :supersedes (some (clone target)))))))
+        second (clone (:id (unwrap-ok (propose-decision
+                                        (ref settings)
+                                        (assoc (proposal-in roadmap-name)
+                                               :supersedes (some (clone target))))))))
+    (accepted (ref settings) (clone first))
+    (assert (= (refusal-code-of (accept-decision (ref settings)
+                                                 (clone second)
+                                                 (acceptance 1)))
+               (some (str "supersede-target-not-accepted"))))))
+
+(deftest a-target-deprecated-since-the-proposal-cannot-be-superseded
+  (let (settings (scratch-ledger "decision-supersede-deprecated")
+        target (:id (accepted (ref settings)
+                              (proposed-id (ref settings))))
+        replacing (clone (:id (unwrap-ok (propose-decision
+                                           (ref settings)
+                                           (assoc (proposal-in roadmap-name)
+                                                  :supersedes (some (clone target))))))))
+    (unwrap-ok (deprecate-decision (ref settings)
+                                   (clone target)
+                                   (str "Replaced.")))
+    (assert (= (refusal-code-of (accept-decision (ref settings)
+                                                 (clone replacing)
+                                                 (acceptance 1)))
+               (some (str "supersede-target-not-accepted"))))))

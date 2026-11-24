@@ -30,6 +30,11 @@
        (refusal/decision-frozen (sample-decision-id)
                                 decision-status/accepted)
        (refusal/decision-incomplete (str "the title is empty"))
+       (refusal/invalid-decision-transition (sample-decision-id)
+                                            decision-status/proposed
+                                            decision-status/accepted)
+       (refusal/option-not-found (sample-decision-id) 3)
+       (refusal/already-asked (sample-decision-id))
        (refusal/not-blockable (sample-id))
        (refusal/decision-in-other-roadmap (sample-id))
        (refusal/supersede-target-not-accepted (sample-decision-id))
