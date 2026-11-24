@@ -37,7 +37,13 @@
     ((description-input/text value)
      (ok (description-edit/set (cleared (ref value)))))
     (_ (map-ok (resolve-description input)
-         (fn (text) (description-edit/set text))))))
+         (fn (text)
+           (description-edit/set (cleared-option text)))))))
+
+(defn cleared-option (text)
+  (match text
+    ((some value) (cleared (ref value)))
+    (none none)))
 
 (defn cleared (text)
   (if (empty? text)

@@ -1,5 +1,5 @@
 (use json/value copy-of field json->entries json->int
-                json->items json->text same?)
+                json->items json->text null? same?)
 
 (use support/rmap database-with-roadmap error-code run-rmap
                   text-at)
@@ -114,6 +114,16 @@
                (some 4)))
     (assert (= (json->text (item-field (ref database) id "description"))
                (some (str "new spec"))))))
+
+(deftest an-empty-description-file-clears-it
+  (let (database (database-with-roadmap "edit-empty-description-file")
+        id (added-id (clone database)
+                     (vec (str "--description") (str "old spec")))
+        reply (run-edit (ref database)
+                        id
+                        (vec (str "--description-file") (str "/dev/null"))))
+    (assert (= (:exit-code reply) 0))
+    (assert (null? (item-field (ref database) id "description")))))
 
 (deftest an-edit-to-a-priority-reorders-ready
   (let (database (database-with-roadmap "edit-priority-ready")

@@ -43,6 +43,18 @@
     (assert (= (:description (shown (ref settings) id))
                none))))
 
+(deftest an-empty-description-file-clears-it
+  (let (settings (scratch-ledger "edit-empty-description-file")
+        id (added-id (ref settings)
+                     (assoc (item-draft kind/research)
+                            :description (description-input/text (str "old spec"))))
+        _ (unwrap-ok (edit-item (ref settings)
+                                (clone id)
+                                (edit none none
+                                      (description-input/from-file (str "/dev/null"))))))
+    (assert (= (:description (shown (ref settings) id))
+               none))))
+
 (deftest an-edit-records-one-edited-event
   (let (settings (scratch-ledger "edit-event")
         id (added-id (ref settings) (item-draft kind/research))
