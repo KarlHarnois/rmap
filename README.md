@@ -56,9 +56,9 @@ Commands:
   item claim <id> --session <name> [--branch <name>] [--base <branch>]
     Gives a ready item to a new session and marks it dispatched. The branch defaults to the session name and the base to the repository's default branch.
   item advance <id> <open|dispatched|reported|in_review|fixing|merging|merged|accepted|dropped> [--kind build]
-    Moves an item to another status. A research or design item reaches reported only through a done report, and a build reaches in_review only through a done or fixed report or pr head. A build moves to merging only when, among each reviewer's latest verdict on its pull request's head, one approves and none asks for changes.
+    Moves an item to another status. A research or design item reaches reported only through a done report, and a build reaches in_review only through a done or fixed report or pr head. A build moves to merging, and closes as merged, only when, among each reviewer's latest verdict on its pull request's head, one approves and none asks for changes.
   item close <id>
-    Marks a build merged, or a reported research or design item accepted.
+    Marks a merging build merged, once the reviews on its pull request's head still approve it, or a reported research or design item accepted.
   item drop <id> --reason <text>
     Drops an item and records the reason.
   dep add <item> <on>
@@ -140,9 +140,9 @@ Commands:
   report read <id>
     Marks a report read. Reading the done report of a research or design item ends the session that sent it, if it is still live.
   report <item> --session <name> --kind done|fixed|question [--text <text>] [--file <path|->] [--pr <number>] [--head <commit sha>]
-    Records a report from the item's live session, with its body in --text, or in --file (- reads stdin). done moves a dispatched research or design item to reported, and a dispatched build to in_review with its pull request in --pr and its head in --head. fixed moves a fixing build to in_review with the head it pushed in --head. question leaves the status as it is.
+    Records a report from the item's live session, with its body in --text, or in --file (- reads stdin). done moves a dispatched research or design item to reported, and a dispatched build to in_review with its pull request in --pr and its head in --head. fixed moves a fixing build to in_review with the head it pushed in --head, and a build with no pull request yet attaches one there with --pr. question leaves the status as it is.
   pr review <item> --verdict changes|approve --kind behavior|design --head <commit sha> --reviewer <session>
-    Records a review of the build's pull request at --head, which must be the pull request's current head in the ledger, by the reviewer session, as a finished review session. It never moves the item. The build moves to merging only when, among each reviewer's latest verdict on the pull request's head, one approves and none asks for changes.
+    Records a review of the build's pull request at --head, which must be the pull request's current head in the ledger, by the reviewer session, as a finished review session. It never moves the item. The build moves to merging, and closes as merged, only when, among each reviewer's latest verdict on the pull request's head, one approves and none asks for changes.
   pr head <item> <commit sha>
     Records a new head for the build's pull request when its branch moved without a fixed report, and moves an in_review or merging build back to in_review. Reviews on older heads stop counting toward its approval.
   pr show <item>
