@@ -1,0 +1,90 @@
+(module
+  "Describes one item in detail: its rows, its description and its children.")
+
+(use ledger/api case-name claim dep dep-type item-detail
+                kind-names origin-names status-names
+                timestamp)
+
+(use cli/description-text description-text)
+(use cli/item-text item-table optional-id-text)
+(use cli/tables indented table)
+
+(export item-detail-text)
+
+(type item-detail-text
+  (fn ((ref item-detail)) string))
+
+(defn item-detail-text (detail)
+  (let (item (ref (:item detail)))
+    (str (:value (:id item))
+         "  "
+         (:title item)
+         "\n"
+         (indented (table (detail-rows detail)))
+         (description-text (ref (:description item)))
+         (children-text (ref (:children detail))))))
+
+(type detail-rows
+  (fn ((ref item-detail))
+    (vec (vec string))))
+
+(defn detail-rows (detail)
+  (let (item (ref (:item detail)))
+    (vec (detail-row "roadmap"
+                     (clone (:value (:roadmap-id item))))
+         (detail-row "kind"
+                     (str (case-name kind-names (:kind item))))
+         (detail-row "status"
+                     (str (case-name status-names (:status item))))
+         (detail-row "claimed by"
+                     (claim-text (ref (:claim item))))
+         (detail-row "origin"
+                     (str (case-name origin-names (:origin item))))
+         (detail-row "priority" (str (:priority item)))
+         (detail-row "parent"
+                     (optional-id-text (ref (:parent item))))
+         (detail-row "created"
+                     (clone (:value (:created-at item))))
+         (detail-row "closed"
+                     (optional-timestamp-text (ref (:closed-at item))))
+         (detail-row "after"
+                     (listed (dep-targets (ref (:deps detail))
+                                          dep-type/blocks)))
+         (detail-row "discovered from"
+                     (listed (dep-targets (ref (:deps detail))
+                                          dep-type/discovered-from))))))
+
+(defn detail-row (label value)
+  (vec (str label) value))
+
+(defn claim-text (claim)
+  (match claim
+    ((claim/claimed-by session) (clone (:name session)))
+    (claim/unclaimed (str "-"))))
+
+(type dep-targets
+  (fn ((ref (vec dep)) dep-type)
+    (vec string)))
+
+(defn dep-targets (deps wanted)
+  (collect (map (filter (iter deps)
+                  (fn (dep) (= (:type dep) wanted)))
+                (fn (dep) (clone (:value (:on dep)))))))
+
+(defn listed (values)
+  (if (empty? values)
+    (str "-")
+    (join values ", ")))
+
+(type optional-timestamp-text
+  (fn ((ref (option timestamp))) string))
+
+(defn optional-timestamp-text (at)
+  (match at
+    ((some present) (clone (:value present)))
+    (none (str "-"))))
+
+(defn children-text (children)
+  (if (empty? children)
+    (str "")
+    (str "\n\nChildren:\n" (indented (item-table children)))))

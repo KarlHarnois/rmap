@@ -1,0 +1,16 @@
+(module
+  "Checks an item priority against the range 0 (highest) to 4 (lowest).")
+
+(use ledger/refusal refusal)
+
+(export check-priority highest-priority lowest-priority)
+
+(def highest-priority 0)
+
+(def lowest-priority 4)
+
+(defn check-priority (priority)
+  (if (and (>= priority highest-priority)
+           (<= priority lowest-priority))
+    (ok (do))
+    (err (refusal/priority-out-of-range priority))))

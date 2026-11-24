@@ -24,6 +24,7 @@
 (use ledger/core/new-items ->new-item description-input
                            new-item)
 
+(use ledger/core/item-edits ->item-edit item-edit)
 (use ledger/operations/database-path default-database-path)
 
 (use ledger/operations/transaction ->settings clock
@@ -49,6 +50,7 @@
                              show-item)
 
 (use ledger/operations/new-items add-item)
+(use ledger/operations/item-edits edit-item)
 
 (use ledger/operations/moves advance-item claim-item
                              close-item drop-item)
@@ -62,23 +64,24 @@
                              graph-source)
 
 (export ->advancement ->graph-request ->graph-source
-        ->item-id ->new-item ->session ->settings action
-        action-names actor actor-names add-dep add-item
-        advance-item advancement batch batch-size
-        batch-size-of blockage blocked-item case-name
-        case-named claim claim-item clock close-item
-        database-problem default-database-path dep dep-type
-        dep-type-names description-input draw-graph
-        drop-item event event-type event-type-names failure
-        failure-code failure-message graph-format
-        graph-format-names graph-level graph-level-names
-        graph-request graph-source history ids->json
-        init-ledger init-outcome init-outcome-names
-        init-report item item-detail item-id kind
-        kind-change kind-names list-items list-roadmaps
-        new-item new-roadmap next-action next-actions
-        next-item optional-id->json optional-text->json
-        origin origin-names read-log readiness ready-batch
+        ->item-edit ->item-id ->new-item ->session
+        ->settings action action-names actor actor-names
+        add-dep add-item advance-item advancement batch
+        batch-size batch-size-of blockage blocked-item
+        case-name case-named claim claim-item clock
+        close-item database-problem default-database-path
+        dep dep-type dep-type-names description-input
+        draw-graph drop-item edit-item event event-type
+        event-type-names failure failure-code
+        failure-message graph-format graph-format-names
+        graph-level graph-level-names graph-request
+        graph-source history ids->json init-ledger
+        init-outcome init-outcome-names init-report item
+        item-detail item-edit item-id kind kind-change
+        kind-names list-items list-roadmaps new-item
+        new-roadmap next-action next-actions next-item
+        optional-id->json optional-text->json origin
+        origin-names read-log readiness ready-batch
         ready-items refusal refusal->message refusal-catalog
         refusal-code-text refusal-description remove-dep
         roadmap roadmap-id roadmap-status-names session

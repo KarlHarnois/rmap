@@ -1,6 +1,8 @@
 (use ledger/api description-input)
 (use cli/arguments ->arguments)
-(use cli/requests add-item-request request)
+
+(use cli/requests add-item-request edit-item-request
+                  request)
 
 (type flags-with
   (fn ((iterator (ref (pair string string))))
@@ -52,6 +54,28 @@
   (assert (= (:description (unwrap (draft-for (flags-with (vec (pair (str "description-file")
                                                                      (str "-")))))))
              description-input/from-stdin)))
+
+(deftest an-edit-request-carries-the-fields-it-is-given
+  (let (arguments (->arguments :words (vec (str "rm-0001"))
+                               :flags (vec (pair (str "title") (str "new"))
+                                           (pair (str "priority") (str "3"))
+                                           (pair (str "description")
+                                                 (str "spec")))
+                               :switches (vec)))
+    (match (edit-item-request arguments (str "rm-0001"))
+      ((ok (request/edit-item id edit))
+       (assert (= (:value id) (str "rm-0001")))
+       (assert (= (:title edit) (some (str "new"))))
+       (assert (= (:priority edit) (some 3)))
+       (assert (= (:description edit)
+                  (description-input/text (str "spec")))))
+      (_ (assert false)))))
+
+(deftest an-edit-without-a-field-is-refused
+  (assert (err? (edit-item-request (->arguments :words (vec)
+                                                :flags (vec)
+                                                :switches (vec))
+                                   (str "rm-0001")))))
 
 (deftest an-item-refuses-a-description-and-a-description-file
   (assert (err? (add-item-request (->arguments :words (vec)

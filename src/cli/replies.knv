@@ -16,6 +16,7 @@
   (batch-picked batch)
   (log-read (vec event))
   (item-added item)
+  (item-edited item)
   (item-moved item)
   (items-listed (vec item))
   (item-shown item-detail)

@@ -15,7 +15,8 @@
 (use cli/flag-specs help-flag)
 
 (use cli/requests add-item-request advance-request
-                  claim-request drop-request graph-request
+                  claim-request drop-request
+                  edit-item-request graph-request
                   log-request new-roadmap-request
                   next-request ready-request request
                   text->id)
@@ -78,6 +79,9 @@
                                      (ok (request/show-item
                                            (text->id
                                              (operand arguments route 0))))))
+    (subcommand/item-edit
+      (on-ledger arguments
+                 (edit-item-request arguments (operand arguments route 0))))
     (subcommand/item-claim
       (on-ledger arguments
                  (claim-request arguments (operand arguments route 0))))

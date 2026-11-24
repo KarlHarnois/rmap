@@ -1,0 +1,79 @@
+(module
+  "Edits an item and records the change in one transaction.")
+
+(use ledger/model item item-id)
+
+(use ledger/core/item-edits ->item-edit apply-edit
+                            check-edit description-edit
+                            item-edit)
+
+(use ledger/core/new-items description-input)
+(use ledger/sqlite/items update-item)
+(use ledger/sqlite/snapshot load-snapshot)
+(use ledger/operations/descriptions resolve-description)
+
+(use ledger/operations/transaction in-transaction record
+                                   settings transaction)
+
+(use ledger/core/snapshot existing)
+(use ledger/events edit-changes item-edited)
+(use ledger/failure failure)
+
+(export edit-item)
+
+(type edit-item
+  (fn ((ref settings) item-id item-edit)
+    (result item failure)))
+
+(defn edit-item (settings id edit)
+  (let-try (description (resolved-edit-description (clone (:description edit))))
+    (in-transaction settings
+      (fn (transaction)
+        (apply-edit-in transaction (ref id) edit description)))))
+
+(defn resolved-edit-description (input)
+  (match (clone input)
+    (description-input/unspecified (ok description-edit/keep))
+    ((description-input/text value)
+     (ok (description-edit/set (cleared (ref value)))))
+    (_ (map-ok (resolve-description input)
+         (fn (text)
+           (description-edit/set (cleared-option text)))))))
+
+(defn cleared-option (text)
+  (match text
+    ((some value) (cleared (ref value)))
+    (none none)))
+
+(defn cleared (text)
+  (if (empty? text)
+    none
+    (some (clone text))))
+
+(type apply-edit-in
+  (fn ((ref transaction) (ref item-id) item-edit description-edit)
+    (result item failure)))
+
+(defn apply-edit-in (transaction id edit description)
+  (let-try (snapshot (load-snapshot (ref (:connection transaction)))
+            item (existing (ref snapshot) id)
+            _ (check-edit (ref item) (ref edit)))
+    (store-edit transaction
+                (ref item)
+                (apply-edit (ref item) (ref edit) description))))
+
+(type store-edit
+  (fn ((ref transaction) (ref item) item)
+    (result item failure)))
+
+(defn store-edit (transaction before after)
+  (let-try (_ (update-item (ref (:connection transaction))
+                           (ref after))
+            _ (record-edit transaction before (ref after)))
+    (ok after)))
+
+(defn record-edit (transaction before after)
+  (let (changes (edit-changes before after))
+    (if (empty? changes)
+      (ok (do))
+      (record transaction (item-edited after (ref changes))))))

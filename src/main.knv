@@ -3,9 +3,9 @@
 (use ledger/api ->settings add-dep add-item advance-item
                 claim-item clock close-item
                 default-database-path draw-graph drop-item
-                failure init-ledger list-items list-roadmaps
-                new-roadmap next-actions read-log
-                ready-batch ready-items remove-dep
+                edit-item failure init-ledger list-items
+                list-roadmaps new-roadmap next-actions
+                read-log ready-batch ready-items remove-dep
                 show-item)
 
 (use process/environment variable)
@@ -121,6 +121,9 @@
     ((show-item id)
      (map-ok (show-item settings id)
        (fn (detail) (reply/item-shown detail))))
+    ((edit-item id edit)
+     (map-ok (edit-item settings id edit)
+       (fn (item) (reply/item-edited item))))
     ((claim id session)
      (map-ok (claim-item settings id session)
        (fn (item) (reply/item-moved item))))

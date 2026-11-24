@@ -1,0 +1,75 @@
+(module
+  "Checks an edit against the ledger and computes the item it changes.")
+
+(use ledger/model item)
+(use ledger/refusal refusal)
+(use ledger/core/new-items description-input)
+(use ledger/core/phases finished?)
+(use ledger/core/priorities check-priority)
+
+(export ->item-edit apply-edit check-edit description-edit
+        item-edit)
+
+(defstruct item-edit
+  :title (option string)
+  :priority (option int)
+  :description description-input)
+
+(defenum description-edit
+  keep
+  (set (option string)))
+
+(defn check-edit (item edit)
+  (let-try (_ (check-open item)
+            _ (check-priority-of edit))
+    (ok (do))))
+
+(type apply-edit
+  (fn ((ref item) (ref item-edit) description-edit)
+    item))
+
+(defn apply-edit (item edit description)
+  (let (titled (with-title (clone item)
+                           (ref (:title edit)))
+        prioritized (with-priority titled (:priority edit)))
+    (with-description prioritized description)))
+
+(type check-open
+  (fn ((ref item)) (result unit refusal)))
+
+(defn check-open (item)
+  (if (finished? (:status item))
+    (err (refusal/item-closed (clone (:id item))))
+    (ok (do))))
+
+(type check-priority-of
+  (fn ((ref item-edit))
+    (result unit refusal)))
+
+(defn check-priority-of (edit)
+  (match (:priority edit)
+    ((some priority) (check-priority priority))
+    (none (ok (do)))))
+
+(type with-title
+  (fn (item (ref (option string))) item))
+
+(defn with-title (item title)
+  (match title
+    ((some value) (assoc item :title (clone value)))
+    (none item)))
+
+(type with-priority
+  (fn (item (option int)) item))
+
+(defn with-priority (item priority)
+  (match priority
+    ((some value) (assoc item :priority value))
+    (none item)))
+
+(type with-description (fn (item description-edit) item))
+
+(defn with-description (item description)
+  (match description
+    (keep item)
+    ((set value) (assoc item :description (clone value)))))

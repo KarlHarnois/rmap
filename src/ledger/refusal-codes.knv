@@ -14,6 +14,7 @@
   roadmap-not-found
   roadmap-exists
   item-not-found
+  item-closed
   parent-not-epic
   parent-in-other-roadmap
   epic-has-parent
@@ -33,6 +34,7 @@
   (collect (map (iter (vec refusal-code/roadmap-not-found
                            refusal-code/roadmap-exists
                            refusal-code/item-not-found
+                           refusal-code/item-closed
                            refusal-code/parent-not-epic
                            refusal-code/parent-in-other-roadmap
                            refusal-code/epic-has-parent
@@ -53,6 +55,7 @@
      refusal-code/roadmap-not-found)
     ((refusal/roadmap-exists _) refusal-code/roadmap-exists)
     ((refusal/item-not-found _) refusal-code/item-not-found)
+    ((refusal/item-closed _) refusal-code/item-closed)
     ((refusal/parent-not-epic _) refusal-code/parent-not-epic)
     ((refusal/parent-in-other-roadmap _)
      refusal-code/parent-in-other-roadmap)
@@ -75,6 +78,9 @@
     (roadmap-exists (described "roadmap-exists"
                                "A roadmap already has that name."))
     (item-not-found (described "item-not-found" "No item has that id."))
+    (item-closed (described
+                   "item-closed"
+                   "A merged, accepted or dropped item cannot be edited."))
     (parent-not-epic (described "parent-not-epic" "The parent is not an epic."))
     (parent-in-other-roadmap (described
                                "parent-in-other-roadmap"

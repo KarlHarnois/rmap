@@ -51,6 +51,7 @@
        (pair event-type/item-advanced "item-advanced")
        (pair event-type/item-closed "item-closed")
        (pair event-type/item-dropped "item-dropped")
+       (pair event-type/edited "edited")
        (pair event-type/dep-added "dep-added")
        (pair event-type/dep-removed "dep-removed")))
 

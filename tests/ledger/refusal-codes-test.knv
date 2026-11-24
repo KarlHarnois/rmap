@@ -6,6 +6,7 @@
   (vec (refusal/roadmap-not-found (str "road"))
        (refusal/roadmap-exists (str "road"))
        (refusal/item-not-found (sample-id))
+       (refusal/item-closed (sample-id))
        (refusal/parent-not-epic (sample-id))
        (refusal/parent-in-other-roadmap (sample-id))
        refusal/epic-has-parent

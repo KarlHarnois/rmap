@@ -39,7 +39,9 @@
        (pair (str "claimed_by")
              (claim->json (ref (:claim item))))
        (pair (str "closed_at")
-             (optional-timestamp->json (ref (:closed-at item))))))
+             (optional-timestamp->json (ref (:closed-at item))))
+       (pair (str "description")
+             (optional-text->json (ref (:description item))))))
 
 (defn optional-id->json (id)
   (match id

@@ -51,10 +51,13 @@
 
 (defn update-item (connection item)
   (execute connection
-           "UPDATE items SET kind = ?2, status = ?3, claimed_by = ?4, closed_at = ?5 WHERE id = ?1"
+           "UPDATE items SET title = ?2, description = ?3, kind = ?4, status = ?5, priority = ?6, claimed_by = ?7, closed_at = ?8 WHERE id = ?1"
            (ref (vec (text->sql (as-str (:value (:id item))))
+                     (text->sql (as-str (:title item)))
+                     (optional-text->sql (ref (:description item)))
                      (text->sql (case-name kind-names (:kind item)))
                      (text->sql (case-name status-names (:status item)))
+                     (int->sql (:priority item))
                      (claim->sql (ref (:claim item)))
                      (closed-at->sql (ref (:closed-at item)))))))
 
