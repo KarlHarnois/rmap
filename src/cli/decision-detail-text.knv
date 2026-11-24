@@ -1,0 +1,78 @@
+(module
+  "Describes the detail of one decision: its fields, context, options, recommendation and outcome.")
+
+(use ledger/api case-name decision decision-id
+                decision-status-names item-id timestamp)
+
+(use cli/tables indented table)
+(use cli/item-text optional-id-text)
+
+(use cli/decision-sections context-section options-section
+                           outcome-section
+                           recommendation-section)
+
+(export decision-detail-text)
+
+(type decision-detail-text
+  (fn ((ref decision)) string))
+
+(defn decision-detail-text (decision)
+  (join (vec (str (:value (:id decision))
+                  "  "
+                  (:title decision)
+                  "\n"
+                  (indented (table (detail-rows decision))))
+             (context-section decision)
+             (options-section decision)
+             (recommendation-section decision)
+             (outcome-section decision))
+        "\n\n"))
+
+(type detail-rows
+  (fn ((ref decision)) (vec (vec string))))
+
+(defn detail-rows (decision)
+  (vec (detail-row "roadmap" (clone (:roadmap-name decision)))
+       (detail-row "status"
+                   (str (case-name decision-status-names (:status decision))))
+       (detail-row "raised by"
+                   (optional-id-text (ref (:item decision))))
+       (detail-row "blocks"
+                   (listed-ids (ref (:blocks decision))))
+       (detail-row "supersedes"
+                   (optional-decision-text (ref (:supersedes decision))))
+       (detail-row "superseded by"
+                   (optional-decision-text (ref (:superseded-by decision))))
+       (detail-row "asked"
+                   (optional-timestamp-text (ref (:asked-at decision))))
+       (detail-row "created"
+                   (clone (:value (:created-at decision))))))
+
+(defn detail-row (label value)
+  (vec (str label) value))
+
+(type listed-ids
+  (fn ((ref (vec item-id))) string))
+
+(defn listed-ids (ids)
+  (if (empty? ids)
+    (str "-")
+    (join (collect (map (iter ids)
+                     (fn (id) (clone (:value id)))))
+          ", ")))
+
+(type optional-decision-text
+  (fn ((ref (option decision-id))) string))
+
+(defn optional-decision-text (id)
+  (match id
+    ((some present) (clone (:value present)))
+    (none (str "-"))))
+
+(type optional-timestamp-text
+  (fn ((ref (option timestamp))) string))
+
+(defn optional-timestamp-text (at)
+  (match at
+    ((some present) (clone (:value present)))
+    (none (str "-"))))

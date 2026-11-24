@@ -42,5 +42,9 @@
   dep-removed
   decision-proposed
   decision-revised
+  decision-asked
+  decision-accepted
+  decision-rejected
+  decision-deprecated
   item-reported
   report-read)

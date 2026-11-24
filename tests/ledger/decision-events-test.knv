@@ -2,10 +2,16 @@
                 json->text null?)
 
 (use ledger/model ->timestamp)
-(use ledger/model/decisions decision decision-status)
+
+(use ledger/model/decisions ->outcome decision
+                            decision-status)
+
 (use ledger/model/events event-type)
 
-(use ledger/decision-events decision-proposed
+(use ledger/decision-events decision-accepted decision-asked
+                            decision-deprecated
+                            decision-proposed
+                            decision-rejected
                             decision-revised)
 
 (use support/decisions decision-id-of sample-decision)
@@ -40,6 +46,9 @@
 
 (defn revised-payload (before after)
   (copy-of (ref (:payload (decision-revised (ref before) (ref after))))))
+
+(defn settled-at ()
+  (->timestamp :value (str "2026-02-01T00:00:00Z")))
 
 (deftest a-proposal-records-every-decision-column-as-inserted
   (let (payload (copy-of (ref (:payload (decision-proposed (ref (proposed)))))))
@@ -111,3 +120,119 @@
         payload (revised-payload (proposed) after))
     (assert (= (context-count (ref payload) "options" "old") 2))
     (assert (= (context-count (ref payload) "options" "new") 0))))
+
+(deftest asking-records-the-moment-it-was-asked
+  (let (before (proposed)
+        after (assoc (clone before)
+                     :asked-at (some (settled-at)))
+        payload (copy-of (ref (:payload (decision-asked (ref before)
+                                                        (ref after))))))
+    (assert (= (columns payload)
+               (vec (str "asked_at"))))
+    (assert (null? (ref (side payload "asked_at" "old"))))
+    (assert (= (json->text (ref (side payload "asked_at" "new")))
+               (some (str "2026-02-01T00:00:00Z"))))))
+
+(deftest rejecting-records-the-status-reason-and-decider
+  (let (before (proposed)
+        after (assoc (clone before)
+                     :status decision-status/rejected
+                     :outcome (some (->outcome :option none
+                                               :justification (str "Not now.")
+                                               :consequences none
+                                               :decided-by (str "owner")
+                                               :decided-at (settled-at))))
+        payload (copy-of (ref (:payload (decision-rejected (ref before)
+                                                           (ref after))))))
+    (assert (= (columns payload)
+               (vec (str "decided_at")
+                    (str "decided_by")
+                    (str "justification")
+                    (str "status"))))
+    (assert (= (json->text (ref (side payload "status" "new")))
+               (some (str "rejected"))))
+    (assert (= (json->text (ref (side payload "justification" "new")))
+               (some (str "Not now."))))))
+
+(deftest deprecating-records-the-status-and-the-reason
+  (let (before (sample-decision decision-status/accepted)
+        after (assoc (clone before)
+                     :status decision-status/deprecated
+                     :deprecation-reason (some (str "Replaced by ADR 12.")))
+        payload (copy-of (ref (:payload (decision-deprecated (ref before)
+                                                             (ref after))))))
+    (assert (= (columns payload)
+               (vec (str "deprecation_reason") (str "status"))))
+    (assert (= (json->text (ref (side payload "deprecation_reason" "new")))
+               (some (str "Replaced by ADR 12."))))))
+
+(deftest accepting-records-its-outcome-and-the-superseded-decision
+  (let (before (proposed)
+        after (assoc (clone before)
+                     :status decision-status/accepted
+                     :outcome (some (->outcome :option (some 2)
+                                               :justification (str "Fast.")
+                                               :consequences (some (str "Run Redis."))
+                                               :decided-by (str "owner")
+                                               :decided-at (settled-at))))
+        target (sample-decision decision-status/rejected)
+        payload (copy-of (ref (:payload (decision-accepted (ref before)
+                                                           (ref after)
+                                                           (some target)))))
+        superseded (unwrap (field (ref payload) "superseded"))
+        status (-> (ref superseded)
+                   (field "changes")
+                   unwrap
+                   (field "status")
+                   unwrap))
+    (assert (= (json->text (unwrap (field (ref superseded) "decision")))
+               (some (str "rm-d001"))))
+    (assert (= (json->text (unwrap (field (ref status) "old")))
+               (some (str "rejected"))))
+    (assert (= (json->text (unwrap (field (ref status) "new")))
+               (some (str "superseded"))))))
+
+(deftest accepting-records-the-block-takeover
+  (let (before (assoc (proposed)
+                      :blocks (vec (id-of "rm-0002")))
+        after (assoc (clone before)
+                     :status decision-status/accepted
+                     :blocks (vec (id-of "rm-0002") (id-of "rm-0003")))
+        target (assoc (sample-decision decision-status/accepted)
+                      :blocks (vec (id-of "rm-0003")))
+        payload (copy-of (ref (:payload (decision-accepted (ref before)
+                                                           (ref after)
+                                                           (some target)))))
+        blocks (unwrap (field (ref payload) "blocks"))
+        old-blocks (unwrap (field (ref blocks) "old"))
+        new-blocks (unwrap (field (ref blocks) "new"))
+        superseded (unwrap (field (ref payload) "superseded"))
+        target-blocks (unwrap (field (ref superseded) "blocks"))
+        target-old (unwrap (field (ref target-blocks) "old"))
+        target-new (unwrap (field (ref target-blocks) "new")))
+    (assert (= (len (unwrap (json->items (ref old-blocks))))
+               1))
+    (assert (= (len (unwrap (json->items (ref new-blocks))))
+               2))
+    (assert (= (len (unwrap (json->items (ref target-old))))
+               1))
+    (assert (empty? (unwrap (json->items (ref target-new)))))))
+
+(deftest accepting-without-a-superseded-decision-leaves-the-key-out
+  (let (before (proposed)
+        after (assoc (clone before) :status decision-status/accepted)
+        payload (copy-of (ref (:payload (decision-accepted (ref before)
+                                                           (ref after)
+                                                           none)))))
+    (assert (none? (field (ref payload) "superseded")))))
+
+(deftest a-revision-can-clear-what-it-supersedes
+  (let (before (assoc (proposed)
+                      :supersedes (some (decision-id-of "rm-d000")))
+        after (proposed)
+        payload (revised-payload before after))
+    (assert (= (columns payload)
+               (vec (str "supersedes_id"))))
+    (assert (= (json->text (ref (side payload "supersedes_id" "old")))
+               (some (str "rm-d000"))))
+    (assert (null? (ref (side payload "supersedes_id" "new"))))))

@@ -33,6 +33,10 @@
   (decision-not-found decision-id)
   (decision-frozen decision-id decision-status)
   (decision-incomplete string)
+  (invalid-decision-transition decision-id decision-status
+                               decision-status)
+  (option-not-found decision-id int)
+  (already-asked decision-id)
   (not-blockable item-id)
   (decision-in-other-roadmap item-id)
   (supersede-target-not-accepted decision-id)
@@ -93,6 +97,17 @@
           ", and only a proposed decision can change"))
     ((decision-incomplete missing)
      (str "the proposal is incomplete: " missing))
+    ((invalid-decision-transition id from to)
+     (str "the decision "
+          (:value id)
+          " cannot move from "
+          (case-name decision-status-names from)
+          " to "
+          (case-name decision-status-names to)))
+    ((option-not-found id number)
+     (str "the decision " (:value id) " has no option " number))
+    ((already-asked id)
+     (str "the decision " (:value id) " is already asked"))
     ((not-blockable id)
      (str "only an open item or an unfinished epic can wait on a decision, and "
           (:value id)

@@ -42,6 +42,9 @@
     (assert (= (:exit-code reply) 0))
     reply))
 
+(defn decision-outcome-field (reply key)
+  (-> (decision-field reply "outcome") (field key) unwrap))
+
 (defn decision-field (reply key)
   (-> (:json reply)
       (field "decision")
@@ -143,3 +146,77 @@
   (let (output (run-rmap-text (vec "decision" "propose" "--help")))
     (assert (= (:code output) 0))
     (assert (contains? (:stdout output) "Document:"))))
+
+(deftest asking-marks-the-decision-asked
+  (let (database (database-with-roadmap "e2e-decision-ask")
+        id (proposed-id (ref database) "e2e-decision-ask-doc")
+        reply (run-rmap (clone database)
+                        (vec "decision" "ask" (as-str id))))
+    (assert (= (:exit-code reply) 0))
+    (assert (not (empty? (text-at (ref reply) "decision" "asked_at"))))))
+
+(deftest asking-twice-is-refused
+  (let (database (database-with-roadmap "e2e-decision-ask-twice")
+        id (proposed-id (ref database) "e2e-decision-ask-twice-doc"))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "decision" "ask" (as-str id))))
+               0))
+    (let (again (run-rmap (clone database)
+                          (vec "decision" "ask" (as-str id))))
+      (assert (= (:exit-code again) 1))
+      (assert (= (error-code (ref again))
+                 (str "already-asked"))))))
+
+(deftest accepting-records-the-chosen-option
+  (let (database (database-with-roadmap "e2e-decision-accept")
+        id (proposed-id (ref database) "e2e-decision-accept-doc")
+        reply (run-rmap (clone database)
+                        (vec "decision" "accept"
+                             (as-str id)
+                             "--option" "2"
+                             "--justification" "Speed."
+                             "--consequences" "Run Redis."
+                             "--actor" "tester")))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (text-at (ref reply) "decision" "status")
+               (str "accepted")))
+    (assert (= (json->int (ref (decision-outcome-field (ref reply) "option")))
+               (some 2)))
+    (assert (= (json->text (ref (decision-outcome-field (ref reply)
+                                                        "decided_by")))
+               (some (str "tester"))))))
+
+(deftest rejecting-records-the-reason
+  (let (database (database-with-roadmap "e2e-decision-reject")
+        id (proposed-id (ref database) "e2e-decision-reject-doc")
+        reply (run-rmap
+                (clone database)
+                (vec "decision" "reject" (as-str id) "--reason" "Not now.")))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (text-at (ref reply) "decision" "status")
+               (str "rejected")))
+    (assert (= (json->text (ref (decision-outcome-field (ref reply)
+                                                        "justification")))
+               (some (str "Not now."))))))
+
+(deftest deprecating-records-the-reason
+  (let (database (database-with-roadmap "e2e-decision-deprecate")
+        id (proposed-id (ref database) "e2e-decision-deprecate-doc"))
+    (assert (= (:exit-code
+                 (run-rmap (clone database)
+                           (vec "decision" "accept"
+                                (as-str id)
+                                "--option" "1"
+                                "--justification" "Yes."
+                                "--consequences" "Do it.")))
+               0))
+    (let (reply (run-rmap (clone database)
+                          (vec "decision" "deprecate"
+                               (as-str id)
+                               "--reason" "Replaced.")))
+      (assert (= (:exit-code reply) 0))
+      (assert (= (text-at (ref reply) "decision" "status")
+                 (str "deprecated")))
+      (assert (= (json->text (ref (decision-field (ref reply)
+                                                  "deprecation_reason")))
+                 (some (str "Replaced.")))))))

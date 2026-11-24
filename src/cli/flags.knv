@@ -5,8 +5,8 @@
 (use cli/arguments arguments)
 
 (export id-list optional-choice optional-number
-        optional-text required-choice required-text
-        switch-on? text-list)
+        optional-text required-choice required-number
+        required-text switch-on? text-list)
 
 (type switch-on?
   (fn ((ref arguments) (ref str)) bool))
@@ -27,6 +27,10 @@
 (defn required-text (arguments name)
   (ok-or (optional-text arguments name)
          (str "--" name " is required")))
+
+(defn required-number (arguments name)
+  (let-try (text (required-text arguments name))
+    (text->number (as-str text) name)))
 
 (defn optional-choice (arguments name names)
   (match (optional-text arguments name)

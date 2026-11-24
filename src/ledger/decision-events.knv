@@ -1,12 +1,13 @@
 (module
   "Describes each change to a decision as an event to record.")
 
-(use json/value array json object)
+(use json/value array json object text->json)
 (use ledger/model/decisions decision)
 
 (use ledger/model/events ->event-draft event-draft
                          event-type)
 
+(use ledger/names case-name decision-status-names)
 (use ledger/json-values ids->json)
 
 (use ledger/decision-columns decision->columns
@@ -15,7 +16,9 @@
 (use ledger/changes inserted-columns only-changed
                     payload-with-changes updated-columns)
 
-(export decision-proposed decision-revised)
+(export decision-accepted decision-asked decision-deprecated
+        decision-proposed decision-rejected
+        decision-revised)
 
 (defn decision-proposed (decision)
   (decision-event decision event-type/decision-proposed
@@ -30,11 +33,33 @@
 
 (defn decision-revised (before after)
   (decision-event after event-type/decision-revised
+                  (payload-with-changes (ref (changed-columns before after))
+                                        (option-changes before after))))
+
+(defn decision-asked (before after)
+  (decision-event after event-type/decision-asked
+                  (payload-with-changes (ref (changed-columns before after))
+                                        (vec))))
+
+(defn decision-accepted (before after superseded)
+  (decision-event after event-type/decision-accepted
                   (payload-with-changes
-                    (ref (only-changed (updated-columns
-                                         (ref (decision->columns before))
-                                         (ref (decision->columns after)))))
-                    (option-changes before after))))
+                    (ref (changed-columns before after))
+                    (accepted-context before after superseded))))
+
+(defn decision-rejected (before after)
+  (decision-event after event-type/decision-rejected
+                  (payload-with-changes (ref (changed-columns before after))
+                                        (vec))))
+
+(defn decision-deprecated (before after)
+  (decision-event after event-type/decision-deprecated
+                  (payload-with-changes (ref (changed-columns before after))
+                                        (vec))))
+
+(defn changed-columns (before after)
+  (only-changed (updated-columns (ref (decision->columns before))
+                                 (ref (decision->columns after)))))
 
 (type option-changes
   (fn ((ref decision) (ref decision))
@@ -47,6 +72,22 @@
                       (options->json (ref (:options before)))
                       (options->json (ref (:options after)))))))
 
+(defn accepted-context (before after superseded)
+  (match superseded
+    ((some target)
+     (vec (blocks-change before after)
+          (pair (str "superseded") (superseded-json target))))
+    (none (vec))))
+
+(type blocks-change
+  (fn ((ref decision) (ref decision))
+    (pair string json)))
+
+(defn blocks-change (before after)
+  (old-and-new "blocks"
+               (ids->json (ref (:blocks before)))
+               (ids->json (ref (:blocks after)))))
+
 (type decision-event
   (fn ((ref decision) event-type json) event-draft))
 
@@ -56,6 +97,28 @@
                  :decision-id (some (clone (:id decision)))
                  :type type
                  :payload payload))
+
+(type superseded-json
+  (fn ((ref decision)) json))
+
+(defn superseded-json (before)
+  (object (vec (pair (str "decision")
+                     (text->json (as-str (:value (:id before)))))
+               (pair (str "changes")
+                     (object (vec (old-and-new "status"
+                                               (status-json before)
+                                               (text->json (str
+                                                             "superseded"))))))
+               (pair (str "blocks")
+                     (object (vec (pair (str "old")
+                                        (ids->json (ref (:blocks before))))
+                                  (pair (str "new") (array (vec)))))))))
+
+(type status-json
+  (fn ((ref decision)) json))
+
+(defn status-json (decision)
+  (text->json (case-name decision-status-names (:status decision))))
 
 (defn old-and-new (key old new)
   (pair (str key)

@@ -29,6 +29,7 @@
 
 (defenum supersedes-change
   keep
+  clear
   (retarget decision-id))
 
 (defstruct decision-stamp
@@ -112,4 +113,5 @@
 (defn revised-supersedes (decision change)
   (match change
     (keep (clone (:supersedes decision)))
+    (clear none)
     ((retarget id) (some (clone id)))))

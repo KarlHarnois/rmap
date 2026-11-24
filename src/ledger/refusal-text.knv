@@ -34,6 +34,9 @@
                            refusal-code/decision-not-found
                            refusal-code/decision-frozen
                            refusal-code/decision-incomplete
+                           refusal-code/invalid-decision-transition
+                           refusal-code/option-not-found
+                           refusal-code/already-asked
                            refusal-code/not-blockable
                            refusal-code/decision-in-other-roadmap
                            refusal-code/supersede-target-not-accepted
@@ -88,6 +91,13 @@
                                 "Only a proposed decision can change."))
     (decision-incomplete (described "decision-incomplete"
                                     "A proposal needs a title, a context, at least 2 options with titles, and a recommendation that names one of them with a reason."))
+    (invalid-decision-transition (described "invalid-decision-transition"
+                                            "The transition table has no such move for this decision."))
+    (option-not-found (described
+                        "option-not-found"
+                        "The decision has no option with that number."))
+    (already-asked (described "already-asked"
+                              "The decision was already put to the owner."))
     (not-blockable (described "not-blockable"
                               "Only an open item or an unfinished epic can wait on a decision."))
     (decision-in-other-roadmap (described "decision-in-other-roadmap"

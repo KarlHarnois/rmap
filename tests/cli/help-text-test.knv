@@ -31,3 +31,14 @@
 (deftest commands-without-a-document-show-no-document
   (assert (not (contains? (as-str (command-help-text (routes-named "item add")))
                           "Document:"))))
+
+(deftest decision-accept-help-lists-its-flags
+  (let (text (command-help-text (routes-named "decision accept")))
+    (assert (contains? (as-str text) "--option <number>"))
+    (assert (contains? (as-str text) "--justification <text>"))
+    (assert (contains? (as-str text) "--consequences <text>"))))
+
+(deftest decision-revise-help-shows-the-no-supersedes-switch
+  (assert (contains? (as-str (command-help-text (routes-named
+                                                  "decision revise")))
+                     "--no-supersedes")))

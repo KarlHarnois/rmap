@@ -82,10 +82,16 @@
     ((some number) (int->json number))
     (none json/null)))
 
+(type justification->json
+  (fn ((ref (option outcome))) json))
+
 (defn justification->json (outcome)
   (optional-text->json (ref (map-some (clone outcome)
                               (fn (present)
                                 (clone (:justification present)))))))
+
+(type consequences->json
+  (fn ((ref (option outcome))) json))
 
 (defn consequences->json (outcome)
   (optional-text->json (ref (then-some (clone outcome)

@@ -1,0 +1,51 @@
+(module
+  "Decides whether a decision can make a move, from the table of its states.")
+
+(use ledger/model/decisions decision decision-status)
+(use ledger/refusal refusal)
+
+(export approved-decision-move decision-move-type)
+
+(defenum decision-move-type
+  accept
+  reject
+  deprecate)
+
+(defstruct decision-allowance
+  :move-type decision-move-type
+  :steps (vec (pair decision-status decision-status)))
+
+(defn approved-decision-move (decision type)
+  (if (allowed? decision type)
+    (ok (do))
+    (err (refusal/invalid-decision-transition (clone (:id decision))
+                                              (:status decision)
+                                              (target-status type)))))
+
+(type allowed?
+  (fn ((ref decision) (ref decision-move-type))
+    bool))
+
+(defn allowed? (decision type)
+  (let (step (pair (:status decision) (target-status type)))
+    (any? (allowances)
+      (fn (allowance)
+        (and (= (:move-type allowance) type)
+             (contains? (:steps allowance) step))))))
+
+(defn target-status (type)
+  (match type
+    (accept decision-status/accepted)
+    (reject decision-status/rejected)
+    (deprecate decision-status/deprecated)))
+
+(defn allowances ()
+  (vec (->decision-allowance :move-type decision-move-type/accept
+                             :steps (vec (pair decision-status/proposed
+                                               decision-status/accepted)))
+       (->decision-allowance :move-type decision-move-type/reject
+                             :steps (vec (pair decision-status/proposed
+                                               decision-status/rejected)))
+       (->decision-allowance :move-type decision-move-type/deprecate
+                             :steps (vec (pair decision-status/accepted
+                                               decision-status/deprecated)))))

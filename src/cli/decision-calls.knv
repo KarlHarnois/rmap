@@ -1,7 +1,9 @@
 (module
   "Calls the ledger for each decision request and names the reply it gives.")
 
-(use ledger/api list-decisions propose-decision
+(use ledger/api accept-decision ask-decision
+                deprecate-decision list-decisions
+                propose-decision reject-decision
                 revise-decision show-decision)
 
 (use cli/decision-requests decision-request)
@@ -22,4 +24,16 @@
        (fn (decision) (reply/decision-shown decision))))
     ((decision-request/list query)
      (map-ok (list-decisions settings query)
-       (fn (decisions) (reply/decisions-listed decisions))))))
+       (fn (decisions) (reply/decisions-listed decisions))))
+    ((decision-request/ask id)
+     (map-ok (ask-decision settings id)
+       (fn (decision) (reply/decision-asked decision))))
+    ((decision-request/accept id acceptance)
+     (map-ok (accept-decision settings id acceptance)
+       (fn (decision) (reply/decision-accepted decision))))
+    ((decision-request/reject id reason)
+     (map-ok (reject-decision settings id reason)
+       (fn (decision) (reply/decision-rejected decision))))
+    ((decision-request/deprecate id reason)
+     (map-ok (deprecate-decision settings id reason)
+       (fn (decision) (reply/decision-deprecated decision))))))

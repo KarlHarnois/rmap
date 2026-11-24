@@ -25,6 +25,19 @@
                                      (pair (str key) (str value))))))
                :switches (vec)))
 
+(defn switched-arguments (switches)
+  (->arguments :words (vec)
+               :flags (vec)
+               :switches (collect (map (iter switches) str))))
+
+(defn flagged-and-switched (flags switches)
+  (->arguments :words (vec)
+               :flags (collect (map (iter flags)
+                                 (fn (entry)
+                                   (let-match ((pair key value) (deref entry))
+                                     (pair (str key) (str value))))))
+               :switches (collect (map (iter switches) str))))
+
 (defn proposed (flags)
   (with-proposal (unwrap-ok (proposal-pending (ref (arguments-with flags))))
                  (sample-proposal)))
@@ -54,8 +67,8 @@
     (_ (assert false))))
 
 (deftest a-revision-without-supersedes-keeps-the-target
-  (match (with-proposal (revision-pending (ref (no-flags))
-                                          (str "rm-d001"))
+  (match (with-proposal (unwrap-ok (revision-pending (ref (no-flags))
+                                                     (str "rm-d001")))
                         (sample-proposal))
     ((decision-request/revise revision)
      (assert (= (:id revision) (decision-of "rm-d001")))
@@ -63,14 +76,32 @@
     (_ (assert false))))
 
 (deftest a-revision-with-supersedes-retargets
-  (match (with-proposal (revision-pending (ref (arguments-with (vec (pair "supersedes"
-                                                                          "rm-d009"))))
-                                          (str "rm-d001"))
+  (match (with-proposal (unwrap-ok
+                          (revision-pending (ref (arguments-with (vec (pair "supersedes"
+                                                                            "rm-d009"))))
+                                            (str "rm-d001")))
                         (sample-proposal))
     ((decision-request/revise revision)
      (assert (= (:supersedes revision)
                 (supersedes-change/retarget (decision-of "rm-d009")))))
     (_ (assert false))))
+
+(deftest a-revision-can-clear-what-it-supersedes
+  (match (with-proposal (unwrap-ok (revision-pending (ref (switched-arguments (vec
+                                                                                "no-supersedes")))
+                                                     (str "rm-d001")))
+                        (sample-proposal))
+    ((decision-request/revise revision)
+     (assert (= (:supersedes revision) supersedes-change/clear)))
+    (_ (assert false))))
+
+(deftest a-revision-refuses-both-supersedes-flags
+  (assert (= (unwrap-err (revision-pending (ref (flagged-and-switched (vec (pair
+                                                                             "supersedes"
+                                                                             "rm-d009"))
+                                                                      (vec "no-supersedes")))
+                                           (str "rm-d001")))
+             (str "--supersedes and --no-supersedes cannot be used together"))))
 
 (deftest a-dash-file-reads-stdin
   (assert (= (unwrap-ok (document-source-of (ref (arguments-with

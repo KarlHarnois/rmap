@@ -38,6 +38,10 @@
   decision-revise
   decision-show
   decision-list
+  decision-ask
+  decision-accept
+  decision-reject
+  decision-deprecate
   (report report-command))
 
 (defenum report-command

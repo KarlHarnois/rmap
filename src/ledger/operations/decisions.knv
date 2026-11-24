@@ -136,6 +136,7 @@
 (defn check-retarget (connection roadmap-id change)
   (match change
     (supersedes-change/keep (ok (do)))
+    (supersedes-change/clear (ok (do)))
     ((supersedes-change/retarget id)
      (check-supersedes connection roadmap-id
                        (ref (some (clone id)))))))

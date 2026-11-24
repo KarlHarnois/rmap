@@ -1,0 +1,123 @@
+(module
+  "Checks the moves that settle a decision and computes the decision each move leaves.")
+
+(use ledger/model timestamp)
+
+(use ledger/model/decisions ->option-draft ->outcome
+                            ->proposal decision
+                            decision-option decision-status
+                            option-draft proposal)
+
+(use ledger/core/decisions check-revisable)
+(use ledger/core/proposals check-proposal)
+(use ledger/core/new-items distinct)
+(use ledger/refusal refusal)
+
+(export ->acceptance acceptance accepted-decision
+        asked-decision check-askable check-option
+        decision-proposal deprecated-decision
+        rejected-decision takeover)
+
+(defstruct acceptance
+  :option int
+  :justification string
+  :consequences string)
+
+(defn check-askable (decision)
+  (let-try (_ (check-revisable decision)
+            _ (check-unasked decision)
+            _ (check-proposal (decision-proposal decision)))
+    (ok (do))))
+
+(type check-option
+  (fn ((ref decision) int)
+    (result unit refusal)))
+
+(defn check-option (decision number)
+  (if (any? (:options decision)
+        (fn (option)
+          (= (:number option) number)))
+    (ok (do))
+    (err (refusal/option-not-found (clone (:id decision)) number))))
+
+(type decision-proposal
+  (fn ((ref decision)) proposal))
+
+(defn decision-proposal (decision)
+  (->proposal :title (clone (:title decision))
+              :context (clone (:context decision))
+              :options (collect (map (iter (:options decision))
+                                     option-draft-of))
+              :recommendation (clone (:recommendation decision))))
+
+(type asked-decision
+  (fn ((ref decision) timestamp) decision))
+
+(defn asked-decision (decision at)
+  (assoc (clone decision)
+         :asked-at (some (clone at))))
+
+(type accepted-decision
+  (fn ((ref decision) (ref acceptance) string timestamp)
+    decision))
+
+(defn accepted-decision (decision acceptance decided-by decided-at)
+  (-> (clone decision)
+      (assoc :status decision-status/accepted)
+      (assoc :outcome (some (->outcome :option (some (:option acceptance))
+                                       :justification (clone (:justification
+                                                               acceptance))
+                                       :consequences (some (clone (:consequences
+                                                                    acceptance)))
+                                       :decided-by (clone decided-by)
+                                       :decided-at (clone decided-at))))))
+
+(type rejected-decision
+  (fn ((ref decision) string string timestamp) decision))
+
+(defn rejected-decision (decision reason decided-by decided-at)
+  (-> (clone decision)
+      (assoc :status decision-status/rejected)
+      (assoc :outcome (some (->outcome :option none
+                                       :justification (clone reason)
+                                       :consequences none
+                                       :decided-by (clone decided-by)
+                                       :decided-at (clone decided-at))))))
+
+(type deprecated-decision
+  (fn ((ref decision) string) decision))
+
+(defn deprecated-decision (decision reason)
+  (-> (clone decision)
+      (assoc :status decision-status/deprecated)
+      (assoc :deprecation-reason (some (clone reason)))))
+
+(defn takeover (decision target)
+  (match target
+    ((some present) (with-taken-blocks decision present))
+    (none (clone decision))))
+
+(defn check-unasked (decision)
+  (match (:asked-at decision)
+    ((some _)
+     (err (refusal/already-asked (clone (:id decision)))))
+    (none (ok (do)))))
+
+(type with-taken-blocks
+  (fn ((ref decision) (ref decision))
+    decision))
+
+(defn with-taken-blocks (decision target)
+  (let (blocks (clone (:blocks decision)))
+    (for-each (:blocks target)
+      (fn (id) (push! blocks (clone id))))
+    (assoc (clone decision) :blocks (distinct blocks))))
+
+(type option-draft-of
+  (fn ((ref decision-option)) option-draft))
+
+(defn option-draft-of (option)
+  (->option-draft :title (clone (:title option))
+                  :description (clone (:description option))
+                  :pros (clone (:pros option))
+                  :cons (clone (:cons option))))

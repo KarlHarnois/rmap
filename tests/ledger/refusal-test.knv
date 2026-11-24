@@ -24,3 +24,21 @@
 (deftest a-not-blockable-message-names-the-item
   (assert (= (refusal->message (refusal/not-blockable (->item-id :value (str "rm-0003"))))
              (str "only an open item or an unfinished epic can wait on a decision, and rm-0003 is not one"))))
+
+(deftest an-invalid-decision-transition-message-names-both-states
+  (assert (= (refusal->message (refusal/invalid-decision-transition
+                                 (->decision-id :value (str "rm-0002"))
+                                 decision-status/accepted
+                                 decision-status/deprecated))
+             (str "the decision rm-0002 cannot move from accepted to deprecated"))))
+
+(deftest an-option-not-found-message-names-the-number
+  (assert (= (refusal->message (refusal/option-not-found
+                                 (->decision-id :value (str "rm-0002"))
+                                 4))
+             (str "the decision rm-0002 has no option 4"))))
+
+(deftest an-already-asked-message-names-the-decision
+  (assert (= (refusal->message (refusal/already-asked (->decision-id :value (str
+                                                                              "rm-0002"))))
+             (str "the decision rm-0002 is already asked"))))

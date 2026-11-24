@@ -1,16 +1,19 @@
 (module
   "Names each decision request the CLI can make, builds it from the command line, and completes a proposal or revision once its document is read.")
 
-(use ledger/api ->decision-id ->decision-query
+(use ledger/api ->acceptance ->decision-id ->decision-query
                 ->decision-revision ->item-id ->new-decision
-                decision-id decision-query decision-revision
-                decision-status-names item-id new-decision
-                proposal supersedes-change)
+                acceptance decision-id decision-query
+                decision-revision decision-status-names
+                item-id new-decision proposal
+                supersedes-change)
 
 (use cli/flags id-list optional-choice optional-text
-               required-text)
+               required-number required-text switch-on?)
 
-(export decision-list-request decision-request
+(export decision-accept-request decision-ask-request
+        decision-deprecate-request decision-list-request
+        decision-reject-request decision-request
         decision-show-request document-source
         document-source-of pending-decision proposal-pending
         revision-pending text->decision-id with-proposal)
@@ -19,7 +22,11 @@
   (propose new-decision)
   (revise decision-revision)
   (show decision-id)
-  (list decision-query))
+  (list decision-query)
+  (ask decision-id)
+  (accept decision-id acceptance)
+  (reject decision-id string)
+  (deprecate decision-id string))
 
 (defenum document-source
   (file string)
@@ -46,9 +53,9 @@
                                   text->decision-id))))))
 
 (defn revision-pending (arguments id)
-  (pending-decision/revise (text->decision-id id)
-                           (supersedes-change-of (optional-text arguments
-                                                                "supersedes"))))
+  (map-ok (supersedes-change-of arguments)
+    (fn (change)
+      (pending-decision/revise (text->decision-id id) change))))
 
 (defn decision-show-request (id)
   (decision-request/show (text->decision-id id)))
@@ -78,6 +85,26 @@
                                                    :proposal proposal
                                                    :supersedes change)))))
 
+(defn decision-ask-request (id)
+  (decision-request/ask (text->decision-id id)))
+
+(defn decision-accept-request (arguments id)
+  (let-try (option (required-number arguments "option")
+            justification (required-text arguments "justification")
+            consequences (required-text arguments "consequences"))
+    (ok (decision-request/accept (text->decision-id id)
+                                 (->acceptance :option option
+                                               :justification justification
+                                               :consequences consequences)))))
+
+(defn decision-reject-request (arguments id)
+  (let-try (reason (required-text arguments "reason"))
+    (ok (decision-request/reject (text->decision-id id) reason))))
+
+(defn decision-deprecate-request (arguments id)
+  (let-try (reason (required-text arguments "reason"))
+    (ok (decision-request/deprecate (text->decision-id id) reason))))
+
 (defn text->decision-id (text) (->decision-id :value text))
 
 (defn document-source-of (arguments)
@@ -86,10 +113,20 @@
           document-source/stdin
           (document-source/file path)))))
 
-(defn supersedes-change-of (target)
-  (match target
+(defn supersedes-change-of (arguments)
+  (if (switch-on? arguments "no-supersedes")
+    (cleared-supersedes arguments)
+    (retargeted-supersedes arguments)))
+
+(defn cleared-supersedes (arguments)
+  (if (some? (optional-text arguments "supersedes"))
+    (err (str "--supersedes and --no-supersedes cannot be used together"))
+    (ok supersedes-change/clear)))
+
+(defn retargeted-supersedes (arguments)
+  (match (optional-text arguments "supersedes")
     ((some id)
-     (supersedes-change/retarget (text->decision-id id)))
-    (none supersedes-change/keep)))
+     (ok (supersedes-change/retarget (text->decision-id id))))
+    (none (ok supersedes-change/keep))))
 
 (defn text->item-id (text) (->item-id :value text))

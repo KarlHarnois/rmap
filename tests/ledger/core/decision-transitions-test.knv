@@ -1,0 +1,42 @@
+(use ledger/model/decisions decision-status)
+(use ledger/refusal refusal)
+
+(use ledger/core/decision-transitions approved-decision-move
+                                      decision-move-type)
+
+(use support/decisions decision-id-of sample-decision)
+
+(defn refused (status type)
+  (unwrap-err (approved-decision-move (ref (sample-decision status)) type)))
+
+(deftest a-proposed-decision-can-be-accepted-or-rejected
+  (assert (ok? (approved-decision-move (ref (sample-decision
+                                              decision-status/proposed))
+                                       decision-move-type/accept)))
+  (assert (ok? (approved-decision-move (ref (sample-decision
+                                              decision-status/proposed))
+                                       decision-move-type/reject))))
+
+(deftest an-accepted-decision-can-be-deprecated
+  (assert (ok? (approved-decision-move (ref (sample-decision
+                                              decision-status/accepted))
+                                       decision-move-type/deprecate))))
+
+(deftest a-proposed-decision-cannot-be-deprecated
+  (assert (= (refused decision-status/proposed
+                      decision-move-type/deprecate)
+             (refusal/invalid-decision-transition (decision-id-of "rm-d001")
+                                                  decision-status/proposed
+                                                  decision-status/deprecated))))
+
+(deftest an-accepted-decision-cannot-be-accepted-again
+  (assert (= (refused decision-status/accepted decision-move-type/accept)
+             (refusal/invalid-decision-transition (decision-id-of "rm-d001")
+                                                  decision-status/accepted
+                                                  decision-status/accepted))))
+
+(deftest a-settled-decision-cannot-be-rejected
+  (assert (= (refused decision-status/rejected decision-move-type/reject)
+             (refusal/invalid-decision-transition (decision-id-of "rm-d001")
+                                                  decision-status/rejected
+                                                  decision-status/rejected))))

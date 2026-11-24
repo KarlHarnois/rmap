@@ -1,0 +1,147 @@
+(use json/value field json->items json->text null?)
+
+(use support/rmap database-with-roadmap error-code
+                  research-id run-rmap text-at)
+
+(use support/scratch scratch-database)
+
+(def write-file
+  (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
+    (fn ((ref str) (ref str))
+      (result unit string))))
+
+(def proposal
+  "{\"title\": \"Where do sessions live?\", \"context\": \"Sessions must survive a restart.\", \"options\": [{\"title\": \"Postgres\", \"pros\": [\"One store to run\"]}, {\"title\": \"Redis\", \"pros\": [\"Fast\"]}], \"recommendation\": {\"option\": 1, \"reason\": \"Postgres already runs.\"}}")
+
+(defn proposed-id-with (database name extra)
+  (let (reply (propose database name extra))
+    (assert (= (:exit-code reply) 0))
+    (text-at (ref reply) "decision" "id")))
+
+(defn propose (database name extra)
+  (let (args (vec (str "decision")
+                  (str "propose")
+                  (str "--roadmap")
+                  (str "road")
+                  (str "--file")
+                  (document-file name proposal)))
+    (for-each extra
+      (fn (arg) (push! args (str arg))))
+    (run-rmap (clone database) args)))
+
+(defn document-file (name text)
+  (let (path (str (scratch-database name) ".json"))
+    (unwrap-ok (write-file (as-str path) text))
+    path))
+
+(defn accept (database id option)
+  (let (reply (run-rmap (clone database)
+                        (vec "decision" "accept"
+                             (as-str id)
+                             "--option"
+                             (as-str option)
+                             "--justification" "Yes."
+                             "--consequences" "Do it.")))
+    (assert (= (:exit-code reply) 0))
+    reply))
+
+(defn show (database id)
+  (let (reply (run-rmap (clone database)
+                        (vec "decision" "show" (as-str id))))
+    (assert (= (:exit-code reply) 0))
+    reply))
+
+(defn first-block (reply)
+  (json->text (unwrap (first (blocks-of reply)))))
+
+(defn blocks-of (reply)
+  (unwrap (json->items (ref (decision-field reply "blocks")))))
+
+(defn decision-field (reply key)
+  (-> (:json reply)
+      (field "decision")
+      unwrap
+      (field key)
+      unwrap))
+
+(deftest accepting-a-superseding-decision-supersedes-the-target-and-takes-its-blocks
+  (let (database (database-with-roadmap "e2e-supersede")
+        item (research-id (clone database))
+        target (proposed-id-with (ref database)
+                                 "e2e-supersede-target"
+                                 (vec "--blocks" (as-str item)))
+        _ (accept (ref database) target (str "1"))
+        replacing (proposed-id-with (ref database)
+                                    "e2e-supersede-replacing"
+                                    (vec "--supersedes" (as-str target)))
+        _ (accept (ref database) replacing (str "2"))
+        old (show (ref database) (ref target))
+        fresh (show (ref database) (ref replacing)))
+    (assert (= (text-at (ref old) "decision" "status")
+               (str "superseded")))
+    (assert (= (text-at (ref old) "decision" "superseded_by") replacing))
+    (assert (= (text-at (ref fresh) "decision" "supersedes") target))
+    (assert (= (len (blocks-of (ref fresh))) 1))
+    (assert (= (first-block (ref fresh))
+               (some item)))
+    (assert (empty? (blocks-of (ref old))))))
+
+(deftest a-second-superseding-decision-is-refused
+  (let (database (database-with-roadmap "e2e-supersede-twice")
+        target (proposed-id-with (ref database)
+                                 "e2e-supersede-twice-target"
+                                 (the (vec string) (vec)))
+        _ (accept (ref database) target (str "1"))
+        first (proposed-id-with (ref database)
+                                "e2e-supersede-twice-first"
+                                (vec "--supersedes" (as-str target)))
+        second (proposed-id-with (ref database)
+                                 "e2e-supersede-twice-second"
+                                 (vec "--supersedes" (as-str target))))
+    (accept (ref database) first (str "1"))
+    (let (reply (run-rmap (clone database)
+                          (vec "decision" "accept"
+                               (as-str second)
+                               "--option" "1"
+                               "--justification" "Yes."
+                               "--consequences" "Do it.")))
+      (assert (= (:exit-code reply) 1))
+      (assert (= (error-code (ref reply))
+                 (str "supersede-target-not-accepted"))))))
+
+(deftest revising-clears-the-supersede-link
+  (let (database (database-with-roadmap "e2e-no-supersedes")
+        target (proposed-id-with (ref database)
+                                 "e2e-no-supersedes-target"
+                                 (the (vec string) (vec)))
+        _ (accept (ref database) target (str "1"))
+        replacing (proposed-id-with (ref database)
+                                    "e2e-no-supersedes-replacing"
+                                    (vec "--supersedes" (as-str target)))
+        path (document-file "e2e-no-supersedes-doc" proposal)
+        revised (run-rmap (clone database)
+                          (vec "decision" "revise"
+                               (as-str replacing)
+                               "--file"
+                               (as-str path)
+                               "--no-supersedes"))
+        shown (show (ref database) (ref replacing)))
+    (assert (= (:exit-code revised) 0))
+    (assert (null? (ref (decision-field (ref shown) "supersedes"))))))
+
+(deftest the-supersede-flags-cannot-be-combined
+  (let (database (database-with-roadmap "e2e-supersede-flags")
+        id (proposed-id-with (ref database)
+                             "e2e-supersede-flags-doc"
+                             (the (vec string) (vec)))
+        path (document-file "e2e-supersede-flags-doc-revision" proposal)
+        reply (run-rmap (clone database)
+                        (vec "decision" "revise"
+                             (as-str id)
+                             "--file"
+                             (as-str path)
+                             "--supersedes" "rm-ffff"
+                             "--no-supersedes")))
+    (assert (= (:exit-code reply) 2))
+    (assert (= (error-code (ref reply))
+               (str "usage")))))

@@ -1,8 +1,12 @@
 (use ledger/model ->timestamp)
 (use ledger/model/decisions ->outcome decision-status)
 
-(use cli/decision-text decision-detail-text
+(use cli/decision-text decision-accepted-text
+                       decision-asked-text
+                       decision-deprecated-text
+                       decision-detail-text
                        decision-proposed-text
+                       decision-rejected-text
                        decisions-text)
 
 (use support/decisions sample-decision)
@@ -61,3 +65,15 @@
                                         "  Chose option 2: Redis"
                                         "  Justification: Speed matters most."
                                         "  Consequences: Run Redis.")))))))
+
+(deftest asking-names-the-decision-and-its-title
+  (assert (= (decision-asked-text (ref (proposed)))
+             (str "Asked rm-d001: Where do sessions live?"))))
+
+(deftest accepting-deprecating-and-rejecting-name-the-decision
+  (assert (= (decision-accepted-text (ref (proposed)))
+             (str "Accepted rm-d001.")))
+  (assert (= (decision-rejected-text (ref (proposed)))
+             (str "Rejected rm-d001.")))
+  (assert (= (decision-deprecated-text (ref (proposed)))
+             (str "Deprecated rm-d001."))))
