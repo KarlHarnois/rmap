@@ -12,6 +12,11 @@
 (defstruct decision-id
   :value string)
 
+(defstruct snapshot
+  :roadmaps (vec roadmap)
+  :items (vec item)
+  :deps (vec dep))
+
 (defstruct roadmap
   :id roadmap-id
   :name string
@@ -23,10 +28,6 @@
   active
   paused
   done)
-
-(defstruct snapshot
-  :items (vec item)
-  :deps (vec dep))
 
 (defstruct item
   :id item-id
@@ -108,6 +109,7 @@
   with-merged)
 
 (defstruct blockage
+  :paused bool
   :blockers (vec item-id)
   :dropped-blockers (vec item-id))
 

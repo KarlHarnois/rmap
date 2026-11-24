@@ -13,6 +13,8 @@
 (defenum refusal-code
   roadmap-not-found
   roadmap-exists
+  roadmap-already-paused
+  roadmap-not-paused
   item-not-found
   item-closed
   parent-not-epic
@@ -40,6 +42,8 @@
 (defn refusal-catalog ()
   (collect (map (iter (vec refusal-code/roadmap-not-found
                            refusal-code/roadmap-exists
+                           refusal-code/roadmap-already-paused
+                           refusal-code/roadmap-not-paused
                            refusal-code/item-not-found
                            refusal-code/item-closed
                            refusal-code/parent-not-epic
@@ -68,6 +72,10 @@
     ((refusal/roadmap-not-found _)
      refusal-code/roadmap-not-found)
     ((refusal/roadmap-exists _) refusal-code/roadmap-exists)
+    ((refusal/roadmap-already-paused _)
+     refusal-code/roadmap-already-paused)
+    ((refusal/roadmap-not-paused _)
+     refusal-code/roadmap-not-paused)
     ((refusal/item-not-found _) refusal-code/item-not-found)
     ((refusal/item-closed _) refusal-code/item-closed)
     ((refusal/parent-not-epic _) refusal-code/parent-not-epic)
@@ -102,6 +110,10 @@
                                   "No roadmap has that name."))
     (roadmap-exists (described "roadmap-exists"
                                "A roadmap already has that name."))
+    (roadmap-already-paused (described "roadmap-already-paused"
+                                       "A pause changes nothing: the roadmap is already paused."))
+    (roadmap-not-paused (described "roadmap-not-paused"
+                                   "A resume changes nothing: the roadmap is not paused."))
     (item-not-found (described "item-not-found" "No item has that id."))
     (item-closed (described
                    "item-closed"
@@ -121,7 +133,7 @@
     (invalid-transition (described "invalid-transition"
                                    "The transition table has no such move for this item."))
     (not-ready (described "not-ready"
-                          "The item is blocked. The error lists blockers and dropped_blockers."))
+                          "The item is blocked. The error lists whether the roadmap is paused, its blockers and its dropped_blockers."))
     (cycle (described
              "cycle"
              "The dependency would close a cycle of blocks dependencies."))

@@ -4,10 +4,12 @@
 (use ledger/model ->snapshot ->timestamp)
 (use ledger/sqlite/items all-items)
 (use ledger/sqlite/deps all-deps)
+(use ledger/sqlite/roadmaps all-roadmaps)
 
 (export load-snapshot)
 
 (defn load-snapshot (connection)
-  (let-try (items (all-items connection)
+  (let-try (roadmaps (all-roadmaps connection)
+            items (all-items connection)
             deps (all-deps connection))
-    (ok (->snapshot :items items :deps deps))))
+    (ok (->snapshot :roadmaps roadmaps :items items :deps deps))))

@@ -4,8 +4,8 @@
 (use ledger/model ->decision-id ->item-id ->session blockage
                   claim decision-id dep dep-type
                   graph-format history item item-id kind
-                  origin roadmap roadmap-id session status
-                  timestamp work-session)
+                  origin roadmap roadmap-id roadmap-status
+                  session status timestamp work-session)
 
 (use ledger/model/events event event-type)
 (use ledger/model/sessions ->claim-request claim-request)
@@ -62,6 +62,8 @@
 (use ledger/failure failure failure-code failure-message)
 (use ledger/sqlite/connection database-problem)
 (use ledger/operations/roadmaps list-roadmaps new-roadmap)
+(use ledger/operations/roadmap-lifecycle pause-roadmap
+                                         resume-roadmap)
 
 (use ledger/operations/init init-ledger init-outcome
                             init-outcome-names init-report)
@@ -115,12 +117,13 @@
         option-draft optional-decision-id->json
         optional-id->json optional-text->json
         optional-timestamp->json options->json origin
-        origin-names outcome proposal propose-decision
-        read-log readiness ready-batch ready-items
-        recommendation refusal refusal->message
+        origin-names outcome pause-roadmap proposal
+        propose-decision read-log readiness ready-batch
+        ready-items recommendation refusal refusal->message
         refusal-catalog refusal-code-text
-        refusal-description remove-dep revise-decision
-        roadmap roadmap-id roadmap-status-names
-        runtime-names session session-kind-names settings
-        show-decision show-item status status-names
-        supersedes-change timestamp work-session)
+        refusal-description remove-dep resume-roadmap
+        revise-decision roadmap roadmap-id roadmap-status
+        roadmap-status-names runtime-names session
+        session-kind-names settings show-decision show-item
+        status status-names supersedes-change timestamp
+        work-session)

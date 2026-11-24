@@ -3,9 +3,9 @@
 (use ledger/api add-dep add-item advance-item claim-item
                 close-item draw-graph drop-item edit-item
                 failure init-ledger list-items list-roadmaps
-                new-roadmap next-actions read-log
+                new-roadmap next-actions pause-roadmap read-log
                 ready-batch ready-items remove-dep
-                show-item)
+                resume-roadmap show-item)
 
 (use process/environment variable)
 (use cli/requests request)
@@ -88,6 +88,12 @@
        (fn (roadmap) (reply/roadmap-created roadmap))))
     (list-roadmaps (map-ok (list-roadmaps settings)
                      (fn (roadmaps) (reply/roadmaps-listed roadmaps))))
+    ((pause name)
+     (map-ok (pause-roadmap settings name)
+       (fn (roadmap) (reply/roadmap-status-changed roadmap))))
+    ((resume name)
+     (map-ok (resume-roadmap settings name)
+       (fn (roadmap) (reply/roadmap-status-changed roadmap))))
     ((ready roadmap)
      (map-ok (ready-items settings roadmap)
        (fn (readiness) (reply/readiness-checked readiness))))

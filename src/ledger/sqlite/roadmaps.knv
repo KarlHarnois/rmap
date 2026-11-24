@@ -13,7 +13,8 @@
 
 (use ledger/sqlite/rows named-cell rows->values text-cell)
 
-(export all-roadmaps insert-roadmap roadmap-named)
+(export all-roadmaps insert-roadmap roadmap-named
+        update-roadmap-status)
 
 (def columns
   "id, name, manager_session, status, created_at")
@@ -32,6 +33,17 @@
                      (text->sql (case-name roadmap-status-names
                                            (:status roadmap)))
                      (text->sql (as-str (:value (:created-at roadmap))))))))
+
+(type update-roadmap-status
+  (fn ((ref connection) (ref roadmap))
+    (result int database-error)))
+
+(defn update-roadmap-status (connection roadmap)
+  (execute connection
+           "UPDATE roadmaps SET status = ?2 WHERE id = ?1"
+           (ref (vec (text->sql (as-str (:value (:id roadmap))))
+                     (text->sql (case-name roadmap-status-names
+                                           (:status roadmap)))))))
 
 (defn all-roadmaps (connection)
   (let-try (rows (query connection

@@ -9,7 +9,8 @@
 
 (defn waiting-on (id blocker)
   (->blocked-item :item (research id)
-                  :blockage (->blockage :blockers (vec (id-of blocker))
+                  :blockage (->blockage :paused false
+                                        :blockers (vec (id-of blocker))
                                         :dropped-blockers (vec))))
 
 (defn research (id)

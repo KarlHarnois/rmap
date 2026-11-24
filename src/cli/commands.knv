@@ -49,6 +49,16 @@
                 :summary (str "Lists the roadmaps.")
                 :operands (vec)
                 :flags (vec))
+       (->route :subcommand subcommand/pause
+                :words (words "pause")
+                :summary (str "Pauses a roadmap: its open items wait, while work already started continues.")
+                :operands (operands (vec "name"))
+                :flags (vec))
+       (->route :subcommand subcommand/resume
+                :words (words "resume")
+                :summary (str "Resumes a paused roadmap.")
+                :operands (operands (vec "name"))
+                :flags (vec))
        (->route :subcommand subcommand/ready
                 :words (words "ready")
                 :summary (str "Lists the items that can start, and what holds back the others. With --limit, picks up to that many ready items.")

@@ -8,13 +8,21 @@
   (->item-id :value (str text)))
 
 (deftest each-reason-an-item-is-held-back-gets-its-own-line
-  (assert (= (blockage-lines (ref (->blockage :blockers (vec (id-of "rm-0001"))
+  (assert (= (blockage-lines (ref (->blockage :paused false
+                                              :blockers (vec (id-of "rm-0001"))
                                               :dropped-blockers (vec (id-of "rm-0002")))))
              (vec (str "waits on rm-0001")
                   (str "waits on dropped rm-0002")))))
 
+(deftest a-paused-roadmap-gets-a-line-of-its-own
+  (assert (= (blockage-lines (ref (->blockage :paused true
+                                              :blockers (vec)
+                                              :dropped-blockers (vec))))
+             (vec (str "paused")))))
+
 (deftest a-blockage-without-reasons-has-no-lines
-  (assert (empty? (blockage-lines (ref (->blockage :blockers (vec)
+  (assert (empty? (blockage-lines (ref (->blockage :paused false
+                                                   :blockers (vec)
                                                    :dropped-blockers (vec)))))))
 
 (deftest with-nothing-ready-the-blocked-section-follows-the-notice
@@ -25,6 +33,7 @@
                                                              kind/research
                                                              status/open)
                                             :blockage (->blockage
+                                                        :paused false
                                                         :blockers (vec (id-of "rm-0001"))
                                                         :dropped-blockers (vec))))))
              (str "Nothing is ready.\n\nBlocked:\n  rm-0002  work\n    waits on rm-0001"))))

@@ -8,16 +8,10 @@
                   session-kind status)
 
 (export blocks-dep child-of claimed discovered-dep epic-item
-        id-of in-roadmap kinds roadmap-of
-        session-start-named snapshot-of statuses titled
-        with-origin work-item work-session-named)
-
-(defn roadmap-of (id manager)
-  (->roadmap :id (->roadmap-id :value (str id))
-             :name (str id)
-             :manager (->session :name (str manager))
-             :status roadmap-status/active
-             :created-at (->timestamp :value (str "2026-01-01T00:00:00Z"))))
+        id-of in-roadmap kinds paused-roadmap-of
+        paused-snapshot-of roadmap-of session-start-named
+        snapshot-of statuses titled with-origin work-item
+        work-session-named)
 
 (defn epic-item (id) (work-item id kind/epic status/open))
 
@@ -91,7 +85,23 @@
   (->item-id :value (str text)))
 
 (defn snapshot-of (items deps)
-  (->snapshot :items items :deps deps))
+  (->snapshot :roadmaps (vec) :items items :deps deps))
+
+(defn paused-snapshot-of (items deps)
+  (->snapshot :roadmaps (vec (paused-roadmap-of "rm-road" "manager"))
+              :items items
+              :deps deps))
+
+(defn paused-roadmap-of (id manager)
+  (assoc (roadmap-of id manager)
+         :status roadmap-status/paused))
+
+(defn roadmap-of (id manager)
+  (->roadmap :id (->roadmap-id :value (str id))
+             :name (str id)
+             :manager (->session :name (str manager))
+             :status roadmap-status/active
+             :created-at (->timestamp :value (str "2026-01-01T00:00:00Z"))))
 
 (defn statuses ()
   (collect (map (iter status-names)

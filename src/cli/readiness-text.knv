@@ -21,6 +21,8 @@
 
 (defn blockage-lines (blockage)
   (let (lines (vec))
+    (when (:paused blockage)
+      (push! lines (str "paused")))
     (when (not (empty? (:blockers blockage)))
       (push! lines
              (str "waits on "

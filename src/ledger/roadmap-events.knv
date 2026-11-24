@@ -1,0 +1,33 @@
+(module
+  "Describes a roadmap status change as an event to record.")
+
+(use json/value json text->json)
+(use ledger/model roadmap)
+
+(use ledger/model/events ->event-draft event-draft
+                         event-type)
+
+(use ledger/names case-name roadmap-status-names)
+(use ledger/changes payload-with-changes updated)
+
+(export roadmap-status-changed)
+
+(type roadmap-status-changed
+  (fn ((ref roadmap) (ref roadmap) event-type)
+    event-draft))
+
+(defn roadmap-status-changed (before after type)
+  (->event-draft :roadmap-id (some (clone (:id after)))
+                 :item-id none
+                 :type type
+                 :payload (payload-with-changes
+                            (ref (vec (updated "status"
+                                               (status-json before)
+                                               (status-json after))))
+                            (vec))))
+
+(type status-json
+  (fn ((ref roadmap)) json))
+
+(defn status-json (roadmap)
+  (text->json (case-name roadmap-status-names (:status roadmap))))
