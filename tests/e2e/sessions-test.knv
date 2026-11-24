@@ -1,0 +1,111 @@
+(use json/value field json->text null?)
+
+(use support/rmap database-with-roadmap error-code reply
+                  research-id run-rmap text-at)
+
+(type claim
+  (fn ((ref string)
+       (ref string)
+       (ref str)
+       (vec (ref str)))
+    reply))
+
+(defn claim (database item session extra)
+  (let (args (vec (str "item")
+                  (str "claim")
+                  (clone item)
+                  (str "--session")
+                  (str session)))
+    (for-each extra
+      (fn (arg) (push! args (str arg))))
+    (run-rmap (clone database)
+              (collect (map (iter args) as-str)))))
+
+(defn session-text (reply key)
+  (-> (ref (:json reply))
+      (field "item")
+      unwrap
+      (field "session")
+      unwrap
+      (field key)
+      unwrap json->text))
+
+(deftest a-claim-prints-the-session-it-starts
+  (let (database (database-with-roadmap "e2e-claim-flags")
+        item (research-id (clone database))
+        reply (claim (ref database)
+                     (ref item)
+                     "s1"
+                     (vec "--branch" "feature" "--base" "trunk")))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (text-at (ref reply) "item" "claimed_by")
+               (str "s1")))
+    (assert (= (session-text (ref reply) "name")
+               (some (str "s1"))))
+    (assert (= (session-text (ref reply) "kind")
+               (some (str "work"))))
+    (assert (= (session-text (ref reply) "branch")
+               (some (str "feature"))))
+    (assert (= (session-text (ref reply) "base")
+               (some (str "trunk"))))))
+
+(deftest a-claim-without-a-branch-uses-the-session-name
+  (let (database (database-with-roadmap "e2e-claim-defaults")
+        item (research-id (clone database))
+        reply (claim (ref database)
+                     (ref item)
+                     "s1"
+                     (vec)))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (session-text (ref reply) "branch")
+               (some (str "s1"))))
+    (assert (some? (session-text (ref reply) "base")))))
+
+(deftest showing-a-claimed-item-prints-its-session
+  (let (database (database-with-roadmap "e2e-show-session")
+        item (research-id (clone database)))
+    (assert (= (:exit-code (claim (ref database)
+                                  (ref item)
+                                  "s1"
+                                  (vec)))
+               0))
+    (assert (= (session-text (ref (run-rmap (clone database)
+                                            (vec "item" "show" (as-str item))))
+                             "name")
+               (some (str "s1"))))))
+
+(deftest a-second-claim-under-a-live-name-is-refused-as-session-busy
+  (let (database (database-with-roadmap "e2e-session-busy")
+        first (research-id (clone database))
+        second (research-id (clone database)))
+    (assert (= (:exit-code (claim (ref database)
+                                  (ref first)
+                                  "s1"
+                                  (vec)))
+               0))
+    (let (reply (claim (ref database)
+                       (ref second)
+                       "s1"
+                       (vec)))
+      (assert (= (:exit-code reply) 1))
+      (assert (= (error-code (ref reply))
+                 (str "session-busy"))))))
+
+(deftest a-dropped-item-no-longer-shows-a-claimant
+  (let (database (database-with-roadmap "e2e-drop-ends-session")
+        item (research-id (clone database)))
+    (assert (= (:exit-code (claim (ref database)
+                                  (ref item)
+                                  "s1"
+                                  (vec)))
+               0))
+    (let (reply (run-rmap
+                  (clone database)
+                  (vec "item" "drop" (as-str item) "--reason" "obsolete")))
+      (assert (= (:exit-code reply) 0))
+      (assert (null? (ref (unwrap (field (unwrap (field (ref (:json reply))
+                                                        "item"))
+                                         "claimed_by")))))
+      (assert (null? (ref (unwrap (field (unwrap (field (ref (:json reply))
+                                                        "item"))
+                                         "session"))))))))

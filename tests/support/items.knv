@@ -1,13 +1,16 @@
 (use ledger/names kind-names status-names)
+(use ledger/model/sessions ->session-start)
 
 (use ledger/model ->dep ->item ->item-id ->roadmap
                   ->roadmap-id ->session ->snapshot
-                  ->timestamp claim dep-type item kind
-                  origin roadmap-status status)
+                  ->timestamp ->work-session claim dep-type
+                  item kind origin roadmap-status runtime
+                  session-kind status)
 
 (export blocks-dep child-of claimed discovered-dep epic-item
-        id-of in-roadmap kinds roadmap-of snapshot-of
-        statuses titled with-origin work-item)
+        id-of in-roadmap kinds roadmap-of
+        session-start-named snapshot-of statuses titled
+        with-origin work-item work-session-named)
 
 (defn roadmap-of (id manager)
   (->roadmap :id (->roadmap-id :value (str id))
@@ -41,7 +44,21 @@
 
 (defn claimed (item)
   (assoc item
-         :claim (claim/claimed-by (->session :name (str "worker")))))
+         :claim (claim/claimed-by (work-session-named "worker"))))
+
+(defn session-start-named (name)
+  (->session-start :session (->session :name (str name))
+                   :branch (str name)
+                   :base (str "main")))
+
+(defn work-session-named (name)
+  (->work-session :session (->session :name (str name))
+                  :kind session-kind/work
+                  :runtime runtime/ringleader
+                  :branch (some (str name))
+                  :base (some (str "main"))
+                  :started-at (->timestamp :value (str
+                                                    "2026-01-01T00:00:00Z"))))
 
 (type in-roadmap
   (fn (item (ref str)) item))

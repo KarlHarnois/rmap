@@ -5,7 +5,7 @@
 (use json/value field json->text null? object same?
                 text->json)
 
-(use support/items id-of work-item)
+(use support/items claimed id-of work-item)
 
 (defn item-text-field (key)
   (-> (item->json (ref (work-item "rm-0001" kind/build status/open)))
@@ -52,3 +52,16 @@
   (assert (same? (ref (unwrap (field (ref (event->json (ref (legacy-claim-event))))
                                      "payload")))
                  (ref (legacy-claim-payload)))))
+
+(deftest a-claimed-item-names-its-claimant-and-its-session
+  (let (item (claimed (work-item "rm-0001" kind/build status/dispatched)))
+    (assert (= (json->text (ref (item-field (clone item) "claimed_by")))
+               (some (str "worker"))))
+    (assert (= (-> (item-field item "session")
+                   (field "name")
+                   unwrap json->text)
+               (some (str "worker"))))))
+
+(deftest an-unclaimed-item-prints-a-null-session
+  (assert (null? (ref (item-field (work-item "rm-0001" kind/build status/open)
+                                  "session")))))

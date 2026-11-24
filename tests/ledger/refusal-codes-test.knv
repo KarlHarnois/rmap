@@ -1,4 +1,6 @@
-(use ledger/model ->blockage ->decision-id ->item-id status)
+(use ledger/model ->blockage ->decision-id ->item-id
+                  ->session status)
+
 (use ledger/model/decisions decision-status)
 (use ledger/refusal refusal)
 (use ledger/refusal-codes refusal-catalog refusal-code-text)
@@ -25,7 +27,8 @@
        (refusal/decision-incomplete (str "the title is empty"))
        (refusal/not-blockable (sample-id))
        (refusal/decision-in-other-roadmap (sample-id))
-       (refusal/supersede-target-not-accepted (sample-decision-id))))
+       (refusal/supersede-target-not-accepted (sample-decision-id))
+       (refusal/session-busy (->session :name (str "s1")))))
 
 (defn sample-decision-id ()
   (->decision-id :value (str "rm-0002")))

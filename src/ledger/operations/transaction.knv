@@ -23,6 +23,7 @@
 
 (defstruct settings
   :database-path string
+  :repository string
   :clock clock
   :actor string)
 

@@ -3,11 +3,15 @@
 
 (use ledger/refusal refusal)
 (use ledger/core/phases finished?)
-(use ledger/model claim item kind session status)
+(use ledger/model item kind status)
+(use ledger/model/sessions session-start)
+
+(use ledger/core/session-changes claim-after ending
+                                 starting)
 
 (export ->advancement advancement advancement->move
         kind-change move move-type move-type-of moved
-        target-status)
+        session-change-of target-status)
 
 (defenum move-type
   claim
@@ -17,7 +21,7 @@
   drop)
 
 (defenum move
-  (claim session)
+  (claim session-start)
   (advance status)
   advance-to-build
   close
@@ -45,11 +49,16 @@
     (move/close move-type/close)
     ((move/drop _) move-type/drop)))
 
-(defn moved (item move now)
+(defn session-change-of (item move now)
+  (match move
+    ((move/claim start) (starting start now))
+    (_ (ending item (target-status item move) now))))
+
+(defn moved (item move change now)
   (let (target (target-status item move))
     (-> (clone item)
         (assoc :status target)
-        (assoc :claim (claim-after item move))
+        (assoc :claim (claim-after item change))
         (assoc :kind (kind-after item move))
         (assoc :closed-at (closed-at-after item target now)))))
 
@@ -74,18 +83,6 @@
     (research status/accepted)
     (design status/accepted)
     (_ status/merged)))
-
-(defn claim-after (item move)
-  (match move
-    ((move/claim session) (claim/claimed-by (clone session)))
-    ((move/advance target)
-     (claim-kept-unless-reopened item target))
-    (_ (clone (:claim item)))))
-
-(defn claim-kept-unless-reopened (item target)
-  (if (= target status/open)
-    claim/unclaimed
-    (clone (:claim item))))
 
 (type kind-after
   (fn ((ref item) (ref move)) kind))

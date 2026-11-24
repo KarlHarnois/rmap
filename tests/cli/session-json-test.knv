@@ -1,0 +1,38 @@
+(use json/value field json->text null?)
+(use ledger/api claim)
+(use cli/session-json claim->json claim->session-json)
+(use support/items work-session-named)
+
+(defn session-text (key)
+  (-> (claim->session-json
+        (ref (claim/claimed-by (assoc (work-session-named "s1") :base none))))
+      (field key)
+      unwrap json->text))
+
+(deftest a-claim-prints-the-name-of-its-session
+  (assert (= (json->text (ref (claim->json (ref (claim/claimed-by (work-session-named
+                                                                    "s1"))))))
+             (some (str "s1")))))
+
+(deftest a-session-prints-each-of-its-columns
+  (assert (= (session-text "name")
+             (some (str "s1"))))
+  (assert (= (session-text "kind")
+             (some (str "work"))))
+  (assert (= (session-text "runtime")
+             (some (str "ringleader"))))
+  (assert (= (session-text "branch")
+             (some (str "s1"))))
+  (assert (= (session-text "started_at")
+             (some (str "2026-01-01T00:00:00Z")))))
+
+(deftest a-session-without-a-base-prints-a-null-base
+  (assert (null? (ref (unwrap (field (claim->session-json
+                                       (ref (claim/claimed-by
+                                              (assoc (work-session-named "s1")
+                                                     :base none))))
+                                     "base"))))))
+
+(deftest an-unclaimed-item-has-no-session-and-no-claimant
+  (assert (null? (ref (claim->session-json (ref claim/unclaimed)))))
+  (assert (null? (ref (claim->json (ref claim/unclaimed))))))

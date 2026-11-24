@@ -1,0 +1,36 @@
+(module
+  "Asks git for a repository's default branch.")
+
+(use process/command ->command command-output run-command)
+
+(export default-branch)
+
+(def remote-prefix "origin/")
+
+(def fallback-branch "main")
+
+(defn default-branch (repository)
+  (match (run-command (ref (origin-head-lookup repository)))
+    ((ok output) (branch-of output))
+    ((err _) (str fallback-branch))))
+
+(defn origin-head-lookup (repository)
+  (->command :program (str "git")
+             :args (vec (str "-C")
+                        (clone repository)
+                        (str "symbolic-ref")
+                        (str "--quiet")
+                        (str "--short")
+                        (str "refs/remotes/origin/HEAD"))))
+
+(type branch-of (fn (command-output) string))
+
+(defn branch-of (output)
+  (if (= (:code output) 0)
+    (without-remote (trim (as-str (:stdout output))))
+    (str fallback-branch)))
+
+(defn without-remote (name)
+  (if (starts-with? name remote-prefix)
+    (str (subs name (len remote-prefix) (len name)))
+    (str name)))

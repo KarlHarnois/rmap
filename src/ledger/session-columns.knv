@@ -1,0 +1,61 @@
+(module
+  "Records how a move changes an item's session as columns of an event's `changes` object.")
+
+(use json/value json text->json)
+(use ledger/model claim item work-session)
+(use ledger/model/sessions session-end)
+
+(use ledger/names case-name end-reason-names runtime-names
+                  session-kind-names)
+
+(use ledger/core/session-changes session-change)
+(use ledger/changes column-change inserted updated)
+
+(use ledger/json-values optional-text->json
+                        optional-timestamp->json)
+
+(export session-changes)
+
+(defn session-changes (before change)
+  (match change
+    ((started session) (started-columns session))
+    ((ended end) (ended-columns before end))
+    (kept (vec))))
+
+(type started-columns
+  (fn ((ref work-session))
+    (vec column-change)))
+
+(defn started-columns (session)
+  (vec (inserted "session"
+                 (text->json (as-str (:name (:session session)))))
+       (inserted "session_kind"
+                 (text->json (case-name session-kind-names (:kind session))))
+       (inserted "runtime"
+                 (text->json (case-name runtime-names (:runtime session))))
+       (inserted "branch"
+                 (optional-text->json (ref (:branch session))))
+       (inserted "base"
+                 (optional-text->json (ref (:base session))))
+       (inserted "started_at"
+                 (optional-timestamp->json (ref (some (clone (:started-at
+                                                               session))))))))
+
+(type ended-columns
+  (fn ((ref item) (ref session-end))
+    (vec column-change)))
+
+(defn ended-columns (before end)
+  (vec (updated "session"
+                (claimant->json (ref (:claim before)))
+                json/null)
+       (inserted "ended_at"
+                 (text->json (as-str (:value (:at end)))))
+       (inserted "end_reason"
+                 (text->json (case-name end-reason-names (:reason end))))))
+
+(defn claimant->json (claim)
+  (match claim
+    ((claimed-by session)
+     (text->json (as-str (:name (:session session)))))
+    (unclaimed json/null)))

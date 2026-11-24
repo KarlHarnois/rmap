@@ -30,8 +30,12 @@
       (+ (if (= (:exit-code left) 0) 1 0)
          (if (= (:exit-code right) 0) 1 0)))))
 
-(defn claim-args (item session)
-  (vec "item" "claim" (as-str item) "--session" session))
+(defn claim-args (item side)
+  (vec (str "item")
+       (str "claim")
+       (str item)
+       (str "--session")
+       (str side "-" item)))
 
 (defn racing-inits (round)
   (let (database (scratch-database (as-str (str "fresh-race-" round))))

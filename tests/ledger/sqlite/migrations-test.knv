@@ -4,8 +4,10 @@
                               query run-batch)
 
 (use ledger/sqlite/rows int-cell optional-text-cell
-                        rows->values)
+                        rows->values text-cell)
 
+(use ledger/sqlite/items all-items)
+(use ledger/model claim)
 (use ledger/sqlite/schema-versions ->schema-versions)
 
 (use ledger/sqlite/migrations ->migration migrate
@@ -45,6 +47,22 @@ INSERT INTO items (id, roadmap_id, title, kind, status, priority, created_at) VA
 INSERT INTO decisions (id, roadmap_id, title, context, recommended_option, recommendation_reason, created_at) VALUES ('rm-0005', 'rm-0001', 'q', 'c', 2, 'r', 't');
 INSERT INTO decision_options (decision_id, number, title) VALUES ('rm-0005', 1, 'a');")
 
+(def claimed-rows
+  "INSERT INTO roadmaps (id, name, manager_session, created_at) VALUES ('rm-0001', 'road', 'm1', '2026-01-01T00:00:00Z');
+INSERT INTO items (id, roadmap_id, title, kind, status, claimed_by, created_at, closed_at) VALUES
+  ('rm-0002', 'rm-0001', 'dispatched', 'build', 'dispatched', 's1', '2026-01-02T00:00:00Z', NULL),
+  ('rm-0003', 'rm-0001', 'merged', 'build', 'merged', 's2', '2026-01-03T00:00:00Z', '2026-01-09T00:00:00Z'),
+  ('rm-0004', 'rm-0001', 'open', 'research', 'open', NULL, '2026-01-04T00:00:00Z', NULL),
+  ('rm-0005', 'rm-0001', 'review', 'build', 'in_review', 's3', '2026-01-05T00:00:00Z', NULL);
+INSERT INTO events (at, actor, roadmap_id, item_id, type, payload_json) VALUES
+  ('2026-01-06T00:00:00Z', 'm1', 'rm-0001', 'rm-0002', 'item-claimed', '{}');")
+
+(def shared-claim-rows
+  "INSERT INTO roadmaps (id, name, manager_session, created_at) VALUES ('rm-0001', 'road', 'm1', '2026-01-01T00:00:00Z');
+INSERT INTO items (id, roadmap_id, title, kind, status, claimed_by, created_at) VALUES
+  ('rm-0002', 'rm-0001', 'older', 'build', 'dispatched', 's1', '2026-01-02T00:00:00Z'),
+  ('rm-0003', 'rm-0001', 'newer', 'build', 'dispatched', 's1', '2026-01-03T00:00:00Z');")
+
 (defn embedded-files ()
   (let (files (collect (map (iter (migration-sources))
                          (fn (migration)
@@ -80,6 +98,43 @@ INSERT INTO decision_options (decision_id, number, title) VALUES ('rm-0005', 1, 
     (unwrap-ok (run-batch (ref connection) version-one-rows))
     (unwrap-ok (migrate (ref connection) (migration-sources)))
     connection))
+
+(defn upgraded-from-version-six (name rows)
+  (let (connection (opened name))
+    (unwrap-ok (migrate (ref connection) (migrations-through 6)))
+    (unwrap-ok (run-batch (ref connection) rows))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    connection))
+
+(defn session-rows (connection)
+  (let-try (rows (query connection
+                        "SELECT name, item_id, kind, runtime, branch, base, started_at, ended_at, end_reason FROM sessions ORDER BY item_id"
+                        (ref (vec))))
+    (rows->values (ref rows) row->texts)))
+
+(defn row->texts (row)
+  (let-try (name (text-cell row 0)
+            item (text-cell row 1)
+            kind (text-cell row 2)
+            runtime (text-cell row 3)
+            branch (optional-text-cell row 4)
+            base (optional-text-cell row 5)
+            started-at (text-cell row 6)
+            ended-at (optional-text-cell row 7)
+            end-reason (optional-text-cell row 8))
+    (ok (vec (some name)
+             (some item)
+             (some kind)
+             (some runtime)
+             branch base
+             (some started-at)
+             ended-at end-reason))))
+
+(defn texts (values)
+  (collect (map (iter values)
+             (fn (value)
+               (map-some (deref value)
+                 (fn (text) (str text)))))))
 
 (defn opened (name)
   (unwrap-ok (open (as-str (scratch-database name)))))
@@ -257,3 +312,79 @@ INSERT INTO decision_options (decision_id, number, title) VALUES ('rm-0005', 1, 
                             (as-str (str "BEGIN;\n"
                                          decision-rows
                                          "\nINSERT INTO decision_options (decision_id, number, title) VALUES ('rm-0005', 2, 'b');\nCOMMIT;")))))))
+
+(deftest the-sessions-migration-turns-each-claim-into-a-work-session
+  (assert (= (unwrap-ok (session-rows (ref (upgraded-from-version-six
+                                             "sessions-backfill"
+                                             claimed-rows))))
+             (vec (texts (vec (some "s1")
+                              (some "rm-0002")
+                              (some "work")
+                              (some "ringleader")
+                              none none
+                              (some "2026-01-06T00:00:00Z")
+                              none none))
+                  (texts (vec (some "s2")
+                              (some "rm-0003")
+                              (some "work")
+                              (some "ringleader")
+                              none none
+                              (some "2026-01-03T00:00:00Z")
+                              (some "2026-01-09T00:00:00Z")
+                              (some "finished")))
+                  (texts (vec (some "s3")
+                              (some "rm-0005")
+                              (some "work")
+                              (some "ringleader")
+                              none none
+                              (some "2026-01-05T00:00:00Z")
+                              none none))))))
+
+(deftest the-sessions-migration-drops-the-claimed-by-column
+  (assert (= (row-count (ref (upgraded-from-version-six "sessions-drop-column"
+                                                        claimed-rows))
+                        "pragma_table_info('items') WHERE name = 'claimed_by'")
+             0)))
+
+(deftest after-the-sessions-migration-only-unfinished-items-keep-their-claimant
+  (let (items (unwrap-ok (all-items (ref (upgraded-from-version-six
+                                           "sessions-claims"
+                                           claimed-rows)))))
+    (assert (= (collect (map (iter items)
+                          (fn (item)
+                            (match (:claim item)
+                              ((claim/claimed-by session)
+                               (some (clone (:name (:session session)))))
+                              (claim/unclaimed none)))))
+               (vec (some (str "s1"))
+                    none none
+                    (some (str "s3")))))))
+
+(deftest the-sessions-migration-keeps-only-the-newest-of-two-live-claims-by-one-name
+  (assert (= (unwrap-ok (session-rows (ref (upgraded-from-version-six
+                                             "sessions-shared-name"
+                                             shared-claim-rows))))
+             (vec (texts (vec (some "s1")
+                              (some "rm-0002")
+                              (some "work")
+                              (some "ringleader")
+                              none none
+                              (some "2026-01-02T00:00:00Z")
+                              (some "2026-01-03T00:00:00Z")
+                              (some "replaced")))
+                  (texts (vec (some "s1")
+                              (some "rm-0003")
+                              (some "work")
+                              (some "ringleader")
+                              none none
+                              (some "2026-01-03T00:00:00Z")
+                              none none))))))
+
+(deftest a-second-live-session-for-one-item-or-one-name-is-refused
+  (let (connection (upgraded-from-version-six "sessions-unique" claimed-rows))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('s9', 'rm-0002', 'work', 't');")))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('s1', 'rm-0004', 'work', 't');")))
+    (assert (ok? (run-batch (ref connection)
+                            "INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('s2', 'rm-0004', 'work', 't');")))))

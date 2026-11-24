@@ -1,15 +1,15 @@
 (use json/value json->items json->text null?)
 (use ledger/model kind status)
-(use support/items work-item)
-(use ledger/model ->item-id ->session ->timestamp claim)
+(use support/items work-item work-session-named)
+(use ledger/model ->item-id ->timestamp claim)
 
 (use ledger/json-values claim->json item->columns
                         optional-ids->json
                         optional-timestamp->json)
 
 (deftest a-claim-is-the-session-name
-  (assert (= (json->text (ref (claim->json (ref (claim/claimed-by (->session
-                                                                    :name (str "s1")))))))
+  (assert (= (json->text (ref (claim->json (ref (claim/claimed-by (work-session-named
+                                                                    "s1"))))))
              (some (str "s1")))))
 
 (deftest an-unclaimed-item-has-a-null-claim
@@ -39,6 +39,5 @@
                   (str "origin")
                   (str "priority")
                   (str "parent_id")
-                  (str "claimed_by")
                   (str "closed_at")
                   (str "description")))))

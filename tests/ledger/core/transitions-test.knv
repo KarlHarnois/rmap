@@ -2,7 +2,9 @@
 (use ledger/refusal refusal)
 (use ledger/core/move move)
 (use ledger/core/transitions approved-move)
-(use support/items kinds snapshot-of statuses work-item)
+
+(use support/items claimed kinds session-start-named
+                   snapshot-of statuses work-item)
 
 (defstruct allowed-move
   :command string
@@ -25,7 +27,8 @@
 
 (defn attempts (kind)
   (let (all (vec (->attempt :command (str "claim")
-                            :proposed-move (move/claim (->session :name (str "s1")))
+                            :proposed-move (move/claim (session-start-named
+                                                         "s1"))
                             :target status/dispatched)
                  (->attempt :command (str "build")
                             :proposed-move move/advance-to-build
@@ -156,6 +159,14 @@
     ((ok _) none)
     ((err refused) (some refused))))
 
+(defn claim-beside-worker (name)
+  (let (item (work-item "rm-0001" kind/build status/open)
+        busy (claimed (work-item "rm-0002" kind/build status/dispatched)))
+    (approved-move (ref (snapshot-of (vec (clone item) busy)
+                                     (vec)))
+                   (ref item)
+                   (move/claim (session-start-named name)))))
+
 (deftest every-move-from-every-status-of-every-kind-follows-the-table
   (for-each (kinds)
     (fn (kind)
@@ -183,3 +194,10 @@
                       (ref (move/drop (str "late"))))
              (some (refusal/invalid-transition status/accepted
                                                status/dropped)))))
+
+(deftest a-claim-under-the-name-of-a-live-session-is-refused
+  (assert (= (claim-beside-worker "worker")
+             (err (refusal/session-busy (->session :name (str "worker")))))))
+
+(deftest a-claim-under-a-free-name-is-approved
+  (assert (ok? (claim-beside-worker "other"))))

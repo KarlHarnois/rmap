@@ -1,0 +1,31 @@
+(use process/command ->command run-command)
+(use support/scratch scratch-directory)
+
+(export fresh-repository repository-with-origin-head)
+
+(def remove-tree
+  (rust "drop(std::fs::remove_dir_all({0}))"
+    (fn ((ref str)) unit)))
+
+(defn repository-with-origin-head (name branch)
+  (let (repository (fresh-repository name))
+    (git! (ref repository)
+          (vec "symbolic-ref" "refs/remotes/origin/HEAD"
+               (as-str (str "refs/remotes/origin/" branch))))
+    repository))
+
+(defn fresh-repository (name)
+  (let (repository (str (scratch-directory) "/" name))
+    (remove-tree (as-str repository))
+    (git! (ref (scratch-directory))
+          (vec "init" "--quiet" (as-str repository)))
+    repository))
+
+(defn git! (repository args)
+  (let (all (vec (str "-C") (clone repository)))
+    (for-each args
+      (fn (arg) (push! all (str arg))))
+    (assert (= (:code (unwrap-ok (run-command (ref (->command :program (str
+                                                                         "git")
+                                                              :args all)))))
+               0))))

@@ -3,16 +3,19 @@
 
 (use ledger/model/events event-type)
 (use ledger/model/decisions decision-status)
+(use ledger/model/sessions end-reason)
 
 (use ledger/model dep-type graph-format kind origin
-                  roadmap-status status)
+                  roadmap-status runtime session-kind
+                  status)
 
 (use ledger/core/actions action actor)
 
 (export action-names actor-names case-name case-named
         decision-status-names dep-type-names
-        event-type-names graph-format-names kind-names
-        origin-names roadmap-status-names status-names)
+        end-reason-names event-type-names graph-format-names
+        kind-names origin-names roadmap-status-names
+        runtime-names session-kind-names status-names)
 
 (def roadmap-status-names
   (vec (pair roadmap-status/active "active")
@@ -40,6 +43,18 @@
   (vec (pair origin/planned "planned")
        (pair origin/user-bug "user-bug")
        (pair origin/follow-up "follow-up")))
+
+(def session-kind-names
+  (vec (pair session-kind/work "work")
+       (pair session-kind/fix "fix")))
+
+(def runtime-names
+  (vec (pair runtime/ringleader "ringleader")))
+
+(def end-reason-names
+  (vec (pair end-reason/reopened "reopened")
+       (pair end-reason/replaced "replaced")
+       (pair end-reason/finished "finished")))
 
 (def dep-type-names
   (vec (pair dep-type/blocks "blocks")

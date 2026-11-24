@@ -1,8 +1,10 @@
-(use ledger/api description-input)
+(use ledger/api ->claim-request ->item-id ->session
+                description-input)
+
 (use cli/arguments ->arguments)
 
-(use cli/requests add-item-request edit-item-request
-                  request)
+(use cli/requests add-item-request claim-request
+                  edit-item-request request)
 
 (type flags-with
   (fn ((iterator (ref (pair string string))))
@@ -24,6 +26,10 @@
            (->arguments :words (vec) :flags flags :switches (vec)))
     ((ok (request/add-item _ draft)) (some draft))
     (_ none)))
+
+(defn claim-for (flags)
+  (claim-request (->arguments :words (vec) :flags flags :switches (vec))
+                 (str "rm-0001")))
 
 (deftest an-item-without-a-priority-gets-the-default
   (assert (= (:priority (unwrap (draft-for (base-flags))))
@@ -85,3 +91,20 @@
                                                                     (pair (str "description-file")
                                                                           (str "specs.txt"))))
                                                :switches (vec))))))
+
+(deftest a-claim-without-branch-or-base-leaves-both-to-the-ledger
+  (assert (= (claim-for (vec (pair (str "session") (str "s1"))))
+             (ok (request/claim (->item-id :value (str "rm-0001"))
+                                (->claim-request :session (->session :name (str "s1"))
+                                                 :branch none
+                                                 :base none))))))
+
+(deftest a-claim-keeps-the-branch-and-base-it-is-given
+  (assert (= (claim-for (vec (pair (str "session") (str "s1"))
+                             (pair (str "branch") (str "feature"))
+                             (pair (str "base") (str "trunk"))))
+             (ok (request/claim (->item-id :value (str "rm-0001"))
+                                (->claim-request :session (->session :name (str "s1"))
+                                                 :branch (some (str "feature"))
+                                                 :base (some (str
+                                                               "trunk"))))))))

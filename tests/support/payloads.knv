@@ -1,0 +1,23 @@
+(use json/value field json->entries json->int json->text)
+
+(export columns side side-int side-text)
+
+(defn side-text (payload column which)
+  (json->text (ref (side payload column which))))
+
+(defn side-int (payload column which)
+  (json->int (ref (side payload column which))))
+
+(defn side (payload column which)
+  (-> (ref payload)
+      (field "changes")
+      unwrap
+      (field column)
+      unwrap
+      (field which)
+      unwrap))
+
+(defn columns (payload)
+  (collect (map (iter (json->entries (ref (unwrap (field (ref payload)
+                                                         "changes")))))
+                (fn (entry) (clone (first entry))))))

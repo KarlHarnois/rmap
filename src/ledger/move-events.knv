@@ -1,0 +1,54 @@
+(module
+  "Describes the event a move records: the item's changed columns and its session's.")
+
+(use json/value text->json)
+(use ledger/model item)
+(use ledger/model/events ->event-draft event-type)
+(use ledger/core/move move)
+(use ledger/core/session-changes session-change)
+(use ledger/session-columns session-changes)
+(use ledger/json-values item->columns)
+
+(use ledger/changes copy-change only-changed
+                    payload-with-changes updated-columns)
+
+(export ->applied-move applied-move item-moved)
+
+(defstruct applied-move
+  :before item
+  :after item
+  :move move
+  :session-change session-change)
+
+(defn item-moved (applied)
+  (->event-draft :roadmap-id (some (clone (:roadmap-id (:after applied))))
+                 :item-id (some (clone (:id (:after applied))))
+                 :decision-id none
+                 :type (event-type-of (ref (:move applied)))
+                 :payload (payload-with-changes (ref (move-changes applied))
+                                                (move-context (ref (:move applied))))))
+
+(defn event-type-of (move)
+  (match move
+    ((claim _) event-type/item-claimed)
+    ((advance _) event-type/item-advanced)
+    (advance-to-build event-type/item-advanced)
+    (close event-type/item-closed)
+    ((drop _) event-type/item-dropped)))
+
+(defn move-changes (applied)
+  (let (changes (only-changed (updated-columns (ref (item->columns (ref (:before
+                                                                          applied))))
+                                               (ref (item->columns (ref (:after applied)))))))
+    (for-each (session-changes (ref (:before applied))
+                               (ref (:session-change applied)))
+              (fn (change)
+                (push! changes (copy-change change))))
+    changes))
+
+(defn move-context (move)
+  (match move
+    ((drop reason)
+     (vec (pair (str "reason")
+                (text->json (as-str reason)))))
+    (_ (vec))))

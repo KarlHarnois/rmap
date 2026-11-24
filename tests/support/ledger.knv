@@ -1,16 +1,17 @@
 (use ledger/model ->timestamp)
 
-(use ledger/api ->advancement ->log-query ->new-item
-                ->session ->settings add-item advance-item
-                claim-item clock description-input
-                failure-code init-ledger kind kind-change
-                new-roadmap origin read-log status)
+(use ledger/api ->advancement ->claim-request ->log-query
+                ->new-item ->session ->settings add-item
+                advance-item claim-item clock
+                description-input failure-code init-ledger
+                kind kind-change new-roadmap origin read-log
+                status)
 
-(use support/scratch scratch-database)
+(use support/scratch scratch-database scratch-directory)
 
 (export added-id advanced all-events blocked-research
-        blocked-research-in claimed fixed-clock-settings
-        initialized-settings item-draft
+        blocked-research-in claim-by claimed
+        fixed-clock-settings initialized-settings item-draft
         ledger-with-two-roadmaps other-roadmap-name
         refusal-code-of reported-research research
         research-in roadmap-name scratch-ledger
@@ -41,6 +42,7 @@
 
 (defn fixed-clock-settings (database)
   (->settings :database-path database
+              :repository (scratch-directory)
               :clock (clock/fixed (->timestamp :value (str "2026-03-03T00:00:00Z")))
               :actor (str "tester")))
 
@@ -77,11 +79,18 @@
   (added-id-in settings roadmap-name draft))
 
 (defn claimed (settings id)
-  (assert (ok? (claim-item settings (clone id) (session-named "worker"))))
+  (assert (ok? (claim-item settings
+                           (clone id)
+                           (claim-by (as-str (str "worker-" (:value id)))))))
   id)
 
 (defn session-named (name)
   (->session :name (str name)))
+
+(defn claim-by (name)
+  (->claim-request :session (session-named name)
+                   :branch none
+                   :base none))
 
 (defn advanced (settings id target)
   (assert (ok? (advance-item settings

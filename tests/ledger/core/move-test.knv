@@ -1,52 +1,70 @@
-(use ledger/model ->session ->timestamp claim kind status)
-(use ledger/core/move move moved)
-(use support/items claimed work-item)
+(use ledger/model ->timestamp claim kind status)
+(use ledger/core/move move moved session-change-of)
+
+(use support/items claimed session-start-named work-item
+                   work-session-named)
+
+(defn moved-now (item move)
+  (moved (ref item)
+         (ref move)
+         (ref (session-change-of (ref item)
+                                 (ref move)
+                                 (ref (now))))
+         (ref (now))))
 
 (defn now ()
   (->timestamp :value (str "2026-02-02T00:00:00Z")))
 
-(deftest claim-records-the-session
-  (let (item (moved (ref (work-item "rm-0001" kind/build status/open))
-                    (ref (move/claim (->session :name (str "s1"))))
-                    (ref (now))))
+(deftest claim-starts-a-work-session
+  (let (item (moved-now (work-item "rm-0001" kind/build status/open)
+                        (move/claim (session-start-named "s1"))))
     (assert (= (:status item) status/dispatched))
     (assert (= (:claim item)
-               (claim/claimed-by (->session :name (str "s1")))))))
+               (claim/claimed-by (assoc (work-session-named "s1")
+                                        :started-at (now)))))))
 
-(deftest a-failed-dispatch-clears-the-claim
-  (let (item (moved (ref (claimed
-                           (work-item "rm-0001" kind/build status/dispatched)))
-                    (ref (move/advance status/open))
-                    (ref (now))))
+(deftest a-failed-dispatch-ends-the-session
+  (let (item (moved-now (claimed
+                          (work-item "rm-0001" kind/build status/dispatched))
+                        (move/advance status/open)))
     (assert (= (:claim item) claim/unclaimed))))
 
+(deftest a-finish-ends-the-session
+  (let (closed (moved-now (claimed
+                            (work-item "rm-0001" kind/build status/merging))
+                          move/close)
+        dropped (moved-now
+                  (claimed (work-item "rm-0002" kind/design status/dispatched))
+                  (move/drop (str "obsolete"))))
+    (assert (= (:claim closed) claim/unclaimed))
+    (assert (= (:claim dropped) claim/unclaimed))))
+
+(deftest a-step-between-unfinished-statuses-keeps-the-session
+  (let (before (claimed (work-item "rm-0001" kind/build status/in-review)))
+    (assert (= (:claim (moved-now (clone before) (move/advance status/fixing)))
+               (:claim before)))))
+
 (deftest advancing-to-build-changes-the-kind
-  (let (item (moved (ref (work-item "rm-0001" kind/research status/reported))
-                    (ref move/advance-to-build)
-                    (ref (now))))
+  (let (item (moved-now (work-item "rm-0001" kind/research status/reported)
+                        move/advance-to-build))
     (assert (= (:kind item) kind/build))
     (assert (= (:status item) status/dispatched))))
 
 (deftest closing-and-dropping-stamp-the-close-time
-  (let (closed (moved (ref (work-item "rm-0001" kind/build status/merging))
-                      (ref move/close)
-                      (ref (now)))
-        dropped (moved (ref (work-item "rm-0002" kind/design status/open))
-                       (ref (move/drop (str "obsolete")))
-                       (ref (now))))
+  (let (closed (moved-now (work-item "rm-0001" kind/build status/merging)
+                          move/close)
+        dropped (moved-now (work-item "rm-0002" kind/design status/open)
+                           (move/drop (str "obsolete"))))
     (assert (= (:closed-at closed) (some (now))))
     (assert (= (:closed-at dropped) (some (now))))))
 
 (deftest closing-a-reported-design-accepts-it
-  (let (item (moved (ref (work-item "rm-0001" kind/design status/reported))
-                    (ref move/close)
-                    (ref (now))))
+  (let (item (moved-now (work-item "rm-0001" kind/design status/reported)
+                        move/close))
     (assert (= (:status item) status/accepted))
     (assert (= (:closed-at item) (some (now))))))
 
 (deftest closing-a-merging-build-merges-it
-  (assert (= (:status (moved (ref
-                               (work-item "rm-0001" kind/build status/merging))
-                             (ref move/close)
-                             (ref (now))))
+  (assert (= (:status (moved-now (work-item "rm-0001" kind/build status/merging)
+                                 move/close))
              status/merged)))

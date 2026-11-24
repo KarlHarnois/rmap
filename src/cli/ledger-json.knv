@@ -2,8 +2,9 @@
   "Turns ledger values into the JSON objects the CLI prints.")
 
 (use json/value copy-of int->json json object text->json)
+(use cli/session-json claim->json claim->session-json)
 
-(use ledger/api case-name claim dep dep-type-names event
+(use ledger/api case-name dep dep-type-names event
                 event-type-names ids->json item item-id
                 kind-names optional-decision-id->json
                 optional-id->json optional-text->json
@@ -92,6 +93,8 @@
                      (int->json (:priority item)))
                (pair (str "claimed_by")
                      (claim->json (ref (:claim item))))
+               (pair (str "session")
+                     (claim->session-json (ref (:claim item))))
                (pair (str "created_at")
                      (timestamp->json (ref (:created-at item))))
                (pair (str "closed_at")
@@ -108,11 +111,6 @@
 
 (defn item-id->json (id)
   (text->json (as-str (:value id))))
-
-(defn claim->json (claim)
-  (match claim
-    ((claimed-by session) (text->json (as-str (:name session))))
-    (unclaimed json/null)))
 
 (defn optional-roadmap-id->json (id)
   (match id

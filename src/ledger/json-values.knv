@@ -36,8 +36,6 @@
              (int->json (:priority item)))
        (pair (str "parent_id")
              (optional-id->json (ref (:parent item))))
-       (pair (str "claimed_by")
-             (claim->json (ref (:claim item))))
        (pair (str "closed_at")
              (optional-timestamp->json (ref (:closed-at item))))
        (pair (str "description")
@@ -61,7 +59,8 @@
 
 (defn claim->json (claim)
   (match claim
-    ((claimed-by session) (text->json (as-str (:name session))))
+    ((claimed-by session)
+     (text->json (as-str (:name (:session session)))))
     (unclaimed json/null)))
 
 (type optional-timestamp->json
