@@ -1,5 +1,5 @@
-(use ledger/model claim dep-type item item-id kind snapshot
-                  status)
+(use ledger/model claim dep-type item item-id kind
+                  roadmap-pause snapshot status)
 
 (use ledger/core/ready readiness-of)
 (use ledger/core/snapshot scope)
@@ -178,7 +178,7 @@
                     (ref scope/every-roadmap))
         blocked (unwrap (first (:blocked readiness))))
     (assert (empty? (:ready readiness)))
-    (assert (= (:paused (:blockage blocked)) true))))
+    (assert (= (:pause (:blockage blocked)) roadmap-pause/paused))))
 
 (deftest a-dropped-blocker-is-reported-apart-from-waiting-blockers
   (let (readiness (readiness-of

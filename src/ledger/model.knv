@@ -5,7 +5,7 @@
         ->roadmap ->roadmap-id ->session ->snapshot
         ->timestamp ->work-session blockage claim
         decision-id dep dep-type graph-format history item
-        item-id kind origin roadmap roadmap-id
+        item-id kind origin roadmap roadmap-id roadmap-pause
         roadmap-status runtime session session-kind snapshot
         status timestamp work-session)
 
@@ -109,9 +109,13 @@
   with-merged)
 
 (defstruct blockage
-  :paused bool
+  :pause roadmap-pause
   :blockers (vec item-id)
   :dropped-blockers (vec item-id))
+
+(defenum roadmap-pause
+  not-paused
+  paused)
 
 (defstruct item-id
   :value string)

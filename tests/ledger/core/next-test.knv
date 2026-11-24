@@ -1,4 +1,4 @@
-(use ledger/model ->session item kind status)
+(use ledger/model ->session item kind roadmap-pause status)
 (use ledger/core/actions action actor actor-of)
 (use ledger/core/next next-item next-of)
 (use ledger/core/ready readiness-of)
@@ -146,8 +146,8 @@
                    (vec))
         action (action-of-first (ref snapshot)))
     (assert (= (:action action) action/wait))
-    (assert (= (:paused (unwrap (clone (:reasons action))))
-               true))))
+    (assert (= (:pause (unwrap (clone (:reasons action))))
+               roadmap-pause/paused))))
 
 (deftest a-started-item-keeps-its-action-in-a-paused-roadmap
   (let (snapshot (paused-snapshot-of

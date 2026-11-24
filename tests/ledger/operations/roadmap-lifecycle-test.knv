@@ -3,7 +3,7 @@
 (use ledger/api action claim-item event event-type failure
                 list-roadmaps next-actions pause-roadmap
                 read-log ready-items refusal resume-roadmap
-                roadmap-status)
+                roadmap-pause roadmap-status)
 
 (use support/ledger refusal-code-of research roadmap-name
                     scratch-ledger session-named)
@@ -83,8 +83,8 @@
     (unwrap-ok (pause-roadmap (ref settings) (str roadmap-name)))
     (let (readiness (readiness-in (ref settings)))
       (assert (empty? (:ready readiness)))
-      (assert (= (:paused (:blockage (unwrap (first (:blocked readiness)))))
-                 true)))
+      (assert (= (:pause (:blockage (unwrap (first (:blocked readiness)))))
+                 roadmap-pause/paused)))
     (unwrap-ok (resume-roadmap (ref settings) (str roadmap-name)))
     (assert (= (:id (unwrap (first (:ready (readiness-in (ref settings))))))
                item))))
@@ -97,7 +97,7 @@
                        (clone item)
                        (session-named "worker"))
       ((err (failure/refused (refusal/not-ready blockage)))
-       (assert (= (:paused blockage) true))
+       (assert (= (:pause blockage) roadmap-pause/paused))
        (assert (= (:blockers blockage) (vec))))
       ((err _) (assert false))
       ((ok _) (assert false)))))

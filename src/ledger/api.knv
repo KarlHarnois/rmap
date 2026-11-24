@@ -4,8 +4,9 @@
 (use ledger/model ->decision-id ->item-id ->session blockage
                   claim decision-id dep dep-type
                   graph-format history item item-id kind
-                  origin roadmap roadmap-id roadmap-status
-                  session status timestamp work-session)
+                  origin roadmap roadmap-id roadmap-pause
+                  roadmap-status session status timestamp
+                  work-session)
 
 (use ledger/model/events event event-type)
 (use ledger/model/sessions ->claim-request claim-request)
@@ -122,8 +123,8 @@
         ready-items recommendation refusal refusal->message
         refusal-catalog refusal-code-text
         refusal-description remove-dep resume-roadmap
-        revise-decision roadmap roadmap-id roadmap-status
-        roadmap-status-names runtime-names session
-        session-kind-names settings show-decision show-item
-        status status-names supersedes-change timestamp
-        work-session)
+        revise-decision roadmap roadmap-id roadmap-pause
+        roadmap-status roadmap-status-names runtime-names
+        session session-kind-names settings show-decision
+        show-item status status-names supersedes-change
+        timestamp work-session)

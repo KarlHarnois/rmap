@@ -1,5 +1,5 @@
 (use ledger/model ->blockage ->decision-id ->item-id
-                  ->session status)
+                  ->session roadmap-pause status)
 
 (use ledger/model/decisions decision-status)
 (use ledger/refusal refusal)
@@ -19,7 +19,7 @@
        refusal/epic-status-computed
        refusal/invalid-kind-change
        (refusal/invalid-transition status/open status/merged)
-       (refusal/not-ready (->blockage :paused false
+       (refusal/not-ready (->blockage :pause roadmap-pause/not-paused
                                       :blockers (vec)
                                       :dropped-blockers (vec)))
        (refusal/cycle (sample-id) (sample-id))

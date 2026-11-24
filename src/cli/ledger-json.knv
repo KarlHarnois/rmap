@@ -9,7 +9,7 @@
                 event-type-names ids->json item item-id
                 kind-names optional-decision-id->json
                 optional-id->json optional-text->json
-                origin-names roadmap roadmap-id
+                origin-names roadmap roadmap-id roadmap-pause
                 roadmap-status-names status-names timestamp)
 
 (export blockage-fields blocked->json dep->json event->json
@@ -103,7 +103,7 @@
 
 (defn blockage-fields (blockage)
   (vec (pair (str "paused")
-             (bool->json (:paused blockage)))
+             (bool->json (paused? blockage)))
        (pair (str "blockers")
              (ids->json (ref (:blockers blockage))))
        (pair (str "dropped_blockers")
@@ -114,6 +114,9 @@
 
 (defn item-id->json (id)
   (text->json (as-str (:value id))))
+
+(defn paused? (blockage)
+  (= (:pause blockage) roadmap-pause/paused))
 
 (defn optional-roadmap-id->json (id)
   (match id
