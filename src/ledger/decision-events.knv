@@ -43,8 +43,9 @@
 
 (defn decision-accepted (before after superseded)
   (decision-event after event-type/decision-accepted
-                  (payload-with-changes (ref (changed-columns before after))
-                                        (superseded-context superseded))))
+                  (payload-with-changes
+                    (ref (changed-columns before after))
+                    (accepted-context before after superseded))))
 
 (defn decision-rejected (before after)
   (decision-event after event-type/decision-rejected
@@ -71,11 +72,21 @@
                       (options->json (ref (:options before)))
                       (options->json (ref (:options after)))))))
 
-(defn superseded-context (target)
-  (match target
-    ((some present)
-     (vec (pair (str "superseded") (superseded-json present))))
+(defn accepted-context (before after superseded)
+  (match superseded
+    ((some target)
+     (vec (blocks-change before after)
+          (pair (str "superseded") (superseded-json target))))
     (none (vec))))
+
+(type blocks-change
+  (fn ((ref decision) (ref decision))
+    (pair string json)))
+
+(defn blocks-change (before after)
+  (old-and-new "blocks"
+               (ids->json (ref (:blocks before)))
+               (ids->json (ref (:blocks after)))))
 
 (type decision-event
   (fn ((ref decision) event-type json) event-draft))
@@ -96,7 +107,12 @@
                (pair (str "changes")
                      (object (vec (old-and-new "status"
                                                (status-json before)
-                                               (text->json (str "superseded")))))))))
+                                               (text->json (str
+                                                             "superseded"))))))
+               (pair (str "blocks")
+                     (object (vec (pair (str "old")
+                                        (ids->json (ref (:blocks before))))
+                                  (pair (str "new") (array (vec)))))))))
 
 (type status-json
   (fn ((ref decision)) json))

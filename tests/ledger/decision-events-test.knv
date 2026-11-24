@@ -192,6 +192,32 @@
     (assert (= (json->text (unwrap (field (ref status) "new")))
                (some (str "superseded"))))))
 
+(deftest accepting-records-the-block-takeover
+  (let (before (assoc (proposed)
+                      :blocks (vec (id-of "rm-0002")))
+        after (assoc (clone before)
+                     :status decision-status/accepted
+                     :blocks (vec (id-of "rm-0002") (id-of "rm-0003")))
+        target (assoc (sample-decision decision-status/accepted)
+                      :blocks (vec (id-of "rm-0003")))
+        payload (copy-of (ref (:payload (decision-accepted (ref before)
+                                                           (ref after)
+                                                           (some target)))))
+        blocks (unwrap (field (ref payload) "blocks"))
+        old-blocks (unwrap (field (ref blocks) "old"))
+        new-blocks (unwrap (field (ref blocks) "new"))
+        superseded (unwrap (field (ref payload) "superseded"))
+        target-blocks (unwrap (field (ref superseded) "blocks"))
+        target-old (unwrap (field (ref target-blocks) "old"))
+        target-new (unwrap (field (ref target-blocks) "new")))
+    (assert (= (len (unwrap (json->items (ref old-blocks))))
+               1))
+    (assert (= (len (unwrap (json->items (ref new-blocks))))
+               2))
+    (assert (= (len (unwrap (json->items (ref target-old))))
+               1))
+    (assert (empty? (unwrap (json->items (ref target-new)))))))
+
 (deftest accepting-without-a-superseded-decision-leaves-the-key-out
   (let (before (proposed)
         after (assoc (clone before) :status decision-status/accepted)
