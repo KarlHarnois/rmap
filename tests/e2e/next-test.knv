@@ -1,8 +1,8 @@
 (use json/value copy-of field json->int json->items
                 json->text same?)
 
-(use support/rmap database-with-roadmap research-id run-rmap
-                  text-at)
+(use support/rmap database-with-roadmap reported-done
+                  research-id run-rmap text-at)
 
 (defstruct ledger-in-progress
   :database string
@@ -39,11 +39,8 @@
 
 (defn reported-research-ledger (name)
   (let (ledger (ledger-in-progress name))
-    (assert (= (:exit-code (run-rmap (clone (:database ledger))
-                                     (vec "item" "advance"
-                                          (as-str (:claimed ledger))
-                                          "reported")))
-               0))
+    (reported-done (ref (:database ledger))
+                   (ref (:claimed ledger)))
     ledger))
 
 (defn ledger-in-progress (name)

@@ -100,7 +100,8 @@
 
 (defenum session-kind
   work
-  fix)
+  fix
+  review)
 
 (defenum runtime ringleader)
 

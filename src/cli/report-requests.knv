@@ -9,8 +9,8 @@
 (use cli/arguments operand)
 (use cli/routes report-command)
 
-(use cli/flags optional-text required-choice required-text
-               switch-on?)
+(use cli/flags optional-number optional-text required-choice
+               required-text switch-on?)
 
 (export report-operation report-operation-of)
 
@@ -32,12 +32,15 @@
 (defn record-request (arguments item)
   (let-try (session (required-text arguments "session")
             kind (required-choice arguments "kind" report-kind-names)
-            body (body-source-of arguments))
-    (ok (report-operation/record (->report-request :item (->item-id :value item)
-                                                   :session (->session
-                                                              :name session)
-                                                   :kind kind
-                                                   :body body)))))
+            body (body-source-of arguments)
+            pr (optional-number arguments "pr"))
+    (ok (report-operation/record (->report-request
+                                   :item (->item-id :value item)
+                                   :session (->session :name session)
+                                   :kind kind
+                                   :body body
+                                   :pr pr
+                                   :head (optional-text arguments "head"))))))
 
 (defn list-request (arguments)
   (report-operation/list (->report-query

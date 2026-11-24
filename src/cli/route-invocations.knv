@@ -27,6 +27,7 @@
 
 (use cli/ledger-calls document-call-of ledger-call-of)
 (use cli/report-requests report-operation-of)
+(use cli/pr-requests pr-operation-of)
 
 (export invocation-of)
 
@@ -123,7 +124,11 @@
     ((subcommand/report command)
      (on-ledger arguments
                 (map-ok (report-operation-of arguments route command)
-                  (fn (operation) (request/report operation)))))))
+                  (fn (operation) (request/report operation)))))
+    ((subcommand/pull-request command)
+     (on-ledger arguments
+                (map-ok (pr-operation-of arguments route command)
+                  (fn (operation) (request/pull-request operation)))))))
 
 (defn decision-ledger-invocation (arguments requested)
   (on-ledger arguments

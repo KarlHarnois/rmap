@@ -5,45 +5,56 @@
                   status)
 
 (use ledger/model/reports report)
+(use ledger/model/pull-requests pull-request)
+(use ledger/core/pull-requests pull-request-of)
+(use ledger/core/requirements approval-of approved?)
 (use ledger/core/actions action next-action planned)
 (use ledger/core/report-actions with-reports)
 (use ledger/core/ready readiness readiness-of)
 (use ledger/core/snapshot scope)
 (use ledger/core/order ordered)
 
-(export ->next-item next-item next-of)
+(export ->deliveries ->next-item deliveries next-item
+        next-of)
 
 (defstruct next-item
   :item item
   :roadmap roadmap
   :actions (vec next-action))
 
+(defstruct deliveries
+  :reports (vec report)
+  :pull-requests (vec pull-request))
+
 (type next-of
   (fn ((ref snapshot)
        (ref (vec roadmap))
-       (ref (vec report)))
+       (ref deliveries))
     (vec next-item)))
 
-(defn next-of (snapshot roadmaps reports)
+(defn next-of (snapshot roadmaps deliveries)
   (let (readiness (readiness-of snapshot (ref scope/every-roadmap))
         listed (vec))
     (for-each roadmaps
       (fn (roadmap)
         (for-each (roadmap-next-items snapshot
                                       (ref readiness)
-                                      reports roadmap)
+                                      deliveries roadmap)
                   (fn (entry)
                     (push! listed (clone entry))))))
     listed))
 
-(defn roadmap-next-items (snapshot readiness reports roadmap)
+(defn roadmap-next-items (snapshot readiness deliveries roadmap)
   (-> (ordered (work-items-in snapshot roadmap))
       iter
       (map (fn (item)
              (->next-item :item (clone item)
                           :roadmap (clone roadmap)
-                          :actions (with-reports (actions-of readiness item)
-                                                 reports
+                          :actions (with-reports (actions-of readiness
+                                                             (ref (:pull-requests
+                                                                    deliveries))
+                                                             item)
+                                                 (ref (:reports deliveries))
                                                  item))))
       (filter (fn (entry)
                 (not (empty? (:actions entry)))))
@@ -61,17 +72,19 @@
                 clone)))
 
 (type actions-of
-  (fn ((ref readiness) (ref item))
+  (fn ((ref readiness)
+       (ref (vec pull-request))
+       (ref item))
     (vec next-action)))
 
-(defn actions-of (readiness item)
+(defn actions-of (readiness pull-requests item)
   (match (:status item)
     (open (open-actions readiness item))
     (dispatched (claimed-actions action/work item))
     (reported (claimed-actions action/accept-report item))
-    (in-review (claimed-actions action/review item))
+    (in-review (claimed-actions (review-or-merge pull-requests item) item))
     (fixing (claimed-actions action/fix item))
-    (merging (claimed-actions action/merge item))
+    (merging (claimed-actions (review-or-merge pull-requests item) item))
     (merged (vec))
     (accepted (vec))
     (dropped (vec))))
@@ -116,3 +129,17 @@
   (match claim
     ((claimed-by session) (some (clone (:session session))))
     (unclaimed none)))
+
+(type review-or-merge
+  (fn ((ref (vec pull-request)) (ref item))
+    action))
+
+(defn review-or-merge (pull-requests item)
+  (if (approved-pull-request? (ref (pull-request-of pull-requests
+                                                    (ref (:id item)))))
+    action/merge action/review))
+
+(defn approved-pull-request? (pull-request)
+  (match pull-request
+    ((some present) (approved? (ref (approval-of present))))
+    (none false)))

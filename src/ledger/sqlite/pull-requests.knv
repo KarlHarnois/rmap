@@ -1,0 +1,73 @@
+(module
+  "Reads and writes the `pull_requests` table, each pull request with its reviews.")
+
+(use ledger/sqlite/values int->sql text->sql)
+(use ledger/model ->item-id ->timestamp)
+
+(use ledger/model/pull-requests ->head ->pr-number
+                                ->pull-request pull-request
+                                review)
+
+(use ledger/sqlite/connection connection database-error
+                              execute query)
+
+(use ledger/sqlite/rows int-cell rows->values text-cell)
+(use ledger/sqlite/reviews all-reviews)
+
+(export all-pull-requests insert-pull-request
+        update-pull-request-head)
+
+(defn all-pull-requests (connection)
+  (let-try (rows (query connection
+                        "SELECT item_id, number, head_sha, opened_at FROM pull_requests ORDER BY number"
+                        (ref (vec)))
+            pull-requests (rows->values (ref rows) row->pull-request)
+            reviews (all-reviews connection))
+    (ok (collect (map (iter pull-requests)
+                   (fn (pull-request)
+                     (with-reviews pull-request (ref reviews))))))))
+
+(type insert-pull-request
+  (fn ((ref connection) (ref pull-request))
+    (result int database-error)))
+
+(defn insert-pull-request (connection pull-request)
+  (execute connection
+           "INSERT INTO pull_requests (item_id, number, head_sha, opened_at) VALUES (?1, ?2, ?3, ?4)"
+           (ref (vec (text->sql (as-str (:value (:item pull-request))))
+                     (int->sql (:value (:pr-number pull-request)))
+                     (text->sql (as-str (:sha (:head pull-request))))
+                     (text->sql (as-str (:value (:opened-at pull-request))))))))
+
+(type update-pull-request-head
+  (fn ((ref connection) (ref pull-request))
+    (result int database-error)))
+
+(defn update-pull-request-head (connection pull-request)
+  (execute connection
+           "UPDATE pull_requests SET head_sha = ?2 WHERE item_id = ?1"
+           (ref (vec (text->sql (as-str (:value (:item pull-request))))
+                     (text->sql (as-str (:sha (:head pull-request))))))))
+
+(type with-reviews
+  (fn ((ref pull-request) (ref (vec review)))
+    pull-request))
+
+(defn with-reviews (pull-request reviews)
+  (assoc (clone pull-request)
+         :reviews (collect (map (filter (iter reviews)
+                                  (fn (review)
+                                    (= (ref (:item review))
+                                       (ref (:item pull-request)))))
+                                clone))))
+
+(defn row->pull-request (row)
+  (let-try (item (text-cell row 0)
+            number (int-cell row 1)
+            head (text-cell row 2)
+            opened-at (text-cell row 3))
+    (ok (->pull-request :item (->item-id :value item)
+                        :pr-number (->pr-number :value number)
+                        :head (->head :sha head)
+                        :opened-at (->timestamp :value opened-at)
+                        :reviews (vec)))))

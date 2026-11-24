@@ -29,7 +29,9 @@
                                                    :session (->session :name (str
                                                                                "s1"))
                                                    :kind report-kind/done
-                                                   :body body))))
+                                                   :body body
+                                                   :pr none
+                                                   :head none))))
 
 (deftest a-report-reads-its-item-session-kind-and-text
   (assert (= (operation-of (vec "report" "rm-0001"
@@ -91,3 +93,22 @@
 (deftest a-report-id-must-be-a-number
   (assert (= (refusal-of (vec "report" "show" "rm-0001"))
              (str "a report id is a whole number, got rm-0001"))))
+
+(deftest a-build-report-reads-its-pull-request-and-head
+  (assert (= (operation-of (vec "report" "rm-0001"
+                                "--session" "s1" "--kind"
+                                "done" "--text" "built it"
+                                "--pr" "12" "--head" "abc"))
+             (some (report-operation/record
+                     (->report-request :item (->item-id :value (str "rm-0001"))
+                                       :session (->session :name (str "s1"))
+                                       :kind report-kind/done
+                                       :body (body-source/text (str "built it"))
+                                       :pr (some 12)
+                                       :head (some (str "abc"))))))))
+
+(deftest a-pull-request-number-must-be-a-number
+  (assert (= (refusal-of (vec "report" "rm-0001" "--session"
+                              "s1" "--kind" "done" "--text"
+                              "a" "--pr" "twelve"))
+             (str "--pr takes a whole number, got twelve"))))

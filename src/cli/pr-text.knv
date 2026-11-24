@@ -1,0 +1,112 @@
+(module
+  "Describes a build's pull request in plain text: a sentence about a review or a head recorded, and the pull request with its reviews and approval.")
+
+(use ledger/api approval-of approved? case-name pull-request
+                recorded-head review review-kind-names
+                session status-names verdict-names)
+
+(use cli/pr-replies pr-reply)
+(use cli/tables headed indented table)
+
+(export pr-reply->text pull-request-text)
+
+(defn pr-reply->text (reply)
+  (match reply
+    ((reviewed recorded) (reviewed-text (ref recorded)))
+    ((head-recorded recorded)
+     (head-recorded-text (ref recorded)))
+    ((shown pull-request)
+     (pull-request-text (ref pull-request)))))
+
+(type pull-request-text
+  (fn ((ref pull-request)) string))
+
+(defn pull-request-text (pull-request)
+  (str "Pull request #"
+       (:value (:pr-number pull-request))
+       " of "
+       (:value (:item pull-request))
+       " at "
+       (:sha (:head pull-request))
+       ", opened "
+       (:value (:opened-at pull-request))
+       "\n"
+       (approval-text (ref (approval-of pull-request)))
+       (reviews-text (ref (:reviews pull-request)))))
+
+(defn reviewed-text (recorded)
+  (let (review (ref (:review recorded)))
+    (str "Recorded review "
+         (:value (:id review))
+         " by "
+         (:name (:reviewer review))
+         ": "
+         (case-name verdict-names (:verdict review))
+         " on "
+         (:value (:item review))
+         ". "
+         (approval-text (ref (approval-of (ref (:pull-request recorded))))))))
+
+(type head-recorded-text
+  (fn ((ref recorded-head)) string))
+
+(defn head-recorded-text (recorded)
+  (let (pull-request (ref (:pull-request recorded)))
+    (str "Recorded head "
+         (:sha (:head pull-request))
+         " on pull request #"
+         (:value (:pr-number pull-request))
+         " of "
+         (:value (:item pull-request))
+         ", which is "
+         (case-name status-names (:status (:item recorded)))
+         ". "
+         (approval-text (ref (approval-of pull-request))))))
+
+(defn approval-text (approval)
+  (cond
+    ((approved? approval)
+     (str "Approved by "
+          (names (ref (:approved-by approval)))
+          "."))
+    ((not (empty? (:changes-requested approval)))
+     (str "Changes asked by "
+          (names (ref (:changes-requested approval)))
+          "."))
+    ((not (empty? (:stale-heads approval)))
+     (str "Not approved at its head: the reviews are on other heads."))
+    (else (str "Not approved at its head."))))
+
+(defn reviews-text (reviews)
+  (if (empty? reviews)
+    (str "")
+    (str "\n\nReviews:\n" (indented (review-table reviews)))))
+
+(type review-table
+  (fn ((ref (vec review))) string))
+
+(defn review-table (reviews)
+  (let (rows (headed (vec "ID" "REVIEWER" "KIND" "VERDICT" "HEAD" "CREATED")))
+    (for-each reviews
+      (fn (review)
+        (push! rows (review-cells review))))
+    (table rows)))
+
+(type review-cells
+  (fn ((ref review)) (vec string)))
+
+(defn review-cells (review)
+  (vec (str (:value (:id review)))
+       (clone (:name (:reviewer review)))
+       (str (case-name review-kind-names (:kind review)))
+       (str (case-name verdict-names (:verdict review)))
+       (clone (:sha (:head review)))
+       (clone (:value (:created-at review)))))
+
+(type names
+  (fn ((ref (vec session))) string))
+
+(defn names (sessions)
+  (join (collect (map (iter sessions)
+                   (fn (session) (clone (:name session)))))
+        ", "))

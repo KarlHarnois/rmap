@@ -1,0 +1,51 @@
+(use ledger/model ->item-id ->timestamp kind status)
+
+(use ledger/model/pull-requests ->head ->pr-number
+                                ->pull-request)
+
+(use ledger/refusal refusal)
+(use ledger/pull-request-refusals pull-request-refusal)
+(use ledger/core/pull-requests pr-change)
+(use ledger/core/head-records new-head-change)
+(use support/items claimed work-item)
+
+(def first-sha "1111111111111111111111111111111111111111")
+
+(def second-sha "2222222222222222222222222222222222222222")
+
+(defn build ()
+  (claimed (work-item "rm-0001" kind/build status/merging)))
+
+(defn opened ()
+  (some (->pull-request :item (->item-id :value (str "rm-0001"))
+                        :pr-number (->pr-number :value 12)
+                        :head (->head :sha (str first-sha))
+                        :opened-at (->timestamp :value (str "2026-01-02T00:00:00Z"))
+                        :reviews (vec))))
+
+(defn refused (reason)
+  (err (refusal/pull-request reason)))
+
+(deftest a-new-head-is-pushed
+  (assert (= (new-head-change (ref (build))
+                              (ref (opened))
+                              (ref (str second-sha)))
+             (ok (pr-change/pushed (->head :sha (str second-sha)))))))
+
+(deftest the-current-head-is-refused-as-unchanged
+  (assert (= (new-head-change (ref (build))
+                              (ref (opened))
+                              (ref (str first-sha)))
+             (refused (pull-request-refusal/head-unchanged (->head :sha (str first-sha)))))))
+
+(deftest a-build-without-a-pull-request-is-refused
+  (assert (= (new-head-change (ref (build))
+                              (ref none)
+                              (ref (str second-sha)))
+             (refused (pull-request-refusal/pr-not-found (->item-id :value (str "rm-0001")))))))
+
+(deftest an-abbreviated-head-is-refused
+  (assert (= (new-head-change (ref (build))
+                              (ref (opened))
+                              (ref (str "2222222")))
+             (refused (pull-request-refusal/invalid-head (str "2222222"))))))

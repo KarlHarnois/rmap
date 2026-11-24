@@ -9,7 +9,7 @@
                          event-type)
 
 (use ledger/names case-name report-kind-names)
-(use ledger/move-events move-changes)
+(use ledger/move-events applied-move move-changes)
 (use ledger/session-columns session-changes)
 (use ledger/json-values id->json optional-timestamp->json)
 
@@ -18,9 +18,18 @@
 
 (export item-reported report-read)
 
-(defn item-reported (applied report)
+(type item-reported
+  (fn ((ref applied-move)
+       (ref report)
+       (ref (vec column-change)))
+    event-draft))
+
+(defn item-reported (applied report pr-changes)
   (let (changes (report-insert-changes report))
     (for-each (move-changes applied)
+      (fn (change)
+        (push! changes (copy-change change))))
+    (for-each pr-changes
       (fn (change)
         (push! changes (copy-change change))))
     (report-event (ref (:after applied))

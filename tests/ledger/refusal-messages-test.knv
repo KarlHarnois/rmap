@@ -1,4 +1,5 @@
-(use ledger/refusal refusal refusal->message)
+(use ledger/refusal refusal)
+(use ledger/refusal-messages refusal->message)
 
 (use ledger/model ->blockage ->decision-id ->item-id
                   decision-status roadmap-pause)

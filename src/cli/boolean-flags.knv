@@ -1,0 +1,17 @@
+(module
+  "Names the boolean flags any command takes, which the parser reads as switches with no value.")
+
+(use cli/flag-specs boolean? global-flags)
+(use cli/commands routes)
+
+(export boolean-flag-names)
+
+(defn boolean-flag-names ()
+  (let (specs (global-flags))
+    (for-each (routes)
+      (fn (route)
+        (for-each (:flags route)
+          (fn (spec) (push! specs (clone spec))))))
+    (collect (map (filter (iter specs)
+                    (fn (spec) (boolean? spec)))
+                  (fn (spec) (clone (:name spec)))))))

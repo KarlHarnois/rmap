@@ -1,5 +1,6 @@
 (use ledger/model ->item-id ->session ->timestamp)
-(use ledger/model/reports ->report ->report-id ->session-id)
+(use ledger/model/sessions ->session-id)
+(use ledger/model/reports ->report ->report-id)
 
 (export read-report-on report-on)
 

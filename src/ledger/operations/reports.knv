@@ -4,8 +4,9 @@
 (use ledger/model item)
 
 (use ledger/model/reports ->recorded-report recorded-report
-                          report report-id report-request
-                          session-id)
+                          report report-id report-request)
+
+(use ledger/model/sessions session-id)
 
 (use ledger/core/reports ->report-stamp approved-report
                          stamped-report)
@@ -20,6 +21,11 @@
                              write-session-change)
 
 (use ledger/operations/report-bodies resolve-body)
+
+(use ledger/operations/pull-requests pull-request-update
+                                     pull-request-update-columns
+                                     write-pull-request-update)
+
 (use ledger/operations/lookups existing-report)
 
 (use ledger/operations/transaction in-transaction now record
@@ -64,6 +70,10 @@
                                     (ref (:session request))
                                     (:kind request)
                                     (ref body))
+              update (pull-request-update connection
+                                          (ref item)
+                                          request
+                                          (ref (now transaction)))
               session-id (claimant-id connection (ref item))
               id (next-report-id connection))
       (let (applied (applied (ref item) move (now transaction))
@@ -77,10 +87,15 @@
                                                                  transaction))))
         (let-try (_ (write-move transaction (ref applied))
                   _ (insert-report connection (ref report))
+                  _ (write-pull-request-update connection (ref update))
                   _ (record transaction
-                            (item-reported (ref applied) (ref report))))
+                            (item-reported (ref applied)
+                                           (ref report)
+                                           (ref (pull-request-update-columns (ref
+                                                                               update))))))
           (ok (->recorded-report :report report
-                                 :item (clone (:after applied)))))))))
+                                 :item (clone (:after applied))
+                                 :pull-request (clone (:updated update)))))))))
 
 (type claimant-id
   (fn ((ref connection) (ref item))

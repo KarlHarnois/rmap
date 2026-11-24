@@ -13,6 +13,8 @@
                       session-change-of)
 
 (use ledger/core/transitions approved-move)
+(use ledger/core/requirements check-requirements)
+(use ledger/operations/pull-requests pull-request-for)
 (use ledger/sqlite/items update-item)
 (use ledger/sqlite/sessions end-session start-session)
 (use ledger/core/session-changes session-change)
@@ -106,7 +108,11 @@
 (defn apply-move (transaction id requested)
   (let-try (snapshot (load-snapshot (ref (:connection transaction)))
             item (existing (ref snapshot) id)
-            move (approved-move (ref snapshot) (ref item) requested))
+            move (approved-move (ref snapshot) (ref item) requested)
+            pull-request (pull-request-for (ref (:connection transaction)) id)
+            _ (check-requirements (ref item)
+                                  (ref move)
+                                  (ref pull-request)))
     (store-move transaction
                 (applied (ref item) move (now transaction)))))
 

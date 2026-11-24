@@ -49,4 +49,6 @@
   decision-block-added
   decision-block-removed
   item-reported
-  report-read)
+  report-read
+  item-reviewed
+  head-recorded)

@@ -8,6 +8,7 @@
 
 (use cli/report-replies report-reply)
 (use cli/ledger-json item->json)
+(use cli/pr-json optional-pull-request->json)
 
 (export report-reply-fields)
 
@@ -21,7 +22,9 @@
      (vec (pair (str "report")
                 (report-detail->json (ref (:report recorded))))
           (pair (str "item")
-                (item->json (ref (:item recorded))))))
+                (item->json (ref (:item recorded))))
+          (pair (str "pull_request")
+                (optional-pull-request->json (ref (:pull-request recorded))))))
     ((listed reports)
      (vec (pair (str "reports")
                 (array (collect (map (iter reports) report->json))))))

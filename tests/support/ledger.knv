@@ -1,11 +1,12 @@
 (use ledger/model ->timestamp)
 
 (use ledger/api ->advancement ->claim-request ->log-query
-                ->new-item ->session ->settings add-item
-                advance-item claim-item clock
-                description-input failure-code init-ledger
-                kind kind-change new-roadmap origin read-log
-                status)
+                ->new-item ->report-request ->session
+                ->settings add-item advance-item body-source
+                claim-item clock description-input
+                failure-code init-ledger item-id kind
+                kind-change new-roadmap origin read-log
+                record-report report-kind)
 
 (use support/scratch scratch-database scratch-directory)
 
@@ -13,7 +14,7 @@
         blocked-research-in claim-by claimed
         fixed-clock-settings initialized-settings item-draft
         ledger-with-two-roadmaps other-roadmap-name
-        refusal-code-of reported-research research
+        refusal-code-of reported reported-research research
         research-in roadmap-name scratch-ledger
         session-named)
 
@@ -60,10 +61,20 @@
                (assoc (item-draft kind/research) :blocked-by (vec blocker))))
 
 (defn reported-research (settings)
-  (advanced settings
+  (reported settings
             (claimed settings
-                     (added-id settings (item-draft kind/research)))
-            status/reported))
+                     (added-id settings (item-draft kind/research)))))
+
+(defn reported (settings id)
+  (assert (ok? (record-report settings
+                              (->report-request :item (clone id)
+                                                :session (session-named (worker-name
+                                                                          (ref id)))
+                                                :kind report-kind/done
+                                                :body (body-source/text (str "found it"))
+                                                :pr none
+                                                :head none))))
+  id)
 
 (defn item-draft (kind)
   (->new-item :parent none
@@ -81,7 +92,7 @@
 (defn claimed (settings id)
   (assert (ok? (claim-item settings
                            (clone id)
-                           (claim-by (as-str (str "worker-" (:value id)))))))
+                           (claim-by (as-str (worker-name (ref id)))))))
   id)
 
 (defn session-named (name)
@@ -111,3 +122,9 @@
 
 (defn added-id-in (settings roadmap draft)
   (clone (:id (unwrap-ok (add-item settings (str roadmap) draft)))))
+
+(type worker-name
+  (fn ((ref item-id)) string))
+
+(defn worker-name (id)
+  (str "worker-" (:value id)))

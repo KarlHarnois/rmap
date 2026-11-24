@@ -1,0 +1,149 @@
+(use ledger/model ->item-id ->session ->timestamp kind
+                  status)
+
+(use ledger/model/reports ->report-request body-source
+                          report-kind report-request)
+
+(use ledger/model/pull-requests ->head ->pr-number
+                                ->pull-request)
+
+(use ledger/refusal refusal)
+(use ledger/pull-request-refusals pull-request-refusal)
+
+(use ledger/core/pull-requests pr-change pr-change-of
+                               pull-request-after)
+
+(use support/items claimed work-item)
+
+(def first-sha "1111111111111111111111111111111111111111")
+
+(def second-sha "2222222222222222222222222222222222222222")
+
+(defn build (status)
+  (claimed (work-item "rm-0001" kind/build status)))
+
+(type request
+  (fn (report-kind (option int)
+                   (option (ref str)))
+    report-request))
+
+(defn request (kind number head)
+  (->report-request :item (->item-id :value (str "rm-0001"))
+                    :session (->session :name (str "worker"))
+                    :kind kind
+                    :body (body-source/text (str "done"))
+                    :pr number
+                    :head (map-some head str)))
+
+(defn pull-request-on (item number sha)
+  (->pull-request :item (->item-id :value (str item))
+                  :pr-number (->pr-number :value number)
+                  :head (->head :sha (str sha))
+                  :opened-at (->timestamp :value (str "2026-01-02T00:00:00Z"))
+                  :reviews (vec)))
+
+(defn change (item request pull-requests)
+  (pr-change-of (ref item)
+                (ref request)
+                (ref pull-requests)))
+
+(defn refused (refusal)
+  (err (refusal/pull-request refusal)))
+
+(deftest a-done-report-on-a-build-opens-its-pull-request
+  (assert (= (change (build status/dispatched)
+                     (request report-kind/done (some 12) (some first-sha))
+                     (vec))
+             (ok (pr-change/opened (->pr-number :value 12)
+                                   (->head :sha (str first-sha)))))))
+
+(deftest a-done-report-on-a-build-needs-a-number
+  (assert (= (change (build status/dispatched)
+                     (request report-kind/done none (some first-sha))
+                     (vec))
+             (refused pull-request-refusal/pr-required))))
+
+(deftest a-done-report-on-a-build-needs-a-head
+  (assert (= (change (build status/dispatched)
+                     (request report-kind/done (some 12) none)
+                     (vec))
+             (refused pull-request-refusal/pr-required))))
+
+(deftest a-short-head-is-refused
+  (assert (= (change (build status/dispatched)
+                     (request report-kind/done (some 12) (some "abc1234"))
+                     (vec))
+             (refused (pull-request-refusal/invalid-head (str "abc1234"))))))
+
+(deftest a-number-another-item-holds-is-taken
+  (assert (= (change (build status/dispatched)
+                     (request report-kind/done (some 12) (some first-sha))
+                     (vec (pull-request-on "rm-0009" 12 first-sha)))
+             (refused (pull-request-refusal/pr-number-taken (->pr-number
+                                                              :value 12))))))
+
+(deftest a-fixed-report-records-the-pushed-head
+  (assert (= (change (build status/fixing)
+                     (request report-kind/fixed none (some second-sha))
+                     (vec (pull-request-on "rm-0001" 12 first-sha)))
+             (ok (pr-change/pushed (->head :sha (str second-sha)))))))
+
+(deftest a-fixed-report-needs-a-head
+  (assert (= (change (build status/fixing)
+                     (request report-kind/fixed none none)
+                     (vec (pull-request-on "rm-0001" 12 first-sha)))
+             (refused pull-request-refusal/head-required))))
+
+(deftest a-fixed-report-cannot-renumber-the-pull-request
+  (assert (= (change (build status/fixing)
+                     (request report-kind/fixed (some 13) (some second-sha))
+                     (vec (pull-request-on "rm-0001" 12 first-sha)))
+             (refused pull-request-refusal/pr-not-allowed))))
+
+(deftest a-fixed-report-on-a-build-without-a-pull-request-opens-one
+  (assert (= (change (build status/fixing)
+                     (request report-kind/fixed (some 12) (some second-sha))
+                     (vec))
+             (ok (pr-change/opened (->pr-number :value 12)
+                                   (->head :sha (str second-sha)))))))
+
+(deftest a-done-report-on-a-build-that-has-a-pull-request-is-refused
+  (assert (= (change (build status/dispatched)
+                     (request report-kind/done (some 12) (some first-sha))
+                     (vec (pull-request-on "rm-0001" 12 first-sha)))
+             (refused pull-request-refusal/pr-not-allowed))))
+
+(deftest a-research-report-takes-no-pull-request
+  (assert (= (change (claimed
+                       (work-item "rm-0001" kind/research status/dispatched))
+                     (request report-kind/done (some 12) none)
+                     (vec))
+             (refused pull-request-refusal/pr-not-allowed))))
+
+(deftest a-question-on-a-build-takes-no-head
+  (assert (= (change (build status/in-review)
+                     (request report-kind/question none (some first-sha))
+                     (vec))
+             (refused pull-request-refusal/pr-not-allowed))))
+
+(deftest a-plain-report-leaves-the-pull-request-alone
+  (assert (= (change (build status/in-review)
+                     (request report-kind/question none none)
+                     (vec))
+             (ok pr-change/unchanged))))
+
+(deftest an-opened-pull-request-has-no-reviews-yet
+  (assert (= (pull-request-after (ref none)
+                                 (ref (build status/dispatched))
+                                 (ref (pr-change/opened (->pr-number :value 12)
+                                                        (->head :sha (str first-sha))))
+                                 (ref (->timestamp :value (str "2026-01-02T00:00:00Z"))))
+             (some (pull-request-on "rm-0001" 12 first-sha)))))
+
+(deftest a-push-moves-only-the-head
+  (assert (= (pull-request-after
+               (ref (some (pull-request-on "rm-0001" 12 first-sha)))
+               (ref (build status/fixing))
+               (ref (pr-change/pushed (->head :sha (str second-sha))))
+               (ref (->timestamp :value (str "2026-01-05T00:00:00Z"))))
+             (some (pull-request-on "rm-0001" 12 second-sha)))))

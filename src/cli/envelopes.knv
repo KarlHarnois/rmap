@@ -4,7 +4,7 @@
 (use json/value array json object text->json)
 
 (use ledger/api case-name graph-format-names graph-source
-                init-outcome-names init-report item-detail)
+                init-outcome-names init-report)
 
 (use cli/replies reply)
 
@@ -14,6 +14,8 @@
 (use cli/next-json next-item->json)
 (use cli/decision-json decision->json)
 (use cli/report-json report-reply-fields)
+(use cli/pr-json pr-reply-fields)
+(use cli/item-detail-json detail-envelope)
 (use cli/schema-envelope envelope)
 
 (export reply-envelope)
@@ -57,7 +59,9 @@
     ((reply/decision-deprecated decision)
      (decision-envelope decision))
     ((reply/reported answer)
-     (envelope (report-reply-fields answer)))))
+     (envelope (report-reply-fields answer)))
+    ((reply/pull-request answer)
+     (envelope (pr-reply-fields answer)))))
 
 (defn decision-envelope (decision)
   (envelope (vec (pair (str "decision")
@@ -116,17 +120,6 @@
 
 (defn dep-envelope (dep)
   (envelope (vec (pair (str "dep") (dep->json (ref dep))))))
-
-(type detail-envelope (fn (item-detail) json))
-
-(defn detail-envelope (detail)
-  (envelope (vec (pair (str "item")
-                       (item->json (ref (:item detail))))
-                 (pair (str "deps")
-                       (array (collect (map (iter (:deps detail)) dep->json))))
-                 (pair (str "children")
-                       (array (collect (map (iter (:children detail))
-                                            item->json)))))))
 
 (defn readiness-envelope (readiness)
   (envelope (vec (pair (str "ready")

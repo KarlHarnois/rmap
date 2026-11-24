@@ -2,22 +2,26 @@
   "Holds the ledger's reports: what a worker's session tells the manager about its item, and whether the manager read it.")
 
 (use ledger/model item item-id session timestamp)
+(use ledger/model/sessions session-id)
+(use ledger/model/pull-requests pull-request)
 
 (export ->recorded-report ->report ->report-id
-        ->report-query ->report-request ->session-id
-        body-source recorded-report report report-id
-        report-kind report-query report-reading
-        report-request session-id)
+        ->report-query ->report-request body-source
+        recorded-report report report-id report-kind
+        report-query report-reading report-request)
 
 (defstruct recorded-report
   :report report
-  :item item)
+  :item item
+  :pull-request (option pull-request))
 
 (defstruct report-request
   :item item-id
   :session session
   :kind report-kind
-  :body body-source)
+  :body body-source
+  :pr (option int)
+  :head (option string))
 
 (defstruct report
   :id report-id
@@ -38,9 +42,6 @@
   unread-only)
 
 (defstruct report-id
-  :value int)
-
-(defstruct session-id
   :value int)
 
 (defenum report-kind

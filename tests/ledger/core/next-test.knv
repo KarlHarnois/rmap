@@ -1,6 +1,15 @@
-(use ledger/model ->session item kind roadmap-pause status)
+(use ledger/model ->item-id ->session ->timestamp item kind
+                  roadmap-pause status)
+
 (use ledger/core/actions action actor actor-of)
-(use ledger/core/next next-item next-of)
+(use ledger/core/next ->deliveries next-item next-of)
+(use ledger/model/sessions ->session-id)
+
+(use ledger/model/pull-requests ->head ->pr-number
+                                ->pull-request ->review
+                                ->review-id review-kind
+                                verdict)
+
 (use ledger/core/ready readiness-of)
 (use ledger/core/snapshot scope)
 (use ledger/model/reports ->report-id report-kind)
@@ -14,6 +23,8 @@
                                  generated-snapshot)
 
 (def seed-count 300)
+
+(def sha "1111111111111111111111111111111111111111")
 
 (defn worker ()
   (some (->session :name (str "worker"))))
@@ -49,9 +60,12 @@
 (defn next-in (snapshot)
   (next-of (ref snapshot)
            (ref (vec (road)))
-           (ref (vec))))
+           (ref (reports-only (vec)))))
 
 (defn road () (roadmap-of "rm-road" "manager"))
+
+(defn reports-only (reports)
+  (->deliveries :reports reports :pull-requests (vec)))
 
 (type ids-of
   (fn ((ref (vec next-item)))
@@ -96,7 +110,7 @@
 (defn generated-next (snapshot)
   (next-of snapshot
            (ref (generated-roadmaps))
-           (ref (vec))))
+           (ref (reports-only (vec)))))
 
 (defn generated-roadmaps ()
   (collect (map (iter generated-roadmap-ids)
@@ -128,6 +142,33 @@
                     (= (as-str (:value (:roadmap-id item)))
                        roadmap-id)))
                 (fn (item) (clone (:value (:id item)))))))
+
+(defn in-review-action (verdict)
+  (build-action status/in-review verdict))
+
+(defn build-action (status verdict)
+  (let (listed (next-of (ref (alone (claimed
+                                      (work-item "rm-0001" kind/build status))))
+                        (ref (vec (road)))
+                        (ref (->deliveries :reports (vec)
+                                           :pull-requests (vec (pull-request-with
+                                                                 verdict))))))
+    (clone (at (:actions (at listed 0)) 0))))
+
+(defn pull-request-with (verdict)
+  (->pull-request :item (->item-id :value (str "rm-0001"))
+                  :pr-number (->pr-number :value 12)
+                  :head (->head :sha (str sha))
+                  :opened-at (->timestamp :value (str "2026-01-02T00:00:00Z"))
+                  :reviews (vec (->review :id (->review-id :value 1)
+                                          :item (->item-id :value (str
+                                                                    "rm-0001"))
+                                          :session-id (->session-id :value 2)
+                                          :reviewer (->session :name (str "r1"))
+                                          :kind review-kind/behavior
+                                          :head (->head :sha (str sha))
+                                          :verdict verdict
+                                          :created-at (->timestamp :value (str "2026-01-03T00:00:00Z"))))))
 
 (deftest an-open-ready-item-is-dispatched-by-the-controller
   (assert (= (taken-by (sole-action
@@ -178,9 +219,9 @@
   (assert (= (claimed-in status/fixing)
              (some (pair action/fix (pair actor/worker (worker)))))))
 
-(deftest a-merging-item-is-merged-by-the-controller
+(deftest a-merging-item-without-a-pull-request-goes-back-to-review
   (assert (= (claimed-in status/merging)
-             (some (pair action/merge (pair actor/controller (worker)))))))
+             (some (pair action/review (pair actor/agent (worker)))))))
 
 (deftest an-epic-is-not-listed
   (assert (empty? (next-in (snapshot-of (vec (epic-item "rm-0001")
@@ -218,7 +259,7 @@
                    (vec))
         listed (next-of (ref snapshot)
                         (ref (vec (roadmap-of "rm-other" "manager") (road)))
-                        (ref (vec))))
+                        (ref (reports-only (vec)))))
     (assert (= (ids-of (ref listed))
                (vec (str "rm-0002") (str "rm-0001"))))))
 
@@ -227,7 +268,7 @@
                                                   kind/research
                                                   status/open)))
                            (ref (vec (roadmap-of "rm-other" "manager")))
-                           (ref (vec))))))
+                           (ref (reports-only (vec)))))))
 
 (deftest a-waiting-item-gives-the-reasons-ready-gives
   (for-each (range 0 seed-count)
@@ -265,8 +306,9 @@
                                                         kind/build
                                                         status/dispatched))))
                         (ref (vec (road)))
-                        (ref (vec (report-on 2 "rm-0001"
-                                             report-kind/question)))))
+                        (ref (reports-only
+                               (vec (report-on 2 "rm-0001"
+                                               report-kind/question))))))
     (assert (= (collect (map (iter (:actions (at listed 0)))
                           (fn (planned) (:action planned))))
                (vec action/work action/answer)))
@@ -278,8 +320,28 @@
                                                         kind/research
                                                         status/reported))))
                         (ref (vec (road)))
-                        (ref (vec (report-on 3 "rm-0001" report-kind/done)))))
+                        (ref (reports-only
+                               (vec (report-on 3 "rm-0001"
+                                               report-kind/done))))))
     (assert (= (:action (at (:actions (at listed 0)) 0))
                action/accept-report))
     (assert (= (:report (at (:actions (at listed 0)) 0))
                (some (->report-id :value 3))))))
+
+(deftest an-approved-build-in-review-is-merged-by-the-controller
+  (let (planned (in-review-action verdict/approve))
+    (assert (= (:action planned) action/merge))
+    (assert (= (:actor planned) actor/controller))))
+
+(deftest a-build-with-changes-asked-stays-in-review
+  (assert (= (:action (in-review-action verdict/changes))
+             action/review)))
+
+(deftest an-approved-merging-build-is-merged-by-the-controller
+  (let (planned (build-action status/merging verdict/approve))
+    (assert (= (:action planned) action/merge))
+    (assert (= (:actor planned) actor/controller))))
+
+(deftest a-merging-build-with-changes-asked-is-listed-for-review
+  (assert (= (:action (build-action status/merging verdict/changes))
+             action/review)))

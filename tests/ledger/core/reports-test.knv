@@ -1,8 +1,6 @@
 (use ledger/model ->session ->timestamp kind status)
-
-(use ledger/model/reports ->report-id ->session-id
-                          report-kind)
-
+(use ledger/model/sessions ->session-id)
+(use ledger/model/reports ->report-id report-kind)
 (use ledger/refusal refusal)
 (use ledger/core/move move)
 
@@ -58,15 +56,19 @@
                                                                      "worker"))
                                                   (clone (:id item))))))))
 
-(deftest a-done-report-on-a-build-waits-for-pull-requests
+(deftest a-done-report-on-a-dispatched-build-is-a-report-move
   (assert (= (verdict (build status/dispatched)
                       report-kind/done "built it")
-             (err (refusal/invalid-transition status/dispatched
-                                              status/in-review)))))
+             (ok (move/report report-kind/done)))))
 
-(deftest a-fixed-report-waits-for-pull-requests
+(deftest a-fixed-report-on-a-fixing-build-is-a-report-move
   (assert (= (verdict (build status/fixing) report-kind/fixed "fixed it")
-             (err (refusal/invalid-transition status/fixing
+             (ok (move/report report-kind/fixed)))))
+
+(deftest a-fixed-report-outside-fixing-is-an-invalid-transition
+  (assert (= (verdict (build status/in-review)
+                      report-kind/fixed "fixed it")
+             (err (refusal/invalid-transition status/in-review
                                               status/in-review)))))
 
 (deftest a-second-done-report-is-an-invalid-transition
@@ -81,8 +83,8 @@
              (err refusal/report-empty))))
 
 (deftest the-transition-is-checked-before-the-body
-  (assert (= (verdict (build status/dispatched) report-kind/done "")
-             (err (refusal/invalid-transition status/dispatched
+  (assert (= (verdict (build status/merging) report-kind/done "")
+             (err (refusal/invalid-transition status/merging
                                               status/in-review)))))
 
 (deftest a-stamped-report-is-unread-and-names-its-session

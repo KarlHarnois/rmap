@@ -1,8 +1,10 @@
 (use json/value copy-of field json->entries json->int
                 json->items json->text null? same?)
 
-(use support/rmap database-with-roadmap error-code run-rmap
-                  text-at)
+(use support/rmap database-with-roadmap error-code
+                  reported-done run-rmap text-at)
+
+(use support/pr-commands approved-on-first-head)
 
 (defn added-id (database extra)
   (let (reply (item-add database (str "research") extra))
@@ -156,11 +158,11 @@
         accepted (added-id (clone database)
                            (the (vec string) (vec)))
         _ (claim (ref database) accepted)
-        _ (advance (ref database) accepted "reported")
+        _ (reported-done (ref database) (ref accepted))
         _ (close (ref database) accepted)
         merged (added-build (clone database))
         _ (claim (ref database) merged)
-        _ (advance (ref database) merged "in_review")
+        _ (approved-on-first-head (ref database) (ref merged))
         _ (advance (ref database) merged "merging")
         _ (close (ref database) merged)
         dropped (added-id (clone database)

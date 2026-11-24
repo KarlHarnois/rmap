@@ -1,0 +1,68 @@
+(module
+  "Records a new head for a build's pull request and moves the build back to in_review, in one transaction with its event.")
+
+(use ledger/model item-id)
+
+(use ledger/model/pull-requests ->recorded-head
+                                recorded-head)
+
+(use ledger/core/move move)
+(use ledger/core/transitions approved-move)
+(use ledger/core/head-records new-head-change)
+(use ledger/core/snapshot existing)
+(use ledger/pull-request-events head-recorded)
+(use ledger/operations/moves applied write-move)
+
+(use ledger/operations/pull-requests changed-pull-request
+                                     pull-request-for
+                                     pull-request-update-columns
+                                     write-pull-request-update)
+
+(use ledger/operations/transaction in-transaction now record
+                                   settings transaction)
+
+(use ledger/sqlite/snapshot load-snapshot)
+(use ledger/sqlite/connection database-failure)
+(use ledger/failure failure)
+
+(export record-head)
+
+(type record-head
+  (fn ((ref settings) item-id string)
+    (result recorded-head failure)))
+
+(defn record-head (settings id head)
+  (in-transaction settings
+    (fn (transaction)
+      (store-head transaction (ref id) (ref head)))))
+
+(type store-head
+  (fn ((ref transaction)
+       (ref item-id)
+       (ref string))
+    (result recorded-head failure)))
+
+(defn store-head (transaction id head)
+  (let (connection (ref (:connection transaction)))
+    (let-try (snapshot (load-snapshot connection)
+              item (existing (ref snapshot) id)
+              move (approved-move (ref snapshot) (ref item) move/record-head)
+              before (pull-request-for connection (ref (:id item)))
+              change (new-head-change (ref item) (ref before) head))
+      (let (update (changed-pull-request before
+                                         (ref item)
+                                         change
+                                         (ref (now transaction)))
+            applied (applied (ref item) move (now transaction)))
+        (let-try (_ (write-move transaction (ref applied))
+                  _ (write-pull-request-update connection (ref update))
+                  after (pull-request-for connection (ref (:id item)))
+                  pull-request (ok-or after
+                                      (failure/database (database-failure (str "the pull request is gone"))))
+                  _ (record transaction
+                            (head-recorded (ref applied)
+                                           (ref (pull-request-update-columns (ref
+                                                                               update)))
+                                           (ref pull-request))))
+          (ok (->recorded-head :item (clone (:after applied))
+                               :pull-request pull-request)))))))

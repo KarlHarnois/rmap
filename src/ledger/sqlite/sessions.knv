@@ -1,13 +1,14 @@
 (module
   "Reads and writes the `sessions` table: starts an item's live session, ends it, and reads it back as the item's claim.")
 
-(use ledger/sqlite/values optional-text->sql text->sql)
+(use ledger/sqlite/values int->sql optional-text->sql
+                          text->sql)
 
 (use ledger/model ->session ->timestamp ->work-session claim
                   item-id work-session)
 
-(use ledger/model/sessions session-end)
-(use ledger/model/reports ->session-id session-id)
+(use ledger/model/sessions finished-session session-end)
+(use ledger/model/sessions ->session-id session-id)
 
 (use ledger/names case-name end-reason-names runtime-names
                   session-kind-names)
@@ -17,10 +18,12 @@
 
 (use ledger/sqlite/rows int-cell named-cell
                         optional-text-cell rows->values
-                        text-cell)
+                        single-row text-cell)
 
-(export end-session live-session-columns live-session-id
-        live-session-join row->claim start-session)
+(export end-session insert-finished-session
+        live-session-columns live-session-id
+        live-session-join next-session-id row->claim
+        start-session)
 
 (def live-session-columns
   "sessions.name, sessions.kind, sessions.runtime, sessions.branch, sessions.base, sessions.started_at")
@@ -44,6 +47,35 @@
                      (optional-text->sql (ref (:branch session)))
                      (optional-text->sql (ref (:base session)))
                      (text->sql (as-str (:value (:started-at session))))))))
+
+(defn next-session-id (connection)
+  (let-try (rows (query connection
+                        "SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'sessions'), 0) + 1"
+                        (ref (vec)))
+            row (single-row (ref rows))
+            id (int-cell row 0))
+    (ok (->session-id :value id))))
+
+(type insert-finished-session
+  (fn ((ref connection)
+       (ref item-id)
+       (ref finished-session))
+    (result int database-error)))
+
+(defn insert-finished-session (connection item finished)
+  (let (session (ref (:session finished)))
+    (execute connection
+             "INSERT INTO sessions (id, name, item_id, kind, runtime, started_at, ended_at, end_reason) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
+             (ref (vec (int->sql (:value (:id finished)))
+                       (text->sql (as-str (:name (:session session))))
+                       (text->sql (as-str (:value item)))
+                       (text->sql (case-name session-kind-names
+                                             (:kind session)))
+                       (text->sql (case-name runtime-names (:runtime session)))
+                       (text->sql (as-str (:value (:started-at session))))
+                       (text->sql (as-str (:value (:at (:end finished)))))
+                       (text->sql (case-name end-reason-names
+                                             (:reason (:end finished)))))))))
 
 (type end-session
   (fn ((ref connection)

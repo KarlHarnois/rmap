@@ -2,8 +2,11 @@
   "Decides whether a report can be read, and whether reading it ends the session that sent it.")
 
 (use ledger/model item timestamp)
-(use ledger/model/reports report report-kind session-id)
-(use ledger/model/sessions ->session-end end-reason)
+(use ledger/model/reports report report-kind)
+
+(use ledger/model/sessions ->session-end end-reason
+                           session-id)
+
 (use ledger/refusal refusal)
 (use ledger/core/session-changes session-change)
 (use ledger/core/transitions reporting-kinds)

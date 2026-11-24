@@ -57,14 +57,9 @@
                     :kinds (work-kinds)
                     :steps (vec (pair status/dispatched status/open)))
        (->allowance :move-type move-type/advance
-                    :kinds (reporting-kinds)
-                    :steps (vec (pair status/dispatched status/reported)))
-       (->allowance :move-type move-type/advance
                     :kinds (vec kind/build)
-                    :steps (vec (pair status/dispatched status/in-review)
-                                (pair status/in-review status/fixing)
+                    :steps (vec (pair status/in-review status/fixing)
                                 (pair status/in-review status/merging)
-                                (pair status/fixing status/in-review)
                                 (pair status/merging status/fixing)))
        (->allowance :move-type move-type/advance-to-build
                     :kinds (reporting-kinds)
@@ -81,6 +76,16 @@
        (->allowance :move-type move-type/report-done
                     :kinds (reporting-kinds)
                     :steps (vec (pair status/dispatched status/reported)))
+       (->allowance :move-type move-type/report-done
+                    :kinds (vec kind/build)
+                    :steps (vec (pair status/dispatched status/in-review)))
+       (->allowance :move-type move-type/report-fixed
+                    :kinds (vec kind/build)
+                    :steps (vec (pair status/fixing status/in-review)))
+       (->allowance :move-type move-type/record-head
+                    :kinds (vec kind/build)
+                    :steps (vec (pair status/in-review status/in-review)
+                                (pair status/merging status/in-review)))
        (->allowance :move-type move-type/report-question
                     :kinds (work-kinds)
                     :steps (steps-in-place (session-statuses)))))

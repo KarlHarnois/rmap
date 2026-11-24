@@ -1,0 +1,64 @@
+(use ledger/model ->item-id ->session ->timestamp)
+(use ledger/model/sessions ->session-id)
+(use ledger/model kind status)
+(use support/items claimed work-item)
+
+(use ledger/model/pull-requests ->head ->pr-number
+                                ->pull-request
+                                ->recorded-head
+                                ->recorded-review ->review
+                                ->review-id review-kind
+                                verdict)
+
+(use cli/pr-replies pr-reply)
+(use cli/pr-text pr-reply->text pull-request-text)
+
+(def sha "1111111111111111111111111111111111111111")
+
+(defn review-by (reviewer verdict)
+  (->review :id (->review-id :value 1)
+            :item (->item-id :value (str "rm-0001"))
+            :session-id (->session-id :value 3)
+            :reviewer (->session :name (str reviewer))
+            :kind review-kind/behavior
+            :head (->head :sha (str sha))
+            :verdict verdict
+            :created-at (->timestamp :value (str "2026-01-03T00:00:00Z"))))
+
+(defn pull-request-with (reviews)
+  (->pull-request :item (->item-id :value (str "rm-0001"))
+                  :pr-number (->pr-number :value 12)
+                  :head (->head :sha (str sha))
+                  :opened-at (->timestamp :value (str "2026-01-02T00:00:00Z"))
+                  :reviews reviews))
+
+(deftest a-pull-request-without-reviews-is-not-approved
+  (assert (= (pull-request-text (ref (pull-request-with (vec))))
+             (str "Pull request #12 of rm-0001 at " sha
+                  ", opened 2026-01-02T00:00:00Z\nNot approved at its head."))))
+
+(deftest a-pull-request-lists-its-reviews-under-its-approval
+  (assert (= (pull-request-text (ref (pull-request-with (vec (review-by "r1"
+                                                                        verdict/approve)))))
+             (str "Pull request #12 of rm-0001 at " sha
+                  ", opened 2026-01-02T00:00:00Z\nApproved by r1.\n\nReviews:\n  ID  REVIEWER  KIND      VERDICT  HEAD                                      CREATED\n  1   r1        behavior  approve  "
+                  sha "  2026-01-03T00:00:00Z"))))
+
+(deftest a-recorded-review-names-its-verdict-and-the-approval
+  (assert (= (pr-reply->text (pr-reply/reviewed
+                               (->recorded-review
+                                 :review (review-by "r2" verdict/changes)
+                                 :pull-request (pull-request-with (vec (review-by
+                                                                         "r2"
+                                                                         verdict/changes))))))
+             (str "Recorded review 1 by r2: changes on rm-0001. Changes asked by r2."))))
+
+(deftest a-recorded-head-names-the-head-the-status-and-the-approval
+  (assert (= (pr-reply->text (pr-reply/head-recorded
+                               (->recorded-head
+                                 :item (claimed (work-item "rm-0001"
+                                                           kind/build
+                                                           status/in-review))
+                                 :pull-request (pull-request-with (vec)))))
+             (str "Recorded head " sha
+                  " on pull request #12 of rm-0001, which is in_review. Not approved at its head."))))

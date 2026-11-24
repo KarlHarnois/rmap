@@ -1,0 +1,146 @@
+(module
+  "Decides what a report does to its build's pull request: a done report opens it, a fixed report records the head it pushed.")
+
+(use ledger/model item item-id kind timestamp)
+(use ledger/model/reports report-kind report-request)
+
+(use ledger/model/pull-requests ->pr-number ->pull-request
+                                head pr-number pull-request)
+
+(use ledger/refusal pull-request-refusal refusal)
+(use ledger/core/heads head-of)
+
+(export pr-change pr-change-of present-pull-request
+        pull-request-after pull-request-of)
+
+(defenum pr-change
+  unchanged
+  (opened pr-number head)
+  (pushed head))
+
+(type pr-change-of
+  (fn ((ref item)
+       (ref report-request)
+       (ref (vec pull-request)))
+    (result pr-change refusal)))
+
+(defn pr-change-of (item request pull-requests)
+  (match (:kind item)
+    (build (build-change request
+                         (pull-request-of pull-requests (ref (:id item)))
+                         pull-requests))
+    (_ (without-pull-request request))))
+
+(type pull-request-of
+  (fn ((ref (vec pull-request)) (ref item-id))
+    (option pull-request)))
+
+(defn pull-request-of (pull-requests id)
+  (map-some (find (iter pull-requests)
+              (fn (pull-request)
+                (= (ref (:item pull-request)) id)))
+            clone))
+
+(type present-pull-request
+  (fn ((ref item) (ref (option pull-request)))
+    (result pull-request refusal)))
+
+(defn present-pull-request (item pull-request)
+  (ok-or (clone pull-request)
+         (pull-request-refused (pull-request-refusal/pr-not-found (clone (:id item))))))
+
+(type pull-request-after
+  (fn ((ref (option pull-request))
+       (ref item)
+       (ref pr-change)
+       (ref timestamp))
+    (option pull-request)))
+
+(defn pull-request-after (existing item change now)
+  (match change
+    (unchanged (clone existing))
+    ((opened number head)
+     (some (->pull-request :item (clone (:id item))
+                           :pr-number (clone number)
+                           :head (clone head)
+                           :opened-at (clone now)
+                           :reviews (vec))))
+    ((pushed head)
+     (map-some (clone existing)
+       (fn (pull-request)
+         (assoc pull-request :head (clone head)))))))
+
+(type build-change
+  (fn ((ref report-request)
+       (option pull-request)
+       (ref (vec pull-request)))
+    (result pr-change refusal)))
+
+(defn build-change (request existing pull-requests)
+  (match (:kind request)
+    (done (opening request existing pull-requests))
+    (fixed (fixing request existing pull-requests))
+    (question (without-pull-request request))))
+
+(defn without-pull-request (request)
+  (if (and (none? (:pr request))
+           (none? (:head request)))
+    (ok pr-change/unchanged)
+    (err (pull-request-refused pull-request-refusal/pr-not-allowed))))
+
+(type opening
+  (fn ((ref report-request)
+       (option pull-request)
+       (ref (vec pull-request)))
+    (result pr-change refusal)))
+
+(defn opening (request existing pull-requests)
+  (let-try (_ (check-no-pull-request existing)
+            number (required (ref (:pr request))
+                             pull-request-refusal/pr-required)
+            text (required (ref (:head request))
+                           pull-request-refusal/pr-required)
+            head (head-of (ref text))
+            free (free-number pull-requests (->pr-number :value number)))
+    (ok (pr-change/opened free head))))
+
+(defn fixing (request existing pull-requests)
+  (match existing
+    ((some _) (pushing request))
+    (none (opening request none pull-requests))))
+
+(defn pushing (request)
+  (let-try (_ (check-no-number (:pr request))
+            text (required (ref (:head request))
+                           pull-request-refusal/head-required)
+            head (head-of (ref text)))
+    (ok (pr-change/pushed head))))
+
+(defn check-no-pull-request (existing)
+  (match existing
+    ((some _)
+     (err (pull-request-refused pull-request-refusal/pr-not-allowed)))
+    (none (ok (do)))))
+
+(defn check-no-number (number)
+  (match number
+    ((some _)
+     (err (pull-request-refused pull-request-refusal/pr-not-allowed)))
+    (none (ok (do)))))
+
+(defn required (value missing)
+  (ok-or (clone value) (pull-request-refused missing)))
+
+(type free-number
+  (fn ((ref (vec pull-request)) pr-number)
+    (result pr-number refusal)))
+
+(defn free-number (pull-requests number)
+  (if (any? (iter pull-requests)
+        (fn (pull-request)
+          (= (:pr-number pull-request) number)))
+    (err (pull-request-refused (pull-request-refusal/pr-number-taken number)))
+    (ok number)))
+
+(defn pull-request-refused (refused)
+  (refusal/pull-request refused))

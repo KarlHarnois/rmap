@@ -8,6 +8,7 @@
 (use cli/description-text description-text)
 (use cli/item-text item-table optional-id-text)
 (use cli/tables indented table)
+(use cli/pr-text pull-request-text)
 
 (export item-detail-text)
 
@@ -22,7 +23,8 @@
          "\n"
          (indented (table (detail-rows detail)))
          (description-text (ref (:description item)))
-         (children-text (ref (:children detail))))))
+         (children-text (ref (:children detail)))
+         (pull-request-section (ref (:pull-request detail))))))
 
 (type detail-rows
   (fn ((ref item-detail))
@@ -89,3 +91,8 @@
   (if (empty? children)
     (str "")
     (str "\n\nChildren:\n" (indented (item-table children)))))
+
+(defn pull-request-section (pull-request)
+  (match pull-request
+    ((some present) (str "\n\n" (pull-request-text present)))
+    (none (str ""))))

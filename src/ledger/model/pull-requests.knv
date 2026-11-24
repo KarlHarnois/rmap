@@ -1,0 +1,67 @@
+(module
+  "Holds the ledger's pull requests: the one a build opened, the head it points at, and the reviews each reviewer session gave it.")
+
+(use ledger/model item item-id session timestamp)
+(use ledger/model/sessions session-id)
+
+(export ->approval ->head ->pr-number ->pull-request
+        ->recorded-head ->recorded-review ->review
+        ->review-id ->review-request approval head pr-number
+        pull-request recorded-head recorded-review review
+        review-id review-kind review-request verdict)
+
+(defstruct recorded-head
+  :item item
+  :pull-request pull-request)
+
+(defstruct recorded-review
+  :review review
+  :pull-request pull-request)
+
+(defstruct review-request
+  :item item-id
+  :reviewer session
+  :kind review-kind
+  :head string
+  :verdict verdict)
+
+(defstruct approval
+  :pr-number pr-number
+  :head head
+  :approved-by (vec session)
+  :changes-requested (vec session)
+  :stale-heads (vec head))
+
+(defstruct pull-request
+  :item item-id
+  :pr-number pr-number
+  :head head
+  :opened-at timestamp
+  :reviews (vec review))
+
+(defstruct pr-number
+  :value int)
+
+(defstruct head
+  :sha string)
+
+(defstruct review
+  :id review-id
+  :item item-id
+  :session-id session-id
+  :reviewer session
+  :kind review-kind
+  :head head
+  :verdict verdict
+  :created-at timestamp)
+
+(defstruct review-id
+  :value int)
+
+(defenum review-kind
+  behavior
+  design)
+
+(defenum verdict
+  changes
+  approve)

@@ -16,6 +16,7 @@
 (use cli/batch-text batch-text)
 (use cli/event-text events-text)
 (use cli/report-text report-reply->text)
+(use cli/pr-text pr-reply->text)
 
 (use cli/decision-text decision-accepted-text
                        decision-asked-text
@@ -66,7 +67,8 @@
      (decision-rejected-text (ref decision)))
     ((reply/decision-deprecated decision)
      (decision-deprecated-text (ref decision)))
-    ((reply/reported answer) (report-reply->text answer))))
+    ((reply/reported answer) (report-reply->text answer))
+    ((reply/pull-request answer) (pr-reply->text answer))))
 
 (type init-report-text
   (fn ((ref init-report)) string))

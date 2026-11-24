@@ -4,6 +4,11 @@
 
 (use ledger/model/reports ->report-id)
 (use ledger/refusal refusal)
+(use ledger/pull-request-refusals pull-request-refusal)
+
+(use ledger/model/pull-requests ->approval ->head
+                                ->pr-number)
+
 (use ledger/refusal-text refusal-catalog refusal-code-text)
 
 (defn every-refusal ()
@@ -48,7 +53,27 @@
                                      (sample-id))
        refusal/report-empty
        (refusal/report-not-found (->report-id :value 3))
-       (refusal/report-already-read (->report-id :value 3))))
+       (refusal/report-already-read (->report-id :value 3))
+       (refusal/pull-request pull-request-refusal/pr-required)
+       (refusal/pull-request pull-request-refusal/head-required)
+       (refusal/pull-request pull-request-refusal/pr-not-allowed)
+       (refusal/pull-request (pull-request-refusal/pr-number-taken
+                               (->pr-number :value 12)))
+       (refusal/pull-request (pull-request-refusal/pr-not-found (sample-id)))
+       (refusal/pull-request (pull-request-refusal/invalid-head (str "abc")))
+       (refusal/pull-request (pull-request-refusal/head-not-current
+                               (->head :sha (str "abc"))
+                               (->head :sha (str "def"))))
+       (refusal/pull-request (pull-request-refusal/head-unchanged (->head
+                                                                    :sha (str "abc"))))
+       (refusal/pull-request (pull-request-refusal/not-approved (sample-approval)))))
+
+(defn sample-approval ()
+  (->approval :pr-number (->pr-number :value 12)
+              :head (->head :sha (str "abc"))
+              :approved-by (vec)
+              :changes-requested (vec)
+              :stale-heads (vec)))
 
 (defn sample-decision-id ()
   (->decision-id :value (str "rm-0002")))

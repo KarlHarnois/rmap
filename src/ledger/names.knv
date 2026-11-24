@@ -4,6 +4,7 @@
 (use ledger/model/events event-type)
 (use ledger/model/sessions end-reason)
 (use ledger/model/reports report-kind)
+(use ledger/model/pull-requests review-kind verdict)
 
 (use ledger/model decision-status dep-type graph-format kind
                   origin roadmap-status runtime session-kind
@@ -15,8 +16,8 @@
         decision-status-names dep-type-names
         end-reason-names event-type-names graph-format-names
         kind-names origin-names report-kind-names
-        roadmap-status-names runtime-names
-        session-kind-names status-names)
+        review-kind-names roadmap-status-names runtime-names
+        session-kind-names status-names verdict-names)
 
 (def roadmap-status-names
   (vec (pair roadmap-status/active "active")
@@ -47,7 +48,8 @@
 
 (def session-kind-names
   (vec (pair session-kind/work "work")
-       (pair session-kind/fix "fix")))
+       (pair session-kind/fix "fix")
+       (pair session-kind/review "review")))
 
 (def runtime-names
   (vec (pair runtime/ringleader "ringleader")))
@@ -84,12 +86,22 @@
        (pair event-type/decision-block-removed
              "decision-block-removed")
        (pair event-type/item-reported "item-reported")
-       (pair event-type/report-read "report-read")))
+       (pair event-type/report-read "report-read")
+       (pair event-type/item-reviewed "item-reviewed")
+       (pair event-type/head-recorded "head-recorded")))
 
 (def report-kind-names
   (vec (pair report-kind/done "done")
        (pair report-kind/fixed "fixed")
        (pair report-kind/question "question")))
+
+(def review-kind-names
+  (vec (pair review-kind/behavior "behavior")
+       (pair review-kind/design "design")))
+
+(def verdict-names
+  (vec (pair verdict/changes "changes")
+       (pair verdict/approve "approve")))
 
 (def decision-status-names
   (vec (pair decision-status/proposed "proposed")

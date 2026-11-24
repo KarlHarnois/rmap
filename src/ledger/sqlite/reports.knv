@@ -5,9 +5,10 @@
                           sql-value text->sql)
 
 (use ledger/model ->item-id ->session ->timestamp timestamp)
+(use ledger/model/sessions ->session-id)
 
-(use ledger/model/reports ->report ->report-id ->session-id
-                          report report-id report-query
+(use ledger/model/reports ->report ->report-id report
+                          report-id report-query
                           report-reading)
 
 (use ledger/names case-name report-kind-names)

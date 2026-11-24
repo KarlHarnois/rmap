@@ -1,0 +1,16 @@
+(module
+  "Holds the failures part of the ledger's public surface: each way a call fails, the refusals among them, and their codes and sentences.")
+
+(use ledger/failure failure failure-code failure-message)
+(use ledger/sqlite/connection database-problem)
+(use ledger/refusal refusal)
+(use ledger/refusal-messages refusal->message)
+(use ledger/pull-request-refusals pull-request-refusal)
+
+(use ledger/refusal-text refusal-catalog refusal-code-text
+                         refusal-description)
+
+(export database-problem failure failure-code
+        failure-message pull-request-refusal refusal
+        refusal->message refusal-catalog refusal-code-text
+        refusal-description)

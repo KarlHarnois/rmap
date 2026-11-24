@@ -1,0 +1,184 @@
+(use json/value copy-of field json->bool json->int
+                json->items json->text null?)
+
+(use support/rmap database-with-roadmap error-code run-rmap
+                  text-at)
+
+(use support/pr-commands approved-on-first-head build-id
+                         first-sha report-build review-build
+                         second-sha)
+
+(defn advance (database id status)
+  (run-rmap (clone database)
+            (vec "item" "advance" (as-str id) status)))
+
+(defn pull-request-field (reply key)
+  (copy-of (unwrap (field (ref (unwrap (field (ref (:json reply))
+                                              "pull_request")))
+                          key))))
+
+(defn changes-requested (reply)
+  (let (error (copy-of (unwrap (field (ref (:json reply)) "error"))))
+    (collect (map (iter (unwrap (json->items (ref (unwrap (field (ref error)
+                                                                 "changes_requested"))))))
+                  (fn (name) (unwrap (json->text name)))))))
+
+(defn first-action (database)
+  (let (reply (run-rmap (clone database) (vec "next"))
+        entry (copy-of (unwrap (first (unwrap (json->items (ref (unwrap
+                                                                  (field (ref (:json
+                                                                                reply))
+                                                                         "next")))))))))
+    (unwrap (json->text
+              (ref (unwrap (field (ref (copy-of (unwrap
+                                                  (first (unwrap
+                                                           (json->items
+                                                             (ref (unwrap
+                                                                    (field (ref entry)
+                                                                           "actions")))))))))
+                                  "action")))))))
+
+(deftest a-done-report-opens-the-pull-request-and-moves-the-build-to-review
+  (let (database (database-with-roadmap "e2e-pr-done")
+        id (build-id (ref database))
+        reply (report-build (ref database)
+                            (ref id)
+                            "done"
+                            (vec "--pr" "7" "--head" first-sha)))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (text-at (ref reply) "item" "status")
+               (str "in_review")))
+    (assert (= (json->int (ref (pull-request-field (ref reply) "number")))
+               (some 7)))))
+
+(deftest a-done-report-on-a-build-without-a-pull-request-is-refused
+  (let (database (database-with-roadmap "e2e-pr-required")
+        id (build-id (ref database))
+        reply (report-build (ref database)
+                            (ref id)
+                            "done"
+                            (the (vec (ref str)) (vec))))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "pr-required")))))
+
+(deftest a-review-only-records-and-next-turns-to-merge-once-approved
+  (let (database (database-with-roadmap "e2e-pr-review")
+        id (build-id (ref database)))
+    (report-build (ref database)
+                  (ref id)
+                  "done"
+                  (vec "--pr" "7" "--head" first-sha))
+    (assert (= (first-action (ref database))
+               (str "review")))
+    (let (reply (review-build (ref database)
+                              (ref id)
+                              "r1" "approve" first-sha))
+      (assert (= (:exit-code reply) 0))
+      (assert (= (json->bool (ref (pull-request-field (ref reply) "approved")))
+                 (some true))))
+    (assert (= (first-action (ref database))
+               (str "merge")))
+    (assert (= (text-at (ref (run-rmap (clone database)
+                                       (vec "item" "show" (as-str id))))
+                        "item" "status")
+               (str "in_review")))))
+
+(deftest merging-without-approval-is-refused-with-the-reviewers-who-asked
+  (let (database (database-with-roadmap "e2e-pr-gate")
+        id (build-id (ref database)))
+    (report-build (ref database)
+                  (ref id)
+                  "done"
+                  (vec "--pr" "7" "--head" first-sha))
+    (review-build (ref database)
+                  (ref id)
+                  "r1" "changes" first-sha)
+    (let (reply (advance (ref database) (ref id) "merging"))
+      (assert (= (:exit-code reply) 1))
+      (assert (= (error-code (ref reply))
+                 (str "not-approved")))
+      (assert (= (changes-requested (ref reply))
+                 (vec (str "r1")))))))
+
+(deftest a-fix-on-a-new-head-needs-a-new-approval
+  (let (database (database-with-roadmap "e2e-pr-fix")
+        id (build-id (ref database)))
+    (approved-on-first-head (ref database) (ref id))
+    (assert (= (:exit-code (advance (ref database) (ref id) "fixing"))
+               0))
+    (assert (= (:exit-code (report-build (ref database)
+                                         (ref id)
+                                         "fixed"
+                                         (vec "--head" second-sha)))
+               0))
+    (assert (= (error-code (ref (advance (ref database) (ref id) "merging")))
+               (str "not-approved")))
+    (review-build (ref database)
+                  (ref id)
+                  "r1" "approve" second-sha)
+    (assert (= (:exit-code (advance (ref database) (ref id) "merging"))
+               0))))
+
+(deftest pr-show-and-item-show-carry-the-pull-request
+  (let (database (database-with-roadmap "e2e-pr-show")
+        id (build-id (ref database)))
+    (approved-on-first-head (ref database) (ref id))
+    (let (shown (run-rmap (clone database)
+                          (vec "pr" "show" (as-str id)))
+          item (run-rmap (clone database)
+                         (vec "item" "show" (as-str id))))
+      (assert (= (len (unwrap (json->items (ref (pull-request-field
+                                                  (ref shown)
+                                                  "reviews")))))
+                 1))
+      (assert (= (json->int (ref (pull-request-field (ref item) "number")))
+                 (some 1))))))
+
+(deftest an-item-without-a-pull-request-shows-null
+  (let (database (database-with-roadmap "e2e-pr-null")
+        id (build-id (ref database))
+        item (run-rmap (clone database)
+                       (vec "item" "show" (as-str id))))
+    (assert (null? (ref (unwrap (field (ref (:json item)) "pull_request")))))))
+
+(deftest a-head-recorded-while-merging-sends-the-build-back-to-review
+  (let (database (database-with-roadmap "e2e-pr-head")
+        id (build-id (ref database)))
+    (approved-on-first-head (ref database) (ref id))
+    (assert (= (:exit-code (advance (ref database) (ref id) "merging"))
+               0))
+    (let (reply (run-rmap (clone database)
+                          (vec "pr" "head" (as-str id) second-sha)))
+      (assert (= (:exit-code reply) 0))
+      (assert (= (text-at (ref reply) "item" "status")
+                 (str "in_review")))
+      (assert (= (text-at (ref reply) "pull_request" "head")
+                 (str second-sha))))
+    (assert (= (error-code (ref (advance (ref database) (ref id) "merging")))
+               (str "not-approved")))))
+
+(deftest a-review-off-the-ledger-head-is-refused
+  (let (database (database-with-roadmap "e2e-pr-review-head")
+        id (build-id (ref database)))
+    (approved-on-first-head (ref database) (ref id))
+    (assert (= (error-code (ref (review-build (ref database)
+                                              (ref id)
+                                              "r2" "approve"
+                                              second-sha)))
+               (str "head-not-current")))))
+
+(deftest a-change-request-while-merging-blocks-item-close
+  (let (database (database-with-roadmap "e2e-pr-close-held")
+        id (build-id (ref database)))
+    (approved-on-first-head (ref database) (ref id))
+    (assert (= (:exit-code (advance (ref database) (ref id) "merging"))
+               0))
+    (assert (= (:exit-code (review-build (ref database)
+                                         (ref id)
+                                         "r2" "changes"
+                                         first-sha))
+               0))
+    (assert (= (error-code (ref (run-rmap (clone database)
+                                          (vec "item" "close" (as-str id)))))
+               (str "not-approved")))))

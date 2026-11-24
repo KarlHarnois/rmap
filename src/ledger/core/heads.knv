@@ -1,0 +1,36 @@
+(module
+  "Checks that a head the caller names is a full commit SHA, so heads compare as equal only when they name the same commit, and that a review names its pull request's current head.")
+
+(use ledger/model/pull-requests ->head head pull-request)
+(use ledger/refusal pull-request-refusal refusal)
+
+(export current-head head-of)
+
+(def head-length 40)
+
+(def hex-digits "0123456789abcdef")
+
+(type current-head
+  (fn ((ref pull-request) (ref string))
+    (result head refusal)))
+
+(defn current-head (pull-request text)
+  (let-try (head (head-of text))
+    (if (= (ref head)
+           (ref (:head pull-request)))
+      (ok head)
+      (err (refusal/pull-request (pull-request-refusal/head-not-current
+                                   head
+                                   (clone (:head pull-request))))))))
+
+(defn head-of (text)
+  (if (full-sha? text)
+    (ok (->head :sha (clone text)))
+    (err (refusal/pull-request (pull-request-refusal/invalid-head (clone
+                                                                    text))))))
+
+(defn full-sha? (text)
+  (and (= (len text) head-length)
+       (every? (chars (as-str text))
+         (fn (character)
+           (contains? hex-digits (as-str (str character)))))))
