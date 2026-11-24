@@ -1,0 +1,121 @@
+(use json/value field json->text)
+
+(use ledger/api ->claim-request action claim-item event
+                event-type failure list-roadmaps
+                next-actions pause-roadmap ready-items
+                refusal resume-roadmap roadmap-pause
+                roadmap-status)
+
+(use support/ledger all-events refusal-code-of research
+                    roadmap-name scratch-ledger
+                    session-named)
+
+(defn readiness-in (settings)
+  (unwrap-ok (ready-items settings (some (str roadmap-name)))))
+
+(defn worker-claim ()
+  (->claim-request :session (session-named "worker")
+                   :branch none
+                   :base none))
+
+(defn status-of (settings name)
+  (:status (unwrap (find (iter (unwrap-ok (list-roadmaps settings)))
+                     (fn (roadmap)
+                       (= (:name roadmap) (str name)))))))
+
+(type status-side
+  (fn ((ref (vec event)) event-type (ref str))
+    string))
+
+(defn status-side (events type which)
+  (-> (unwrap (find (iter events)
+                (fn (event) (= (:type event) type))))
+      (:payload)
+      (field "changes")
+      unwrap
+      (field "status")
+      unwrap
+      (field which)
+      unwrap json->text unwrap))
+
+(defn entry-for (settings id)
+  (clone (unwrap (find (iter (unwrap-ok (next-actions settings none none)))
+                   (fn (entry) (= (:id (:item entry)) id))))))
+
+(deftest pausing-and-resuming-a-roadmap-changes-its-status
+  (let (settings (scratch-ledger "pause-status"))
+    (assert (= (:status (unwrap-ok (pause-roadmap (ref settings)
+                                                  (str roadmap-name))))
+               roadmap-status/paused))
+    (assert (= (status-of (ref settings) roadmap-name)
+               roadmap-status/paused))
+    (assert (= (:status (unwrap-ok (resume-roadmap (ref settings)
+                                                   (str roadmap-name))))
+               roadmap-status/active))
+    (assert (= (status-of (ref settings) roadmap-name)
+               roadmap-status/active))))
+
+(deftest pausing-a-paused-roadmap-is-refused
+  (let (settings (scratch-ledger "pause-twice"))
+    (unwrap-ok (pause-roadmap (ref settings) (str roadmap-name)))
+    (assert (= (refusal-code-of (pause-roadmap (ref settings)
+                                               (str roadmap-name)))
+               (some (str "roadmap-already-paused"))))))
+
+(deftest resuming-an-active-roadmap-is-refused
+  (let (settings (scratch-ledger "resume-active"))
+    (assert (= (refusal-code-of (resume-roadmap (ref settings)
+                                                (str roadmap-name)))
+               (some (str "roadmap-not-paused"))))))
+
+(deftest pause-and-resume-record-their-status-change
+  (let (settings (scratch-ledger "pause-events"))
+    (unwrap-ok (pause-roadmap (ref settings) (str roadmap-name)))
+    (unwrap-ok (resume-roadmap (ref settings) (str roadmap-name)))
+    (let (events (unwrap-ok (all-events settings)))
+      (assert (= (status-side events event-type/roadmap-paused "old")
+                 (str "active")))
+      (assert (= (status-side events event-type/roadmap-paused "new")
+                 (str "paused")))
+      (assert (= (status-side events event-type/roadmap-resumed "old")
+                 (str "paused")))
+      (assert (= (status-side events event-type/roadmap-resumed "new")
+                 (str "active"))))))
+
+(deftest a-pause-blocks-new-work-and-a-resume-restores-readiness
+  (let (settings (scratch-ledger "pause-readiness")
+        item (research (ref settings)))
+    (assert (= (len (:ready (readiness-in (ref settings))))
+               1))
+    (unwrap-ok (pause-roadmap (ref settings) (str roadmap-name)))
+    (let (readiness (readiness-in (ref settings)))
+      (assert (empty? (:ready readiness)))
+      (assert (= (:pause (:blockage (unwrap (first (:blocked readiness)))))
+                 roadmap-pause/paused)))
+    (unwrap-ok (resume-roadmap (ref settings) (str roadmap-name)))
+    (assert (= (:id (unwrap (first (:ready (readiness-in (ref settings))))))
+               item))))
+
+(deftest claiming-an-open-item-in-a-paused-roadmap-is-refused
+  (let (settings (scratch-ledger "pause-claim")
+        item (research (ref settings)))
+    (unwrap-ok (pause-roadmap (ref settings) (str roadmap-name)))
+    (match (claim-item (ref settings)
+                       (clone item)
+                       (worker-claim))
+      ((err (failure/refused (refusal/not-ready blockage)))
+       (assert (= (:pause blockage) roadmap-pause/paused))
+       (assert (= (:blockers blockage) (vec))))
+      ((err _) (assert false))
+      ((ok _) (assert false)))))
+
+(deftest a-paused-roadmap-keeps-the-actions-of-started-work
+  (let (settings (scratch-ledger "pause-started")
+        item (research (ref settings)))
+    (unwrap-ok (claim-item (ref settings)
+                           (clone item)
+                           (worker-claim)))
+    (unwrap-ok (pause-roadmap (ref settings) (str roadmap-name)))
+    (assert (= (:action (unwrap (first (:actions (entry-for (ref settings)
+                                                            item)))))
+               action/work))))

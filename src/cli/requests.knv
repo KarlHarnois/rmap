@@ -27,6 +27,8 @@
   init
   (new-roadmap string session)
   list-roadmaps
+  (pause string)
+  (resume string)
   (ready (option string))
   (next (option string) (option session))
   (ready-batch (option string) batch-size)

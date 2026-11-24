@@ -30,6 +30,8 @@
 
 (defenum event-type
   roadmap-created
+  roadmap-paused
+  roadmap-resumed
   item-added
   item-claimed
   item-advanced

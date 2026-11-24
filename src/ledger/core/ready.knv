@@ -2,7 +2,8 @@
   "Computes which items can start and what blocks the others.")
 
 (use ledger/model ->blockage blockage claim decision-id item
-                  kind snapshot status)
+                  kind roadmap-pause roadmap-status snapshot
+                  status)
 
 (use ledger/core/index delivered-id? index-of indexed-status
                        ledger-index)
@@ -37,7 +38,8 @@
                  :blocked (waiting-items assessed))))
 
 (defn unblocked? (blockage)
-  (and (empty? (:blockers blockage))
+  (and (= (:pause blockage) roadmap-pause/not-paused)
+       (empty? (:blockers blockage))
        (empty? (:dropped-blockers blockage))))
 
 (type blocking-decisions
@@ -53,12 +55,27 @@
 
 (defn blockage-of (snapshot index item)
   (let (blocking (blocked-by snapshot (ref (:id item))))
-    (->blockage :blockers (collect (map (filter (iter blocking)
+    (->blockage :pause (pause-of snapshot item)
+                :blockers (collect (map (filter (iter blocking)
                                           (fn (id) (waiting-on? index id)))
                                         clone))
                 :dropped-blockers (collect (map (filter (iter blocking)
                                                   (fn (id) (dropped? index id)))
                                                 clone)))))
+
+(defn pause-of (snapshot item)
+  (if (paused-roadmap? snapshot item)
+    roadmap-pause/paused roadmap-pause/not-paused))
+
+(type paused-roadmap?
+  (fn ((ref snapshot) (ref item)) bool))
+
+(defn paused-roadmap? (snapshot item)
+  (any? (iter (:roadmaps snapshot))
+    (fn (roadmap)
+      (and (= (ref (:id roadmap))
+              (:roadmap-id item))
+           (= (:status roadmap) roadmap-status/paused)))))
 
 (type candidate? (fn ((ref item)) bool))
 

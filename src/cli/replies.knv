@@ -10,6 +10,7 @@
 (defenum reply
   (ledger-initialized init-report)
   (roadmap-created roadmap)
+  (roadmap-status-changed roadmap)
   (roadmaps-listed (vec roadmap))
   (readiness-checked readiness)
   (next-listed (vec next-item))

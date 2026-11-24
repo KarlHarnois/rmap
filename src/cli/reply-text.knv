@@ -2,7 +2,7 @@
   "Describes each ledger result in plain text.")
 
 (use ledger/api case-name dep init-outcome init-report
-                roadmap roadmap-status-names)
+                roadmap roadmap-status roadmap-status-names)
 
 (use cli/replies reply)
 (use cli/tables headed table)
@@ -28,6 +28,8 @@
      (init-report-text report))
     ((reply/roadmap-created roadmap)
      (roadmap-created-text roadmap))
+    ((reply/roadmap-status-changed roadmap)
+     (roadmap-status-text roadmap))
     ((reply/roadmaps-listed roadmaps) (roadmaps-text roadmaps))
     ((reply/readiness-checked readiness)
      (readiness-text readiness))
@@ -70,6 +72,15 @@
        ", managed by "
        (:name (:manager roadmap))
        "."))
+
+(type roadmap-status-text
+  (fn ((ref roadmap)) string))
+
+(defn roadmap-status-text (roadmap)
+  (match (:status roadmap)
+    (roadmap-status/paused (str "Paused roadmap " (:name roadmap) "."))
+    (roadmap-status/active (str "Resumed roadmap " (:name roadmap) "."))
+    (roadmap-status/done (str "Marked roadmap " (:name roadmap) " done."))))
 
 (defn roadmaps-text (roadmaps)
   (if (empty? roadmaps)

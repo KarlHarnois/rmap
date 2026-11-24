@@ -1,7 +1,7 @@
 (module
   "Describes in plain text which items are ready and what holds back the others.")
 
-(use ledger/api blocked-item item-id)
+(use ledger/api blocked-item item-id roadmap-pause)
 (use cli/tables indented)
 (use cli/item-text item-table)
 
@@ -21,6 +21,8 @@
 
 (defn blockage-lines (blockage)
   (let (lines (vec))
+    (when (= (:pause blockage) roadmap-pause/paused)
+      (push! lines (str "paused")))
     (when (not (empty? (:blockers blockage)))
       (push! lines
              (str "waits on "

@@ -1,0 +1,132 @@
+(use json/value copy-of field json->bool json->items
+                json->text)
+
+(use support/rmap database-with-roadmap error-code
+                  research-id run-rmap run-rmap-text
+                  text-at)
+
+(defn paused? (blocked)
+  (unwrap (json->bool (unwrap (field blocked "paused")))))
+
+(defn listed-status (database)
+  (let (reply (run-rmap database (vec "list")))
+    (-> (unwrap (first (unwrap (json->items (unwrap (field (:json reply)
+                                                           "roadmaps"))))))
+        (field "status")
+        unwrap json->text unwrap)))
+
+(defn first-of (reply key)
+  (copy-of (unwrap (first (unwrap (json->items (unwrap (field (:json reply)
+                                                              key))))))))
+
+(defn action-of (entry)
+  (copy-of (unwrap (first (unwrap (json->items (unwrap (field entry
+                                                              "actions"))))))))
+
+(defn item-id-of (entry)
+  (json->text (unwrap (field (unwrap (field entry "item")) "id"))))
+
+(defn pause-roadmap (database)
+  (run-rmap database (vec "pause" "road")))
+
+(defn resume-roadmap (database)
+  (run-rmap database (vec "resume" "road")))
+
+(deftest pause-and-resume-change-the-status-that-list-shows
+  (let (database (database-with-roadmap "pause-list"))
+    (let (paused (pause-roadmap (clone database)))
+      (assert (= (:exit-code paused) 0))
+      (assert (= (text-at (ref paused) "roadmap" "status")
+                 (str "paused")))
+      (assert (= (listed-status (clone database))
+                 (str "paused"))))
+    (let (resumed (resume-roadmap (clone database)))
+      (assert (= (:exit-code resumed) 0))
+      (assert (= (text-at (ref resumed) "roadmap" "status")
+                 (str "active")))
+      (assert (= (listed-status (clone database))
+                 (str "active"))))))
+
+(deftest pausing-twice-and-resuming-an-active-roadmap-are-refused
+  (let (database (database-with-roadmap "pause-refusals"))
+    (assert (= (:exit-code (pause-roadmap (clone database)))
+               0))
+    (let (again (pause-roadmap (clone database)))
+      (assert (= (:exit-code again) 1))
+      (assert (= (error-code (ref again))
+                 (str "roadmap-already-paused"))))
+    (assert (= (:exit-code (resume-roadmap (clone database)))
+               0))
+    (let (again (resume-roadmap (clone database)))
+      (assert (= (:exit-code again) 1))
+      (assert (= (error-code (ref again))
+                 (str "roadmap-not-paused"))))))
+
+(deftest a-paused-roadmap-shows-open-items-as-blocked-and-waiting
+  (let (database (database-with-roadmap "pause-ready")
+        item (research-id (clone database))
+        _paused (pause-roadmap (clone database))
+        ready (run-rmap (clone database) (vec "ready" "--roadmap" "road"))
+        blocked (first-of (ref ready) "blocked")
+        next (run-rmap (clone database) (vec "next" "--roadmap" "road"))
+        entry (first-of (ref next) "next")
+        action (action-of entry))
+    (assert (= (item-id-of blocked)
+               (some (str item))))
+    (assert (paused? blocked))
+    (assert (= (json->text (unwrap (field action "action")))
+               (some (str "wait"))))
+    (assert (unwrap (json->bool (unwrap (field (unwrap (field action "reasons"))
+                                               "paused")))))))
+
+(deftest claiming-an-open-item-in-a-paused-roadmap-names-the-pause
+  (let (database (database-with-roadmap "pause-claim")
+        item (research-id (clone database))
+        _paused (pause-roadmap (clone database))
+        output (run-rmap-text (vec "--db"
+                                   (as-str database)
+                                   "item" "claim"
+                                   (as-str item)
+                                   "--session" "s1")))
+    (assert (= (:code output) 1))
+    (assert (contains? (as-str (:stderr output)) "paused"))))
+
+(deftest a-pause-keeps-the-next-action-of-started-work
+  (let (database (database-with-roadmap "pause-started")
+        item (research-id (clone database)))
+    (assert (= (:exit-code
+                 (run-rmap (clone database)
+                           (vec "item" "claim" (as-str item) "--session" "s1")))
+               0))
+    (assert (= (:exit-code (pause-roadmap (clone database)))
+               0))
+    (let (entry (first-of (ref (run-rmap (clone database)
+                                         (vec "next" "--roadmap" "road")))
+                          "next"))
+      (assert (= (json->text (unwrap (field (action-of entry) "action")))
+                 (some (str "work")))))))
+
+(deftest resuming-a-roadmap-restores-its-ready-items
+  (let (database (database-with-roadmap "pause-resume")
+        item (research-id (clone database)))
+    (assert (= (:exit-code (pause-roadmap (clone database)))
+               0))
+    (assert (= (:exit-code (resume-roadmap (clone database)))
+               0))
+    (let (ready (run-rmap (clone database) (vec "ready" "--roadmap" "road"))
+          listed (first-of (ref ready) "ready"))
+      (assert (= (json->text (unwrap (field listed "id")))
+                 (some (str item)))))))
+
+(deftest the-log-records-pause-and-resume
+  (let (database (database-with-roadmap "pause-events")
+        _paused (pause-roadmap (clone database))
+        _resumed (resume-roadmap (clone database))
+        reply (run-rmap database (vec "log"))
+        types (collect (map (iter (unwrap (json->items (unwrap (field
+                                                                 (:json reply)
+                                                                 "events")))))
+                            (fn (event)
+                              (json->text (unwrap (field event "type")))))))
+    (assert (contains? types (some (str "roadmap-paused"))))
+    (assert (contains? types (some (str "roadmap-resumed"))))))

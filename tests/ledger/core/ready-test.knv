@@ -1,11 +1,12 @@
-(use ledger/model claim dep-type item item-id kind snapshot
-                  status)
+(use ledger/model claim dep-type item item-id kind
+                  roadmap-pause snapshot status)
 
 (use ledger/core/ready readiness-of)
 (use ledger/core/snapshot scope)
 
 (use support/items blocks-dep child-of claimed epic-item
-                   id-of snapshot-of work-item)
+                   id-of paused-snapshot-of snapshot-of
+                   work-item)
 
 (use support/generated-snapshots generated-snapshot)
 
@@ -168,6 +169,16 @@
                             (work-item "rm-0002" kind/design status/reported))
                           (vec (blocks-dep "rm-0001" "rm-0002"))))
              (vec))))
+
+(deftest a-paused-roadmap-holds-its-open-items-back-with-a-pause-reason
+  (let (readiness (readiness-of
+                    (ref (paused-snapshot-of
+                           (vec (work-item "rm-0001" kind/design status/open))
+                           (vec)))
+                    (ref scope/every-roadmap))
+        blocked (unwrap (first (:blocked readiness))))
+    (assert (empty? (:ready readiness)))
+    (assert (= (:pause (:blockage blocked)) roadmap-pause/paused))))
 
 (deftest a-dropped-blocker-is-reported-apart-from-waiting-blockers
   (let (readiness (readiness-of

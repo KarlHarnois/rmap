@@ -1,0 +1,98 @@
+(module
+  "Describes each refusal code in a sentence and catalogs them.")
+
+(use ledger/refusal-codes code-of refusal-code)
+
+(export refusal-catalog refusal-code-text
+        refusal-description)
+
+(defstruct refusal-description
+  :code string
+  :meaning string)
+
+(defn refusal-code-text (refused)
+  (clone (:code (description-of (code-of refused)))))
+
+(defn refusal-catalog ()
+  (collect (map (iter (vec refusal-code/roadmap-not-found
+                           refusal-code/roadmap-exists
+                           refusal-code/roadmap-already-paused
+                           refusal-code/roadmap-not-paused
+                           refusal-code/item-not-found
+                           refusal-code/item-closed
+                           refusal-code/parent-not-epic
+                           refusal-code/parent-in-other-roadmap
+                           refusal-code/epic-has-parent
+                           refusal-code/priority-out-of-range
+                           refusal-code/epic-status-computed
+                           refusal-code/invalid-kind-change
+                           refusal-code/invalid-transition
+                           refusal-code/not-ready
+                           refusal-code/cycle
+                           refusal-code/dep-exists
+                           refusal-code/dep-not-found
+                           refusal-code/decision-not-found
+                           refusal-code/decision-frozen
+                           refusal-code/decision-incomplete
+                           refusal-code/not-blockable
+                           refusal-code/decision-in-other-roadmap
+                           refusal-code/supersede-target-not-accepted
+                           refusal-code/session-busy))
+                (fn (code)
+                  (description-of (deref code))))))
+
+(defn description-of (code)
+  (match code
+    (roadmap-not-found (described "roadmap-not-found"
+                                  "No roadmap has that name."))
+    (roadmap-exists (described "roadmap-exists"
+                               "A roadmap already has that name."))
+    (roadmap-already-paused (described "roadmap-already-paused"
+                                       "A pause changes nothing: the roadmap is already paused."))
+    (roadmap-not-paused (described "roadmap-not-paused"
+                                   "A resume changes nothing: the roadmap is not paused."))
+    (item-not-found (described "item-not-found" "No item has that id."))
+    (item-closed (described
+                   "item-closed"
+                   "A merged, accepted or dropped item cannot be edited."))
+    (parent-not-epic (described "parent-not-epic" "The parent is not an epic."))
+    (parent-in-other-roadmap (described
+                               "parent-in-other-roadmap"
+                               "The parent belongs to another roadmap."))
+    (epic-has-parent (described "epic-has-parent"
+                                "An epic cannot have a parent."))
+    (priority-out-of-range (described "priority-out-of-range"
+                                      "A priority must be from 0 (highest) to 4 (lowest)."))
+    (epic-status-computed (described "epic-status-computed"
+                                     "An epic's status comes from its children, so no command moves it."))
+    (invalid-kind-change (described "invalid-kind-change"
+                                    "Only an advance to dispatched can turn an item into a build."))
+    (invalid-transition (described "invalid-transition"
+                                   "The transition table has no such move for this item."))
+    (not-ready (described "not-ready"
+                          "The item is blocked. The error lists whether the roadmap is paused, its blockers and its dropped_blockers."))
+    (cycle (described
+             "cycle"
+             "The dependency would close a cycle of blocks dependencies."))
+    (dep-exists (described "dep-exists"
+                           "The blocks dependency already exists."))
+    (dep-not-found (described "dep-not-found"
+                              "No such blocks dependency exists."))
+    (decision-not-found (described "decision-not-found"
+                                   "No decision has that id."))
+    (decision-frozen (described "decision-frozen"
+                                "Only a proposed decision can change."))
+    (decision-incomplete (described "decision-incomplete"
+                                    "A proposal needs a title, a context, at least 2 options with titles, and a recommendation that names one of them with a reason."))
+    (not-blockable (described "not-blockable"
+                              "Only an open item or an unfinished epic can wait on a decision."))
+    (decision-in-other-roadmap (described "decision-in-other-roadmap"
+                                          "The item belongs to another roadmap than the decision."))
+    (supersede-target-not-accepted (described "supersede-target-not-accepted"
+                                              "Only a decision that is accepted, or rejected in the same roadmap, can be superseded."))
+    (session-busy (described "session-busy"
+                             "A live session already has that name."))))
+
+(defn described (code meaning)
+  (->refusal-description :code (str code)
+                         :meaning (str meaning)))

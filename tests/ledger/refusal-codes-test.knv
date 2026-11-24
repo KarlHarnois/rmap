@@ -1,13 +1,15 @@
 (use ledger/model ->blockage ->decision-id ->item-id
-                  ->session status)
+                  ->session roadmap-pause status)
 
 (use ledger/model/decisions decision-status)
 (use ledger/refusal refusal)
-(use ledger/refusal-codes refusal-catalog refusal-code-text)
+(use ledger/refusal-text refusal-catalog refusal-code-text)
 
 (defn every-refusal ()
   (vec (refusal/roadmap-not-found (str "road"))
        (refusal/roadmap-exists (str "road"))
+       (refusal/roadmap-already-paused (str "road"))
+       (refusal/roadmap-not-paused (str "road"))
        (refusal/item-not-found (sample-id))
        (refusal/item-closed (sample-id))
        (refusal/parent-not-epic (sample-id))
@@ -17,7 +19,9 @@
        refusal/epic-status-computed
        refusal/invalid-kind-change
        (refusal/invalid-transition status/open status/merged)
-       (refusal/not-ready (->blockage :blockers (vec) :dropped-blockers (vec)))
+       (refusal/not-ready (->blockage :pause roadmap-pause/not-paused
+                                      :blockers (vec)
+                                      :dropped-blockers (vec)))
        (refusal/cycle (sample-id) (sample-id))
        (refusal/dep-exists (sample-id) (sample-id))
        (refusal/dep-not-found (sample-id) (sample-id))

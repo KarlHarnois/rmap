@@ -9,6 +9,7 @@
 
 (use cli/routes ->route operands subcommand words)
 (use cli/decision-commands decision-routes)
+(use cli/lifecycle-commands lifecycle-routes)
 
 (export boolean-flag-names routes)
 
@@ -24,6 +25,8 @@
 
 (defn routes ()
   (let (all (item-routes))
+    (for-each (lifecycle-routes)
+      (fn (route) (push! all (clone route))))
     (for-each (decision-routes)
       (fn (route) (push! all (clone route))))
     all))

@@ -1,12 +1,12 @@
-(use ledger/model ->session item kind status)
+(use ledger/model ->session item kind roadmap-pause status)
 (use ledger/core/actions action actor actor-of)
 (use ledger/core/next next-item next-of)
 (use ledger/core/ready readiness-of)
 (use ledger/core/snapshot scope)
 
 (use support/items blocks-dep child-of claimed epic-item
-                   in-roadmap roadmap-of snapshot-of
-                   work-item)
+                   in-roadmap paused-snapshot-of roadmap-of
+                   snapshot-of work-item)
 
 (use support/generated-snapshots generated-roadmap-ids
                                  generated-snapshot)
@@ -139,6 +139,23 @@
     (assert (= (:reasons (action-of-first (ref snapshot)))
                (some (clone (:blockage (unwrap (first (:blocked
                                                         readiness))))))))))
+
+(deftest an-open-item-in-a-paused-roadmap-waits-with-the-pause-reason
+  (let (snapshot (paused-snapshot-of
+                   (vec (work-item "rm-0001" kind/design status/open))
+                   (vec))
+        action (action-of-first (ref snapshot)))
+    (assert (= (:action action) action/wait))
+    (assert (= (:pause (unwrap (clone (:reasons action))))
+               roadmap-pause/paused))))
+
+(deftest a-started-item-keeps-its-action-in-a-paused-roadmap
+  (let (snapshot (paused-snapshot-of
+                   (vec (claimed
+                          (work-item "rm-0001" kind/build status/dispatched)))
+                   (vec))
+        action (action-of-first (ref snapshot)))
+    (assert (= (:action action) action/work))))
 
 (deftest a-dispatched-item-is-worked-by-its-session
   (assert (= (claimed-in status/dispatched)

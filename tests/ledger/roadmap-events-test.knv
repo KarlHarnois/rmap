@@ -1,0 +1,57 @@
+(use json/value copy-of field json->entries json->text)
+
+(use ledger/model ->roadmap ->roadmap-id ->session
+                  ->timestamp roadmap-status)
+
+(use ledger/model/events event-type)
+(use ledger/roadmap-events roadmap-status-changed)
+
+(defn side-text (payload column which)
+  (json->text (ref (side payload column which))))
+
+(defn side (payload column which)
+  (-> (ref payload)
+      (field "changes")
+      unwrap
+      (field column)
+      unwrap
+      (field which)
+      unwrap))
+
+(defn columns (payload)
+  (collect (map (iter (json->entries (ref (unwrap (field (ref payload)
+                                                         "changes")))))
+                (fn (entry) (clone (first entry))))))
+
+(defn roadmap-in (status)
+  (->roadmap :id (->roadmap-id :value (str "rm-road"))
+             :name (str "road")
+             :manager (->session :name (str "m1"))
+             :status status
+             :created-at (->timestamp :value (str "t0"))))
+
+(defn status-change-payload (before after type)
+  (copy-of (ref (:payload
+                  (roadmap-status-changed (ref before) (ref after) type)))))
+
+(deftest a-pause-records-its-status-as-old-and-new
+  (let (payload (status-change-payload (roadmap-in roadmap-status/active)
+                                       (roadmap-in roadmap-status/paused)
+                                       event-type/roadmap-paused))
+    (assert (= (columns payload)
+               (vec (str "status"))))
+    (assert (= (side-text payload "status" "old")
+               (some (str "active"))))
+    (assert (= (side-text payload "status" "new")
+               (some (str "paused"))))))
+
+(deftest a-resume-records-its-status-as-old-and-new
+  (let (payload (status-change-payload (roadmap-in roadmap-status/paused)
+                                       (roadmap-in roadmap-status/active)
+                                       event-type/roadmap-resumed))
+    (assert (= (columns payload)
+               (vec (str "status"))))
+    (assert (= (side-text payload "status" "old")
+               (some (str "paused"))))
+    (assert (= (side-text payload "status" "new")
+               (some (str "active"))))))

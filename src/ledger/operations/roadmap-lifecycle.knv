@@ -1,0 +1,88 @@
+(module
+  "Pauses a roadmap and resumes it.")
+
+(use ledger/model roadmap roadmap-status)
+(use ledger/model/events event-type)
+(use ledger/refusal refusal)
+(use ledger/roadmap-events roadmap-status-changed)
+(use ledger/sqlite/connection connection)
+
+(use ledger/sqlite/roadmaps roadmap-named
+                            update-roadmap-status)
+
+(use ledger/operations/transaction in-transaction record)
+(use ledger/failure failure)
+
+(export pause-roadmap resume-roadmap)
+
+(defenum status-change
+  pause
+  resume)
+
+(defn pause-roadmap (settings name)
+  (change-status settings (as-str name) status-change/pause))
+
+(defn resume-roadmap (settings name)
+  (change-status settings (as-str name) status-change/resume))
+
+(defn change-status (settings name change)
+  (in-transaction settings
+    (fn (transaction)
+      (apply-status-change transaction (ref name) change))))
+
+(defn apply-status-change (transaction name change)
+  (let-try (before (roadmap-required (ref (:connection transaction)) name)
+            _ (check-status-change before change))
+    (let (after (assoc (clone before) :status (target-status change)))
+      (let-try (_ (update-roadmap-status (ref (:connection transaction))
+                                         (ref after))
+                _ (record transaction
+                          (roadmap-status-changed (ref before)
+                                                  (ref after)
+                                                  (event-type-of change))))
+        (ok after)))))
+
+(defn target-status (change)
+  (match change
+    (pause roadmap-status/paused)
+    (resume roadmap-status/active)))
+
+(defn event-type-of (change)
+  (match change
+    (pause event-type/roadmap-paused)
+    (resume event-type/roadmap-resumed)))
+
+(defn check-status-change (roadmap change)
+  (match change
+    (pause (check-pause roadmap))
+    (resume (check-resume roadmap))))
+
+(type check-pause
+  (fn ((ref roadmap))
+    (result unit failure)))
+
+(defn check-pause (roadmap)
+  (if (= (:status roadmap) roadmap-status/paused)
+    (err (failure/refused (refusal/roadmap-already-paused (clone (:name
+                                                                   roadmap)))))
+    (ok (do))))
+
+(type check-resume
+  (fn ((ref roadmap))
+    (result unit failure)))
+
+(defn check-resume (roadmap)
+  (if (= (:status roadmap) roadmap-status/paused)
+    (ok (do))
+    (err (failure/refused (refusal/roadmap-not-paused (clone (:name
+                                                               roadmap)))))))
+
+(type roadmap-required
+  (fn ((ref connection) (ref str))
+    (result roadmap failure)))
+
+(defn roadmap-required (connection name)
+  (let-try (found (roadmap-named connection name))
+    (match found
+      ((some roadmap) (ok roadmap))
+      (none (err (failure/refused (refusal/roadmap-not-found (str name))))))))

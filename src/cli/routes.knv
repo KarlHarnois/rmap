@@ -18,6 +18,8 @@
   init
   new
   list
+  pause
+  resume
   ready
   next
   log

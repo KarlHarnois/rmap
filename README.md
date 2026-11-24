@@ -67,6 +67,10 @@ Commands:
     Removes the dependency between two items.
   graph [--roadmap <name>] [--all] [--level item|epic|roadmap] [--format mermaid]
     Prints the roadmaps, their items and dependencies as a Mermaid flowchart. Merged items show only with --all. --level epic or roadmap draws one node per epic or roadmap.
+  pause <name>
+    Pauses a roadmap: its open items wait, while work already started continues.
+  resume <name>
+    Resumes a paused roadmap.
   decision propose --roadmap <name> --file <path|-> [--item <id>] [--blocks <ids, comma-separated>] [--supersedes <decision id>]
     Proposes a decision for the owner to settle, read from the JSON document in --file (- reads stdin). It needs at least 2 options. description, pros and cons may be left out, and keys the document shape does not list are ignored. --item names the item that raised it, --blocks the open items or unfinished epics of its roadmap that wait on it, --supersedes the decision it would replace: accepted, or rejected in the same roadmap.
     Document:
@@ -132,6 +136,8 @@ Exit codes:
 Refusal codes:
   roadmap-not-found              No roadmap has that name.
   roadmap-exists                 A roadmap already has that name.
+  roadmap-already-paused         A pause changes nothing: the roadmap is already paused.
+  roadmap-not-paused             A resume changes nothing: the roadmap is not paused.
   item-not-found                 No item has that id.
   item-closed                    A merged, accepted or dropped item cannot be edited.
   parent-not-epic                The parent is not an epic.
@@ -141,7 +147,7 @@ Refusal codes:
   epic-status-computed           An epic's status comes from its children, so no command moves it.
   invalid-kind-change            Only an advance to dispatched can turn an item into a build.
   invalid-transition             The transition table has no such move for this item.
-  not-ready                      The item is blocked. The error lists blockers and dropped_blockers.
+  not-ready                      The item is blocked. The error lists whether the roadmap is paused, its blockers and its dropped_blockers.
   cycle                          The dependency would close a cycle of blocks dependencies.
   dep-exists                     The blocks dependency already exists.
   dep-not-found                  No such blocks dependency exists.
