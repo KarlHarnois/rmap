@@ -1,6 +1,6 @@
 (use ledger/refusal refusal refusal->message)
-(use ledger/model ->decision-id ->item-id)
-(use ledger/model/decisions decision-status)
+(use ledger/model ->blockage ->decision-id ->item-id
+                  decision-status roadmap-pause)
 
 (deftest a-priority-below-zero-message-names-the-range-and-the-value
   (assert (= (refusal->message (refusal/priority-out-of-range -1))
@@ -42,3 +42,27 @@
   (assert (= (refusal->message (refusal/already-asked (->decision-id :value (str
                                                                               "rm-0002"))))
              (str "the decision rm-0002 is already asked"))))
+
+(deftest a-not-ready-message-names-the-blocking-decisions
+  (assert (= (refusal->message
+               (refusal/not-ready
+                 (->blockage :pause roadmap-pause/not-paused
+                             :blockers (vec)
+                             :dropped-blockers (vec)
+                             :decisions (vec (->decision-id
+                                               :value (str "rm-d1"))))))
+             (str "the item is not ready; it waits on decisions rm-d1"))))
+
+(deftest a-block-exists-message-names-both-ids
+  (assert (= (refusal->message
+               (refusal/decision-block-exists
+                 (->decision-id :value (str "rm-d1"))
+                 (->item-id :value (str "rm-0001"))))
+             (str "the decision rm-d1 already blocks rm-0001"))))
+
+(deftest a-missing-block-message-names-both-ids
+  (assert (= (refusal->message
+               (refusal/decision-block-not-found
+                 (->decision-id :value (str "rm-d1"))
+                 (->item-id :value (str "rm-0001"))))
+             (str "the decision rm-d1 does not block rm-0001"))))

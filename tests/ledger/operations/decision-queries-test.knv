@@ -1,7 +1,8 @@
 (use ledger/api ->decision-query ->item-id list-decisions
                 propose-decision show-decision)
 
-(use ledger/model/decisions decision-status)
+(use ledger/model decision-status)
+(use ledger/model/decisions)
 
 (use support/ledger ledger-with-two-roadmaps
                     other-roadmap-name refusal-code-of

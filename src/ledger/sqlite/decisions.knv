@@ -4,8 +4,10 @@
 (use ledger/sqlite/values int->sql optional-text->sql
                           sql-value text->sql)
 
-(use ledger/model decision-id item-id roadmap-id timestamp)
-(use ledger/model/decisions decision decision-status)
+(use ledger/model decision-id decision-status item-id
+                  roadmap-id timestamp)
+
+(use ledger/model/decisions decision)
 (use ledger/names case-name decision-status-names)
 
 (use ledger/sqlite/connection connection database-error

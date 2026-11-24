@@ -1,0 +1,66 @@
+(use ledger/model decision-status kind status)
+
+(use ledger/core/decision-blocks blocking-decisions
+                                 blocking-status?)
+
+(use support/items child-of decision-block-on epic-item
+                   snapshot-of work-item)
+
+(defn snapshot-with (items blocks)
+  (assoc (snapshot-of items (vec)) :decision-blocks blocks))
+
+(defn blocked-ids (snapshot item)
+  (collect (map (iter (blocking-decisions (ref snapshot) (ref item)))
+             (fn (id) (clone (:value id))))))
+
+(defn open-item ()
+  (work-item "rm-0001" kind/build status/open))
+
+(defn block (decision item status)
+  (vec (decision-block-on decision item status)))
+
+(deftest proposed-decisions-block
+  (let (snapshot (snapshot-with (vec (open-item))
+                                (block "rm-d1" "rm-0001"
+                                       decision-status/proposed)))
+    (assert (= (blocked-ids snapshot (open-item))
+               (vec (str "rm-d1"))))))
+
+(deftest rejected-decisions-block
+  (let (snapshot (snapshot-with (vec (open-item))
+                                (block "rm-d1" "rm-0001"
+                                       decision-status/rejected)))
+    (assert (= (blocked-ids snapshot (open-item))
+               (vec (str "rm-d1"))))))
+
+(deftest settled-decisions-do-not-block
+  (let (snapshot (snapshot-with
+                   (vec (open-item))
+                   (vec (decision-block-on "rm-d1" "rm-0001"
+                                           decision-status/accepted)
+                        (decision-block-on "rm-d2" "rm-0001"
+                                           decision-status/deprecated)
+                        (decision-block-on "rm-d3" "rm-0001"
+                                           decision-status/superseded))))
+    (assert (empty? (blocked-ids snapshot (open-item))))))
+
+(deftest a-decision-on-an-epic-blocks-its-child
+  (let (child (child-of (open-item) "rm-e1")
+        snapshot (snapshot-with (vec (epic-item "rm-e1") (clone child))
+                                (block "rm-d1" "rm-e1"
+                                       decision-status/proposed)))
+    (assert (= (blocked-ids snapshot child)
+               (vec (str "rm-d1"))))))
+
+(deftest a-decision-on-another-item-blocks-nothing
+  (let (snapshot (snapshot-with (vec (open-item))
+                                (block "rm-d1" "rm-0002"
+                                       decision-status/proposed)))
+    (assert (empty? (blocked-ids snapshot (open-item))))))
+
+(deftest only-proposed-and-rejected-statuses-block
+  (assert (blocking-status? decision-status/proposed))
+  (assert (blocking-status? decision-status/rejected))
+  (assert (not (blocking-status? decision-status/accepted)))
+  (assert (not (blocking-status? decision-status/deprecated)))
+  (assert (not (blocking-status? decision-status/superseded))))

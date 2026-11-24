@@ -3,7 +3,7 @@
 
 (use ledger/model/events event)
 (use ledger/api ->graph-source graph-format)
-(use ledger/model/decisions decision-status)
+(use ledger/model decision-status)
 (use cli/replies reply)
 (use cli/reply-text reply->text)
 (use support/decisions sample-decision)

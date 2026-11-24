@@ -1,15 +1,20 @@
 (module
-  "Loads a snapshot of the whole ledger: items and dependencies.")
+  "Loads a snapshot of the whole ledger: items, dependencies and decision blocks.")
 
-(use ledger/model ->snapshot ->timestamp)
+(use ledger/model ->snapshot)
 (use ledger/sqlite/items all-items)
 (use ledger/sqlite/deps all-deps)
 (use ledger/sqlite/roadmaps all-roadmaps)
+(use ledger/sqlite/decision-blocks all-blocks)
 
 (export load-snapshot)
 
 (defn load-snapshot (connection)
   (let-try (roadmaps (all-roadmaps connection)
             items (all-items connection)
-            deps (all-deps connection))
-    (ok (->snapshot :roadmaps roadmaps :items items :deps deps))))
+            deps (all-deps connection)
+            decision-blocks (all-blocks connection))
+    (ok (->snapshot :roadmaps roadmaps
+                    :items items
+                    :deps deps
+                    :decision-blocks decision-blocks))))

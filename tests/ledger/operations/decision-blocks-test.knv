@@ -1,0 +1,139 @@
+(use ledger/api ->item-id add-decision-block event-type kind
+                ready-items remove-decision-block)
+
+(use support/decisions decision-id-of mark-status
+                       proposed-id)
+
+(use support/ledger added-id all-events claimed item-draft
+                    ledger-with-two-roadmaps
+                    other-roadmap-name refusal-code-of
+                    research research-in scratch-ledger)
+
+(defn proposed (settings)
+  (proposed-id (ref settings)))
+
+(defn epic (settings)
+  (added-id (ref settings) (item-draft kind/epic)))
+
+(defn child-of-epic (settings epic)
+  (added-id (ref settings)
+            (assoc (item-draft kind/build)
+                   :parent (some (clone epic)))))
+
+(defn research-in-other (settings)
+  (research-in (ref settings) other-roadmap-name))
+
+(defn item-id-of (text)
+  (->item-id :value (str text)))
+
+(deftest blocking-an-item-stores-it-and-records-an-event
+  (let (settings (scratch-ledger "decision-block-added")
+        item (research (ref settings))
+        decision (proposed (ref settings))
+        blocked (unwrap-ok (add-decision-block (ref settings)
+                                               (clone decision)
+                                               (clone item)))
+        events (unwrap-ok (all-events (ref settings)))
+        event (unwrap (last events)))
+    (assert (= (:blocks blocked) (vec (clone item))))
+    (assert (= (:type event) event-type/decision-block-added))
+    (assert (= (:item-id event) (some item)))
+    (assert (= (:decision-id event) (some decision)))))
+
+(deftest a-decision-cannot-block-an-item-it-already-blocks
+  (let (settings (scratch-ledger "decision-block-taken")
+        item (research (ref settings))
+        decision (proposed (ref settings))
+        _ (unwrap-ok (add-decision-block (ref settings)
+                                         (clone decision)
+                                         (clone item))))
+    (assert (= (refusal-code-of (add-decision-block (ref settings)
+                                                    (clone decision)
+                                                    (clone item)))
+               (some (str "decision-block-exists"))))))
+
+(deftest a-decision-cannot-block-an-item-in-another-roadmap
+  (let (settings (ledger-with-two-roadmaps "decision-block-other-roadmap")
+        elsewhere (research-in-other (ref settings)))
+    (assert (= (refusal-code-of (add-decision-block (ref settings)
+                                                    (proposed (ref settings))
+                                                    elsewhere))
+               (some (str "decision-in-other-roadmap"))))))
+
+(deftest a-decision-cannot-block-a-started-item
+  (let (settings (scratch-ledger "decision-block-claimed")
+        busy (claimed (ref settings)
+                      (research (ref settings))))
+    (assert (= (refusal-code-of (add-decision-block (ref settings)
+                                                    (proposed (ref settings))
+                                                    busy))
+               (some (str "not-blockable"))))))
+
+(deftest a-settled-decision-cannot-start-blocking
+  (let (settings (scratch-ledger "decision-block-frozen")
+        item (research (ref settings))
+        decision (proposed (ref settings)))
+    (mark-status (ref settings) (ref decision) "accepted")
+    (assert (= (refusal-code-of
+                 (add-decision-block (ref settings) decision item))
+               (some (str "decision-frozen"))))))
+
+(deftest blocking-an-epic-holds-a-child-added-later
+  (let (settings (scratch-ledger "decision-block-epic")
+        group (epic (ref settings))
+        decision (proposed (ref settings))
+        _ (unwrap-ok (add-decision-block (ref settings) (clone decision) group))
+        child (child-of-epic (ref settings) group)
+        readiness (unwrap-ok (ready-items (ref settings) none))
+        blockage (clone (:blockage (unwrap (first (:blocked readiness))))))
+    (assert (empty? (:ready readiness)))
+    (assert (= (:decisions blockage) (vec decision)))
+    (assert (= (:id (:item (unwrap (first (:blocked readiness)))))
+               child))))
+
+(deftest unblocking-releases-the-item
+  (let (settings (scratch-ledger "decision-unblock")
+        item (research (ref settings))
+        decision (proposed (ref settings))
+        _ (unwrap-ok (add-decision-block (ref settings)
+                                         (clone decision)
+                                         (clone item)))
+        freed (unwrap-ok (remove-decision-block (ref settings)
+                                                (clone decision)
+                                                (clone item)))
+        readiness (unwrap-ok (ready-items (ref settings) none)))
+    (assert (empty? (:blocks freed)))
+    (assert (= (len (:ready readiness)) 1))))
+
+(deftest unblocking-works-after-the-decision-is-settled
+  (let (settings (scratch-ledger "decision-unblock-settled")
+        item (research (ref settings))
+        decision (proposed (ref settings))
+        _ (unwrap-ok (add-decision-block (ref settings)
+                                         (clone decision)
+                                         (clone item))))
+    (mark-status (ref settings) (ref decision) "accepted")
+    (assert (ok? (remove-decision-block (ref settings)
+                                        (clone decision)
+                                        (clone item))))))
+
+(deftest unblocking-an-item-the-decision-never-blocked-is-refused
+  (let (settings (scratch-ledger "decision-unblock-missing")
+        item (research (ref settings))
+        decision (proposed (ref settings)))
+    (assert (= (refusal-code-of
+                 (remove-decision-block (ref settings) decision item))
+               (some (str "decision-block-not-found"))))))
+
+(deftest an-unknown-decision-or-item-is-refused
+  (let (settings (scratch-ledger "decision-block-unknown")
+        item (research (ref settings))
+        decision (proposed (ref settings)))
+    (assert (= (refusal-code-of (add-decision-block (ref settings)
+                                                    (decision-id-of "rm-ffff")
+                                                    (clone item)))
+               (some (str "decision-not-found"))))
+    (assert (= (refusal-code-of (add-decision-block (ref settings)
+                                                    decision
+                                                    (item-id-of "rm-ffff")))
+               (some (str "item-not-found"))))))

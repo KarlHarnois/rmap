@@ -7,7 +7,7 @@
 (use ledger/core/index index-of with-shown-status)
 (use ledger/core/phases finished?)
 
-(export check-blocks check-raising-item)
+(export check-block check-blocks check-raising-item)
 
 (defn check-raising-item (snapshot roadmap-id item)
   (match item

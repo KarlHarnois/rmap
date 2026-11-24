@@ -1,17 +1,18 @@
 (use ledger/names kind-names status-names)
 (use ledger/model/sessions ->session-start)
 
-(use ledger/model ->dep ->item ->item-id ->roadmap
-                  ->roadmap-id ->session ->snapshot
-                  ->timestamp ->work-session claim dep-type
-                  item kind origin roadmap-status runtime
-                  session-kind status)
+(use ledger/model ->decision-block ->decision-id ->dep
+                  ->item ->item-id ->roadmap ->roadmap-id
+                  ->session ->snapshot ->timestamp
+                  ->work-session claim dep-type item kind
+                  origin roadmap-status runtime session-kind
+                  status)
 
-(export blocks-dep child-of claimed discovered-dep epic-item
-        id-of in-roadmap kinds paused-roadmap-of
-        paused-snapshot-of roadmap-of session-start-named
-        snapshot-of statuses titled with-origin work-item
-        work-session-named)
+(export blocks-dep child-of claimed decision-block-on
+        discovered-dep epic-item id-of in-roadmap kinds
+        paused-roadmap-of paused-snapshot-of roadmap-of
+        session-start-named snapshot-of statuses titled
+        with-origin work-item work-session-named)
 
 (defn epic-item (id) (work-item id kind/epic status/open))
 
@@ -76,6 +77,11 @@
          :on (id-of on)
          :type dep-type/discovered-from))
 
+(defn decision-block-on (decision item status)
+  (->decision-block :decision (->decision-id :value (str decision))
+                    :item (id-of item)
+                    :status status))
+
 (defn blocks-dep (item on)
   (->dep :item (id-of item)
          :on (id-of on)
@@ -85,12 +91,16 @@
   (->item-id :value (str text)))
 
 (defn snapshot-of (items deps)
-  (->snapshot :roadmaps (vec) :items items :deps deps))
+  (->snapshot :roadmaps (vec)
+              :items items
+              :deps deps
+              :decision-blocks (vec)))
 
 (defn paused-snapshot-of (items deps)
   (->snapshot :roadmaps (vec (paused-roadmap-of "rm-road" "manager"))
               :items items
-              :deps deps))
+              :deps deps
+              :decision-blocks (vec)))
 
 (defn paused-roadmap-of (id manager)
   (assoc (roadmap-of id manager)

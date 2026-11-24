@@ -2,7 +2,8 @@
                 revise-decision show-decision
                 supersedes-change)
 
-(use ledger/model/decisions decision-status)
+(use ledger/model decision-status)
+(use ledger/model/decisions)
 
 (use support/ledger added-id all-events claimed item-draft
                     ledger-with-two-roadmaps

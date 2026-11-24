@@ -1,5 +1,5 @@
-(use ledger/model ->roadmap-id ->timestamp)
-(use ledger/model/decisions decision-status)
+(use ledger/model ->roadmap-id ->timestamp decision-status)
+(use ledger/model/decisions)
 (use ledger/refusal refusal)
 
 (use ledger/core/decisions ->decision-revision

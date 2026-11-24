@@ -1,7 +1,8 @@
 (module
   "Decides whether a decision can make a move, from the table of its states.")
 
-(use ledger/model/decisions decision decision-status)
+(use ledger/model decision-status)
+(use ledger/model/decisions decision)
 (use ledger/refusal refusal)
 
 (export approved-decision-move decision-move-type)

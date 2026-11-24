@@ -21,7 +21,8 @@
                                        (some (->blockage
                                                :pause roadmap-pause/not-paused
                                                :blockers (vec)
-                                               :dropped-blockers (vec)))))))
+                                               :dropped-blockers (vec)
+                                               :decisions (vec)))))))
     (assert (= (next-text (ref (vec entry)))
                (str "review  agent       s1  rm-0001  work\n"
                     "wait    controller  -   rm-0001  work")))))

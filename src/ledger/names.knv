@@ -2,12 +2,11 @@
   "Pairs each ledger enum case with the text that names it in the database and on the command line.")
 
 (use ledger/model/events event-type)
-(use ledger/model/decisions decision-status)
 (use ledger/model/sessions end-reason)
 (use ledger/model/reports report-kind)
 
-(use ledger/model dep-type graph-format kind origin
-                  roadmap-status runtime session-kind
+(use ledger/model decision-status dep-type graph-format kind
+                  origin roadmap-status runtime session-kind
                   status)
 
 (use ledger/core/actions action actor)
@@ -80,6 +79,10 @@
        (pair event-type/decision-accepted "decision-accepted")
        (pair event-type/decision-rejected "decision-rejected")
        (pair event-type/decision-deprecated "decision-deprecated")
+       (pair event-type/decision-block-added
+             "decision-block-added")
+       (pair event-type/decision-block-removed
+             "decision-block-removed")
        (pair event-type/item-reported "item-reported")
        (pair event-type/report-read "report-read")))
 

@@ -1,0 +1,92 @@
+(module
+  "Adds and removes the items a decision blocks, each in one transaction with its event.")
+
+(use ledger/model item-id)
+(use ledger/model/decisions decision)
+(use ledger/refusal refusal)
+(use ledger/core/decision-blocks check-block-add)
+(use ledger/core/index index-of)
+(use ledger/core/snapshot existing)
+(use ledger/sqlite/connection connection)
+
+(use ledger/sqlite/decision-blocks block-exists?
+                                   delete-block
+                                   insert-block)
+
+(use ledger/sqlite/snapshot load-snapshot)
+(use ledger/operations/transaction in-transaction record)
+(use ledger/failure failure)
+(use ledger/operations/lookups existing-decision)
+
+(use ledger/decision-events decision-block-added
+                            decision-block-removed)
+
+(export add-decision-block remove-decision-block)
+
+(defn add-decision-block (settings decision item)
+  (in-transaction settings
+    (fn (transaction) (add-in transaction decision item))))
+
+(defn remove-decision-block (settings decision item)
+  (in-transaction settings
+    (fn (transaction) (remove-in transaction decision item))))
+
+(defn add-in (transaction decision item)
+  (let (connection (ref (:connection transaction)))
+    (let-try (found (existing-decision connection decision)
+              snapshot (load-snapshot connection))
+      (let (index (index-of (ref snapshot)))
+        (let-try (_ (check-block-add (ref snapshot)
+                                     (ref index)
+                                     (ref found)
+                                     item)
+                  _ (check-block-missing connection (ref found) item))
+          (let-try (_ (insert-block connection (ref (:id found)) item)
+                    _ (record transaction
+                              (decision-block-added (ref found) item)))
+            (updated-decision connection (ref found))))))))
+
+(defn remove-in (transaction decision item)
+  (let (connection (ref (:connection transaction)))
+    (let-try (found (existing-decision connection decision)
+              snapshot (load-snapshot connection)
+              _ (existing (ref snapshot) item)
+              _ (check-block-present connection (ref found) item))
+      (let-try (_ (delete-block connection (ref (:id found)) item)
+                _ (record transaction
+                          (decision-block-removed (ref found) item)))
+        (updated-decision connection (ref found))))))
+
+(type check-block-missing
+  (fn ((ref connection)
+       (ref decision)
+       (ref item-id))
+    (result unit failure)))
+
+(defn check-block-missing (connection decision item)
+  (let-try (taken (block-exists? connection (ref (:id decision)) item))
+    (if taken
+      (err (failure/refused (refusal/decision-block-exists (clone (:id
+                                                                    decision))
+                                                           (clone item))))
+      (ok (do)))))
+
+(type check-block-present
+  (fn ((ref connection)
+       (ref decision)
+       (ref item-id))
+    (result unit failure)))
+
+(defn check-block-present (connection decision item)
+  (let-try (taken (block-exists? connection (ref (:id decision)) item))
+    (if taken
+      (ok (do))
+      (err (failure/refused (refusal/decision-block-not-found (clone (:id decision))
+                                                              (clone item)))))))
+
+(type updated-decision
+  (fn ((ref connection) (ref decision))
+    (result decision failure)))
+
+(defn updated-decision (connection decision)
+  (existing-decision connection (ref (:id decision))))

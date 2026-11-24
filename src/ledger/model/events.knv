@@ -46,5 +46,7 @@
   decision-accepted
   decision-rejected
   decision-deprecated
+  decision-block-added
+  decision-block-removed
   item-reported
   report-read)
