@@ -1,0 +1,64 @@
+(module
+  "Adds what unread reports ask of the manager to an item's next actions: the done report to accept, and each question to answer.")
+
+(use ledger/model item)
+(use ledger/model/reports report report-kind)
+
+(use ledger/core/actions action next-action
+                         planned-for-report)
+
+(use ledger/core/phases finished?)
+
+(export with-reports)
+
+(type with-reports
+  (fn ((vec next-action)
+       (ref (vec report))
+       (ref item))
+    (vec next-action)))
+
+(defn with-reports (actions reports item)
+  (let (listed (collect (map (iter actions)
+                          (fn (planned)
+                            (with-done-report planned reports item)))))
+    (for-each (answer-actions reports item)
+      (fn (answer)
+        (push! listed (clone answer))))
+    listed))
+
+(defn with-done-report (planned reports item)
+  (if (= (:action planned) action/accept-report)
+    (assoc (clone planned)
+           :report (newest-unread report-kind/done reports item))
+    (clone planned)))
+
+(type answer-actions
+  (fn ((ref (vec report)) (ref item))
+    (vec next-action)))
+
+(defn answer-actions (reports item)
+  (if (finished? (:status item))
+    (vec)
+    (collect (map (iter (unread-of report-kind/question reports item))
+               (fn (question)
+                 (planned-for-report action/answer
+                                     (some (clone (:session question)))
+                                     (:id question)))))))
+
+(defn newest-unread (kind reports item)
+  (map-some (last (unread-of kind reports item))
+    (fn (report) (:id report))))
+
+(type unread-of
+  (fn (report-kind (ref (vec report))
+                   (ref item))
+    (vec report)))
+
+(defn unread-of (kind reports item)
+  (collect (map (filter (iter reports)
+                  (fn (report)
+                    (and (= (:kind report) kind)
+                         (= (ref (:item report))
+                            (ref (:id item)))
+                         (none? (:read-at report)))))
+                clone)))

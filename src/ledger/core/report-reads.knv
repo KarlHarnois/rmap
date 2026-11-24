@@ -1,0 +1,45 @@
+(module
+  "Decides whether a report can be read, and whether reading it ends the session that sent it.")
+
+(use ledger/model item timestamp)
+(use ledger/model/reports report report-kind session-id)
+(use ledger/model/sessions ->session-end end-reason)
+(use ledger/refusal refusal)
+(use ledger/core/session-changes session-change)
+(use ledger/core/transitions reporting-kinds)
+
+(export check-unread marked-read read-session-change)
+
+(defn check-unread (report)
+  (match (:read-at report)
+    ((some _) (err (refusal/report-already-read (:id report))))
+    (none (ok (do)))))
+
+(defn marked-read (report now)
+  (assoc (clone report)
+         :read-at (some (clone now))))
+
+(type read-session-change
+  (fn ((ref report)
+       (ref item)
+       (ref (option session-id))
+       (ref timestamp))
+    session-change))
+
+(defn read-session-change (report item live now)
+  (if (ends-session? report item live)
+    (session-change/ended (->session-end :reason end-reason/finished
+                                         :at (clone now)))
+    session-change/kept))
+
+(type ends-session?
+  (fn ((ref report)
+       (ref item)
+       (ref (option session-id)))
+    bool))
+
+(defn ends-session? (report item live)
+  (and (= (:kind report) report-kind/done)
+       (contains? (reporting-kinds) (:kind item))
+       (= (deref live)
+          (some (:session-id report)))))

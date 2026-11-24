@@ -3,8 +3,8 @@
 
 (use cli/flag-specs flag-spec)
 
-(export ->route operands route route-name subcommand
-        word-count words)
+(export ->route operands report-command route route-name
+        subcommand word-count words)
 
 (defstruct route
   :subcommand subcommand
@@ -37,7 +37,14 @@
   decision-propose
   decision-revise
   decision-show
-  decision-list)
+  decision-list
+  (report report-command))
+
+(defenum report-command
+  record
+  list
+  show
+  read)
 
 (type word-count (fn ((ref route)) int))
 

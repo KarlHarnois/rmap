@@ -10,6 +10,7 @@
 (use cli/routes ->route operands subcommand words)
 (use cli/decision-commands decision-routes)
 (use cli/lifecycle-commands lifecycle-routes)
+(use cli/report-commands report-routes)
 
 (export boolean-flag-names routes)
 
@@ -28,6 +29,8 @@
     (for-each (lifecycle-routes)
       (fn (route) (push! all (clone route))))
     (for-each (decision-routes)
+      (fn (route) (push! all (clone route))))
+    (for-each (report-routes)
       (fn (route) (push! all (clone route))))
     all))
 

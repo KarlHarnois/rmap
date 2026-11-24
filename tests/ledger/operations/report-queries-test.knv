@@ -1,0 +1,82 @@
+(use ledger/api ->item-id ->report-id ->report-query
+                list-reports read-report report-kind
+                report-reading show-report)
+
+(use support/ledger claimed refusal-code-of research
+                    scratch-ledger)
+
+(use support/report-requests reported-by)
+
+(defn listed-ids (settings query)
+  (collect (map (iter (unwrap-ok (list-reports settings query)))
+             (fn (report) (:value (:id report))))))
+
+(defn every-report ()
+  (->report-query :item none
+                  :reading report-reading/every-report))
+
+(deftest the-list-holds-every-report-oldest-first
+  (let (settings (scratch-ledger "report-list-all")
+        first-item (claimed (ref settings)
+                            (research (ref settings)))
+        second-item (claimed (ref settings)
+                             (research (ref settings)))
+        first (reported-by (ref settings)
+                           (ref first-item)
+                           report-kind/question)
+        second (reported-by (ref settings)
+                            (ref second-item)
+                            report-kind/done))
+    (assert (= (listed-ids (ref settings) (every-report))
+               (vec (:value first) (:value second))))))
+
+(deftest the-list-narrows-to-an-item
+  (let (settings (scratch-ledger "report-list-item")
+        first-item (claimed (ref settings)
+                            (research (ref settings)))
+        second-item (claimed (ref settings)
+                             (research (ref settings))))
+    (reported-by (ref settings)
+                 (ref first-item)
+                 report-kind/question)
+    (let (second (reported-by (ref settings)
+                              (ref second-item)
+                              report-kind/question))
+      (assert (= (listed-ids (ref settings)
+                             (assoc (every-report)
+                                    :item (some (clone second-item))))
+                 (vec (:value second)))))))
+
+(deftest the-list-narrows-to-unread-reports
+  (let (settings (scratch-ledger "report-list-unread")
+        item (claimed (ref settings)
+                      (research (ref settings)))
+        first (reported-by (ref settings) (ref item) report-kind/question)
+        second (reported-by (ref settings) (ref item) report-kind/question))
+    (unwrap-ok (read-report (ref settings) first))
+    (assert (= (listed-ids (ref settings)
+                           (assoc (every-report)
+                                  :reading report-reading/unread-only))
+               (vec (:value second))))))
+
+(deftest listing-a-missing-item-is-refused
+  (let (settings (scratch-ledger "report-list-missing-item"))
+    (assert (= (refusal-code-of (list-reports (ref settings)
+                                              (assoc (every-report)
+                                                     :item (some (->item-id
+                                                                   :value (str "rm-ffff"))))))
+               (some (str "item-not-found"))))))
+
+(deftest showing-a-report-gives-its-body
+  (let (settings (scratch-ledger "report-show")
+        item (claimed (ref settings)
+                      (research (ref settings)))
+        id (reported-by (ref settings) (ref item) report-kind/question))
+    (assert (= (:body (unwrap-ok (show-report (ref settings) id)))
+               (str "the findings")))))
+
+(deftest showing-a-missing-report-is-refused
+  (let (settings (scratch-ledger "report-show-missing"))
+    (assert (= (refusal-code-of (show-report (ref settings)
+                                             (->report-id :value 4)))
+               (some (str "report-not-found"))))))

@@ -1,0 +1,12 @@
+(module
+  "Names each result a report call hands back to the CLI.")
+
+(use ledger/api recorded-report report)
+
+(export report-reply)
+
+(defenum report-reply
+  (recorded recorded-report)
+  (listed (vec report))
+  (shown report)
+  (read report))

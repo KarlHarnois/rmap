@@ -1,6 +1,7 @@
 (use ledger/model ->session item kind status)
 (use ledger/refusal refusal)
 (use ledger/core/move move)
+(use ledger/model/reports report-kind)
 (use ledger/core/transitions approved-move)
 
 (use support/items claimed kinds session-start-named
@@ -19,14 +20,23 @@
 
 (defn grid-matches-spec? (kind from)
   (let (item (work-item "rm-0001" kind from))
-    (every? (iter (attempts kind))
+    (every? (iter (attempts kind from))
       (fn (attempt)
         (= (verdict (ref item)
                     (ref (:proposed-move attempt)))
            (expected-refusal (ref item) attempt))))))
 
-(defn attempts (kind)
-  (let (all (vec (->attempt :command (str "claim")
+(defn attempts (kind from)
+  (let (all (vec (->attempt :command (str "report done")
+                            :proposed-move (move/report report-kind/done)
+                            :target (done-target kind))
+                 (->attempt :command (str "report fixed")
+                            :proposed-move (move/report report-kind/fixed)
+                            :target status/in-review)
+                 (->attempt :command (str "report question")
+                            :proposed-move (move/report report-kind/question)
+                            :target from)
+                 (->attempt :command (str "claim")
                             :proposed-move (move/claim (session-start-named
                                                          "s1"))
                             :target status/dispatched)
@@ -46,6 +56,9 @@
                           :proposed-move (move/advance (deref target))
                           :target (deref target)))))
     all))
+
+(defn done-target (kind)
+  (match kind (build status/in-review) (_ status/reported)))
 
 (defn close-target (kind)
   (match kind
@@ -144,6 +157,30 @@
        (->allowed-move :command (str "drop")
                        :from status/merging
                        :to status/dropped
+                       :kinds (work-kinds))
+       (->allowed-move :command (str "report done")
+                       :from status/dispatched
+                       :to status/reported
+                       :kinds (vec kind/research kind/design))
+       (->allowed-move :command (str "report question")
+                       :from status/dispatched
+                       :to status/dispatched
+                       :kinds (work-kinds))
+       (->allowed-move :command (str "report question")
+                       :from status/reported
+                       :to status/reported
+                       :kinds (work-kinds))
+       (->allowed-move :command (str "report question")
+                       :from status/in-review
+                       :to status/in-review
+                       :kinds (work-kinds))
+       (->allowed-move :command (str "report question")
+                       :from status/fixing
+                       :to status/fixing
+                       :kinds (work-kinds))
+       (->allowed-move :command (str "report question")
+                       :from status/merging
+                       :to status/merging
                        :kinds (work-kinds))))
 
 (defn work-kinds ()

@@ -1,0 +1,73 @@
+(use ledger/model ->timestamp kind status)
+
+(use ledger/model/reports ->report-id ->session-id
+                          report-kind)
+
+(use ledger/model/sessions ->session-end end-reason)
+(use ledger/refusal refusal)
+(use ledger/core/session-changes session-change)
+
+(use ledger/core/report-reads check-unread marked-read
+                              read-session-change)
+
+(use support/items claimed work-item)
+(use support/reports read-report-on report-on)
+
+(defn change-on-read (kind item-kind live)
+  (read-session-change (ref (report-on 1 "rm-0001" kind))
+                       (ref (claimed
+                              (work-item "rm-0001" item-kind status/reported)))
+                       (ref live)
+                       (ref (now))))
+
+(defn now ()
+  (->timestamp :value (str "2026-01-03T00:00:00Z")))
+
+(defn live-sender ()
+  (some (->session-id :value 1)))
+
+(deftest an-unread-report-can-be-read
+  (assert (ok? (check-unread (ref (report-on 1 "rm-0001"
+                                             report-kind/question))))))
+
+(deftest a-read-report-is-refused-as-already-read
+  (assert (= (unwrap-err (check-unread (ref (read-report-on
+                                              1 "rm-0001"
+                                              report-kind/question))))
+             (refusal/report-already-read (->report-id :value 1)))))
+
+(deftest marking-a-report-read-stamps-the-time
+  (assert (= (:read-at (marked-read (ref
+                                      (report-on 1 "rm-0001" report-kind/done))
+                                    (ref (now))))
+             (some (now)))))
+
+(deftest reading-a-research-done-report-ends-its-live-session
+  (assert (= (change-on-read report-kind/done kind/research
+                             (live-sender))
+             (session-change/ended (->session-end :reason end-reason/finished
+                                                  :at (now))))))
+
+(deftest reading-a-design-done-report-ends-its-live-session
+  (assert (= (change-on-read report-kind/done kind/design (live-sender))
+             (session-change/ended (->session-end :reason end-reason/finished
+                                                  :at (now))))))
+
+(deftest reading-a-question-keeps-the-session
+  (assert (= (change-on-read report-kind/question
+                             kind/research
+                             (live-sender))
+             session-change/kept)))
+
+(deftest reading-a-done-report-of-a-build-keeps-the-session
+  (assert (= (change-on-read report-kind/done kind/build (live-sender))
+             session-change/kept)))
+
+(deftest reading-after-the-sending-session-ended-keeps-the-item-session
+  (assert (= (change-on-read report-kind/done kind/research
+                             (some (->session-id :value 2)))
+             session-change/kept)))
+
+(deftest reading-when-no-session-is-live-changes-nothing
+  (assert (= (change-on-read report-kind/done kind/research none)
+             session-change/kept)))

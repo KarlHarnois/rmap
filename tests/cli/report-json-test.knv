@@ -1,0 +1,69 @@
+(use json/value copy-of field json->entries json->int
+                json->items json->text null? object)
+
+(use ledger/model kind status)
+(use ledger/model/reports ->recorded-report report-kind)
+(use cli/report-replies report-reply)
+(use cli/report-json report-reply-fields)
+(use support/items claimed work-item)
+(use support/reports read-report-on report-on)
+
+(defn reply-json (reply)
+  (object (report-reply-fields reply)))
+
+(defn keys-of (value)
+  (collect (map (iter (json->entries (ref value)))
+             (fn (entry) (clone (first entry))))))
+
+(defn report-field (value)
+  (copy-of (unwrap (field (ref value) "report"))))
+
+(deftest a-shown-report-carries-its-body
+  (let (report (report-field (reply-json
+                               (report-reply/shown
+                                 (report-on 3 "rm-0001" report-kind/done)))))
+    (assert (= (keys-of (copy-of (ref report)))
+               (vec (str "body")
+                    (str "created_at")
+                    (str "id")
+                    (str "item")
+                    (str "kind")
+                    (str "read_at")
+                    (str "session")
+                    (str "session_id"))))
+    (assert (= (json->int (ref (unwrap (field (ref report) "id"))))
+               (some 3)))
+    (assert (= (json->text (ref (unwrap (field (ref report) "kind"))))
+               (some (str "done"))))
+    (assert (null? (ref (unwrap (field (ref report) "read_at")))))))
+
+(deftest a-recorded-report-carries-the-item-it-moved
+  (let (value (reply-json (report-reply/recorded
+                            (->recorded-report
+                              :report (report-on 3 "rm-0001" report-kind/done)
+                              :item (claimed (work-item "rm-0001"
+                                                        kind/research
+                                                        status/reported))))))
+    (assert (= (keys-of (copy-of (ref value)))
+               (vec (str "item") (str "report"))))
+    (assert (= (json->text (ref (unwrap (field (ref (unwrap (field (ref value)
+                                                                   "item")))
+                                               "status"))))
+               (some (str "reported"))))))
+
+(deftest listed-reports-leave-out-the-body
+  (let (value (reply-json (report-reply/listed
+                            (vec (report-on 3 "rm-0001" report-kind/question))))
+        listed (unwrap (json->items (ref (unwrap (field (ref value)
+                                                        "reports"))))))
+    (assert (= (len listed) 1))
+    (assert (none? (field (at listed 0) "body")))))
+
+(deftest a-read-report-gives-when-it-was-read
+  (let (report (report-field (reply-json (report-reply/read (read-report-on
+                                                              3
+                                                              "rm-0001"
+                                                              report-kind/question)))))
+    (assert (= (json->text (ref (unwrap (field (ref report) "read_at"))))
+               (some (str "2026-01-03T00:00:00Z"))))
+    (assert (none? (field (ref report) "body")))))

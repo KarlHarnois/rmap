@@ -1,10 +1,11 @@
 (module
   "Turns the next actions for an item into the JSON object `rmap next` prints.")
 
-(use json/value array json object text->json)
+(use json/value array int->json json object text->json)
 
 (use ledger/api action-names actor-names case-name
-                kind-names next-item session status-names)
+                kind-names next-item report-id session
+                status-names)
 
 (use cli/ledger-json blockage-fields)
 
@@ -36,7 +37,8 @@
                    (pair (str "actor")
                          (text->json (case-name actor-names (:actor planned)))))
               (with-session (ref (:session planned)))
-              (with-reasons (ref (:reasons planned))))))
+              (with-reasons (ref (:reasons planned)))
+              (with-report (ref (:report planned))))))
 
 (type with-session
   (fn ((vec (pair string json))
@@ -57,6 +59,19 @@
      (appended fields
                (pair (str "reasons")
                      (object (blockage-fields blockage)))))
+    (none fields)))
+
+(type with-report
+  (fn ((vec (pair string json))
+       (ref (option report-id)))
+    (vec (pair string json))))
+
+(defn with-report (fields report)
+  (match report
+    ((some id)
+     (appended fields
+               (pair (str "report")
+                     (int->json (:value id)))))
     (none fields)))
 
 (defn appended (fields field)

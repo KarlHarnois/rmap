@@ -1,0 +1,30 @@
+(module
+  "Calls the ledger for each report request and names the reply it gives.")
+
+(use ledger/api list-reports read-report record-report
+                show-report)
+
+(use cli/report-requests report-operation)
+(use cli/report-replies report-reply)
+(use cli/replies reply)
+
+(export perform-report)
+
+(defn perform-report (settings operation)
+  (map-ok (report-result settings operation)
+    (fn (answer) (reply/reported answer))))
+
+(defn report-result (settings operation)
+  (match operation
+    ((report-operation/record request)
+     (map-ok (record-report settings request)
+       (fn (recorded) (report-reply/recorded recorded))))
+    ((report-operation/list query)
+     (map-ok (list-reports settings query)
+       (fn (reports) (report-reply/listed reports))))
+    ((report-operation/show id)
+     (map-ok (show-report settings id)
+       (fn (report) (report-reply/shown report))))
+    ((report-operation/read id)
+     (map-ok (read-report settings id)
+       (fn (report) (report-reply/read report))))))

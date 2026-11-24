@@ -1,0 +1,25 @@
+(use ledger/api ->item-id ->report-request ->session
+                body-source item-id record-report)
+
+(use support/ledger session-named)
+
+(export report-as reported-by worker-of)
+
+(defn reported-by (settings id kind)
+  (:id (:report (unwrap-ok (record-report settings
+                                          (report-as id
+                                                     (as-str (worker-of id))
+                                                     kind
+                                                     "the findings"))))))
+
+(type worker-of
+  (fn ((ref item-id)) string))
+
+(defn worker-of (id)
+  (str "worker-" (:value id)))
+
+(defn report-as (id session kind text)
+  (->report-request :item (clone id)
+                    :session (session-named session)
+                    :kind kind
+                    :body (body-source/text (str text))))

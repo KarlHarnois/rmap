@@ -7,18 +7,20 @@
                   item-id work-session)
 
 (use ledger/model/sessions session-end)
+(use ledger/model/reports ->session-id session-id)
 
 (use ledger/names case-name end-reason-names runtime-names
                   session-kind-names)
 
 (use ledger/sqlite/connection connection database-error
-                              execute)
+                              execute query)
 
-(use ledger/sqlite/rows named-cell optional-text-cell
+(use ledger/sqlite/rows int-cell named-cell
+                        optional-text-cell rows->values
                         text-cell)
 
-(export end-session live-session-columns live-session-join
-        row->claim start-session)
+(export end-session live-session-columns live-session-id
+        live-session-join row->claim start-session)
 
 (def live-session-columns
   "sessions.name, sessions.kind, sessions.runtime, sessions.branch, sessions.base, sessions.started_at")
@@ -55,6 +57,20 @@
            (ref (vec (text->sql (as-str (:value item)))
                      (text->sql (as-str (:value (:at end))))
                      (text->sql (case-name end-reason-names (:reason end)))))))
+
+(type live-session-id
+  (fn ((ref connection) (ref item-id))
+    (result (option session-id) database-error)))
+
+(defn live-session-id (connection item)
+  (let-try (rows (query connection
+                        "SELECT id FROM sessions WHERE item_id = ?1 AND ended_at IS NULL"
+                        (ref (vec (text->sql (as-str (:value item))))))
+            ids (rows->values (ref rows)
+                  (fn (row) (int-cell row 0))))
+    (ok (map-some (first ids)
+          (fn (id)
+            (->session-id :value (deref id)))))))
 
 (defn row->claim (row first-column)
   (let-try (name (optional-text-cell row first-column))

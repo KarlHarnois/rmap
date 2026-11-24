@@ -4,7 +4,9 @@
 (use ledger/model claim item item-id kind roadmap snapshot
                   status)
 
+(use ledger/model/reports report)
 (use ledger/core/actions action next-action planned)
+(use ledger/core/report-actions with-reports)
 (use ledger/core/ready readiness readiness-of)
 (use ledger/core/snapshot scope)
 (use ledger/core/order ordered)
@@ -17,26 +19,32 @@
   :actions (vec next-action))
 
 (type next-of
-  (fn ((ref snapshot) (ref (vec roadmap)))
+  (fn ((ref snapshot)
+       (ref (vec roadmap))
+       (ref (vec report)))
     (vec next-item)))
 
-(defn next-of (snapshot roadmaps)
+(defn next-of (snapshot roadmaps reports)
   (let (readiness (readiness-of snapshot (ref scope/every-roadmap))
         listed (vec))
     (for-each roadmaps
       (fn (roadmap)
-        (for-each (roadmap-next-items snapshot (ref readiness) roadmap)
-          (fn (entry)
-            (push! listed (clone entry))))))
+        (for-each (roadmap-next-items snapshot
+                                      (ref readiness)
+                                      reports roadmap)
+                  (fn (entry)
+                    (push! listed (clone entry))))))
     listed))
 
-(defn roadmap-next-items (snapshot readiness roadmap)
+(defn roadmap-next-items (snapshot readiness reports roadmap)
   (-> (ordered (work-items-in snapshot roadmap))
       iter
       (map (fn (item)
              (->next-item :item (clone item)
                           :roadmap (clone roadmap)
-                          :actions (actions-of readiness item))))
+                          :actions (with-reports (actions-of readiness item)
+                                                 reports
+                                                 item))))
       (filter (fn (entry)
                 (not (empty? (:actions entry)))))
       collect))

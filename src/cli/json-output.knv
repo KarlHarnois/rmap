@@ -6,7 +6,8 @@
 
 (use cli/responses response)
 (use cli/help command-help-document help-document)
-(use cli/envelopes error-envelope reply-envelope)
+(use cli/envelopes reply-envelope)
+(use cli/schema-envelope error-envelope)
 (use json/value int->json)
 (use cli/ledger-json blockage-fields)
 

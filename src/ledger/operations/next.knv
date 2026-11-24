@@ -6,6 +6,8 @@
 (use ledger/core/selection selected-roadmaps)
 (use ledger/sqlite/roadmaps all-roadmaps)
 (use ledger/sqlite/snapshot load-snapshot)
+(use ledger/sqlite/reports reports-matching)
+(use ledger/model/reports ->report-query report-reading)
 
 (use ledger/operations/transaction in-read-transaction
                                    settings)
@@ -31,7 +33,12 @@
 (defn next-within (connection roadmap manager)
   (let-try (scope (scope-named connection roadmap)
             roadmaps (all-roadmaps connection)
-            snapshot (load-snapshot connection))
+            snapshot (load-snapshot connection)
+            unread (reports-matching connection
+                                     (ref
+                                       (->report-query
+                                         :item none
+                                         :reading report-reading/unread-only))))
     (ok (next-of (ref snapshot)
-                 (ref
-                   (selected-roadmaps (ref roadmaps) (ref scope) manager))))))
+                 (ref (selected-roadmaps (ref roadmaps) (ref scope) manager))
+                 (ref unread)))))

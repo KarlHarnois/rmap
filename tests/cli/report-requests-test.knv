@@ -1,0 +1,93 @@
+(use ledger/api ->item-id ->report-id ->report-query
+                ->report-request ->session body-source
+                report-kind report-reading)
+
+(use cli/invocations invocation parse-invocation)
+(use cli/requests request)
+(use cli/report-requests report-operation)
+
+(defn operation-of (words)
+  (match (unwrap-ok (parsed words))
+    ((invocation/on-ledger call)
+     (operation-in (clone (:request call))))
+    (_ none)))
+
+(defn parsed (words)
+  (parse-invocation (collect (map (iter words)
+                               (fn (word) (str (deref word)))))))
+
+(defn operation-in (request)
+  (match request
+    ((request/report operation) (some operation))
+    (_ none)))
+
+(defn refusal-of (words)
+  (unwrap-err (parsed words)))
+
+(defn recorded (body)
+  (some (report-operation/record (->report-request :item (->item-id :value (str "rm-0001"))
+                                                   :session (->session :name (str
+                                                                               "s1"))
+                                                   :kind report-kind/done
+                                                   :body body))))
+
+(deftest a-report-reads-its-item-session-kind-and-text
+  (assert (= (operation-of (vec "report" "rm-0001"
+                                "--session" "s1" "--kind"
+                                "done" "--text" "found it"))
+             (recorded (body-source/text (str "found it"))))))
+
+(deftest a-report-reads-its-body-from-a-file
+  (assert (= (operation-of (vec "report" "rm-0001"
+                                "--session" "s1" "--kind"
+                                "done" "--file" "notes.md"))
+             (recorded (body-source/file (str "notes.md"))))))
+
+(deftest a-dash-file-reads-the-body-from-stdin
+  (assert (= (operation-of (vec "report" "rm-0001"
+                                "--session" "s1" "--kind"
+                                "done" "--file" "-"))
+             (recorded body-source/stdin))))
+
+(deftest a-report-needs-a-body
+  (assert (= (refusal-of (vec "report" "rm-0001" "--session"
+                              "s1" "--kind" "done"))
+             (str "report needs --text or --file"))))
+
+(deftest a-report-takes-only-one-body
+  (assert (= (refusal-of (vec "report" "rm-0001" "--session"
+                              "s1" "--kind" "done" "--text"
+                              "a" "--file" "b"))
+             (str "--text and --file cannot both be given"))))
+
+(deftest a-report-kind-must-be-known
+  (assert (= (refusal-of (vec "report" "rm-0001" "--session"
+                              "s1" "--kind" "praise"
+                              "--text" "a"))
+             (str "--kind does not accept praise"))))
+
+(deftest a-report-needs-a-session
+  (assert (= (refusal-of (vec "report" "rm-0001" "--kind" "done" "--text" "a"))
+             (str "report needs --session"))))
+
+(deftest the-list-reads-its-item-and-unread-switch
+  (assert (= (operation-of (vec "report" "list" "--item" "rm-0001" "--unread"))
+             (some (report-operation/list
+                     (->report-query :item (some (->item-id :value (str "rm-0001")))
+                                     :reading report-reading/unread-only))))))
+
+(deftest the-list-without-flags-holds-every-report
+  (assert (= (operation-of (vec "report" "list"))
+             (some (report-operation/list
+                     (->report-query :item none
+                                     :reading report-reading/every-report))))))
+
+(deftest show-and-read-take-a-report-number
+  (assert (= (operation-of (vec "report" "show" "12"))
+             (some (report-operation/show (->report-id :value 12)))))
+  (assert (= (operation-of (vec "report" "read" "12"))
+             (some (report-operation/read (->report-id :value 12))))))
+
+(deftest a-report-id-must-be-a-number
+  (assert (= (refusal-of (vec "report" "show" "rm-0001"))
+             (str "a report id is a whole number, got rm-0001"))))

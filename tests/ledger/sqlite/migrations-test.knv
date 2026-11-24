@@ -63,6 +63,12 @@ INSERT INTO items (id, roadmap_id, title, kind, status, claimed_by, created_at) 
   ('rm-0002', 'rm-0001', 'older', 'build', 'dispatched', 's1', '2026-01-02T00:00:00Z'),
   ('rm-0003', 'rm-0001', 'newer', 'build', 'dispatched', 's1', '2026-01-03T00:00:00Z');")
 
+(def version-seven-rows
+  "INSERT INTO roadmaps (id, name, manager_session, created_at) VALUES ('rm-0001', 'road', 'm1', '2026-01-01T00:00:00Z');
+INSERT INTO items (id, roadmap_id, title, kind, status, created_at) VALUES
+  ('rm-0002', 'rm-0001', 'study', 'research', 'dispatched', '2026-01-02T00:00:00Z');
+INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('s1', 'rm-0002', 'work', '2026-01-03T00:00:00Z');")
+
 (defn embedded-files ()
   (let (files (collect (map (iter (migration-sources))
                          (fn (migration)
@@ -174,6 +180,13 @@ INSERT INTO items (id, roadmap_id, title, kind, status, claimed_by, created_at) 
                   (fn (migration)
                     (<= (:version migration) version)))
                 clone)))
+
+(defn upgraded-from-version-seven (name)
+  (let (connection (opened name))
+    (unwrap-ok (migrate (ref connection) (migrations-through 7)))
+    (unwrap-ok (run-batch (ref connection) version-seven-rows))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    connection))
 
 (deftest every-migration-file-is-embedded
   (assert (= (embedded-files)
@@ -388,3 +401,28 @@ INSERT INTO items (id, roadmap_id, title, kind, status, claimed_by, created_at) 
                              "INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('s1', 'rm-0004', 'work', 't');")))
     (assert (ok? (run-batch (ref connection)
                             "INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('s2', 'rm-0004', 'work', 't');")))))
+
+(deftest the-reports-migration-adds-an-empty-reports-table-to-an-existing-ledger
+  (let (connection (upgraded-from-version-seven "reports-table"))
+    (assert (= (row-count (ref connection) "reports") 0))
+    (assert (= (row-count (ref connection) "sessions") 1))
+    (assert (= (row-count (ref connection) "items") 1))
+    (assert (= (unwrap-ok (schema-version (ref connection)))
+               (newest-version)))))
+
+(deftest a-report-on-an-existing-session-is-kept
+  (let (connection (upgraded-from-version-seven "reports-insert"))
+    (assert (ok? (run-batch (ref connection)
+                            "INSERT INTO reports (item_id, session_id, kind, body, created_at) VALUES ('rm-0002', 1, 'question', 'why?', 't');")))
+    (assert (= (row-count (ref connection) "reports WHERE read_at IS NULL")
+               1))))
+
+(deftest a-report-of-an-unknown-kind-is-refused
+  (let (connection (upgraded-from-version-seven "reports-kind"))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO reports (item_id, session_id, kind, body, created_at) VALUES ('rm-0002', 1, 'praise', 'nice', 't');")))))
+
+(deftest a-report-without-a-body-is-refused
+  (let (connection (upgraded-from-version-seven "reports-body"))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO reports (item_id, session_id, kind, created_at) VALUES ('rm-0002', 1, 'done', 't');")))))

@@ -8,9 +8,12 @@
 (use ledger/sqlite/connection connection)
 (use ledger/sqlite/roadmaps roadmap-named)
 (use ledger/sqlite/decisions decision-with-id)
+(use ledger/sqlite/reports report-with-id)
+(use ledger/model/reports report report-id)
 (use ledger/failure failure)
 
-(export existing-decision roadmap-id-named scope-named)
+(export existing-decision existing-report roadmap-id-named
+        scope-named)
 
 (defn scope-named (connection name)
   (match name
@@ -38,3 +41,13 @@
     (match found
       ((some decision) (ok decision))
       (none (err (failure/refused (refusal/decision-not-found (clone id))))))))
+
+(type existing-report
+  (fn ((ref connection) (ref report-id))
+    (result report failure)))
+
+(defn existing-report (connection id)
+  (let-try (found (report-with-id connection id))
+    (match found
+      ((some report) (ok report))
+      (none (err (failure/refused (refusal/report-not-found (clone id))))))))

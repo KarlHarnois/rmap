@@ -1,0 +1,62 @@
+(module
+  "Decides whether a session may report on its item, the move the report makes, and the report it records.")
+
+(use ledger/model claim item session timestamp)
+
+(use ledger/model/reports ->report report report-id
+                          report-kind session-id)
+
+(use ledger/refusal refusal)
+(use ledger/core/move move)
+(use ledger/core/transitions approved-move)
+
+(export ->report-stamp approved-report report-stamp
+        stamped-report)
+
+(defstruct report-stamp
+  :id report-id
+  :session-id session-id
+  :created-at timestamp)
+
+(defn approved-report (snapshot item session kind body)
+  (let-try (_ (check-claimant item session)
+            move (approved-move snapshot item (move/report kind))
+            _ (check-body body))
+    (ok move)))
+
+(type stamped-report
+  (fn ((ref item) (ref session) report-kind string report-stamp)
+    report))
+
+(defn stamped-report (item session kind body stamp)
+  (->report :id (:id stamp)
+            :item (clone (:id item))
+            :session-id (:session-id stamp)
+            :session (clone session)
+            :kind kind
+            :body body
+            :created-at (clone (:created-at stamp))
+            :read-at none))
+
+(defn check-claimant (item session)
+  (if (claimed-by? (ref (:claim item)) session)
+    (ok (do))
+    (err (refusal/session-not-claimant (clone session)
+                                       (clone (:id item))))))
+
+(type claimed-by?
+  (fn ((ref claim) (ref session)) bool))
+
+(defn claimed-by? (claim session)
+  (match claim
+    ((claimed-by live) (= (ref (:session live)) session))
+    (unclaimed false)))
+
+(type check-body
+  (fn ((ref string))
+    (result unit refusal)))
+
+(defn check-body (body)
+  (if (empty? (trim body))
+    (err refusal/report-empty)
+    (ok (do))))

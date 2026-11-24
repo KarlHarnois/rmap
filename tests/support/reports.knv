@@ -1,0 +1,18 @@
+(use ledger/model ->item-id ->session ->timestamp)
+(use ledger/model/reports ->report ->report-id ->session-id)
+
+(export read-report-on report-on)
+
+(defn read-report-on (id item kind)
+  (assoc (report-on id item kind)
+         :read-at (some (->timestamp :value (str "2026-01-03T00:00:00Z")))))
+
+(defn report-on (id item kind)
+  (->report :id (->report-id :value id)
+            :item (->item-id :value (str item))
+            :session-id (->session-id :value 1)
+            :session (->session :name (str "worker"))
+            :kind kind
+            :body (str "the findings")
+            :created-at (->timestamp :value (str "2026-01-02T00:00:00Z"))
+            :read-at none))

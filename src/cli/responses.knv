@@ -27,6 +27,7 @@
   (match failure
     ((failure/refused _) exit-code/refused)
     ((failure/description-unreadable _) exit-code/usage)
+    ((failure/report-unreadable _) exit-code/usage)
     ((failure/no-repository _) exit-code/usage)
     ((failure/no-ledger _) exit-code/usage)
     ((failure/database _) exit-code/database)))

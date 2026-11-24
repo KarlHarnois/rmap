@@ -1,0 +1,168 @@
+(use json/value copy-of field json->int json->items
+                json->text)
+
+(use support/rmap database-with-roadmap error-code
+                  research-id run-rmap run-rmap-with-stdin
+                  text-at)
+
+(defn claimed-research (database)
+  (let (item (research-id (clone database)))
+    (assert (= (:exit-code
+                 (run-rmap (clone database)
+                           (vec "item" "claim" (as-str item) "--session" "s1")))
+               0))
+    item))
+
+(defn report (database item kind text)
+  (run-rmap (clone database)
+            (vec "report"
+                 (as-str item)
+                 "--session" "s1" "--kind" kind "--text"
+                 text)))
+
+(defn report-id-of (reply)
+  (unwrap (json->int (ref (unwrap (field (ref (unwrap (field (ref (:json reply))
+                                                             "report")))
+                                         "id"))))))
+
+(defn first-actions (reply)
+  (let (entry (copy-of (unwrap (first (unwrap (json->items (ref (unwrap
+                                                                  (field (ref (:json
+                                                                                reply))
+                                                                         "next")))))))))
+    (collect (map (iter (unwrap (json->items (ref (unwrap (field (ref entry)
+                                                                 "actions"))))))
+                  (fn (action) (copy-of action))))))
+
+(defn action-text (action key)
+  (json->text (ref (unwrap (field action key)))))
+
+(defn action-report (action)
+  (then-some (field action "report")
+    (fn (id) (json->int (ref id)))))
+
+(deftest a-done-report-prints-the-report-and-the-reported-item
+  (let (database (database-with-roadmap "e2e-report-done")
+        item (claimed-research (ref database))
+        reply (report (ref database) (ref item) "done" "found it"))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (text-at (ref reply) "item" "status")
+               (str "reported")))
+    (assert (= (text-at (ref reply) "report" "body")
+               (str "found it")))
+    (assert (= (text-at (ref reply) "report" "session")
+               (str "s1")))))
+
+(deftest a-report-body-can-come-from-stdin
+  (let (database (database-with-roadmap "e2e-report-stdin")
+        item (claimed-research (ref database))
+        reply (run-rmap-with-stdin (clone database)
+                                   (vec (str "report")
+                                        (clone item)
+                                        (str "--session")
+                                        (str "s1")
+                                        (str "--kind")
+                                        (str "question")
+                                        (str "--file")
+                                        (str "-"))
+                                   (str "piped question")))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (text-at (ref reply) "report" "body")
+               (str "piped question")))
+    (assert (= (text-at (ref reply) "item" "status")
+               (str "dispatched")))))
+
+(deftest a-report-from-another-session-is-refused
+  (let (database (database-with-roadmap "e2e-report-intruder")
+        item (claimed-research (ref database))
+        reply (run-rmap (clone database)
+                        (vec "report"
+                             (as-str item)
+                             "--session" "s2" "--kind"
+                             "question" "--text" "hi")))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "session-not-claimant")))))
+
+(deftest list-show-and-read-follow-a-report
+  (let (database (database-with-roadmap "e2e-report-read")
+        item (claimed-research (ref database))
+        id (report-id-of
+             (ref (report (ref database) (ref item) "question" "which?")))
+        id-text (str id))
+    (assert (= (len (unwrap (json->items (ref (unwrap (field (ref (:json (run-rmap
+                                                                           (clone
+                                                                             database)
+                                                                           (vec "report"
+                                                                                "list"
+                                                                                "--unread"))))
+                                                             "reports"))))))
+               1))
+    (assert (= (text-at (ref (run-rmap (clone database)
+                                       (vec "report" "show" (as-str id-text))))
+                        "report" "body")
+               (str "which?")))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "report" "read" (as-str id-text))))
+               0))
+    (assert (= (error-code (ref (run-rmap
+                                  (clone database)
+                                  (vec "report" "read" (as-str id-text)))))
+               (str "report-already-read")))
+    (assert (= (len (unwrap (json->items (ref (unwrap (field (ref (:json (run-rmap
+                                                                           (clone
+                                                                             database)
+                                                                           (vec "report"
+                                                                                "list"
+                                                                                "--unread"))))
+                                                             "reports"))))))
+               0))))
+
+(deftest next-asks-the-agent-to-answer-an-unread-question
+  (let (database (database-with-roadmap "e2e-report-next-answer")
+        item (claimed-research (ref database))
+        id (report-id-of
+             (ref (report (ref database) (ref item) "question" "which?")))
+        actions (first-actions (ref (run-rmap (clone database) (vec "next")))))
+    (assert (= (action-text (at actions 0) "action")
+               (some (str "work"))))
+    (assert (= (action-text (at actions 1) "action")
+               (some (str "answer"))))
+    (assert (= (action-text (at actions 1) "actor")
+               (some (str "agent"))))
+    (assert (= (action-report (at actions 1))
+               (some id)))))
+
+(deftest next-names-the-unread-done-report-to-accept
+  (let (database (database-with-roadmap "e2e-report-next-accept")
+        item (claimed-research (ref database))
+        id (report-id-of
+             (ref (report (ref database) (ref item) "done" "found it")))
+        actions (first-actions (ref (run-rmap (clone database) (vec "next")))))
+    (assert (= (action-text (at actions 0) "action")
+               (some (str "accept-report"))))
+    (assert (= (action-report (at actions 0))
+               (some id)))))
+
+(deftest reading-the-done-report-ends-the-session-and-accepting-closes-the-item
+  (let (database (database-with-roadmap "e2e-report-read-accept")
+        item (claimed-research (ref database))
+        id (report-id-of
+             (ref (report (ref database) (ref item) "done" "found it"))))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "report" "read" (as-str (str id)))))
+               0))
+    (assert (none? (json->text (ref (unwrap
+                                      (field (ref (unwrap
+                                                    (field (ref (:json (run-rmap
+                                                                         (clone database)
+                                                                         (vec "item"
+                                                                              "show"
+                                                                              (as-str
+                                                                                item)))))
+                                                           "item")))
+                                             "claimed_by"))))))
+    (assert (= (text-at (ref (run-rmap (clone database)
+                                       (vec "item" "close" (as-str item))))
+                        "item" "status")
+               (str "accepted")))))

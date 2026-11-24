@@ -5,6 +5,8 @@
                 init-report item item-detail next-item
                 readiness roadmap)
 
+(use cli/report-replies report-reply)
+
 (export reply)
 
 (defenum reply
@@ -27,4 +29,5 @@
   (decision-proposed decision)
   (decision-revised decision)
   (decision-shown decision)
-  (decisions-listed (vec decision)))
+  (decisions-listed (vec decision))
+  (reported report-reply))

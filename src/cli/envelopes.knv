@@ -1,7 +1,7 @@
 (module
-  "Wraps command results and errors in the JSON object the CLI prints, with its output schema version.")
+  "Wraps each command result in the JSON object the CLI prints.")
 
-(use json/value array int->json json object text->json)
+(use json/value array json object text->json)
 
 (use ledger/api case-name graph-format-names graph-source
                 init-outcome-names init-report item-detail)
@@ -13,25 +13,10 @@
 
 (use cli/next-json next-item->json)
 (use cli/decision-json decision->json)
+(use cli/report-json report-reply-fields)
+(use cli/schema-envelope envelope)
 
-(export envelope error-envelope reply-envelope)
-
-(def output-schema-version 4)
-
-(defn error-envelope (code message details)
-  (let (fields details)
-    (push! fields
-           (pair (str "code") (text->json code)))
-    (push! fields
-           (pair (str "message") (text->json message)))
-    (envelope (vec (pair (str "error") (object fields))))))
-
-(defn envelope (fields)
-  (let (all fields)
-    (push! all
-           (pair (str "schema_version")
-                 (int->json output-schema-version)))
-    (object all)))
+(export reply-envelope)
 
 (defn reply-envelope (reply)
   (match reply
@@ -62,7 +47,9 @@
     ((reply/decision-shown decision)
      (decision-envelope decision))
     ((reply/decisions-listed decisions)
-     (decisions-envelope decisions))))
+     (decisions-envelope decisions))
+    ((reply/reported answer)
+     (envelope (report-reply-fields answer)))))
 
 (defn decision-envelope (decision)
   (envelope (vec (pair (str "decision")
