@@ -7,7 +7,8 @@
 (use cli/flag-specs boolean-flag boolean? choices
                     global-flags optional required)
 
-(use cli/routes ->route subcommand)
+(use cli/routes ->route operands subcommand words)
+(use cli/decision-commands decision-routes)
 
 (export boolean-flag-names routes)
 
@@ -22,6 +23,12 @@
                   (fn (spec) (clone (:name spec)))))))
 
 (defn routes ()
+  (let (all (item-routes))
+    (for-each (decision-routes)
+      (fn (route) (push! all (clone route))))
+    all))
+
+(defn item-routes ()
   (vec (->route :subcommand subcommand/help
                 :words (words "help")
                 :summary (str "Prints this help.")
@@ -56,9 +63,10 @@
                             (optional "manager" "<session>")))
        (->route :subcommand subcommand/log
                 :words (words "log")
-                :summary (str "Prints the events, for one item or after one event id when given.")
+                :summary (str "Prints the events, for one item, for one decision or after one event id when given.")
                 :operands (vec)
                 :flags (vec (optional "item" "<id>")
+                            (optional "decision" "<id>")
                             (optional "since" "<event id>")))
        (->route :subcommand subcommand/item-add
                 :words (words "item add")
@@ -132,9 +140,3 @@
                             (boolean-flag "all")
                             (optional "level" (choices graph-level-names))
                             (optional "format" (choices graph-format-names))))))
-
-(defn words (text)
-  (collect (map (split text " ") str)))
-
-(defn operands (names)
-  (collect (map (iter names) str)))

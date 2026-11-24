@@ -1,22 +1,14 @@
-(use json/value field json->items json->text null?
-                parse-json)
+(use json/value copy-of field json->items json->text null?)
 
 (use support/rmap database-with-roadmap error-code run-rmap
-                  run-rmap-text text-at)
+                  run-rmap-text run-rmap-with-stdin text-at)
 
 (use support/scratch scratch-database)
-
-(def binary-path "target/knave/rmap/rmap")
 
 (def write-file
   (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
     (fn ((ref str) (ref str))
       (result unit string))))
-
-(def run-with-stdin
-  (rust "{{ match std::process::Command::new({0}).args({1}).stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).spawn() {{ Ok(mut child) => {{ let written = match child.stdin.as_mut() {{ Some(stdin) => std::io::Write::write_all(stdin, {2}.as_bytes()).map_err(|failure| failure.to_string()), None => Err(\"the process has no stdin\".to_string()), }}; match written {{ Ok(_) => match child.wait_with_output() {{ Ok(output) => Ok((output.status.code().unwrap_or(-1), String::from_utf8_lossy(&output.stdout).to_string())), Err(failure) => Err(failure.to_string()), }}, Err(failure) => Err(failure), }} }}, Err(failure) => Err(failure.to_string()), }} }}"
-    (fn ((ref str) (ref (vec string)) (ref str))
-      (result (pair i32 string) string))))
 
 (defn item-add (database extra)
   (let (args (vec (str "item")
@@ -32,20 +24,9 @@
     (run-rmap (clone database) args)))
 
 (defn stdin-reply (database args text)
-  (let-match ((pair code stdout) (unwrap-ok (run-with-stdin binary-path
-                                                            (json-args database
-                                                                       args)
-                                                            (as-str text))))
-    (assert (= code 0))
-    (unwrap-ok (parse-json (as-str stdout)))))
-
-(defn json-args (database args)
-  (let (all (vec (str "--json")
-                 (str "--db")
-                 (clone database)))
-    (for-each args
-      (fn (arg) (push! all (str arg))))
-    all))
+  (let (reply (run-rmap-with-stdin database args text))
+    (assert (= (:exit-code reply) 0))
+    (copy-of (ref (:json reply)))))
 
 (defn item-description (database id)
   (unwrap (field (shown-item database id) "description")))

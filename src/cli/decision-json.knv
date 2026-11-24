@@ -1,0 +1,86 @@
+(module
+  "Turns decisions into the JSON objects the CLI prints.")
+
+(use json/value int->json json object text->json)
+
+(use ledger/api case-name decision decision-status-names
+                ids->json optional-decision-id->json
+                optional-id->json optional-text->json
+                optional-timestamp->json options->json
+                outcome recommendation)
+
+(export decision->json)
+
+(type decision->json
+  (fn ((ref decision)) json))
+
+(defn decision->json (decision)
+  (object (vec
+            (field "id"
+                   (text->json (as-str (:value (:id decision)))))
+            (field "roadmap_id"
+                   (text->json (as-str (:value (:roadmap-id decision)))))
+            (field "roadmap"
+                   (text->json (as-str (:roadmap-name decision))))
+            (field "item_id"
+                   (optional-id->json (ref (:item decision))))
+            (field "title"
+                   (text->json (as-str (:title decision))))
+            (field "context"
+                   (text->json (as-str (:context decision))))
+            (field "status"
+                   (text->json (case-name decision-status-names
+                                          (:status decision))))
+            (field "options"
+                   (options->json (ref (:options decision))))
+            (field "recommendation"
+                   (recommendation->json (ref (:recommendation decision))))
+            (field "outcome"
+                   (optional-outcome->json (ref (:outcome decision))))
+            (field "deprecation_reason"
+                   (optional-text->json (ref (:deprecation-reason decision))))
+            (field "supersedes"
+                   (optional-decision-id->json (ref (:supersedes decision))))
+            (field "superseded_by"
+                   (optional-decision-id->json (ref (:superseded-by decision))))
+            (field "blocks"
+                   (ids->json (ref (:blocks decision))))
+            (field "asked_at"
+                   (optional-timestamp->json (ref (:asked-at decision))))
+            (field "created_at"
+                   (text->json (as-str (:value (:created-at decision))))))))
+
+(type recommendation->json
+  (fn ((ref recommendation)) json))
+
+(defn recommendation->json (recommendation)
+  (object (vec (field "option" (int->json (:option recommendation)))
+               (field "reason"
+                      (text->json (as-str (:reason recommendation)))))))
+
+(defn field (key value)
+  (pair (str key) value))
+
+(defn optional-outcome->json (outcome)
+  (match outcome
+    ((some present) (outcome->json present))
+    (none json/null)))
+
+(type outcome->json
+  (fn ((ref outcome)) json))
+
+(defn outcome->json (outcome)
+  (object (vec (field "option" (optional-number->json (:option outcome)))
+               (field "justification"
+                      (text->json (as-str (:justification outcome))))
+               (field "consequences"
+                      (optional-text->json (ref (:consequences outcome))))
+               (field "decided_by"
+                      (text->json (as-str (:decided-by outcome))))
+               (field "decided_at"
+                      (text->json (as-str (:value (:decided-at outcome))))))))
+
+(defn optional-number->json (number)
+  (match number
+    ((some present) (int->json present))
+    (none json/null)))

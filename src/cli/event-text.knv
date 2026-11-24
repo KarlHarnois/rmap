@@ -1,8 +1,8 @@
 (module
   "Describes ledger events in plain text: one row per event, with its roadmap and the details its payload records, with each recorded change as `column=old->new`.")
 
-(use json/value field json->entries json->items json->source
-                json->text null?)
+(use json/value copy-of field json->entries json->items
+                json->source json->text null?)
 
 (use ledger/api case-name event event-type-names roadmap-id)
 (use cli/tables headed table)
@@ -36,7 +36,18 @@
        (str (case-name event-type-names (:type event)))
        (optional-roadmap-id-text (ref (:roadmap-id event)))
        (optional-id-text (ref (:item-id event)))
-       (payload-text (ref (:payload event)))))
+       (details-text event)))
+
+(type details-text
+  (fn ((ref event)) string))
+
+(defn details-text (event)
+  (let (payload (payload-text (ref (:payload event))))
+    (match (ref (:decision-id event))
+      ((some id)
+       (join (vec (str "decision=" (:value id)) payload)
+             " "))
+      (none payload))))
 
 (type optional-roadmap-id-text
   (fn ((ref (option roadmap-id))) string))
@@ -59,7 +70,17 @@
   (cond
     ((= key "changes") (changes-texts value))
     ((null? value) (vec))
+    ((old-and-new? value) (recorded-change-texts key value))
     (else (vec (str key "=" (value-text value))))))
+
+(defn old-and-new? (value)
+  (and (some? (field value "old"))
+       (some? (field value "new"))))
+
+(defn recorded-change-texts (key change)
+  (if (recorded? change)
+    (vec (change-text (pair (str key) (copy-of change))))
+    (vec)))
 
 (defn changes-texts (changes)
   (-> (json->entries changes)

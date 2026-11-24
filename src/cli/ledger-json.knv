@@ -5,10 +5,10 @@
 
 (use ledger/api case-name claim dep dep-type-names event
                 event-type-names ids->json item item-id
-                kind-names optional-id->json
-                optional-text->json origin-names roadmap
-                roadmap-id roadmap-status-names status-names
-                timestamp)
+                kind-names optional-decision-id->json
+                optional-id->json optional-text->json
+                origin-names roadmap roadmap-id
+                roadmap-status-names status-names timestamp)
 
 (export blockage-fields blocked->json dep->json event->json
         ids->json item->json item-id->json roadmap->json)
@@ -43,6 +43,8 @@
                      (optional-roadmap-id->json (ref (:roadmap-id event))))
                (pair (str "item_id")
                      (optional-id->json (ref (:item-id event))))
+               (pair (str "decision_id")
+                     (optional-decision-id->json (ref (:decision-id event))))
                (pair (str "type")
                      (text->json (case-name event-type-names (:type event))))
                (pair (str "payload")

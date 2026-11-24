@@ -18,6 +18,7 @@
            :actor (str "ana")
            :roadmap-id (some (->roadmap-id :value (str "rm-0a0a")))
            :item-id (some (id-of "rm-0001"))
+           :decision-id none
            :type event-type/item-claimed
            :payload (legacy-claim-payload)))
 

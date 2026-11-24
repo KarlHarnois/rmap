@@ -34,6 +34,11 @@
   (parse-invocation (collect (map (iter words)
                                (fn (word) (str (deref word)))))))
 
+(defn document-call-of (words)
+  (match (unwrap-ok (parsed words))
+    ((invocation/on-document call) (some call))
+    (_ none)))
+
 (deftest help-needs-no-ledger
   (assert (= (unwrap-ok (parsed (vec "help")))
              invocation/help)))
@@ -186,3 +191,23 @@
 (deftest the-help-flag-on-an-unknown-command-in-a-group-is-refused
   (assert (refused-with? (vec "item" "frob" "--help")
                          "unknown command: item frob")))
+
+(deftest decision-propose-waits-on-its-document
+  (assert (some? (document-call-of
+                   (vec "decision" "propose" "--roadmap"
+                        "road" "--file" "proposal.json")))))
+
+(deftest decision-propose-needs-a-file
+  (assert (refused-with? (vec "decision" "propose" "--roadmap" "road")
+                         "needs --file")))
+
+(deftest decision-revise-waits-on-its-document
+  (assert (some? (document-call-of
+                   (vec "decision" "revise" "rm-0001" "--file" "-")))))
+
+(deftest decision-show-calls-the-ledger
+  (assert (some? (ledger-call-of (vec "decision" "show" "rm-0001")))))
+
+(deftest decision-list-refuses-an-unknown-status
+  (assert (refused-with? (vec "decision" "list" "--status" "pending")
+                         "--status does not accept pending")))

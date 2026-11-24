@@ -1,17 +1,13 @@
 (module
   "Parses the command line into an invocation: help, help for some commands, or a call to the ledger.")
 
-(use ledger/api ->advancement ->item-id ->new-item
-                ->session)
-
 (use cli/routes route subcommand)
 (use cli/commands boolean-flag-names)
-(use cli/arguments operand split-arguments)
+(use cli/arguments arguments operand split-arguments)
 
 (use cli/route-matching check-flags-without-command
                         check-shape help-routes-of route-of)
 
-(use cli/flags optional-text)
 (use cli/flag-specs help-flag)
 
 (use cli/requests add-item-request advance-request
@@ -21,17 +17,24 @@
                   next-request ready-request request
                   text->id)
 
-(export invocation ledger-call parse-invocation)
+(use cli/flags optional-text)
+
+(use cli/decision-requests decision-list-request
+                           decision-show-request
+                           document-source-of
+                           pending-decision proposal-pending
+                           revision-pending)
+
+(use cli/ledger-calls document-call document-call-of
+                      ledger-call ledger-call-of)
+
+(export invocation parse-invocation)
 
 (defenum invocation
   help
   (command-help (vec route))
-  (on-ledger ledger-call))
-
-(defstruct ledger-call
-  :database (option string)
-  :actor (option string)
-  :request request)
+  (on-ledger ledger-call)
+  (on-document document-call))
 
 (defn parse-invocation (args)
   (let-try (arguments (split-arguments args (boolean-flag-names)))
@@ -105,12 +108,32 @@
                                   (ok (request/remove-dep
                                         (text->id (operand arguments route 0))
                                         (text->id
-                                          (operand arguments route 1))))))))
+                                          (operand arguments route 1))))))
+    (subcommand/decision-propose (on-document arguments
+                                              (proposal-pending arguments)))
+    (subcommand/decision-revise
+      (on-document arguments
+                   (ok (revision-pending arguments
+                                         (operand arguments route 0)))))
+    (subcommand/decision-show
+      (on-ledger arguments
+                 (ok (request/decision (decision-show-request
+                                         (operand arguments route 0))))))
+    (subcommand/decision-list (on-ledger
+                                arguments
+                                (map-ok (decision-list-request arguments)
+                                  (fn (listing) (request/decision listing)))))))
 
 (defn on-ledger (arguments requested)
   (map-ok requested
     (fn (request)
-      (invocation/on-ledger (->ledger-call
-                              :database (optional-text arguments "db")
-                              :actor (optional-text arguments "actor")
-                              :request request)))))
+      (invocation/on-ledger (ledger-call-of arguments request)))))
+
+(type on-document
+  (fn ((ref arguments) (result pending-decision string))
+    (result invocation string)))
+
+(defn on-document (arguments pending)
+  (let-try (source (document-source-of arguments)
+            pending pending)
+    (ok (invocation/on-document (document-call-of arguments source pending)))))

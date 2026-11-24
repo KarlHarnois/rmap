@@ -2,16 +2,19 @@
   "Names each ledger request the CLI can make and builds it from the command line.")
 
 (use ledger/api ->advancement ->graph-request ->item-edit
-                ->item-id ->new-item ->session advancement
-                batch-size batch-size-of case-named
-                description-input graph-format
+                ->item-id ->log-query ->new-item ->session
+                advancement batch-size batch-size-of
+                case-named description-input graph-format
                 graph-format-names graph-level
                 graph-level-names graph-request history
                 item-edit item-id kind-change kind-names
-                new-item origin origin-names session
-                status-names)
+                log-query new-item origin origin-names
+                session status-names)
 
 (use cli/description-flags description-of)
+
+(use cli/decision-requests decision-request
+                           text->decision-id)
 
 (use cli/flags id-list optional-choice optional-number
                optional-text required-choice required-text
@@ -29,7 +32,7 @@
   (ready (option string))
   (next (option string) (option session))
   (ready-batch (option string) batch-size)
-  (log (option item-id) int)
+  (log log-query)
   (add-item string new-item)
   (list-items (option string))
   (show-item item-id)
@@ -40,7 +43,8 @@
   (drop item-id string)
   (add-dep item-id item-id)
   (remove-dep item-id item-id)
-  (graph graph-request))
+  (graph graph-request)
+  (decision decision-request))
 
 (defn new-roadmap-request (arguments name)
   (let-try (manager (required-text arguments "manager"))
@@ -54,8 +58,12 @@
 
 (defn log-request (arguments)
   (let-try (since (optional-number arguments "since"))
-    (ok (request/log (map-some (optional-text arguments "item") text->id)
-                     (unwrap-or since 0)))))
+    (ok (request/log (->log-query
+                       :item (map-some (optional-text arguments "item")
+                                       text->id)
+                       :decision (map-some (optional-text arguments "decision")
+                                           text->decision-id)
+                       :after-id (unwrap-or since 0))))))
 
 (defn next-request (arguments)
   (request/next (optional-text arguments "roadmap")

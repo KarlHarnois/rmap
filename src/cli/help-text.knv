@@ -4,6 +4,8 @@
 (use ledger/api refusal-catalog)
 (use cli/routes route)
 (use cli/commands routes)
+(use cli/decision-commands route-document)
+(use json/value json->pretty-source)
 
 (use cli/exit-codes exit-code->meaning exit-code->number
                     exit-codes)
@@ -45,7 +47,16 @@
 (defn command-entry (route)
   (str (command-usage route)
        "\n"
-       (indented (:summary route))))
+       (indented (:summary route))
+       (document-text route)))
+
+(defn document-text (route)
+  (match (route-document route)
+    ((some shape)
+     (str "\n"
+          (indented (str "Document:\n"
+                         (indented (json->pretty-source (ref shape)))))))
+    (none (str ""))))
 
 (defn section (title body)
   (str title ":\n" (indented body)))

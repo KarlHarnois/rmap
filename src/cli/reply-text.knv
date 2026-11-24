@@ -16,6 +16,10 @@
 (use cli/batch-text batch-text)
 (use cli/event-text events-text)
 
+(use cli/decision-text decision-detail-text
+                       decision-proposed-text
+                       decision-revised-text decisions-text)
+
 (export reply->text)
 
 (defn reply->text (reply)
@@ -38,7 +42,15 @@
     ((reply/dep-added dep) (dep-text dep "now comes after"))
     ((reply/dep-removed dep)
      (dep-text dep "no longer comes after"))
-    ((reply/graph-drawn graph) (clone (:source graph)))))
+    ((reply/graph-drawn graph) (clone (:source graph)))
+    ((reply/decision-proposed decision)
+     (decision-proposed-text (ref decision)))
+    ((reply/decision-revised decision)
+     (decision-revised-text (ref decision)))
+    ((reply/decision-shown decision)
+     (decision-detail-text (ref decision)))
+    ((reply/decisions-listed decisions)
+     (decisions-text (ref decisions)))))
 
 (type init-report-text
   (fn ((ref init-report)) string))
