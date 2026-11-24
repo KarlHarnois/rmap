@@ -1,9 +1,10 @@
 (use json/value field json->text)
 
-(use ledger/api action claim-item event event-type failure
-                list-roadmaps next-actions pause-roadmap
-                ready-items refusal resume-roadmap
-                roadmap-pause roadmap-status)
+(use ledger/api ->claim-request action claim-item event
+                event-type failure list-roadmaps
+                next-actions pause-roadmap ready-items
+                refusal resume-roadmap roadmap-pause
+                roadmap-status)
 
 (use support/ledger all-events refusal-code-of research
                     roadmap-name scratch-ledger
@@ -11,6 +12,11 @@
 
 (defn readiness-in (settings)
   (unwrap-ok (ready-items settings (some (str roadmap-name)))))
+
+(defn worker-claim ()
+  (->claim-request :session (session-named "worker")
+                   :branch none
+                   :base none))
 
 (defn status-of (settings name)
   (:status (unwrap (find (iter (unwrap-ok (list-roadmaps settings)))
@@ -96,7 +102,7 @@
     (unwrap-ok (pause-roadmap (ref settings) (str roadmap-name)))
     (match (claim-item (ref settings)
                        (clone item)
-                       (session-named "worker"))
+                       (worker-claim))
       ((err (failure/refused (refusal/not-ready blockage)))
        (assert (= (:pause blockage) roadmap-pause/paused))
        (assert (= (:blockers blockage) (vec))))
@@ -108,7 +114,7 @@
         item (research (ref settings)))
     (unwrap-ok (claim-item (ref settings)
                            (clone item)
-                           (session-named "worker")))
+                           (worker-claim)))
     (unwrap-ok (pause-roadmap (ref settings) (str roadmap-name)))
     (assert (= (:action (unwrap (first (:actions (entry-for (ref settings)
                                                             item)))))
