@@ -1,12 +1,11 @@
 (module
   "The ledger's public functions. Code outside `src/ledger/` calls only these.")
 
-(use ledger/model ->decision-id ->item-id ->session blockage
-                  claim decision-id dep dep-type
-                  graph-format history item item-id kind
-                  origin roadmap roadmap-id roadmap-pause
-                  roadmap-status session status timestamp
-                  work-session)
+(use ledger/model ->item-id ->session blockage claim dep
+                  dep-type graph-format history item item-id
+                  kind origin roadmap roadmap-id
+                  roadmap-pause roadmap-status session
+                  status timestamp work-session)
 
 (use ledger/model/events event event-type)
 (use ledger/model/sessions ->claim-request claim-request)
@@ -22,37 +21,26 @@
 (use ledger/operations/report-queries list-reports
                                       show-report)
 
-(use ledger/model/decisions ->option-draft ->proposal
-                            ->recommendation decision
-                            decision-option decision-status
-                            option-draft outcome proposal
-                            recommendation)
-
-(use ledger/core/decisions ->decision-revision
-                           ->new-decision decision-revision
-                           new-decision supersedes-change)
-
-(use ledger/operations/decisions propose-decision
-                                 revise-decision)
-
-(use ledger/core/decision-moves ->acceptance acceptance)
-
-(use ledger/operations/decision-moves accept-decision
-                                      ask-decision
-                                      deprecate-decision
-                                      reject-decision)
-
-(use ledger/operations/decision-queries ->decision-query
-                                        decision-query
-                                        list-decisions
-                                        show-decision)
-
-(use ledger/decision-columns optional-decision-id->json
-                             options->json)
+(use ledger/decision-api ->acceptance ->decision-id
+                         ->decision-query
+                         ->decision-revision ->new-decision
+                         ->option-draft ->proposal
+                         ->recommendation accept-decision
+                         acceptance ask-decision decision
+                         decision-id decision-option
+                         decision-query decision-revision
+                         decision-status
+                         decision-status-names
+                         deprecate-decision list-decisions
+                         new-decision option-draft
+                         optional-decision-id->json
+                         options->json outcome proposal
+                         propose-decision recommendation
+                         reject-decision revise-decision
+                         show-decision supersedes-change)
 
 (use ledger/names action-names actor-names case-name
-                  case-named decision-status-names
-                  dep-type-names event-type-names
+                  case-named dep-type-names event-type-names
                   graph-format-names kind-names origin-names
                   report-kind-names roadmap-status-names
                   runtime-names session-kind-names
