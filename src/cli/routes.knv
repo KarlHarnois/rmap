@@ -42,6 +42,8 @@
   decision-accept
   decision-reject
   decision-deprecate
+  decision-block
+  decision-unblock
   (report report-command))
 
 (defenum report-command

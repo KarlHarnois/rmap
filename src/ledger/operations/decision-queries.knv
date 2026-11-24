@@ -1,8 +1,8 @@
 (module
   "Shows one decision and lists the decisions a roadmap, a status or an item narrows to.")
 
-(use ledger/model decision-id item-id)
-(use ledger/model/decisions decision decision-status)
+(use ledger/model decision-id decision-status item-id)
+(use ledger/model/decisions decision)
 (use ledger/core/snapshot existing)
 
 (use ledger/sqlite/decisions ->decision-filter

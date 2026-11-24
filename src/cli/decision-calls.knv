@@ -1,9 +1,10 @@
 (module
   "Calls the ledger for each decision request and names the reply it gives.")
 
-(use ledger/api accept-decision ask-decision
-                deprecate-decision list-decisions
-                propose-decision reject-decision
+(use ledger/api accept-decision add-decision-block
+                ask-decision deprecate-decision
+                list-decisions propose-decision
+                reject-decision remove-decision-block
                 revise-decision show-decision)
 
 (use cli/decision-requests decision-request)
@@ -36,4 +37,10 @@
        (fn (decision) (reply/decision-rejected decision))))
     ((decision-request/deprecate id reason)
      (map-ok (deprecate-decision settings id reason)
-       (fn (decision) (reply/decision-deprecated decision))))))
+       (fn (decision) (reply/decision-deprecated decision))))
+    ((decision-request/block id item)
+     (map-ok (add-decision-block settings (clone id) (clone item))
+       (fn (decision) (reply/decision-shown decision))))
+    ((decision-request/unblock id item)
+     (map-ok (remove-decision-block settings (clone id) (clone item))
+       (fn (decision) (reply/decision-shown decision))))))

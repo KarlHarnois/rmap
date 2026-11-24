@@ -8,13 +8,16 @@
                 item-id new-decision proposal
                 supersedes-change)
 
+(use cli/arguments operand)
+
 (use cli/flags id-list optional-choice optional-text
                required-number required-text switch-on?)
 
 (export decision-accept-request decision-ask-request
-        decision-deprecate-request decision-list-request
-        decision-reject-request decision-request
-        decision-show-request document-source
+        decision-block-request decision-deprecate-request
+        decision-list-request decision-reject-request
+        decision-request decision-show-request
+        decision-unblock-request document-source
         document-source-of pending-decision proposal-pending
         revision-pending text->decision-id with-proposal)
 
@@ -26,7 +29,9 @@
   (ask decision-id)
   (accept decision-id acceptance)
   (reject decision-id string)
-  (deprecate decision-id string))
+  (deprecate decision-id string)
+  (block decision-id item-id)
+  (unblock decision-id item-id))
 
 (defenum document-source
   (file string)
@@ -104,6 +109,14 @@
 (defn decision-deprecate-request (arguments id)
   (let-try (reason (required-text arguments "reason"))
     (ok (decision-request/deprecate (text->decision-id id) reason))))
+
+(defn decision-block-request (arguments route)
+  (decision-request/block (text->decision-id (operand arguments route 0))
+                          (text->item-id (operand arguments route 1))))
+
+(defn decision-unblock-request (arguments route)
+  (decision-request/unblock (text->decision-id (operand arguments route 0))
+                            (text->item-id (operand arguments route 1))))
 
 (defn text->decision-id (text) (->decision-id :value text))
 

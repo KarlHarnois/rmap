@@ -31,6 +31,8 @@
   already-asked
   not-blockable
   decision-in-other-roadmap
+  decision-block-exists
+  decision-block-not-found
   supersede-target-not-accepted
   session-busy
   session-not-claimant
@@ -76,6 +78,10 @@
     ((refusal/not-blockable _) refusal-code/not-blockable)
     ((refusal/decision-in-other-roadmap _)
      refusal-code/decision-in-other-roadmap)
+    ((refusal/decision-block-exists _ _)
+     refusal-code/decision-block-exists)
+    ((refusal/decision-block-not-found _ _)
+     refusal-code/decision-block-not-found)
     ((refusal/supersede-target-not-accepted _)
      refusal-code/supersede-target-not-accepted)
     ((refusal/session-busy _) refusal-code/session-busy)

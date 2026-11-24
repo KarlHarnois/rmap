@@ -1,19 +1,19 @@
 (module
   "Computes which items can start and what blocks the others.")
 
-(use ledger/model ->blockage blockage claim decision-id item
-                  kind roadmap-pause roadmap-status snapshot
+(use ledger/model ->blockage blockage claim item kind
+                  roadmap-pause roadmap-status snapshot
                   status)
 
 (use ledger/core/index delivered-id? index-of indexed-status
                        ledger-index)
 
 (use ledger/core/snapshot blocked-by in-scope?)
+(use ledger/core/decision-blocks blocking-decisions)
 (use ledger/core/order ordered)
 
 (export ->blocked-item ->readiness blockage-of blocked-item
-        blocking-decisions readiness readiness-of
-        unblocked?)
+        readiness readiness-of unblocked?)
 
 (defstruct readiness
   :ready (vec item)
@@ -40,12 +40,8 @@
 (defn unblocked? (blockage)
   (and (= (:pause blockage) roadmap-pause/not-paused)
        (empty? (:blockers blockage))
-       (empty? (:dropped-blockers blockage))))
-
-(type blocking-decisions
-  (fn ((ref item)) (vec decision-id)))
-
-(defn blocking-decisions (_item) (vec))
+       (empty? (:dropped-blockers blockage))
+       (empty? (:decisions blockage))))
 
 (type blockage-of
   (fn ((ref snapshot)
@@ -61,7 +57,8 @@
                                         clone))
                 :dropped-blockers (collect (map (filter (iter blocking)
                                                   (fn (id) (dropped? index id)))
-                                                clone)))))
+                                                clone))
+                :decisions (blocking-decisions snapshot item))))
 
 (defn pause-of (snapshot item)
   (if (paused-roadmap? snapshot item)
@@ -99,8 +96,7 @@
                 clone)))
 
 (defn startable? (entry)
-  (and (unblocked? (ref (:blockage entry)))
-       (empty? (blocking-decisions (ref (:item entry))))))
+  (unblocked? (ref (:blockage entry))))
 
 (defn waiting-on? (index id)
   (not (or (delivered-id? index id) (dropped? index id))))

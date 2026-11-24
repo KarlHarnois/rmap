@@ -1,8 +1,8 @@
 (use json/value copy-of field json->int json->items
                 json->text null?)
 
-(use ledger/model ->timestamp)
-(use ledger/model/decisions ->outcome decision-status)
+(use ledger/model ->timestamp decision-status)
+(use ledger/model/decisions ->outcome)
 (use cli/decision-json decision->json)
 (use support/decisions decision-id-of sample-decision)
 (use support/items id-of)

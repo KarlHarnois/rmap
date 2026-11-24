@@ -1,12 +1,13 @@
-(use ledger/model claim dep-type item item-id kind
-                  roadmap-pause snapshot status)
+(use ledger/model ->decision-id claim decision-status
+                  dep-type item item-id kind roadmap-pause
+                  snapshot status)
 
 (use ledger/core/ready readiness-of)
 (use ledger/core/snapshot scope)
 
-(use support/items blocks-dep child-of claimed epic-item
-                   id-of paused-snapshot-of snapshot-of
-                   work-item)
+(use support/items blocks-dep child-of claimed
+                   decision-block-on epic-item id-of
+                   paused-snapshot-of snapshot-of work-item)
 
 (use support/generated-snapshots generated-snapshot)
 
@@ -89,6 +90,18 @@
 
 (defn finished-statuses ()
   (vec status/merged status/accepted status/dropped))
+
+(defn with-block (snapshot decision item status)
+  (assoc snapshot
+         :decision-blocks (vec (decision-block-on decision item status))))
+
+(defn decision-id-of (text)
+  (->decision-id :value (str text)))
+
+(defn blocked-by-decisions (snapshot)
+  (let (readiness (readiness-of (ref snapshot) (ref scope/every-roadmap))
+        blocked (unwrap (first (:blocked readiness))))
+    (clone (:decisions (:blockage (ref blocked))))))
 
 (deftest an-open-unclaimed-item-is-ready
   (assert (= (ready-ids (snapshot-of
@@ -213,3 +226,49 @@
                 (+ blocked-total (len (:blocked readiness)))))))
     (assert (> ready-total 0))
     (assert (> blocked-total 0))))
+
+(deftest a-proposed-decision-holds-its-item
+  (let (snapshot (with-block (snapshot-of (vec (work-item "rm-0001"
+                                                          kind/build
+                                                          status/open))
+                                          (vec))
+                             "rm-d1" "rm-0001"
+                             decision-status/proposed))
+    (assert (empty? (ready-ids snapshot)))
+    (assert (= (blocked-by-decisions snapshot)
+               (vec (decision-id-of "rm-d1"))))))
+
+(deftest a-rejected-decision-holds-its-item
+  (let (snapshot (with-block (snapshot-of (vec (work-item "rm-0001"
+                                                          kind/build
+                                                          status/open))
+                                          (vec))
+                             "rm-d1" "rm-0001"
+                             decision-status/rejected))
+    (assert (empty? (ready-ids snapshot)))))
+
+(deftest an-accepted-decision-releases-its-item
+  (let (snapshot (with-block (snapshot-of (vec (work-item "rm-0001"
+                                                          kind/build
+                                                          status/open))
+                                          (vec))
+                             "rm-d1" "rm-0001"
+                             decision-status/accepted))
+    (assert (= (ready-ids snapshot)
+               (vec (str "rm-0001"))))))
+
+(deftest a-decision-on-an-epic-holds-every-open-child
+  (let (snapshot (with-block
+                   (snapshot-of
+                     (vec (epic-item "rm-e1")
+                          (child-of (work-item "rm-0001" kind/build status/open)
+                                    "rm-e1")
+                          (child-of
+                            (work-item "rm-0002" kind/build status/merged)
+                            "rm-e1"))
+                     (vec))
+                   "rm-d1" "rm-e1"
+                   decision-status/proposed))
+    (assert (empty? (ready-ids snapshot)))
+    (assert (= (blocked-by-decisions snapshot)
+               (vec (decision-id-of "rm-d1"))))))

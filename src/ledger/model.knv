@@ -1,21 +1,35 @@
 (module
-  "Holds the ledger's values: roadmaps, items, their sessions, dependencies and blockages.")
+  "Holds the ledger's values: roadmaps, items, their sessions, dependencies, decisions and blockages.")
 
-(export ->blockage ->decision-id ->dep ->item ->item-id
-        ->roadmap ->roadmap-id ->session ->snapshot
-        ->timestamp ->work-session blockage claim
-        decision-id dep dep-type graph-format history item
-        item-id kind origin roadmap roadmap-id roadmap-pause
+(export ->blockage ->decision-block ->decision-id ->dep
+        ->item ->item-id ->roadmap ->roadmap-id ->session
+        ->snapshot ->timestamp ->work-session blockage claim
+        decision-block decision-id decision-status dep
+        dep-type graph-format history item item-id kind
+        origin roadmap roadmap-id roadmap-pause
         roadmap-status runtime session session-kind snapshot
         status timestamp work-session)
-
-(defstruct decision-id
-  :value string)
 
 (defstruct snapshot
   :roadmaps (vec roadmap)
   :items (vec item)
-  :deps (vec dep))
+  :deps (vec dep)
+  :decision-blocks (vec decision-block))
+
+(defstruct decision-block
+  :decision decision-id
+  :item item-id
+  :status decision-status)
+
+(defstruct decision-id
+  :value string)
+
+(defenum decision-status
+  proposed
+  accepted
+  rejected
+  deprecated
+  superseded)
 
 (defstruct roadmap
   :id roadmap-id
@@ -111,7 +125,8 @@
 (defstruct blockage
   :pause roadmap-pause
   :blockers (vec item-id)
-  :dropped-blockers (vec item-id))
+  :dropped-blockers (vec item-id)
+  :decisions (vec decision-id))
 
 (defenum roadmap-pause
   not-paused

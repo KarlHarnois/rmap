@@ -15,10 +15,12 @@
 
 (use cli/decision-requests decision-accept-request
                            decision-ask-request
+                           decision-block-request
                            decision-deprecate-request
                            decision-list-request
                            decision-reject-request
                            decision-show-request
+                           decision-unblock-request
                            document-source-of
                            pending-decision proposal-pending
                            revision-pending)
@@ -111,6 +113,13 @@
                                      (decision-deprecate-request
                                        arguments
                                        (operand arguments route 0))))
+    (subcommand/decision-block (decision-ledger-invocation
+                                 arguments
+                                 (ok (decision-block-request arguments route))))
+    (subcommand/decision-unblock (decision-ledger-invocation arguments
+                                                             (ok (decision-unblock-request
+                                                                   arguments
+                                                                   route))))
     ((subcommand/report command)
      (on-ledger arguments
                 (map-ok (report-operation-of arguments route command)

@@ -1,0 +1,42 @@
+(use ledger/model decision-status)
+(use ledger/operations/transaction connect)
+
+(use ledger/sqlite/decision-blocks all-blocks block-exists?
+                                   delete-block
+                                   insert-block)
+
+(use support/decisions proposed-id)
+(use support/ledger research scratch-ledger)
+
+(deftest all-blocks-joins-each-block-with-its-decision-status
+  (let (settings (scratch-ledger "all-decision-blocks")
+        decision (proposed-id (ref settings))
+        item (research (ref settings))
+        connection (unwrap-ok (connect (ref settings)))
+        _ (unwrap-ok (insert-block (ref connection)
+                                   (ref decision)
+                                   (ref item)))
+        block (unwrap (first (unwrap-ok (all-blocks (ref connection))))))
+    (assert (= (:decision block) decision))
+    (assert (= (:item block) item))
+    (assert (= (:status block) decision-status/proposed))))
+
+(deftest a-block-can-be-checked-and-deleted
+  (let (settings (scratch-ledger "delete-decision-block")
+        decision (proposed-id (ref settings))
+        item (research (ref settings))
+        connection (unwrap-ok (connect (ref settings)))
+        _ (unwrap-ok (insert-block (ref connection)
+                                   (ref decision)
+                                   (ref item)))
+        before (unwrap-ok (block-exists? (ref connection)
+                                         (ref decision)
+                                         (ref item)))
+        _ (unwrap-ok (delete-block (ref connection)
+                                   (ref decision)
+                                   (ref item)))
+        after (unwrap-ok (block-exists? (ref connection)
+                                        (ref decision)
+                                        (ref item))))
+    (assert before)
+    (assert (not after))))

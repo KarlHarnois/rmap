@@ -3,7 +3,7 @@
                 propose-decision reject-decision
                 show-decision)
 
-(use ledger/model/decisions decision-status)
+(use ledger/model decision-status)
 
 (use support/ledger all-events refusal-code-of research
                     roadmap-name scratch-ledger)

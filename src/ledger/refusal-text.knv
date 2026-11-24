@@ -39,6 +39,8 @@
                            refusal-code/already-asked
                            refusal-code/not-blockable
                            refusal-code/decision-in-other-roadmap
+                           refusal-code/decision-block-exists
+                           refusal-code/decision-block-not-found
                            refusal-code/supersede-target-not-accepted
                            refusal-code/session-busy
                            refusal-code/session-not-claimant
@@ -77,7 +79,7 @@
     (invalid-transition (described "invalid-transition"
                                    "The transition table has no such move for this item."))
     (not-ready (described "not-ready"
-                          "The item is blocked. The error lists whether the roadmap is paused, its blockers and its dropped_blockers."))
+                          "The item is blocked. The error lists whether the roadmap is paused, its blockers, its dropped_blockers and its blocking_decisions."))
     (cycle (described
              "cycle"
              "The dependency would close a cycle of blocks dependencies."))
@@ -102,6 +104,11 @@
                               "Only an open item or an unfinished epic can wait on a decision."))
     (decision-in-other-roadmap (described "decision-in-other-roadmap"
                                           "The item belongs to another roadmap than the decision."))
+    (decision-block-exists (described "decision-block-exists"
+                                      "The decision already blocks that item."))
+    (decision-block-not-found (described
+                                "decision-block-not-found"
+                                "The decision does not block that item."))
     (supersede-target-not-accepted (described "supersede-target-not-accepted"
                                               "Only a decision that is accepted, or rejected in the same roadmap, can be superseded."))
     (session-busy (described "session-busy"

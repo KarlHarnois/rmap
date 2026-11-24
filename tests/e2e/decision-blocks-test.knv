@@ -1,0 +1,147 @@
+(use json/value copy-of field json->items json->text)
+
+(use support/rmap database-with-roadmap error-code run-rmap
+                  text-at)
+
+(use support/scratch scratch-database)
+
+(def write-file
+  (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
+    (fn ((ref str) (ref str))
+      (result unit string))))
+
+(def proposal
+  "{\"title\": \"Where do sessions live?\", \"context\": \"Sessions must survive a restart.\", \"options\": [{\"title\": \"Postgres\"}, {\"title\": \"Redis\"}], \"recommendation\": {\"option\": 1, \"reason\": \"Postgres already runs.\"}}")
+
+(defn added-id (database args)
+  (text-at (ref (run-rmap database args)) "item" "id"))
+
+(defn proposed (database name)
+  (let (reply (run-rmap (clone database)
+                        (vec "decision" "propose"
+                             "--roadmap" "road" "--file"
+                             (as-str (document-file name)))))
+    (assert (= (:exit-code reply) 0))
+    (text-at (ref reply) "decision" "id")))
+
+(defn document-file (name)
+  (let (path (str (scratch-database name) ".json"))
+    (unwrap-ok (write-file (as-str path) proposal))
+    path))
+
+(defn blocked-entry (reply id)
+  (-> (entries reply "blocked")
+      iter
+      (find (fn (entry)
+              (= (item-id-of entry) (str id))))
+      (map-some copy-of)
+      unwrap))
+
+(defn entries (reply key)
+  (unwrap (json->items (unwrap (field (:json reply) key)))))
+
+(defn item-id-of (entry)
+  (-> entry
+      (field "item")
+      unwrap
+      (field "id")
+      unwrap json->text unwrap))
+
+(defn entry-decisions (entry)
+  (texts (unwrap (json->items (unwrap (field entry "blocking_decisions"))))))
+
+(defn texts (items)
+  (collect (map (iter items)
+             (fn (item) (unwrap (json->text item))))))
+
+(defn error-decisions (reply)
+  (texts (unwrap (json->items (error-field reply "blocking_decisions")))))
+
+(defn error-field (reply key)
+  (unwrap (field (unwrap (field (:json reply) "error"))
+                 key)))
+
+(defn block-event? (event item)
+  (and (= (json->text (unwrap (field event "type")))
+          (some (str "decision-block-added")))
+       (= (json->text (unwrap (field event "item_id")))
+          (some (str item)))))
+
+(deftest a-proposed-decision-holds-and-releases-its-item
+  (let (database (database-with-roadmap "e2e-decision-block")
+        item (added-id (clone database)
+                       (vec "item" "add" "--roadmap" "road"
+                            "--title" "b" "--kind" "build"))
+        decision (proposed (clone database) "e2e-decision-block-doc")
+        blocked (run-rmap
+                  (clone database)
+                  (vec "decision" "block" (as-str decision) (as-str item))))
+    (assert (= (:exit-code blocked) 0))
+    (let (ready (run-rmap (clone database) (vec "ready"))
+          entry (blocked-entry (ref ready) (as-str item)))
+      (assert (= (entry-decisions entry)
+                 (vec (clone decision)))))
+    (let (log (run-rmap (clone database)
+                        (vec "log" "--decision" (as-str decision))))
+      (assert (any? (iter (entries (ref log) "events"))
+                (fn (event)
+                  (block-event? event (as-str item))))))
+    (let (claim (run-rmap (clone database)
+                          (vec "item" "claim" (as-str item) "--session" "s1")))
+      (assert (= (:exit-code claim) 1))
+      (assert (= (error-code (ref claim))
+                 (str "not-ready")))
+      (assert (= (error-decisions (ref claim))
+                 (vec (clone decision)))))
+    (let (freed (run-rmap
+                  (clone database)
+                  (vec "decision" "unblock" (as-str decision) (as-str item)))
+          ready (run-rmap (clone database) (vec "ready")))
+      (assert (= (:exit-code freed) 0))
+      (assert (= (len (entries (ref ready) "ready"))
+                 1)))))
+
+(deftest blocking-an-epic-holds-a-child-added-later
+  (let (database (database-with-roadmap "e2e-decision-block-epic")
+        group (added-id (clone database)
+                        (vec "item" "add" "--roadmap" "road"
+                             "--title" "e" "--kind" "epic"))
+        decision (proposed (clone database) "e2e-decision-block-epic-doc")
+        _blocked (run-rmap
+                   (clone database)
+                   (vec "decision" "block" (as-str decision) (as-str group)))
+        child (added-id (clone database)
+                        (vec "item" "add" "--roadmap" "road"
+                             "--title" "c" "--kind" "build"
+                             "--parent"
+                             (as-str group)))
+        _child-blocked (run-rmap (clone database)
+                                 (vec "decision" "block"
+                                      (as-str decision)
+                                      (as-str child)))
+        ready (run-rmap (clone database) (vec "ready"))
+        entry (blocked-entry (ref ready) (as-str child)))
+    (assert (= (entry-decisions entry)
+               (vec (clone decision))))))
+
+(deftest a-block-names-the-missing-decision-or-item
+  (let (database (database-with-roadmap "e2e-decision-block-missing")
+        decision (proposed (clone database) "e2e-decision-block-missing-doc")
+        item (added-id (clone database)
+                       (vec "item" "add" "--roadmap" "road"
+                            "--title" "b" "--kind"
+                            "build")))
+    (assert (= (error-code (run-rmap
+                             (clone database)
+                             (vec "decision" "block" "rm-ffff" (as-str item))))
+               (str "decision-not-found")))
+    (assert (= (error-code (run-rmap (clone database)
+                                     (vec "decision" "block"
+                                          (as-str decision)
+                                          "rm-ffff")))
+               (str "item-not-found")))
+    (assert (= (error-code
+                 (run-rmap
+                   (clone database)
+                   (vec "decision" "unblock" (as-str decision) (as-str item))))
+               (str "decision-block-not-found")))))

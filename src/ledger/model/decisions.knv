@@ -1,12 +1,13 @@
 (module
   "Holds the ledger's decisions: a question for the owner, the options it weighs and the option recommended.")
 
-(use ledger/model decision-id item-id roadmap-id timestamp)
+(use ledger/model decision-id decision-status item-id
+                  roadmap-id timestamp)
 
 (export ->decision ->decision-option ->option-draft
         ->outcome ->proposal ->recommendation decision
-        decision-option decision-status option-draft outcome
-        proposal recommendation)
+        decision-option option-draft outcome proposal
+        recommendation)
 
 (defstruct proposal
   :title string
@@ -41,13 +42,6 @@
   :blocks (vec item-id)
   :asked-at (option timestamp)
   :created-at timestamp)
-
-(defenum decision-status
-  proposed
-  accepted
-  rejected
-  deprecated
-  superseded)
 
 (defstruct decision-option
   :number int

@@ -9,7 +9,7 @@
 (use cli/envelopes reply-envelope)
 (use cli/schema-envelope error-envelope)
 (use json/value int->json)
-(use cli/ledger-json blockage-fields)
+(use cli/blockage-json blockage-fields)
 
 (export response->json)
 

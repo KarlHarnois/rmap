@@ -129,6 +129,10 @@ Commands:
     Rejects a proposed decision and records the reason.
   decision deprecate <id> --reason <text>
     Deprecates an accepted decision and records the reason.
+  decision block <id> <item>
+    Makes a proposed decision hold an open item or an unfinished epic of its roadmap; an epic holds all its open children, including ones added later.
+  decision unblock <id> <item>
+    Removes an item from what a decision blocks, in any decision status.
   report list [--item <id>] [--unread]
     Lists the reports, oldest first. --item keeps those on one item, --unread those not read yet.
   report show <id>
@@ -163,7 +167,7 @@ Refusal codes:
   epic-status-computed           An epic's status comes from its children, so no command moves it.
   invalid-kind-change            Only an advance to dispatched can turn an item into a build.
   invalid-transition             The transition table has no such move for this item.
-  not-ready                      The item is blocked. The error lists whether the roadmap is paused, its blockers and its dropped_blockers.
+  not-ready                      The item is blocked. The error lists whether the roadmap is paused, its blockers, its dropped_blockers and its blocking_decisions.
   cycle                          The dependency would close a cycle of blocks dependencies.
   dep-exists                     The blocks dependency already exists.
   dep-not-found                  No such blocks dependency exists.
@@ -175,6 +179,8 @@ Refusal codes:
   already-asked                  The decision was already put to the owner.
   not-blockable                  Only an open item or an unfinished epic can wait on a decision.
   decision-in-other-roadmap      The item belongs to another roadmap than the decision.
+  decision-block-exists          The decision already blocks that item.
+  decision-block-not-found       The decision does not block that item.
   supersede-target-not-accepted  Only a decision that is accepted, or rejected in the same roadmap, can be superseded.
   session-busy                   A live session already has that name.
   session-not-claimant           The session is not the item's live session.

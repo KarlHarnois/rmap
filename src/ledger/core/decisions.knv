@@ -1,11 +1,10 @@
 (module
   "Names the requests that propose or revise a decision, checks what they may change, and builds the decision each one makes.")
 
-(use ledger/model decision-id item-id roadmap-id timestamp)
+(use ledger/model decision-id decision-status item-id
+                  roadmap-id timestamp)
 
-(use ledger/model/decisions ->decision decision
-                            decision-status proposal)
-
+(use ledger/model/decisions ->decision decision proposal)
 (use ledger/refusal refusal)
 (use ledger/core/proposals numbered-options)
 
