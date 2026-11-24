@@ -1,8 +1,11 @@
 (use ledger/model ->item-id ->session ->timestamp)
 (use ledger/model/sessions ->session-id)
+(use ledger/model kind status)
+(use support/items claimed work-item)
 
 (use ledger/model/pull-requests ->head ->pr-number
                                 ->pull-request
+                                ->recorded-head
                                 ->recorded-review ->review
                                 ->review-id review-kind
                                 verdict)
@@ -49,3 +52,13 @@
                                                                          "r2"
                                                                          verdict/changes))))))
              (str "Recorded review 1 by r2: changes on rm-0001. Changes asked by r2."))))
+
+(deftest a-recorded-head-names-the-head-the-status-and-the-approval
+  (assert (= (pr-reply->text (pr-reply/head-recorded
+                               (->recorded-head
+                                 :item (claimed (work-item "rm-0001"
+                                                           kind/build
+                                                           status/in-review))
+                                 :pull-request (pull-request-with (vec)))))
+             (str "Recorded head " sha
+                  " on pull request #12 of rm-0001, which is in_review. Not approved at its head."))))

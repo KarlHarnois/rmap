@@ -14,6 +14,8 @@
   pr-number-taken
   pr-not-found
   invalid-head
+  head-not-current
+  head-unchanged
   not-approved)
 
 (defn pull-request-code-of (refused)
@@ -28,6 +30,10 @@
      pull-request-refusal-code/pr-not-found)
     ((pull-request-refusal/invalid-head _)
      pull-request-refusal-code/invalid-head)
+    ((pull-request-refusal/head-not-current _ _)
+     pull-request-refusal-code/head-not-current)
+    ((pull-request-refusal/head-unchanged _)
+     pull-request-refusal-code/head-unchanged)
     ((pull-request-refusal/not-approved _)
      pull-request-refusal-code/not-approved)))
 
@@ -38,6 +44,8 @@
                            pull-request-refusal-code/pr-number-taken
                            pull-request-refusal-code/pr-not-found
                            pull-request-refusal-code/invalid-head
+                           pull-request-refusal-code/head-not-current
+                           pull-request-refusal-code/head-unchanged
                            pull-request-refusal-code/not-approved))
                 (fn (code)
                   (pull-request-description (deref code))))))
@@ -55,5 +63,10 @@
     (pr-not-found (described "pr-not-found" "The item has no pull request."))
     (invalid-head (described "invalid-head"
                              "A head is a full 40-character commit SHA in lowercase hex."))
+    (head-not-current (described "head-not-current"
+                                 "A review names a head other than the pull request's current head in the ledger."))
+    (head-unchanged (described
+                      "head-unchanged"
+                      "pr head names the head the pull request is already at."))
     (not-approved (described "not-approved"
                              "Among each reviewer's latest verdict on the pull request's head, none approves or one asks for changes. The error lists the head, approved_by, changes_requested and stale_heads."))))

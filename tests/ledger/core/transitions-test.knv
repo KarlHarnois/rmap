@@ -46,6 +46,9 @@
                  (->attempt :command (str "close")
                             :proposed-move move/close
                             :target (close-target kind))
+                 (->attempt :command (str "pr head")
+                            :proposed-move move/record-head
+                            :target status/in-review)
                  (->attempt :command (str "drop")
                             :proposed-move (move/drop (str "no longer needed"))
                             :target status/dropped)))
@@ -98,10 +101,6 @@
                        :from status/dispatched
                        :to status/open
                        :kinds (work-kinds))
-       (->allowed-move :command (str "advance")
-                       :from status/dispatched
-                       :to status/reported
-                       :kinds (vec kind/research kind/design))
        (->allowed-move :command (str "build")
                        :from status/reported
                        :to status/dispatched
@@ -160,6 +159,14 @@
                        :kinds (vec kind/build))
        (->allowed-move :command (str "report fixed")
                        :from status/fixing
+                       :to status/in-review
+                       :kinds (vec kind/build))
+       (->allowed-move :command (str "pr head")
+                       :from status/in-review
+                       :to status/in-review
+                       :kinds (vec kind/build))
+       (->allowed-move :command (str "pr head")
+                       :from status/merging
                        :to status/in-review
                        :kinds (vec kind/build))
        (->allowed-move :command (str "report question")

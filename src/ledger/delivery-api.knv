@@ -8,8 +8,9 @@
                           report-reading report-request)
 
 (use ledger/model/pull-requests ->review-request approval
-                                pull-request recorded-review
-                                review review-request)
+                                pull-request recorded-head
+                                recorded-review review
+                                review-request)
 
 (use ledger/operations/reports read-report record-report)
 
@@ -17,6 +18,7 @@
                                       show-report)
 
 (use ledger/operations/reviews record-review)
+(use ledger/operations/head-records record-head)
 (use ledger/operations/pull-requests show-pull-request)
 (use ledger/core/requirements approval-of approved?)
 
@@ -26,9 +28,9 @@
 (export ->report-id ->report-query ->report-request
         ->review-request approval approval-of approved?
         body-source list-reports pull-request read-report
-        record-report record-review recorded-report
-        recorded-review report report-id report-kind
-        report-kind-names report-query report-reading
-        report-request review review-kind-names
-        review-request show-pull-request show-report
-        verdict-names)
+        record-head record-report record-review
+        recorded-head recorded-report recorded-review report
+        report-id report-kind report-kind-names report-query
+        report-reading report-request review
+        review-kind-names review-request show-pull-request
+        show-report verdict-names)

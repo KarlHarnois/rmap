@@ -2,7 +2,7 @@
   "Names each refusal about a build's pull request and its reviews, and gives it a sentence for the user.")
 
 (use ledger/model item-id session)
-(use ledger/model/pull-requests approval pr-number)
+(use ledger/model/pull-requests approval head pr-number)
 
 (export pull-request-refusal pull-request-refusal->message)
 
@@ -13,6 +13,8 @@
   (pr-number-taken pr-number)
   (pr-not-found item-id)
   (invalid-head string)
+  (head-not-current head head)
+  (head-unchanged head)
   (not-approved approval))
 
 (defn pull-request-refusal->message (refused)
@@ -28,6 +30,14 @@
      (str "the item " (:value id) " has no pull request"))
     ((invalid-head text)
      (str "a head is a full 40-character commit SHA, got " text))
+    ((head-not-current named current)
+     (str "a review must be at the pull request's current head "
+          (:sha current)
+          ", got "
+          (:sha named)))
+    ((head-unchanged current)
+     (str "the pull request is already at the head "
+          (:sha current)))
     ((not-approved approval) (not-approved-message approval))))
 
 (type not-approved-message

@@ -1,0 +1,80 @@
+(use json/value copy-of)
+(use ledger/api record-head status)
+(use ledger/model kind)
+(use support/payloads side-text)
+
+(use support/ledger added-id advanced all-events claimed
+                    item-draft refusal-code-of research
+                    scratch-ledger)
+
+(use support/pull-requests approved-build first-head
+                           in-review-build second-head)
+
+(defn build-in-review (settings)
+  (in-review-build settings
+                   (ref (claimed settings
+                                 (added-id settings (item-draft kind/build))))
+                   12))
+
+(defn merging-build (settings)
+  (advanced settings
+            (approved-build settings
+                            (ref (claimed settings
+                                          (added-id settings
+                                                    (item-draft kind/build))))
+                            12)
+            status/merging))
+
+(defn last-payload (settings)
+  (let (events (unwrap-ok (all-events settings)))
+    (copy-of (ref (:payload (unwrap (last events)))))))
+
+(deftest a-new-head-moves-a-merging-build-back-to-review
+  (let (settings (scratch-ledger "head-merging")
+        id (merging-build (ref settings))
+        recorded (unwrap-ok (record-head (ref settings) id (str second-head))))
+    (assert (= (:status (:item recorded)) status/in-review))
+    (assert (= (:sha (:head (:pull-request recorded)))
+               (str second-head)))))
+
+(deftest a-new-head-keeps-a-build-in-review
+  (let (settings (scratch-ledger "head-in-review")
+        id (build-in-review (ref settings))
+        recorded (unwrap-ok (record-head (ref settings) id (str second-head))))
+    (assert (= (:status (:item recorded)) status/in-review))))
+
+(deftest a-new-head-records-one-event-with-both-heads
+  (let (settings (scratch-ledger "head-event")
+        id (merging-build (ref settings)))
+    (unwrap-ok (record-head (ref settings) id (str second-head)))
+    (let (payload (last-payload (ref settings)))
+      (assert (= (side-text (copy-of (ref payload)) "head_sha" "old")
+                 (some (str first-head))))
+      (assert (= (side-text (copy-of (ref payload)) "head_sha" "new")
+                 (some (str second-head))))
+      (assert (= (side-text payload "status" "new")
+                 (some (str "in_review")))))))
+
+(deftest the-current-head-is-refused
+  (let (settings (scratch-ledger "head-unchanged")
+        id (build-in-review (ref settings)))
+    (assert (= (refusal-code-of
+                 (record-head (ref settings) id (str first-head)))
+               (some (str "head-unchanged"))))))
+
+(deftest a-fixing-build-is-refused
+  (let (settings (scratch-ledger "head-fixing")
+        id (advanced (ref settings)
+                     (build-in-review (ref settings))
+                     status/fixing))
+    (assert (= (refusal-code-of
+                 (record-head (ref settings) id (str second-head)))
+               (some (str "invalid-transition"))))))
+
+(deftest a-research-item-is-refused
+  (let (settings (scratch-ledger "head-research")
+        id (claimed (ref settings)
+                    (research (ref settings))))
+    (assert (= (refusal-code-of
+                 (record-head (ref settings) id (str second-head)))
+               (some (str "invalid-transition"))))))

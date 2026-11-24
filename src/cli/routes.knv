@@ -55,6 +55,7 @@
 
 (defenum pr-command
   review
+  head
   show)
 
 (type word-count (fn ((ref route)) int))

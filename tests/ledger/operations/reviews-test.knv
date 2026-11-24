@@ -78,14 +78,23 @@
         id (build-in-review (ref settings)))
     (reviewed (ref settings)
               (ref id)
-              "r1" verdict/changes second-head)
+              "r1" verdict/changes first-head)
     (let (payload (last-payload (ref settings)))
       (assert (= (side-text (copy-of (ref payload)) "verdict" "new")
                  (some (str "changes"))))
       (assert (= (side-text (copy-of (ref payload)) "session_kind" "new")
                  (some (str "review"))))
       (assert (= (side-text payload "head_sha" "new")
-                 (some (str second-head)))))))
+                 (some (str first-head)))))))
+
+(deftest a-review-at-another-head-than-the-ledger-head-is-refused
+  (let (settings (scratch-ledger "review-other-head")
+        id (build-in-review (ref settings)))
+    (assert (= (refusal-code-of
+                 (record-review
+                   (ref settings)
+                   (review-as (ref id) "r1" verdict/approve second-head)))
+               (some (str "head-not-current"))))))
 
 (deftest a-review-of-a-build-without-a-pull-request-is-refused
   (let (settings (scratch-ledger "review-no-pr")

@@ -12,8 +12,9 @@
                                 review review-id
                                 review-request)
 
-(use ledger/refusal pull-request-refusal refusal)
-(use ledger/core/heads head-of)
+(use ledger/refusal refusal)
+(use ledger/core/heads current-head)
+(use ledger/core/pull-requests present-pull-request)
 (use ledger/core/phases finished?)
 
 (export ->review-stamp approved-head review-session
@@ -32,8 +33,9 @@
 
 (defn approved-head (item pull-request request)
   (let-try (_ (check-unfinished item)
-            _ (check-pull-request item pull-request))
-    (head-of (ref (:head request)))))
+            present (present-pull-request item pull-request))
+    (current-head (ref present)
+                  (ref (:head request)))))
 
 (type stamped-review
   (fn ((ref review-request) head review-stamp) review))
@@ -71,13 +73,3 @@
   (if (finished? (:status item))
     (err (refusal/item-closed (clone (:id item))))
     (ok (do))))
-
-(type check-pull-request
-  (fn ((ref item) (ref (option pull-request)))
-    (result unit refusal)))
-
-(defn check-pull-request (item pull-request)
-  (match pull-request
-    ((some _) (ok (do)))
-    (none (err (refusal/pull-request (pull-request-refusal/pr-not-found (clone
-                                                                          (:id item))))))))

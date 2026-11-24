@@ -1,7 +1,7 @@
 (use ledger/api ->advancement ->claim-request ->session
                 advance-item claim claim-item close-item
-                drop-item failure kind kind-change refusal
-                settings status)
+                drop-item failure kind kind-change
+                record-head refusal settings status)
 
 (use ledger/model ->timestamp ->work-session runtime
                   session-kind)
@@ -225,17 +225,24 @@
     (assert (= (refusal-code-of (advance (ref settings) id status/merging))
                (some (str "not-approved"))))))
 
-(deftest an-approval-of-an-older-head-does-not-count
+(deftest a-recorded-head-voids-the-approval-of-the-older-head
   (let (settings (scratch-ledger "merge-old-head")
-        id (in-review-build (ref settings)
-                            (ref (claimed (ref settings)
-                                          (build (ref settings))))
-                            12))
-    (reviewed (ref settings)
-              (ref id)
-              "r1" verdict/approve second-head)
+        id (approved-build (ref settings)
+                           (ref (claimed (ref settings)
+                                         (build (ref settings))))
+                           12))
+    (assert (ok? (record-head (ref settings)
+                              (clone id)
+                              (str second-head))))
     (assert (= (refusal-code-of (advance (ref settings) id status/merging))
                (some (str "not-approved"))))))
+
+(deftest a-research-item-reaches-reported-only-through-its-report
+  (let (settings (scratch-ledger "advance-into-reported")
+        id (claimed (ref settings)
+                    (research (ref settings))))
+    (assert (= (refusal-code-of (advance (ref settings) id status/reported))
+               (some (str "invalid-transition"))))))
 
 (deftest a-build-cannot-skip-its-report-into-review
   (let (settings (scratch-ledger "advance-into-review")

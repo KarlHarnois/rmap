@@ -45,7 +45,8 @@
     (advance-to-build event-type/item-advanced)
     (close event-type/item-closed)
     ((drop _) event-type/item-dropped)
-    ((report _) event-type/item-reported)))
+    ((report _) event-type/item-reported)
+    (record-head event-type/head-recorded)))
 
 (defn move-context (move)
   (match move

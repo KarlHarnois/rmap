@@ -87,7 +87,8 @@
              "decision-block-removed")
        (pair event-type/item-reported "item-reported")
        (pair event-type/report-read "report-read")
-       (pair event-type/item-reviewed "item-reviewed")))
+       (pair event-type/item-reviewed "item-reviewed")
+       (pair event-type/head-recorded "head-recorded")))
 
 (def report-kind-names
   (vec (pair report-kind/done "done")

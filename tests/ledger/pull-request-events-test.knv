@@ -14,9 +14,12 @@
 
 (use ledger/core/pull-requests pr-change)
 
-(use ledger/pull-request-events item-reviewed
+(use ledger/pull-request-events head-recorded item-reviewed
                                 pr-change-columns)
 
+(use ledger/core/move move)
+(use ledger/core/session-changes session-change)
+(use ledger/move-events ->applied-move)
 (use ledger/changes payload-with-changes)
 (use ledger/names case-name event-type-names)
 (use support/items claimed work-item)
@@ -115,5 +118,29 @@
   (let (payload (copy-of (ref (:payload (reviewed-draft)))))
     (assert (= (json->int (ref (unwrap (field (ref payload) "review_id"))))
                (some 4)))
+    (assert (= (json->int (ref (unwrap (field (ref payload) "pr_number"))))
+               (some 12)))))
+
+(defn head-recorded-draft ()
+  (let (before (claimed (work-item "rm-0001" kind/build status/merging)))
+    (head-recorded
+      (ref (->applied-move :before (clone before)
+                           :after (assoc before :status status/in-review)
+                           :move move/record-head
+                           :session-change session-change/kept))
+      (ref (pr-change-columns (ref (some (opened)))
+                              (ref (pr-change/pushed (->head :sha (str second-sha))))
+                              (ref (at))))
+      (ref (opened)))))
+
+(deftest a-recorded-head-event-moves-the-status-and-the-head
+  (let (draft (head-recorded-draft))
+    (assert (= (case-name event-type-names (:type draft))
+               "head-recorded"))
+    (assert (= (columns (copy-of (ref (:payload draft))))
+               (vec (str "head_sha") (str "status"))))))
+
+(deftest a-recorded-head-event-names-the-pull-request
+  (let (payload (copy-of (ref (:payload (head-recorded-draft)))))
     (assert (= (json->int (ref (unwrap (field (ref payload) "pr_number"))))
                (some 12)))))

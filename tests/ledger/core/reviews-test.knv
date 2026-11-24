@@ -88,3 +88,12 @@
     (assert (= (:reason (:end session)) end-reason/finished))
     (assert (= (:at (:end session))
                (:started-at (:session session))))))
+
+(deftest a-review-at-another-head-is-refused
+  (assert (= (approved-head (ref (build status/in-review))
+                            (ref (opened))
+                            (ref (request
+                                   "2222222222222222222222222222222222222222")))
+             (err (refusal/pull-request (pull-request-refusal/head-not-current
+                                          (->head :sha (str "2222222222222222222222222222222222222222"))
+                                          (->head :sha (str sha))))))))

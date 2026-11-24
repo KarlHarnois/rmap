@@ -22,7 +22,8 @@
   drop
   report-done
   report-fixed
-  report-question)
+  report-question
+  record-head)
 
 (defenum move
   (claim session-start)
@@ -30,7 +31,8 @@
   advance-to-build
   close
   (drop string)
-  (report report-kind))
+  (report report-kind)
+  record-head)
 
 (defstruct advancement
   :to status
@@ -53,7 +55,8 @@
     (move/advance-to-build move-type/advance-to-build)
     (move/close move-type/close)
     ((move/drop _) move-type/drop)
-    ((move/report kind) (report-move-type kind))))
+    ((move/report kind) (report-move-type kind))
+    (move/record-head move-type/record-head)))
 
 (defn session-change-of (item move now)
   (match move
@@ -78,7 +81,8 @@
     (move/advance-to-build status/dispatched)
     (move/close (closed-status (:kind item)))
     ((move/drop _) status/dropped)
-    ((move/report kind) (reported-status item kind))))
+    ((move/report kind) (reported-status item kind))
+    (move/record-head status/in-review)))
 
 (type reported-status
   (fn ((ref item) (ref report-kind))

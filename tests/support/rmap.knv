@@ -5,9 +5,10 @@
 (use process/command ->command command-output run-command)
 
 (export blocked-design-id database-with-roadmap error-code
-        initialized-database reply research-id run-rmap
-        run-rmap-pair run-rmap-text run-rmap-together
-        run-rmap-with-stdin text-at top-level-keys)
+        initialized-database reply reported-done research-id
+        run-rmap run-rmap-pair run-rmap-text
+        run-rmap-together run-rmap-with-stdin text-at
+        top-level-keys)
 
 (rust-type child "std::process::Child")
 
@@ -163,3 +164,12 @@
   (let-match ((pair code text) waited)
     (->reply :exit-code code
              :json (unwrap-ok (parse-json (as-str text))))))
+
+(defn reported-done (database id)
+  (assert (= (:exit-code
+               (run-rmap (clone database)
+                         (vec "report"
+                              (as-str id)
+                              "--session" "s1" "--kind"
+                              "done" "--text" "found it")))
+             0)))

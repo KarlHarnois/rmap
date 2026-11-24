@@ -1,8 +1,8 @@
 (use json/value copy-of field json->entries json->int
                 json->items json->text null? same?)
 
-(use support/rmap database-with-roadmap error-code run-rmap
-                  text-at)
+(use support/rmap database-with-roadmap error-code
+                  reported-done run-rmap text-at)
 
 (use support/pr-commands approved-on-first-head)
 
@@ -158,7 +158,7 @@
         accepted (added-id (clone database)
                            (the (vec string) (vec)))
         _ (claim (ref database) accepted)
-        _ (advance (ref database) accepted "reported")
+        _ (reported-done (ref database) (ref accepted))
         _ (close (ref database) accepted)
         merged (added-build (clone database))
         _ (claim (ref database) merged)

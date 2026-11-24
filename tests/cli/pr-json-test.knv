@@ -4,9 +4,12 @@
 
 (use ledger/model ->item-id ->session ->timestamp)
 (use ledger/model/sessions ->session-id)
+(use ledger/model kind status)
+(use support/items claimed work-item)
 
 (use ledger/model/pull-requests ->head ->pr-number
                                 ->pull-request
+                                ->recorded-head
                                 ->recorded-review ->review
                                 ->review-id review-kind
                                 verdict)
@@ -95,3 +98,15 @@
 
 (deftest no-pull-request-is-null
   (assert (null? (ref (optional-pull-request->json (ref none))))))
+
+(deftest a-recorded-head-carries-the-item-and-the-pull-request
+  (assert (= (collect (map (iter (pr-reply-fields (pr-reply/head-recorded
+                                                    (->recorded-head
+                                                      :item (claimed (work-item
+                                                                       "rm-0001"
+                                                                       kind/build
+                                                                       status/in-review))
+                                                      :pull-request (pull-request-with
+                                                                      (vec))))))
+                           (fn (entry) (clone (first entry)))))
+             (vec (str "item") (str "pull_request")))))

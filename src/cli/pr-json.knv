@@ -9,6 +9,7 @@
                 verdict-names)
 
 (use cli/pr-replies pr-reply)
+(use cli/ledger-json item->json)
 
 (export approval-fields optional-pull-request->json
         pr-reply-fields)
@@ -21,6 +22,11 @@
     ((reviewed recorded)
      (vec (pair (str "review")
                 (review->json (ref (:review recorded))))
+          (pair (str "pull_request")
+                (pull-request->json (ref (:pull-request recorded))))))
+    ((head-recorded recorded)
+     (vec (pair (str "item")
+                (item->json (ref (:item recorded))))
           (pair (str "pull_request")
                 (pull-request->json (ref (:pull-request recorded))))))
     ((shown pull-request)

@@ -13,12 +13,14 @@
 
 (defenum pr-operation
   (review review-request)
+  (record-head item-id string)
   (show item-id))
 
 (defn pr-operation-of (arguments route command)
   (let (item (->item-id :value (operand arguments route 0)))
     (match command
       (review (review-request arguments item))
+      (head (ok (pr-operation/record-head item (operand arguments route 1))))
       (show (ok (pr-operation/show item))))))
 
 (defn review-request (arguments item)

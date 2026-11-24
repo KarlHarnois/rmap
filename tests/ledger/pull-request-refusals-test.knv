@@ -51,3 +51,14 @@
   (assert (= (pull-request-refusal->message
                (pull-request-refusal/pr-not-found (->item-id :value (str "rm-0001"))))
              (str "the item rm-0001 has no pull request"))))
+
+(deftest a-review-off-the-current-head-names-both-heads
+  (assert (= (pull-request-refusal->message (pull-request-refusal/head-not-current
+                                              (->head :sha (str "2222"))
+                                              (->head :sha (str "1111"))))
+             (str "a review must be at the pull request's current head 1111, got 2222"))))
+
+(deftest an-unchanged-head-names-the-head
+  (assert (= (pull-request-refusal->message (pull-request-refusal/head-unchanged
+                                              (->head :sha (str "1111"))))
+             (str "the pull request is already at the head 1111"))))

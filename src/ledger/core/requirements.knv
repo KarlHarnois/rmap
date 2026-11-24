@@ -8,6 +8,7 @@
 
 (use ledger/refusal pull-request-refusal refusal)
 (use ledger/core/move target-status)
+(use ledger/core/pull-requests present-pull-request)
 
 (export approval-of approved? check-requirements)
 
@@ -28,15 +29,9 @@
   (and (empty? (:changes-requested approval))
        (not (empty? (:approved-by approval)))))
 
-(type check-merge-requirement
-  (fn ((ref item) (ref (option pull-request)))
-    (result unit refusal)))
-
 (defn check-merge-requirement (item pull-request)
-  (match pull-request
-    ((some present) (check-approved present))
-    (none (err (refusal/pull-request (pull-request-refusal/pr-not-found (clone
-                                                                          (:id item))))))))
+  (let-try (present (present-pull-request item pull-request))
+    (check-approved (ref present))))
 
 (defn check-approved (pull-request)
   (let (approval (approval-of pull-request))

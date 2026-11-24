@@ -141,3 +141,29 @@
         item (run-rmap (clone database)
                        (vec "item" "show" (as-str id))))
     (assert (null? (ref (unwrap (field (ref (:json item)) "pull_request")))))))
+
+(deftest a-head-recorded-while-merging-sends-the-build-back-to-review
+  (let (database (database-with-roadmap "e2e-pr-head")
+        id (build-id (ref database)))
+    (approved-on-first-head (ref database) (ref id))
+    (assert (= (:exit-code (advance (ref database) (ref id) "merging"))
+               0))
+    (let (reply (run-rmap (clone database)
+                          (vec "pr" "head" (as-str id) second-sha)))
+      (assert (= (:exit-code reply) 0))
+      (assert (= (text-at (ref reply) "item" "status")
+                 (str "in_review")))
+      (assert (= (text-at (ref reply) "pull_request" "head")
+                 (str second-sha))))
+    (assert (= (error-code (ref (advance (ref database) (ref id) "merging")))
+               (str "not-approved")))))
+
+(deftest a-review-off-the-ledger-head-is-refused
+  (let (database (database-with-roadmap "e2e-pr-review-head")
+        id (build-id (ref database)))
+    (approved-on-first-head (ref database) (ref id))
+    (assert (= (error-code (ref (review-build (ref database)
+                                              (ref id)
+                                              "r2" "approve"
+                                              second-sha)))
+               (str "head-not-current")))))

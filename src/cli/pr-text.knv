@@ -1,9 +1,9 @@
 (module
-  "Describes a build's pull request in plain text: a sentence about a review recorded, and the pull request with its reviews and approval.")
+  "Describes a build's pull request in plain text: a sentence about a review or a head recorded, and the pull request with its reviews and approval.")
 
 (use ledger/api approval-of approved? case-name pull-request
-                review review-kind-names session
-                verdict-names)
+                recorded-head review review-kind-names
+                session status-names verdict-names)
 
 (use cli/pr-replies pr-reply)
 (use cli/tables headed indented table)
@@ -13,6 +13,8 @@
 (defn pr-reply->text (reply)
   (match reply
     ((reviewed recorded) (reviewed-text (ref recorded)))
+    ((head-recorded recorded)
+     (head-recorded-text (ref recorded)))
     ((shown pull-request)
      (pull-request-text (ref pull-request)))))
 
@@ -44,6 +46,22 @@
          (:value (:item review))
          ". "
          (approval-text (ref (approval-of (ref (:pull-request recorded))))))))
+
+(type head-recorded-text
+  (fn ((ref recorded-head)) string))
+
+(defn head-recorded-text (recorded)
+  (let (pull-request (ref (:pull-request recorded)))
+    (str "Recorded head "
+         (:sha (:head pull-request))
+         " on pull request #"
+         (:value (:pr-number pull-request))
+         " of "
+         (:value (:item pull-request))
+         ", which is "
+         (case-name status-names (:status (:item recorded)))
+         ". "
+         (approval-text (ref (approval-of pull-request))))))
 
 (defn approval-text (approval)
   (cond

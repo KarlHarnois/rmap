@@ -50,3 +50,8 @@
 (deftest show-takes-the-item
   (assert (= (operation-of (vec "pr" "show" "rm-0001"))
              (some (pr-operation/show (->item-id :value (str "rm-0001")))))))
+
+(deftest a-head-reads-the-item-and-the-sha
+  (assert (= (operation-of (vec "pr" "head" "rm-0001" "abc"))
+             (some (pr-operation/record-head (->item-id :value (str "rm-0001"))
+                                             (str "abc"))))))

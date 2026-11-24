@@ -26,9 +26,9 @@
 
 (use ledger/failure failure)
 
-(export pull-request-for pull-request-update
-        pull-request-update-columns show-pull-request
-        write-pull-request-update)
+(export changed-pull-request pull-request-for
+        pull-request-update pull-request-update-columns
+        show-pull-request write-pull-request-update)
 
 (defstruct pull-request-update
   :prior (option pull-request)
@@ -64,13 +64,16 @@
 (defn pull-request-update (connection item request now)
   (let-try (pull-requests (all-pull-requests connection)
             change (pr-change-of item request (ref pull-requests)))
-    (let (before (pull-request-of (ref pull-requests)
-                                  (ref (:id item))))
-      (ok (->pull-request-update
-            :updated (pull-request-after (ref before) item (ref change) now)
-            :prior before
-            :change change
-            :at (clone now))))))
+    (ok (changed-pull-request (pull-request-of (ref pull-requests)
+                                               (ref (:id item)))
+                              item change now))))
+
+(defn changed-pull-request (before item change now)
+  (->pull-request-update
+    :updated (pull-request-after (ref before) item (ref change) now)
+    :prior before
+    :change change
+    :at (clone now)))
 
 (defn write-pull-request-update (connection update)
   (match (:change update)

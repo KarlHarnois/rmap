@@ -1,5 +1,5 @@
 (module
-  "Describes what a pull request and its reviews add to events: the pull request a report opens or the head it pushes, and the event of a review.")
+  "Describes what a pull request and its reviews add to events: the pull request a report opens or the head it pushes, the event of a review, and the event of a head the manager records.")
 
 (use json/value int->json json text->json)
 (use ledger/model item timestamp)
@@ -16,11 +16,12 @@
 
 (use ledger/core/pull-requests pr-change)
 (use ledger/json-values id->json)
+(use ledger/move-events applied-move move-changes)
 
 (use ledger/changes column-change copy-change inserted
                     payload-with-changes updated)
 
-(export item-reviewed pr-change-columns)
+(export head-recorded item-reviewed pr-change-columns)
 
 (defn pr-change-columns (existing change opened-at)
   (match change
@@ -53,6 +54,25 @@
                    :payload (payload-with-changes
                               (ref changes)
                               (review-context review pull-request)))))
+
+(type head-recorded
+  (fn ((ref applied-move)
+       (ref (vec column-change))
+       (ref pull-request))
+    event-draft))
+
+(defn head-recorded (applied pr-changes pull-request)
+  (let (changes (move-changes applied))
+    (for-each pr-changes
+      (fn (change)
+        (push! changes (copy-change change))))
+    (->event-draft :roadmap-id (some (clone (:roadmap-id (:after applied))))
+                   :item-id (some (clone (:id (:after applied))))
+                   :decision-id none
+                   :type event-type/head-recorded
+                   :payload (payload-with-changes (ref changes)
+                                                  (pr-number-context
+                                                    pull-request)))))
 
 (type review-columns
   (fn ((ref review)) (vec column-change)))
@@ -98,8 +118,18 @@
 (defn review-context (review pull-request)
   (vec (pair (str "review_id")
              (int->json (:value (:id review))))
-       (pair (str "pr_number")
-             (int->json (:value (:pr-number pull-request))))))
+       (pr-number-pair pull-request)))
+
+(defn pr-number-context (pull-request)
+  (vec (pr-number-pair pull-request)))
+
+(type pr-number-pair
+  (fn ((ref pull-request))
+    (pair string json)))
+
+(defn pr-number-pair (pull-request)
+  (pair (str "pr_number")
+        (int->json (:value (:pr-number pull-request)))))
 
 (defn head->json (head)
   (text->json (as-str (:sha head))))

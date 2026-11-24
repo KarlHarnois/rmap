@@ -1,0 +1,19 @@
+(module
+  "Decides the head a manager records for a build's pull request when its branch moved without a report: a full commit SHA other than the head the ledger holds.")
+
+(use ledger/model item)
+(use ledger/model/pull-requests pull-request)
+(use ledger/refusal pull-request-refusal refusal)
+(use ledger/core/heads head-of)
+
+(use ledger/core/pull-requests pr-change
+                               present-pull-request)
+
+(export new-head-change)
+
+(defn new-head-change (item pull-request text)
+  (let-try (present (present-pull-request item pull-request)
+            head (head-of text))
+    (if (= (ref head) (ref (:head present)))
+      (err (refusal/pull-request (pull-request-refusal/head-unchanged head)))
+      (ok (pr-change/pushed head)))))

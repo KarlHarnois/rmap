@@ -15,7 +15,8 @@
                          approval approval-of approved?
                          body-source list-reports
                          pull-request read-report
-                         record-report record-review
+                         record-head record-report
+                         record-review recorded-head
                          recorded-report recorded-review
                          report report-id report-kind
                          report-kind-names report-query
@@ -53,9 +54,7 @@
 (use ledger/failure-api database-problem failure
                         failure-code failure-message
                         pull-request-refusal refusal
-                        refusal-catalog
-
-                        refusal-description)
+                        refusal-catalog refusal-description)
 
 (use ledger/core/ready blocked-item readiness)
 (use ledger/core/batch batch batch-size batch-size-of)
@@ -138,17 +137,18 @@
         origin-names outcome pause-roadmap proposal
         propose-decision pull-request pull-request-refusal
         read-log read-report readiness ready-batch
-        ready-items recommendation record-report
-        record-review recorded-report recorded-review
-        refusal refusal->message refusal-catalog
-        refusal-code-text refusal-description
-        reject-decision remove-decision-block remove-dep
-        report report-id report-kind report-kind-names
-        report-query report-reading report-request
-        resume-roadmap review review-kind-names
-        review-request revise-decision roadmap roadmap-id
-        roadmap-pause roadmap-status roadmap-status-names
-        runtime-names session session-kind-names settings
-        show-decision show-item show-pull-request
-        show-report status status-names supersedes-change
-        timestamp verdict-names work-session)
+        ready-items recommendation record-head record-report
+        record-review recorded-head recorded-report
+        recorded-review refusal refusal->message
+        refusal-catalog refusal-code-text
+        refusal-description reject-decision
+        remove-decision-block remove-dep report report-id
+        report-kind report-kind-names report-query
+        report-reading report-request resume-roadmap review
+        review-kind-names review-request revise-decision
+        roadmap roadmap-id roadmap-pause roadmap-status
+        roadmap-status-names runtime-names session
+        session-kind-names settings show-decision show-item
+        show-pull-request show-report status status-names
+        supersedes-change timestamp verdict-names
+        work-session)

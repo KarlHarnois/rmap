@@ -10,8 +10,8 @@
 (use ledger/refusal pull-request-refusal refusal)
 (use ledger/core/heads head-of)
 
-(export pr-change pr-change-of pull-request-after
-        pull-request-of)
+(export pr-change pr-change-of present-pull-request
+        pull-request-after pull-request-of)
 
 (defenum pr-change
   unchanged
@@ -40,6 +40,14 @@
               (fn (pull-request)
                 (= (ref (:item pull-request)) id)))
             clone))
+
+(type present-pull-request
+  (fn ((ref item) (ref (option pull-request)))
+    (result pull-request refusal)))
+
+(defn present-pull-request (item pull-request)
+  (ok-or (clone pull-request)
+         (pull-request-refused (pull-request-refusal/pr-not-found (clone (:id item))))))
 
 (type pull-request-after
   (fn ((ref (option pull-request))

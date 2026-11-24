@@ -2,8 +2,8 @@
                 null?)
 
 (use support/rmap blocked-design-id database-with-roadmap
-                  error-code reply research-id run-rmap
-                  text-at)
+                  error-code reply reported-done research-id
+                  run-rmap text-at)
 
 (defstruct reported-ledger
   :database string
@@ -17,10 +17,7 @@
                    (clone database)
                    (vec "item" "claim" (as-str research) "--session" "s1")))
                0))
-    (assert (= (:exit-code
-                 (run-rmap (clone database)
-                           (vec "item" "advance" (as-str research) "reported")))
-               0))
+    (reported-done (ref database) (ref research))
     (->reported-ledger :database database :research research)))
 
 (type closed

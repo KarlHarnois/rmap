@@ -1,19 +1,20 @@
 (use ledger/api batch-size-of close-item kind list-items
-                ready-batch ready-items status)
+                ready-batch ready-items)
 
-(use support/ledger added-id advanced all-events
-                    blocked-research-in claimed item-draft
+(use support/ledger added-id all-events blocked-research-in
+                    claimed item-draft
                     ledger-with-two-roadmaps
                     other-roadmap-name refusal-code-of
-                    research roadmap-name scratch-ledger)
+                    reported research roadmap-name
+                    scratch-ledger)
 
 (defn readiness-in (settings roadmap)
   (unwrap-ok (ready-items settings (some (str roadmap)))))
 
 (defn accepted (settings id)
-  (let (reported (advanced settings (claimed settings id) status/reported))
-    (assert (ok? (close-item settings (clone reported))))
-    reported))
+  (let (finished (reported settings (claimed settings id)))
+    (assert (ok? (close-item settings (clone finished))))
+    finished))
 
 (defn build (settings)
   (added-id settings (item-draft kind/build)))
@@ -62,9 +63,8 @@
         _blocked (blocked-research-in (ref settings)
                                       other-roadmap-name
                                       (clone blocker))
-        _reported (advanced (ref settings)
-                            (claimed (ref settings) blocker)
-                            status/reported))
+        _reported (reported (ref settings)
+                            (claimed (ref settings) blocker)))
     (assert (= (len (:ready (readiness-in (ref settings) other-roadmap-name)))
                0))))
 

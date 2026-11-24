@@ -61,6 +61,11 @@
                                (->pr-number :value 12)))
        (refusal/pull-request (pull-request-refusal/pr-not-found (sample-id)))
        (refusal/pull-request (pull-request-refusal/invalid-head (str "abc")))
+       (refusal/pull-request (pull-request-refusal/head-not-current
+                               (->head :sha (str "abc"))
+                               (->head :sha (str "def"))))
+       (refusal/pull-request (pull-request-refusal/head-unchanged (->head
+                                                                    :sha (str "abc"))))
        (refusal/pull-request (pull-request-refusal/not-approved (sample-approval)))))
 
 (defn sample-approval ()
