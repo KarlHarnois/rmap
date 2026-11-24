@@ -1,0 +1,45 @@
+(module
+  "Reads the flags of `item add` and `item edit` into the new item or the edit each one makes.")
+
+(use ledger/api ->item-edit ->item-id ->new-item
+                description-input kind-names origin
+                origin-names)
+
+(use cli/description-flags description-of)
+
+(use cli/flags id-list optional-choice optional-number
+               optional-text required-choice required-text)
+
+(export item-edit-of new-item-of)
+
+(defn new-item-of (arguments)
+  (let-try (title (required-text arguments "title")
+            kind (required-choice arguments "kind" kind-names)
+            origin (optional-choice arguments "origin" origin-names)
+            priority (optional-number arguments "priority")
+            description (description-of arguments))
+    (ok (->new-item :parent (map-some (optional-text arguments "parent")
+                                      text->item-id)
+                    :title title
+                    :description description
+                    :kind kind
+                    :origin (unwrap-or origin origin/planned)
+                    :priority (unwrap-or priority 2)
+                    :blocked-by (id-list arguments "after")
+                    :discovered-from (map-some (optional-text arguments "from")
+                                               text->item-id)))))
+
+(defn item-edit-of (arguments)
+  (let-try (priority (optional-number arguments "priority")
+            description (description-of arguments))
+    (let (title (optional-text arguments "title")
+          given? (or (some? title)
+                     (some? priority)
+                     (not= description description-input/unspecified)))
+      (if given?
+        (ok (->item-edit :title title
+                         :priority priority
+                         :description description))
+        (err (str "item edit needs at least one of --title, --priority, --description or --description-file"))))))
+
+(defn text->item-id (text) (->item-id :value text))

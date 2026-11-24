@@ -1,24 +1,21 @@
 (module
   "Names each ledger request the CLI can make and builds it from the command line.")
 
-(use ledger/api ->advancement ->graph-request ->item-edit
-                ->item-id ->log-query ->new-item ->session
-                advancement batch-size batch-size-of
-                case-named description-input graph-format
+(use ledger/api ->advancement ->graph-request ->item-id
+                ->log-query ->session advancement batch-size
+                batch-size-of case-named graph-format
                 graph-format-names graph-level
                 graph-level-names graph-request history
-                item-edit item-id kind-change kind-names
-                log-query new-item origin origin-names
-                session status-names)
+                item-edit item-id kind-change log-query
+                new-item session status-names)
 
-(use cli/description-flags description-of)
+(use cli/item-flags item-edit-of new-item-of)
 
 (use cli/decision-requests decision-request
                            text->decision-id)
 
-(use cli/flags id-list optional-choice optional-number
-               optional-text required-choice required-text
-               switch-on?)
+(use cli/flags optional-choice optional-number optional-text
+               required-text switch-on?)
 
 (export add-item-request advance-request claim-request
         drop-request edit-item-request graph-request
@@ -72,37 +69,13 @@
 
 (defn add-item-request (arguments)
   (let-try (roadmap (required-text arguments "roadmap")
-            title (required-text arguments "title")
-            kind (required-choice arguments "kind" kind-names)
-            origin (optional-choice arguments "origin" origin-names)
-            priority (optional-number arguments "priority")
-            description (description-of arguments))
-    (ok (request/add-item
-          roadmap
-          (->new-item
-            :parent (map-some (optional-text arguments "parent") text->id)
-            :title title
-            :description description
-            :kind kind
-            :origin (unwrap-or origin origin/planned)
-            :priority (unwrap-or priority 2)
-            :blocked-by (id-list arguments "after")
-            :discovered-from (map-some (optional-text arguments "from")
-                                       text->id))))))
+            draft (new-item-of arguments))
+    (ok (request/add-item roadmap draft))))
 
 (defn edit-item-request (arguments id)
-  (let-try (priority (optional-number arguments "priority")
-            description (description-of arguments))
-    (let (title (optional-text arguments "title")
-          given? (or (some? title)
-                     (some? priority)
-                     (not= description description-input/unspecified)))
-      (if given?
-        (ok (request/edit-item (text->id id)
-                               (->item-edit :title title
-                                            :priority priority
-                                            :description description)))
-        (err (str "item edit needs at least one of --title, --priority, --description or --description-file"))))))
+  (map-ok (item-edit-of arguments)
+    (fn (edit)
+      (request/edit-item (text->id id) edit))))
 
 (defn graph-request (arguments)
   (let-try (format (optional-choice arguments "format" graph-format-names)
