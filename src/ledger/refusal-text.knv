@@ -3,17 +3,26 @@
 
 (use ledger/refusal-codes code-of refusal-code)
 
+(use ledger/refusal-description described
+                                refusal-description)
+
+(use ledger/pull-request-refusal-codes pull-request-catalog
+                                       pull-request-description)
+
 (export refusal-catalog refusal-code-text
         refusal-description)
-
-(defstruct refusal-description
-  :code string
-  :meaning string)
 
 (defn refusal-code-text (refused)
   (clone (:code (description-of (code-of refused)))))
 
 (defn refusal-catalog ()
+  (let (catalog (general-catalog))
+    (for-each (pull-request-catalog)
+      (fn (description)
+        (push! catalog (clone description))))
+    catalog))
+
+(defn general-catalog ()
   (collect (map (iter (vec refusal-code/roadmap-not-found
                            refusal-code/roadmap-exists
                            refusal-code/roadmap-already-paused
@@ -119,8 +128,5 @@
     (report-empty (described "report-empty" "A report needs a body."))
     (report-not-found (described "report-not-found" "No report has that id."))
     (report-already-read (described "report-already-read"
-                                    "The report was already read."))))
-
-(defn described (code meaning)
-  (->refusal-description :code (str code)
-                         :meaning (str meaning)))
+                                    "The report was already read."))
+    ((pull-request code) (pull-request-description code))))

@@ -13,7 +13,8 @@
                                          (->dep :item (id-of "rm-0002")
                                                 :on (id-of "rm-0009")
                                                 :type dep-type/discovered-from))
-                              :children (vec)))
+                              :children (vec)
+                              :pull-request none))
     (assert (= (item-detail-text (ref detail))
                (str "rm-0002  work\n  roadmap          rm-road\n  kind             build\n  status           dispatched\n  claimed by       worker\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  after            rm-0001\n  discovered from  rm-0009")))))
 
@@ -22,7 +23,8 @@
                  :item (assoc (work-item "rm-0001" kind/research status/open)
                               :description (some (str "line one\nline two")))
                  :deps (vec)
-                 :children (vec)))
+                 :children (vec)
+                 :pull-request none))
     (assert (= (item-detail-text (ref detail))
                (str "rm-0001  work\n  roadmap          rm-road\n  kind             research\n  status           open\n  claimed by       -\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  after            -\n  discovered from  -\n\nDescription:\n  line one\n  line two")))))
 
@@ -32,6 +34,7 @@
                               :children (vec (child-of (work-item "rm-0002"
                                                                   kind/build
                                                                   status/merged)
-                                                       "rm-0001"))))
+                                                       "rm-0001"))
+                              :pull-request none))
     (assert (= (item-detail-text (ref detail))
                (str "rm-0001  work\n  roadmap          rm-road\n  kind             epic\n  status           open\n  claimed by       -\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  after            -\n  discovered from  -\n\nChildren:\n  ID       ROADMAP  KIND   STATUS  PRIORITY  TITLE\n  rm-0002  road     build  merged  0         work")))))

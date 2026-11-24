@@ -1,0 +1,23 @@
+(module
+  "Wraps one item in detail in the JSON object the CLI prints: the item, its dependencies, its children and its pull request.")
+
+(use json/value array json)
+(use ledger/api item-detail)
+(use cli/ledger-json dep->json item->json)
+(use cli/pr-json optional-pull-request->json)
+(use cli/schema-envelope envelope)
+
+(export detail-envelope)
+
+(type detail-envelope (fn (item-detail) json))
+
+(defn detail-envelope (detail)
+  (envelope
+    (vec (pair (str "item")
+               (item->json (ref (:item detail))))
+         (pair (str "deps")
+               (array (collect (map (iter (:deps detail)) dep->json))))
+         (pair (str "children")
+               (array (collect (map (iter (:children detail)) item->json))))
+         (pair (str "pull_request")
+               (optional-pull-request->json (ref (:pull-request detail)))))))

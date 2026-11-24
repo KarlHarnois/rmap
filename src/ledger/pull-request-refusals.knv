@@ -1,0 +1,66 @@
+(module
+  "Names each refusal about a build's pull request and its reviews, and gives it a sentence for the user.")
+
+(use ledger/model item-id session)
+(use ledger/model/pull-requests approval pr-number)
+
+(export pull-request-refusal pull-request-refusal->message)
+
+(defenum pull-request-refusal
+  pr-required
+  head-required
+  pr-not-allowed
+  (pr-number-taken pr-number)
+  (pr-not-found item-id)
+  (invalid-head string)
+  (not-approved approval))
+
+(defn pull-request-refusal->message (refused)
+  (match refused
+    (pr-required (str "a done report on a build needs --pr and --head, and so does a fixed report on a build with no pull request yet"))
+    (head-required (str "a fixed report on a build needs --head"))
+    (pr-not-allowed (str "only a done or fixed report on a build takes --pr or --head, and --pr only when the build has no pull request yet"))
+    ((pr-number-taken number)
+     (str "the pull request #"
+          (:value number)
+          " already belongs to another item"))
+    ((pr-not-found id)
+     (str "the item " (:value id) " has no pull request"))
+    ((invalid-head text)
+     (str "a head is a full 40-character commit SHA, got " text))
+    ((not-approved approval) (not-approved-message approval))))
+
+(type not-approved-message
+  (fn ((ref approval)) string))
+
+(defn not-approved-message (approval)
+  (str "the pull request #"
+       (:value (:pr-number approval))
+       " is not approved at its head "
+       (:sha (:head approval))
+       ": "
+       (approval-gap approval)))
+
+(defn approval-gap (approval)
+  (cond
+    ((not (empty? (:changes-requested approval)))
+     (str "changes asked by "
+          (names (ref (:changes-requested approval)))))
+    ((not (empty? (:stale-heads approval)))
+     (str "the reviews are on other heads ("
+          (shas (ref (:stale-heads approval)))
+          ")"))
+    (else (str "no reviewer approved it"))))
+
+(type names
+  (fn ((ref (vec session))) string))
+
+(defn names (sessions)
+  (join (collect (map (iter sessions)
+                   (fn (session) (clone (:name session)))))
+        ", "))
+
+(defn shas (heads)
+  (join (collect (map (iter heads)
+                   (fn (head) (clone (:sha head)))))
+        ", "))

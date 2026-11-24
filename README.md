@@ -56,7 +56,7 @@ Commands:
   item claim <id> --session <name> [--branch <name>] [--base <branch>]
     Gives a ready item to a new session and marks it dispatched. The branch defaults to the session name and the base to the repository's default branch.
   item advance <id> <open|dispatched|reported|in_review|fixing|merging|merged|accepted|dropped> [--kind build]
-    Moves an item to another status.
+    Moves an item to another status. A build moves to merging only when, among each reviewer's latest verdict on its pull request's head, one approves and none asks for changes.
   item close <id>
     Marks a build merged, or a reported research or design item accepted.
   item drop <id> --reason <text>
@@ -139,8 +139,12 @@ Commands:
     Shows one report with its body.
   report read <id>
     Marks a report read. Reading the done report of a research or design item ends the session that sent it, if it is still live.
-  report <item> --session <name> --kind done|fixed|question [--text <text>] [--file <path|->]
-    Records a report from the item's live session, with its body in --text, or in --file (- reads stdin). done moves a dispatched research or design item to reported. question leaves the status as it is.
+  report <item> --session <name> --kind done|fixed|question [--text <text>] [--file <path|->] [--pr <number>] [--head <commit sha>]
+    Records a report from the item's live session, with its body in --text, or in --file (- reads stdin). done moves a dispatched research or design item to reported, and a dispatched build to in_review with its pull request in --pr and its head in --head. fixed moves a fixing build to in_review with the head it pushed in --head. question leaves the status as it is.
+  pr review <item> --verdict changes|approve --kind behavior|design --head <commit sha> --reviewer <session>
+    Records a review of the build's pull request at --head by the reviewer session, as a finished review session. It never moves the item. The build moves to merging only when, among each reviewer's latest verdict on the pull request's head, one approves and none asks for changes.
+  pr show <item>
+    Shows the build's pull request with its reviews and whether they approve its head.
 
 Environment:
   RMAP_JSON   Set to 1 to print JSON, as --json does.
@@ -187,4 +191,11 @@ Refusal codes:
   report-empty                   A report needs a body.
   report-not-found               No report has that id.
   report-already-read            The report was already read.
+  pr-required                    A done report on a build, or a fixed report on a build with no pull request yet, needs --pr and --head.
+  head-required                  A fixed report on a build needs --head.
+  pr-not-allowed                 Only a done or fixed report on a build takes --pr or --head, and --pr only when the build has no pull request yet.
+  pr-number-taken                Another item already has a pull request with that number.
+  pr-not-found                   The item has no pull request.
+  invalid-head                   A head is a full 40-character commit SHA in lowercase hex.
+  not-approved                   Among each reviewer's latest verdict on the pull request's head, none approves or one asks for changes. The error lists the head, approved_by, changes_requested and stale_heads.
 ```

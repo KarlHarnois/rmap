@@ -1,0 +1,101 @@
+(module
+  "Turns a build's pull request, its reviews and their approval into the JSON objects the CLI prints.")
+
+(use json/value array bool->json int->json json object
+                text->json)
+
+(use ledger/api approval approval-of approved? case-name
+                review review-kind-names session
+                verdict-names)
+
+(use cli/pr-replies pr-reply)
+
+(export approval-fields optional-pull-request->json
+        pr-reply-fields)
+
+(type pr-reply-fields
+  (fn (pr-reply) (vec (pair string json))))
+
+(defn pr-reply-fields (reply)
+  (match reply
+    ((reviewed recorded)
+     (vec (pair (str "review")
+                (review->json (ref (:review recorded))))
+          (pair (str "pull_request")
+                (pull-request->json (ref (:pull-request recorded))))))
+    ((shown pull-request)
+     (vec (pair (str "pull_request")
+                (pull-request->json (ref pull-request)))))))
+
+(defn optional-pull-request->json (pull-request)
+  (match pull-request
+    ((some present) (pull-request->json present))
+    (none json/null)))
+
+(type approval-fields
+  (fn ((ref approval))
+    (vec (pair string json))))
+
+(defn approval-fields (approval)
+  (vec (pair (str "pr_number")
+             (int->json (:value (:pr-number approval))))
+       (pair (str "head")
+             (sha->json (ref (:sha (:head approval)))))
+       (pair (str "approved_by")
+             (sessions->json (ref (:approved-by approval))))
+       (pair (str "changes_requested")
+             (sessions->json (ref (:changes-requested approval))))
+       (pair (str "stale_heads")
+             (array (collect (map (iter (:stale-heads approval))
+                               (fn (head)
+                                 (sha->json (ref (:sha head))))))))))
+
+(defn pull-request->json (pull-request)
+  (let (approval (approval-of pull-request))
+    (object (vec (pair (str "item")
+                       (text->json (as-str (:value (:item pull-request)))))
+                 (pair (str "number")
+                       (int->json (:value (:pr-number pull-request))))
+                 (pair (str "head")
+                       (sha->json (ref (:sha (:head pull-request)))))
+                 (pair (str "opened_at")
+                       (text->json (as-str (:value (:opened-at pull-request)))))
+                 (pair (str "reviews")
+                       (array (collect (map (iter (:reviews pull-request))
+                                            review->json))))
+                 (pair (str "approved")
+                       (bool->json (approved? (ref approval))))
+                 (pair (str "approval")
+                       (object (approval-fields (ref approval))))))))
+
+(type review->json
+  (fn ((ref review)) json))
+
+(defn review->json (review)
+  (object (vec (pair (str "id")
+                     (int->json (:value (:id review))))
+               (pair (str "item")
+                     (text->json (as-str (:value (:item review)))))
+               (pair (str "reviewer")
+                     (text->json (as-str (:name (:reviewer review)))))
+               (pair (str "session_id")
+                     (int->json (:value (:session-id review))))
+               (pair (str "kind")
+                     (text->json (case-name review-kind-names (:kind review))))
+               (pair (str "head")
+                     (sha->json (ref (:sha (:head review)))))
+               (pair (str "verdict")
+                     (text->json (case-name verdict-names (:verdict review))))
+               (pair (str "created_at")
+                     (text->json (as-str (:value (:created-at review))))))))
+
+(type sessions->json
+  (fn ((ref (vec session))) json))
+
+(defn sessions->json (sessions)
+  (array (collect (map (iter sessions)
+                    (fn (session)
+                      (text->json (as-str (:name session))))))))
+
+(defn sha->json (sha)
+  (text->json (as-str sha)))

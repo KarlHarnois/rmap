@@ -1,0 +1,90 @@
+(use ledger/model ->item-id ->session ->timestamp kind
+                  session-kind status)
+
+(use ledger/model/sessions ->session-id end-reason)
+
+(use ledger/model/pull-requests ->head ->pr-number
+                                ->pull-request ->review-id
+                                ->review-request review-kind
+                                verdict)
+
+(use ledger/refusal refusal)
+(use ledger/pull-request-refusals pull-request-refusal)
+
+(use ledger/core/reviews ->review-stamp approved-head
+                         review-session stamped-review)
+
+(use support/items claimed work-item)
+
+(def sha "1111111111111111111111111111111111111111")
+
+(defn request (head)
+  (->review-request :item (->item-id :value (str "rm-0001"))
+                    :reviewer (->session :name (str "reviewer"))
+                    :kind review-kind/design
+                    :head (str head)
+                    :verdict verdict/changes))
+
+(defn opened ()
+  (some (->pull-request :item (->item-id :value (str "rm-0001"))
+                        :pr-number (->pr-number :value 12)
+                        :head (->head :sha (str sha))
+                        :opened-at (->timestamp :value (str "2026-01-02T00:00:00Z"))
+                        :reviews (vec))))
+
+(defn build (status)
+  (claimed (work-item "rm-0001" kind/build status)))
+
+(defn stamp ()
+  (->review-stamp :id (->review-id :value 5)
+                  :session-id (->session-id :value 9)
+                  :created-at (->timestamp :value (str
+                                                    "2026-01-04T00:00:00Z"))))
+
+(deftest a-review-of-an-open-pull-request-is-approved
+  (assert (= (approved-head (ref (build status/in-review))
+                            (ref (opened))
+                            (ref (request sha)))
+             (ok (->head :sha (str sha))))))
+
+(deftest a-review-of-a-build-without-a-pull-request-is-refused
+  (assert (= (approved-head (ref (build status/in-review))
+                            (ref none)
+                            (ref (request sha)))
+             (err (refusal/pull-request
+                    (pull-request-refusal/pr-not-found (->item-id :value (str "rm-0001"))))))))
+
+(deftest a-review-of-a-merged-build-is-refused
+  (assert (= (approved-head (ref (build status/merged))
+                            (ref (opened))
+                            (ref (request sha)))
+             (err (refusal/item-closed (->item-id :value (str "rm-0001")))))))
+
+(deftest a-review-at-an-abbreviated-head-is-refused
+  (assert (= (approved-head (ref (build status/in-review))
+                            (ref (opened))
+                            (ref (request "1111111")))
+             (err (refusal/pull-request (pull-request-refusal/invalid-head (str "1111111")))))))
+
+(deftest a-stamped-review-keeps-the-request-and-the-stamp
+  (let (review (stamped-review (ref (request sha))
+                               (->head :sha (str sha))
+                               (stamp)))
+    (assert (= (:value (:id review)) 5))
+    (assert (= (:value (:session-id review)) 9))
+    (assert (= (:verdict review) verdict/changes))
+    (assert (= (:kind review) review-kind/design))))
+
+(deftest the-review-session-is-a-finished-review-session-of-the-reviewer
+  (let (review (stamped-review (ref (request sha))
+                               (->head :sha (str sha))
+                               (stamp))
+        session (review-session (ref review)
+                                (ref (stamp))))
+    (assert (= (:value (:id session)) 9))
+    (assert (= (:kind (:session session)) session-kind/review))
+    (assert (= (:name (:session (:session session)))
+               (str "reviewer")))
+    (assert (= (:reason (:end session)) end-reason/finished))
+    (assert (= (:at (:end session))
+               (:started-at (:session session))))))

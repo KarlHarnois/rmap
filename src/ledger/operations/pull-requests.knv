@@ -1,0 +1,110 @@
+(module
+  "Works out and writes what a report does to its build's pull request, and reads an item's pull request with its reviews.")
+
+(use ledger/model item item-id timestamp)
+(use ledger/model/reports report-request)
+(use ledger/model/pull-requests pull-request)
+(use ledger/refusal refusal)
+(use ledger/pull-request-refusals pull-request-refusal)
+
+(use ledger/core/pull-requests pr-change pr-change-of
+                               pull-request-after
+                               pull-request-of)
+
+(use ledger/core/snapshot existing)
+(use ledger/pull-request-events pr-change-columns)
+
+(use ledger/sqlite/pull-requests all-pull-requests
+                                 insert-pull-request
+                                 update-pull-request-head)
+
+(use ledger/sqlite/snapshot load-snapshot)
+(use ledger/sqlite/connection connection database-error)
+
+(use ledger/operations/transaction in-read-transaction
+                                   settings)
+
+(use ledger/failure failure)
+
+(export pull-request-for pull-request-update
+        pull-request-update-columns show-pull-request
+        write-pull-request-update)
+
+(defstruct pull-request-update
+  :prior (option pull-request)
+  :change pr-change
+  :updated (option pull-request)
+  :at timestamp)
+
+(type show-pull-request
+  (fn ((ref settings) item-id)
+    (result pull-request failure)))
+
+(defn show-pull-request (settings id)
+  (in-read-transaction settings
+    (fn (transaction)
+      (existing-pull-request (ref (:connection transaction))
+                             (ref id)))))
+
+(type pull-request-for
+  (fn ((ref connection) (ref item-id))
+    (result (option pull-request) failure)))
+
+(defn pull-request-for (connection id)
+  (let-try (pull-requests (all-pull-requests connection))
+    (ok (pull-request-of (ref pull-requests) id))))
+
+(type pull-request-update
+  (fn ((ref connection)
+       (ref item)
+       (ref report-request)
+       (ref timestamp))
+    (result pull-request-update failure)))
+
+(defn pull-request-update (connection item request now)
+  (let-try (pull-requests (all-pull-requests connection)
+            change (pr-change-of item request (ref pull-requests)))
+    (let (before (pull-request-of (ref pull-requests)
+                                  (ref (:id item))))
+      (ok (->pull-request-update
+            :updated (pull-request-after (ref before) item (ref change) now)
+            :prior before
+            :change change
+            :at (clone now))))))
+
+(defn write-pull-request-update (connection update)
+  (match (:change update)
+    (unchanged (ok 0))
+    ((opened _ _)
+     (write-after connection update insert-pull-request))
+    ((pushed _)
+     (write-after connection update update-pull-request-head))))
+
+(defn pull-request-update-columns (update)
+  (pr-change-columns (ref (:prior update))
+                     (ref (:change update))
+                     (ref (:at update))))
+
+(type write-after
+  (fn ((ref connection)
+       (ref pull-request-update)
+       (fn ((ref connection) (ref pull-request))
+         (result int database-error)))
+    (result int failure)))
+
+(defn write-after (connection update write)
+  (match (:updated update)
+    ((some after) (ok (try (write connection after))))
+    (none (ok 0))))
+
+(type existing-pull-request
+  (fn ((ref connection) (ref item-id))
+    (result pull-request failure)))
+
+(defn existing-pull-request (connection id)
+  (let-try (snapshot (load-snapshot connection)
+            _ (existing (ref snapshot) id)
+            found (pull-request-for connection id))
+    (ok-or found
+           (failure/refused (refusal/pull-request (pull-request-refusal/pr-not-found
+                                                    (clone id)))))))

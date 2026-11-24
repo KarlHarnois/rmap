@@ -1,0 +1,10 @@
+(module
+  "Names each result a pull request call hands back to the CLI.")
+
+(use ledger/api pull-request recorded-review)
+
+(export pr-reply)
+
+(defenum pr-reply
+  (reviewed recorded-review)
+  (shown pull-request))

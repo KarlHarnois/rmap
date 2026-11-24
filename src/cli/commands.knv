@@ -1,37 +1,27 @@
 (module
-  "Lists each command the CLI accepts, and the boolean flags any of them takes.")
+  "Lists each command the CLI accepts.")
 
 (use ledger/api graph-format-names graph-level-names
                 kind-names origin-names status-names)
 
-(use cli/flag-specs boolean-flag boolean? choices
-                    global-flags optional required)
-
+(use cli/flag-specs boolean-flag choices optional required)
 (use cli/routes ->route operands subcommand words)
 (use cli/decision-commands decision-routes)
 (use cli/lifecycle-commands lifecycle-routes)
 (use cli/report-commands report-routes)
+(use cli/pr-commands pr-routes)
 
-(export boolean-flag-names routes)
-
-(defn boolean-flag-names ()
-  (let (specs (global-flags))
-    (for-each (routes)
-      (fn (route)
-        (for-each (:flags route)
-          (fn (spec) (push! specs (clone spec))))))
-    (collect (map (filter (iter specs)
-                    (fn (spec) (boolean? spec)))
-                  (fn (spec) (clone (:name spec)))))))
+(export routes)
 
 (defn routes ()
   (let (all (item-routes))
-    (for-each (lifecycle-routes)
-      (fn (route) (push! all (clone route))))
-    (for-each (decision-routes)
-      (fn (route) (push! all (clone route))))
-    (for-each (report-routes)
-      (fn (route) (push! all (clone route))))
+    (for-each (vec (lifecycle-routes)
+                   (decision-routes)
+                   (report-routes)
+                   (pr-routes))
+              (fn (group)
+                (for-each group
+                  (fn (route) (push! all (clone route))))))
     all))
 
 (defn item-routes ()
@@ -117,7 +107,7 @@
                             (optional "base" "<branch>")))
        (->route :subcommand subcommand/item-advance
                 :words (words "item advance")
-                :summary (str "Moves an item to another status.")
+                :summary (str "Moves an item to another status. A build moves to merging only when, among each reviewer's latest verdict on its pull request's head, one approves and none asks for changes.")
                 :operands (vec (str "id") (choices status-names))
                 :flags (vec (optional "kind" "build")))
        (->route :subcommand subcommand/item-close

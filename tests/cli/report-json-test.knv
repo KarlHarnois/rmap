@@ -43,9 +43,12 @@
                               :report (report-on 3 "rm-0001" report-kind/done)
                               :item (claimed (work-item "rm-0001"
                                                         kind/research
-                                                        status/reported))))))
+                                                        status/reported))
+                              :pull-request none))))
     (assert (= (keys-of (copy-of (ref value)))
-               (vec (str "item") (str "report"))))
+               (vec (str "item")
+                    (str "pull_request")
+                    (str "report"))))
     (assert (= (json->text (ref (unwrap (field (ref (unwrap (field (ref value)
                                                                    "item")))
                                                "status"))))

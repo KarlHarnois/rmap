@@ -1,0 +1,12 @@
+(module
+  "Holds the stable code of a refusal with a sentence that says what it means.")
+
+(export ->refusal-description described refusal-description)
+
+(defstruct refusal-description
+  :code string
+  :meaning string)
+
+(defn described (code meaning)
+  (->refusal-description :code (str code)
+                         :meaning (str meaning)))

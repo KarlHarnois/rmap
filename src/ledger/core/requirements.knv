@@ -1,0 +1,107 @@
+(module
+  "Decides the requirements a move must meet beyond the transition table: a build moves to merging only when the reviews on its pull request's head approve it.")
+
+(use ledger/model item session status)
+
+(use ledger/model/pull-requests ->approval head pull-request
+                                review verdict)
+
+(use ledger/refusal pull-request-refusal refusal)
+(use ledger/core/move target-status)
+
+(export approval-of approved? check-requirements)
+
+(defn check-requirements (item move pull-request)
+  (if (= (target-status item move) status/merging)
+    (check-merge-requirement item pull-request)
+    (ok (do))))
+
+(defn approval-of (pull-request)
+  (let (latest (latest-on-head pull-request))
+    (->approval :pr-number (clone (:pr-number pull-request))
+                :head (clone (:head pull-request))
+                :approved-by (reviewers-with (ref latest) verdict/approve)
+                :changes-requested (reviewers-with (ref latest) verdict/changes)
+                :stale-heads (stale-heads pull-request))))
+
+(defn approved? (approval)
+  (and (empty? (:changes-requested approval))
+       (not (empty? (:approved-by approval)))))
+
+(type check-merge-requirement
+  (fn ((ref item) (ref (option pull-request)))
+    (result unit refusal)))
+
+(defn check-merge-requirement (item pull-request)
+  (match pull-request
+    ((some present) (check-approved present))
+    (none (err (refusal/pull-request (pull-request-refusal/pr-not-found (clone
+                                                                          (:id item))))))))
+
+(defn check-approved (pull-request)
+  (let (approval (approval-of pull-request))
+    (if (approved? (ref approval))
+      (ok (do))
+      (err (refusal/pull-request (pull-request-refusal/not-approved
+                                   approval))))))
+
+(defn latest-on-head (pull-request)
+  (let (newest-first (reviews-on (ref (:reviews pull-request))
+                                 (ref (:head pull-request)))
+        latest (vec))
+    (reverse! newest-first)
+    (for-each newest-first
+      (fn (review)
+        (when (not (reviewed-by? (ref latest)
+                                 (ref (:reviewer review))))
+          (push! latest (clone review)))))
+    latest))
+
+(type reviews-on
+  (fn ((ref (vec review)) (ref head))
+    (vec review)))
+
+(defn reviews-on (reviews head)
+  (collect (map (filter (iter reviews)
+                  (fn (review)
+                    (= (ref (:head review)) head)))
+                clone)))
+
+(type reviewed-by?
+  (fn ((ref (vec review)) (ref session))
+    bool))
+
+(defn reviewed-by? (reviews reviewer)
+  (any? (iter reviews)
+    (fn (review)
+      (= (ref (:reviewer review)) reviewer))))
+
+(type reviewers-with
+  (fn ((ref (vec review)) verdict)
+    (vec session)))
+
+(defn reviewers-with (latest wanted)
+  (collect (map (filter (iter latest)
+                  (fn (review)
+                    (= (:verdict review) wanted)))
+                (fn (review) (clone (:reviewer review))))))
+
+(defn stale-heads (pull-request)
+  (let (heads (vec))
+    (for-each (:reviews pull-request)
+      (fn (review)
+        (when (stale? (ref heads)
+                      pull-request
+                      (ref (:head review)))
+          (push! heads (clone (:head review))))))
+    heads))
+
+(type stale?
+  (fn ((ref (vec head))
+       (ref pull-request)
+       (ref head))
+    bool))
+
+(defn stale? (heads pull-request head)
+  (and (not= head (ref (:head pull-request)))
+       (not (contains? heads (clone head)))))

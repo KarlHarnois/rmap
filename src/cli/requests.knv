@@ -12,6 +12,7 @@
 
 (use cli/item-flags item-edit-of new-item-of)
 (use cli/report-requests report-operation)
+(use cli/pr-requests pr-operation)
 
 (use cli/decision-requests decision-request
                            text->decision-id)
@@ -46,7 +47,8 @@
   (remove-dep item-id item-id)
   (graph graph-request)
   (decision decision-request)
-  (report report-operation))
+  (report report-operation)
+  (pull-request pr-operation))
 
 (defn new-roadmap-request (arguments name)
   (let-try (manager (required-text arguments "manager"))

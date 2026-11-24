@@ -3,7 +3,7 @@
 
 (use cli/invocation invocation)
 (use cli/route-invocations invocation-of)
-(use cli/commands boolean-flag-names)
+(use cli/boolean-flags boolean-flag-names)
 (use cli/arguments split-arguments)
 
 (use cli/route-matching check-flags-without-command

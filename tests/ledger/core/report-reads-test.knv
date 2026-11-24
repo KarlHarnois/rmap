@@ -1,9 +1,9 @@
 (use ledger/model ->timestamp kind status)
+(use ledger/model/reports ->report-id report-kind)
 
-(use ledger/model/reports ->report-id ->session-id
-                          report-kind)
+(use ledger/model/sessions ->session-end ->session-id
+                           end-reason)
 
-(use ledger/model/sessions ->session-end end-reason)
 (use ledger/refusal refusal)
 (use ledger/core/session-changes session-change)
 

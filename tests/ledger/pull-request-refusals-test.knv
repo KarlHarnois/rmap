@@ -1,0 +1,53 @@
+(use ledger/model ->item-id ->session)
+
+(use ledger/model/pull-requests ->approval ->head
+                                ->pr-number approval)
+
+(use ledger/pull-request-refusals pull-request-refusal
+                                  pull-request-refusal->message)
+
+(type approval-with
+  (fn ((vec (ref str))
+       (vec (ref str))
+       (vec (ref str)))
+    approval))
+
+(defn approval-with (approved-by changes-requested stale-heads)
+  (->approval :pr-number (->pr-number :value 12)
+              :head (->head :sha (str
+                                   "1111111111111111111111111111111111111111"))
+              :approved-by (names approved-by)
+              :changes-requested (names changes-requested)
+              :stale-heads (collect (map (iter stale-heads)
+                                      (fn (sha) (->head :sha (str sha)))))))
+
+(defn names (values)
+  (collect (map (iter values)
+             (fn (name) (->session :name (str name))))))
+
+(defn not-approved-message (approval)
+  (pull-request-refusal->message (pull-request-refusal/not-approved approval)))
+
+(deftest a-change-request-names-the-reviewers-who-asked
+  (assert (= (not-approved-message (approval-with (vec "r1")
+                                                  (vec "r2" "r3")
+                                                  (vec)))
+             (str "the pull request #12 is not approved at its head 1111111111111111111111111111111111111111: changes asked by r2, r3"))))
+
+(deftest reviews-on-older-heads-name-those-heads
+  (assert (= (not-approved-message (approval-with (vec) (vec) (vec "2222")))
+             (str "the pull request #12 is not approved at its head 1111111111111111111111111111111111111111: the reviews are on other heads (2222)"))))
+
+(deftest no-review-says-no-reviewer-approved-it
+  (assert (= (not-approved-message (approval-with (vec) (vec) (vec)))
+             (str "the pull request #12 is not approved at its head 1111111111111111111111111111111111111111: no reviewer approved it"))))
+
+(deftest a-taken-number-names-the-pull-request
+  (assert (= (pull-request-refusal->message (pull-request-refusal/pr-number-taken
+                                              (->pr-number :value 7)))
+             (str "the pull request #7 already belongs to another item"))))
+
+(deftest a-missing-pull-request-names-the-item
+  (assert (= (pull-request-refusal->message
+               (pull-request-refusal/pr-not-found (->item-id :value (str "rm-0001"))))
+             (str "the item rm-0001 has no pull request"))))

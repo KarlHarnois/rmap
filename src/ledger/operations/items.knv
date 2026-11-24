@@ -16,13 +16,16 @@
 (use ledger/failure failure)
 (use ledger/operations/lookups scope-named)
 (use ledger/sqlite/connection connection)
+(use ledger/model/pull-requests pull-request)
+(use ledger/operations/pull-requests pull-request-for)
 
 (export ->item-detail item-detail list-items show-item)
 
 (defstruct item-detail
   :item item
   :deps (vec dep)
-  :children (vec item))
+  :children (vec item)
+  :pull-request (option pull-request))
 
 (type list-items
   (fn ((ref settings) (option string))
@@ -62,12 +65,13 @@
 
 (defn detail-within (connection id)
   (let-try (snapshot (load-snapshot connection)
-            item (existing (ref snapshot) id))
+            item (existing (ref snapshot) id)
+            pull-request (pull-request-for connection id))
     (let (index (index-of (ref snapshot)))
-      (ok (->item-detail
-            :item (with-shown-status (ref index) (ref item))
-            :deps (deps-of (ref snapshot) id)
-            :children (children-of (ref snapshot) (ref index) id))))))
+      (ok (->item-detail :item (with-shown-status (ref index) (ref item))
+                         :deps (deps-of (ref snapshot) id)
+                         :children (children-of (ref snapshot) (ref index) id)
+                         :pull-request pull-request)))))
 
 (type children-of
   (fn ((ref snapshot)

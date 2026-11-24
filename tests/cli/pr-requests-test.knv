@@ -1,0 +1,52 @@
+(use ledger/api ->item-id ->review-request ->session)
+(use ledger/model/pull-requests review-kind verdict)
+(use cli/invocations invocation parse-invocation)
+(use cli/requests request)
+(use cli/pr-requests pr-operation)
+
+(defn operation-of (words)
+  (match (unwrap-ok (parsed words))
+    ((invocation/on-ledger call)
+     (operation-in (clone (:request call))))
+    (_ none)))
+
+(defn parsed (words)
+  (parse-invocation (collect (map (iter words)
+                               (fn (word) (str (deref word)))))))
+
+(defn operation-in (request)
+  (match request
+    ((request/pull-request operation) (some operation))
+    (_ none)))
+
+(defn refusal-of (words)
+  (unwrap-err (parsed words)))
+
+(deftest a-review-reads-its-verdict-kind-head-and-reviewer
+  (assert (= (operation-of (vec "pr" "review" "rm-0001"
+                                "--verdict" "changes"
+                                "--kind" "design" "--head"
+                                "abc" "--reviewer" "r1"))
+             (some (pr-operation/review
+                     (->review-request :item (->item-id :value (str "rm-0001"))
+                                       :reviewer (->session :name (str "r1"))
+                                       :kind review-kind/design
+                                       :head (str "abc")
+                                       :verdict verdict/changes))))))
+
+(deftest a-review-verdict-must-be-known
+  (assert (= (refusal-of (vec "pr" "review" "rm-0001"
+                              "--verdict" "maybe" "--kind"
+                              "design" "--head" "abc"
+                              "--reviewer" "r1"))
+             (str "--verdict does not accept maybe"))))
+
+(deftest a-review-needs-a-reviewer
+  (assert (= (refusal-of (vec "pr" "review" "rm-0001"
+                              "--verdict" "approve" "--kind"
+                              "behavior" "--head" "abc"))
+             (str "pr review needs --reviewer"))))
+
+(deftest show-takes-the-item
+  (assert (= (operation-of (vec "pr" "show" "rm-0001"))
+             (some (pr-operation/show (->item-id :value (str "rm-0001")))))))

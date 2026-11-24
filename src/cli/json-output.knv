@@ -2,7 +2,8 @@
   "Renders a response as the JSON object the CLI prints.")
 
 (use ledger/api database-problem failure failure-code
-                failure-message refusal)
+                failure-message pull-request-refusal
+                refusal)
 
 (use cli/responses response)
 (use cli/help command-help-document help-document)
@@ -10,6 +11,7 @@
 (use cli/schema-envelope error-envelope)
 (use json/value int->json)
 (use cli/blockage-json blockage-fields)
+(use cli/pr-json approval-fields)
 
 (export response->json)
 
@@ -52,4 +54,6 @@
 (defn refusal-fields (refusal)
   (match refusal
     ((refusal/not-ready blockage) (blockage-fields blockage))
+    ((refusal/pull-request (pull-request-refusal/not-approved approval))
+     (approval-fields approval))
     (_ (vec))))

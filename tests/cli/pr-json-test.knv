@@ -1,0 +1,97 @@
+(use json/value copy-of field json->bool json->entries
+                json->int json->items json->text null?
+                object)
+
+(use ledger/model ->item-id ->session ->timestamp)
+(use ledger/model/sessions ->session-id)
+
+(use ledger/model/pull-requests ->head ->pr-number
+                                ->pull-request
+                                ->recorded-review ->review
+                                ->review-id review-kind
+                                verdict)
+
+(use cli/pr-replies pr-reply)
+
+(use cli/pr-json optional-pull-request->json
+                 pr-reply-fields)
+
+(def sha "1111111111111111111111111111111111111111")
+
+(defn review-by (reviewer verdict)
+  (->review :id (->review-id :value 1)
+            :item (->item-id :value (str "rm-0001"))
+            :session-id (->session-id :value 3)
+            :reviewer (->session :name (str reviewer))
+            :kind review-kind/behavior
+            :head (->head :sha (str sha))
+            :verdict verdict
+            :created-at (->timestamp :value (str "2026-01-03T00:00:00Z"))))
+
+(defn shown (reviews)
+  (copy-of (unwrap (field (ref (object (pr-reply-fields (pr-reply/shown (pull-request-with
+                                                                          reviews)))))
+                          "pull_request"))))
+
+(defn pull-request-with (reviews)
+  (->pull-request :item (->item-id :value (str "rm-0001"))
+                  :pr-number (->pr-number :value 12)
+                  :head (->head :sha (str sha))
+                  :opened-at (->timestamp :value (str "2026-01-02T00:00:00Z"))
+                  :reviews reviews))
+
+(defn texts-at (value key)
+  (collect (map (iter (unwrap (json->items (ref (unwrap (field value key))))))
+             (fn (item) (unwrap (json->text item))))))
+
+(defn keys-of (value)
+  (collect (map (iter (json->entries (ref value)))
+             (fn (entry) (clone (first entry))))))
+
+(deftest a-pull-request-shows-its-number-head-reviews-and-approval
+  (let (value (shown (vec (review-by "r1" verdict/approve))))
+    (assert (= (keys-of (copy-of (ref value)))
+               (vec (str "approval")
+                    (str "approved")
+                    (str "head")
+                    (str "item")
+                    (str "number")
+                    (str "opened_at")
+                    (str "reviews"))))
+    (assert (= (json->int (ref (unwrap (field (ref value) "number"))))
+               (some 12)))
+    (assert (= (json->bool (ref (unwrap (field (ref value) "approved"))))
+               (some true)))))
+
+(deftest a-review-shows-its-reviewer-and-verdict
+  (let (review (copy-of (unwrap (first (unwrap (json->items
+                                                 (ref (unwrap (field (ref (shown
+                                                                            (vec
+                                                                              (review-by
+                                                                                "r1"
+                                                                                verdict/changes))))
+                                                                     "reviews")))))))))
+    (assert (= (json->text (ref (unwrap (field (ref review) "reviewer"))))
+               (some (str "r1"))))
+    (assert (= (json->text (ref (unwrap (field (ref review) "verdict"))))
+               (some (str "changes"))))))
+
+(deftest the-approval-lists-who-asked-for-changes
+  (let (approval (copy-of (unwrap (field (ref (shown (vec (review-by
+                                                            "r2"
+                                                            verdict/changes))))
+                                         "approval"))))
+    (assert (= (texts-at (ref approval) "changes_requested")
+               (vec (str "r2"))))))
+
+(deftest a-recorded-review-carries-the-review-and-the-pull-request
+  (assert (= (collect (map (iter (pr-reply-fields
+                                   (pr-reply/reviewed
+                                     (->recorded-review
+                                       :review (review-by "r1" verdict/approve)
+                                       :pull-request (pull-request-with (vec))))))
+                           (fn (entry) (clone (first entry)))))
+             (vec (str "review") (str "pull_request")))))
+
+(deftest no-pull-request-is-null
+  (assert (null? (ref (optional-pull-request->json (ref none))))))

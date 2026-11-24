@@ -1,0 +1,134 @@
+(use ledger/model ->item-id ->session ->timestamp kind
+                  status)
+
+(use ledger/model/sessions ->session-id)
+
+(use ledger/model/pull-requests ->approval ->head
+                                ->pr-number ->pull-request
+                                ->review ->review-id
+                                review-kind verdict)
+
+(use ledger/refusal refusal)
+(use ledger/pull-request-refusals pull-request-refusal)
+(use ledger/core/move move)
+
+(use ledger/core/requirements approval-of approved?
+                              check-requirements)
+
+(use support/items claimed work-item)
+
+(def first-sha "1111111111111111111111111111111111111111")
+
+(def second-sha "2222222222222222222222222222222222222222")
+
+(defn review-by (id reviewer verdict sha)
+  (->review :id (->review-id :value id)
+            :item (->item-id :value (str "rm-0001"))
+            :session-id (->session-id :value id)
+            :reviewer (->session :name (str reviewer))
+            :kind review-kind/behavior
+            :head (->head :sha (str sha))
+            :verdict verdict
+            :created-at (->timestamp :value (str "2026-01-03T00:00:00Z"))))
+
+(defn approval-at (sha reviews)
+  (approval-of (ref (pull-request-at sha reviews))))
+
+(defn pull-request-at (sha reviews)
+  (->pull-request :item (->item-id :value (str "rm-0001"))
+                  :pr-number (->pr-number :value 12)
+                  :head (->head :sha (str sha))
+                  :opened-at (->timestamp :value (str "2026-01-02T00:00:00Z"))
+                  :reviews reviews))
+
+(defn names (values)
+  (collect (map (iter values)
+             (fn (name) (->session :name (str name))))))
+
+(defn to-merging (pull-request)
+  (check-requirements (ref (in-review))
+                      (ref (move/advance status/merging))
+                      (ref pull-request)))
+
+(defn in-review ()
+  (claimed (work-item "rm-0001" kind/build status/in-review)))
+
+(deftest one-approval-on-the-head-approves-it
+  (assert (approved? (ref (approval-at
+                            first-sha
+                            (vec
+                              (review-by 1 "r1" verdict/approve first-sha)))))))
+
+(deftest no-review-leaves-it-unapproved
+  (assert (not (approved? (ref (approval-at first-sha (vec)))))))
+
+(deftest a-change-request-blocks-an-approval-by-another-reviewer
+  (let (approval (approval-at first-sha
+                              (vec
+                                (review-by 1 "r1" verdict/approve first-sha)
+                                (review-by 2 "r2" verdict/changes first-sha))))
+    (assert (not (approved? (ref approval))))
+    (assert (= (:changes-requested approval)
+               (names (vec "r2"))))
+    (assert (= (:approved-by approval)
+               (names (vec "r1"))))))
+
+(deftest a-reviewer-who-approves-the-same-head-after-changes-lifts-the-block
+  (assert (approved? (ref (approval-at
+                            first-sha
+                            (vec
+                              (review-by 1 "r1" verdict/changes first-sha)
+                              (review-by 2 "r1" verdict/approve first-sha)))))))
+
+(deftest a-reviewer-who-asks-for-changes-after-approving-blocks-again
+  (assert (not (approved?
+                 (ref (approval-at
+                        first-sha
+                        (vec (review-by 1 "r1" verdict/approve first-sha)
+                             (review-by 2 "r1" verdict/changes first-sha))))))))
+
+(deftest a-change-request-on-an-old-head-stops-counting
+  (assert (approved?
+            (ref (approval-at
+                   second-sha
+                   (vec (review-by 1 "r1" verdict/changes first-sha)
+                        (review-by 2 "r2" verdict/approve second-sha)))))))
+
+(deftest an-approval-on-an-old-head-stops-counting
+  (let (approval (approval-at second-sha
+                              (vec
+                                (review-by 1 "r1" verdict/approve first-sha))))
+    (assert (not (approved? (ref approval))))
+    (assert (= (:stale-heads approval)
+               (vec (->head :sha (str first-sha)))))))
+
+(deftest a-move-that-does-not-reach-merging-has-no-requirement
+  (assert (ok? (check-requirements (ref (in-review))
+                                   (ref (move/advance status/fixing))
+                                   (ref none)))))
+
+(deftest merging-without-a-pull-request-is-refused
+  (assert (= (unwrap-err (to-merging none))
+             (refusal/pull-request (pull-request-refusal/pr-not-found
+                                     (->item-id :value (str "rm-0001")))))))
+
+(deftest merging-an-unapproved-head-names-what-is-missing
+  (assert (= (unwrap-err (to-merging (some (pull-request-at first-sha
+                                                            (vec (review-by 1
+                                                                            "r1"
+                                                                            verdict/changes
+                                                                            first-sha))))))
+             (refusal/pull-request (pull-request-refusal/not-approved
+                                     (->approval :pr-number (->pr-number
+                                                              :value 12)
+                                                 :head (->head :sha (str first-sha))
+                                                 :approved-by (vec)
+                                                 :changes-requested (names (vec "r1"))
+                                                 :stale-heads (vec)))))))
+
+(deftest merging-an-approved-head-is-allowed
+  (assert (ok? (to-merging (some (pull-request-at
+                                   first-sha
+                                   (vec (review-by 1 "r1"
+                                                   verdict/approve
+                                                   first-sha))))))))

@@ -2,7 +2,8 @@
   "Reads the next actions for each open item. It changes nothing.")
 
 (use ledger/model session)
-(use ledger/core/next next-item next-of)
+(use ledger/core/next ->deliveries next-item next-of)
+(use ledger/sqlite/pull-requests all-pull-requests)
 (use ledger/core/selection selected-roadmaps)
 (use ledger/sqlite/roadmaps all-roadmaps)
 (use ledger/sqlite/snapshot load-snapshot)
@@ -34,11 +35,12 @@
   (let-try (scope (scope-named connection roadmap)
             roadmaps (all-roadmaps connection)
             snapshot (load-snapshot connection)
-            unread (reports-matching connection
-                                     (ref
-                                       (->report-query
-                                         :item none
-                                         :reading report-reading/unread-only))))
+            unread (reports-matching
+                     connection
+                     (ref (->report-query :item none
+                                          :reading report-reading/unread-only)))
+            pull-requests (all-pull-requests connection))
     (ok (next-of (ref snapshot)
                  (ref (selected-roadmaps (ref roadmaps) (ref scope) manager))
-                 (ref unread)))))
+                 (ref (->deliveries :reports unread
+                                    :pull-requests pull-requests))))))

@@ -4,8 +4,9 @@
 (use ledger/model claim item session timestamp)
 
 (use ledger/model/reports ->report report report-id
-                          report-kind session-id)
+                          report-kind)
 
+(use ledger/model/sessions session-id)
 (use ledger/refusal refusal)
 (use ledger/core/move move)
 (use ledger/core/transitions approved-move)

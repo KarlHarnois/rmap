@@ -1,0 +1,50 @@
+(use ledger/api ->item-id show-item show-pull-request)
+(use ledger/model kind)
+(use ledger/model/pull-requests verdict)
+
+(use support/ledger added-id claimed item-draft
+                    refusal-code-of scratch-ledger)
+
+(use support/pull-requests first-head in-review-build
+                           reviewed)
+
+(defn build-in-review (settings)
+  (in-review-build settings
+                   (ref (claimed settings
+                                 (added-id settings (item-draft kind/build))))
+                   12))
+
+(deftest showing-a-pull-request-gives-its-reviews
+  (let (settings (scratch-ledger "pr-show")
+        id (build-in-review (ref settings)))
+    (reviewed (ref settings)
+              (ref id)
+              "r1" verdict/changes first-head)
+    (reviewed (ref settings)
+              (ref id)
+              "r1" verdict/approve first-head)
+    (let (pull-request (unwrap-ok (show-pull-request (ref settings)
+                                                     (clone id))))
+      (assert (= (:value (:pr-number pull-request)) 12))
+      (assert (= (len (:reviews pull-request)) 2)))))
+
+(deftest a-build-without-a-pull-request-has-none-to-show
+  (let (settings (scratch-ledger "pr-show-none")
+        id (added-id (ref settings) (item-draft kind/build)))
+    (assert (= (refusal-code-of (show-pull-request (ref settings) id))
+               (some (str "pr-not-found"))))))
+
+(deftest a-missing-item-has-no-pull-request-to-show
+  (let (settings (scratch-ledger "pr-show-missing"))
+    (assert (= (refusal-code-of (show-pull-request (ref settings)
+                                                   (->item-id :value (str "rm-ffff"))))
+               (some (str "item-not-found"))))))
+
+(deftest an-item-shows-its-pull-request
+  (let (settings (scratch-ledger "pr-item-show")
+        id (build-in-review (ref settings)))
+    (assert (= (map-some (clone (:pull-request
+                                  (unwrap-ok (show-item (ref settings) id))))
+                         (fn (pull-request)
+                           (:value (:pr-number pull-request))))
+               (some 12)))))

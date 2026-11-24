@@ -1,0 +1,59 @@
+(module
+  "Names the stable code of each pull request refusal, describes it in a sentence and catalogs them.")
+
+(use ledger/pull-request-refusals pull-request-refusal)
+(use ledger/refusal-description described)
+
+(export pull-request-catalog pull-request-code-of
+        pull-request-description pull-request-refusal-code)
+
+(defenum pull-request-refusal-code
+  pr-required
+  head-required
+  pr-not-allowed
+  pr-number-taken
+  pr-not-found
+  invalid-head
+  not-approved)
+
+(defn pull-request-code-of (refused)
+  (match refused
+    (pull-request-refusal/pr-required pull-request-refusal-code/pr-required)
+    (pull-request-refusal/head-required pull-request-refusal-code/head-required)
+    (pull-request-refusal/pr-not-allowed
+      pull-request-refusal-code/pr-not-allowed)
+    ((pull-request-refusal/pr-number-taken _)
+     pull-request-refusal-code/pr-number-taken)
+    ((pull-request-refusal/pr-not-found _)
+     pull-request-refusal-code/pr-not-found)
+    ((pull-request-refusal/invalid-head _)
+     pull-request-refusal-code/invalid-head)
+    ((pull-request-refusal/not-approved _)
+     pull-request-refusal-code/not-approved)))
+
+(defn pull-request-catalog ()
+  (collect (map (iter (vec pull-request-refusal-code/pr-required
+                           pull-request-refusal-code/head-required
+                           pull-request-refusal-code/pr-not-allowed
+                           pull-request-refusal-code/pr-number-taken
+                           pull-request-refusal-code/pr-not-found
+                           pull-request-refusal-code/invalid-head
+                           pull-request-refusal-code/not-approved))
+                (fn (code)
+                  (pull-request-description (deref code))))))
+
+(defn pull-request-description (code)
+  (match code
+    (pr-required (described "pr-required"
+                            "A done report on a build, or a fixed report on a build with no pull request yet, needs --pr and --head."))
+    (head-required (described "head-required"
+                              "A fixed report on a build needs --head."))
+    (pr-not-allowed (described "pr-not-allowed"
+                               "Only a done or fixed report on a build takes --pr or --head, and --pr only when the build has no pull request yet."))
+    (pr-number-taken (described "pr-number-taken"
+                                "Another item already has a pull request with that number."))
+    (pr-not-found (described "pr-not-found" "The item has no pull request."))
+    (invalid-head (described "invalid-head"
+                             "A head is a full 40-character commit SHA in lowercase hex."))
+    (not-approved (described "not-approved"
+                             "Among each reviewer's latest verdict on the pull request's head, none approves or one asks for changes. The error lists the head, approved_by, changes_requested and stale_heads."))))

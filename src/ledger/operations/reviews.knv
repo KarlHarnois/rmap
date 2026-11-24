@@ -1,0 +1,78 @@
+(module
+  "Records a reviewer session's review of a build's pull request, with the finished review session, in one transaction with its event. It never moves the item.")
+
+(use ledger/model/pull-requests ->recorded-review
+                                recorded-review
+                                review-request)
+
+(use ledger/core/reviews ->review-stamp approved-head
+                         review-session review-stamp
+                         stamped-review)
+
+(use ledger/core/snapshot existing)
+(use ledger/pull-request-events item-reviewed)
+(use ledger/operations/pull-requests pull-request-for)
+
+(use ledger/operations/transaction in-transaction now record
+                                   settings transaction)
+
+(use ledger/sqlite/reviews insert-review next-review-id)
+
+(use ledger/sqlite/sessions insert-finished-session
+                            next-session-id)
+
+(use ledger/sqlite/snapshot load-snapshot)
+(use ledger/sqlite/connection database-failure)
+(use ledger/failure failure)
+
+(export record-review)
+
+(type record-review
+  (fn ((ref settings) review-request)
+    (result recorded-review failure)))
+
+(defn record-review (settings request)
+  (in-transaction settings
+    (fn (transaction)
+      (store-review transaction (ref request)))))
+
+(type store-review
+  (fn ((ref transaction) (ref review-request))
+    (result recorded-review failure)))
+
+(defn store-review (transaction request)
+  (let (connection (ref (:connection transaction)))
+    (let-try (snapshot (load-snapshot connection)
+              item (existing (ref snapshot)
+                             (ref (:item request)))
+              before (pull-request-for connection (ref (:id item)))
+              head (approved-head (ref item) (ref before) request)
+              stamp (review-stamp-of transaction))
+      (let (review (stamped-review request head (clone stamp))
+            session (review-session (ref review) (ref stamp)))
+        (let-try (_ (insert-finished-session connection
+                                             (ref (:id item))
+                                             (ref session))
+                  _ (insert-review connection (ref review))
+                  after (pull-request-for connection (ref (:id item)))
+                  pull-request (ok-or after
+                                      (failure/database (database-failure (str "the reviewed pull request is gone"))))
+                  _ (record transaction
+                            (item-reviewed (ref item)
+                                           (ref review)
+                                           (ref session)
+                                           (ref pull-request))))
+          (ok (->recorded-review :review review
+                                 :pull-request pull-request)))))))
+
+(type review-stamp-of
+  (fn ((ref transaction))
+    (result review-stamp failure)))
+
+(defn review-stamp-of (transaction)
+  (let (connection (ref (:connection transaction)))
+    (let-try (id (next-review-id connection)
+              session-id (next-session-id connection))
+      (ok (->review-stamp :id id
+                          :session-id session-id
+                          :created-at (now transaction))))))

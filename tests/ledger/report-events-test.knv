@@ -17,8 +17,8 @@
                                 :move (move/report kind)
                                 :session-change session-change/kept))
     (copy-of (ref (:payload (item-reported (ref applied)
-                                           (ref
-                                             (report-on 7 "rm-0001" kind))))))))
+                                           (ref (report-on 7 "rm-0001" kind))
+                                           (ref (vec))))))))
 
 (defn research (status)
   (claimed (work-item "rm-0001" kind/research status)))
@@ -70,8 +70,8 @@
                                 :move (move/report report-kind/question)
                                 :session-change session-change/kept)
         draft (item-reported (ref applied)
-                             (ref (report-on 7 "rm-0001"
-                                             report-kind/question))))
+                             (ref (report-on 7 "rm-0001" report-kind/question))
+                             (ref (vec))))
     (assert (= (case-name event-type-names (:type draft))
                "item-reported"))
     (assert (= (:item-id draft)

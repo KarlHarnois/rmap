@@ -3,6 +3,9 @@
 
 (use ledger/refusal refusal)
 
+(use ledger/pull-request-refusal-codes pull-request-code-of
+                                       pull-request-refusal-code)
+
 (export code-of refusal-code)
 
 (defenum refusal-code
@@ -38,7 +41,8 @@
   session-not-claimant
   report-empty
   report-not-found
-  report-already-read)
+  report-already-read
+  (pull-request pull-request-refusal-code))
 
 (defn code-of (refused)
   (match refused
@@ -90,4 +94,6 @@
     (refusal/report-empty refusal-code/report-empty)
     ((refusal/report-not-found _) refusal-code/report-not-found)
     ((refusal/report-already-read _)
-     refusal-code/report-already-read)))
+     refusal-code/report-already-read)
+    ((refusal/pull-request refused)
+     (refusal-code/pull-request (pull-request-code-of refused)))))

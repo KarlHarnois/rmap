@@ -6,6 +6,7 @@
                 readiness roadmap)
 
 (use cli/report-replies report-reply)
+(use cli/pr-replies pr-reply)
 
 (export reply)
 
@@ -34,4 +35,5 @@
   (decision-accepted decision)
   (decision-rejected decision)
   (decision-deprecated decision)
-  (reported report-reply))
+  (reported report-reply)
+  (pull-request pr-reply))

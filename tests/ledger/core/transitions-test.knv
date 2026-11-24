@@ -102,10 +102,6 @@
                        :from status/dispatched
                        :to status/reported
                        :kinds (vec kind/research kind/design))
-       (->allowed-move :command (str "advance")
-                       :from status/dispatched
-                       :to status/in-review
-                       :kinds (vec kind/build))
        (->allowed-move :command (str "build")
                        :from status/reported
                        :to status/dispatched
@@ -117,10 +113,6 @@
        (->allowed-move :command (str "advance")
                        :from status/in-review
                        :to status/merging
-                       :kinds (vec kind/build))
-       (->allowed-move :command (str "advance")
-                       :from status/fixing
-                       :to status/in-review
                        :kinds (vec kind/build))
        (->allowed-move :command (str "advance")
                        :from status/merging
@@ -162,6 +154,14 @@
                        :from status/dispatched
                        :to status/reported
                        :kinds (vec kind/research kind/design))
+       (->allowed-move :command (str "report done")
+                       :from status/dispatched
+                       :to status/in-review
+                       :kinds (vec kind/build))
+       (->allowed-move :command (str "report fixed")
+                       :from status/fixing
+                       :to status/in-review
+                       :kinds (vec kind/build))
        (->allowed-move :command (str "report question")
                        :from status/dispatched
                        :to status/dispatched

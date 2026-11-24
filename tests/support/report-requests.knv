@@ -22,4 +22,6 @@
   (->report-request :item (clone id)
                     :session (session-named session)
                     :kind kind
-                    :body (body-source/text (str text))))
+                    :body (body-source/text (str text))
+                    :pr none
+                    :head none))

@@ -10,9 +10,9 @@
                (report-reply/recorded
                  (->recorded-report
                    :report (report-on 3 "rm-0001" report-kind/done)
-                   :item (claimed (work-item "rm-0001"
-                                             kind/research
-                                             status/reported)))))
+                   :item (claimed
+                           (work-item "rm-0001" kind/research status/reported))
+                   :pull-request none)))
              (str "Recorded done report 3 on rm-0001, which is reported."))))
 
 (deftest with-no-reports-the-list-says-so

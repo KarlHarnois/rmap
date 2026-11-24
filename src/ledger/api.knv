@@ -10,16 +10,19 @@
 (use ledger/model/events event event-type)
 (use ledger/model/sessions ->claim-request claim-request)
 
-(use ledger/model/reports ->report-id ->report-query
-                          ->report-request body-source
-                          recorded-report report report-id
-                          report-kind report-query
-                          report-reading report-request)
-
-(use ledger/operations/reports read-report record-report)
-
-(use ledger/operations/report-queries list-reports
-                                      show-report)
+(use ledger/delivery-api ->report-id ->report-query
+                         ->report-request ->review-request
+                         approval approval-of approved?
+                         body-source list-reports
+                         pull-request read-report
+                         record-report record-review
+                         recorded-report recorded-review
+                         report report-id report-kind
+                         report-kind-names report-query
+                         report-reading report-request
+                         review review-kind-names
+                         review-request show-pull-request
+                         show-report verdict-names)
 
 (use ledger/decision-api ->acceptance ->decision-id
                          ->decision-query
@@ -44,14 +47,15 @@
 (use ledger/names action-names actor-names case-name
                   case-named dep-type-names event-type-names
                   graph-format-names kind-names origin-names
-                  report-kind-names roadmap-status-names
-                  runtime-names session-kind-names
-                  status-names)
+                  roadmap-status-names runtime-names
+                  session-kind-names status-names)
 
-(use ledger/refusal refusal refusal->message)
+(use ledger/failure-api database-problem failure
+                        failure-code failure-message
+                        pull-request-refusal refusal
+                        refusal-catalog
 
-(use ledger/refusal-text refusal-catalog refusal-code-text
-                         refusal-description)
+                        refusal-description)
 
 (use ledger/core/ready blocked-item readiness)
 (use ledger/core/batch batch batch-size batch-size-of)
@@ -69,8 +73,6 @@
                         optional-text->json
                         optional-timestamp->json)
 
-(use ledger/failure failure failure-code failure-message)
-(use ledger/sqlite/connection database-problem)
 (use ledger/operations/roadmaps list-roadmaps new-roadmap)
 
 (use ledger/operations/roadmap-lifecycle pause-roadmap
@@ -107,41 +109,46 @@
         ->graph-request ->graph-source ->item-edit ->item-id
         ->log-query ->new-decision ->new-item ->option-draft
         ->proposal ->recommendation ->report-id
-        ->report-query ->report-request ->session ->settings
-        accept-decision acceptance action action-names actor
-        actor-names add-decision-block add-dep add-item
-        advance-item advancement ask-decision batch
-        batch-size batch-size-of blockage blocked-item
-        body-source case-name case-named claim claim-item
-        claim-request clock close-item database-problem
-        decision decision-id decision-option decision-query
-        decision-revision decision-status
-        decision-status-names default-database-path dep
-        dep-type dep-type-names deprecate-decision
-        description-input draw-graph drop-item edit-item
-        event event-type event-type-names failure
-        failure-code failure-message graph-format
-        graph-format-names graph-level graph-level-names
-        graph-request graph-source history ids->json
-        init-ledger init-outcome init-outcome-names
-        init-report item item-detail item-edit item-id kind
-        kind-change kind-names list-decisions list-items
-        list-reports list-roadmaps log-query new-decision
-        new-item new-roadmap next-action next-actions
-        next-item option-draft optional-decision-id->json
+        ->report-query ->report-request ->review-request
+        ->session ->settings accept-decision acceptance
+        action action-names actor actor-names
+        add-decision-block add-dep add-item advance-item
+        advancement approval approval-of approved?
+        ask-decision batch batch-size batch-size-of blockage
+        blocked-item body-source case-name case-named claim
+        claim-item claim-request clock close-item
+        database-problem decision decision-id
+        decision-option decision-query decision-revision
+        decision-status decision-status-names
+        default-database-path dep dep-type dep-type-names
+        deprecate-decision description-input draw-graph
+        drop-item edit-item event event-type
+        event-type-names failure failure-code
+        failure-message graph-format graph-format-names
+        graph-level graph-level-names graph-request
+        graph-source history ids->json init-ledger
+        init-outcome init-outcome-names init-report item
+        item-detail item-edit item-id kind kind-change
+        kind-names list-decisions list-items list-reports
+        list-roadmaps log-query new-decision new-item
+        new-roadmap next-action next-actions next-item
+        option-draft optional-decision-id->json
         optional-id->json optional-text->json
         optional-timestamp->json options->json origin
         origin-names outcome pause-roadmap proposal
-        propose-decision read-log read-report readiness
-        ready-batch ready-items recommendation record-report
-        recorded-report refusal refusal->message
-        refusal-catalog refusal-code-text
-        refusal-description reject-decision
-        remove-decision-block remove-dep report report-id
-        report-kind report-kind-names report-query
-        report-reading report-request resume-roadmap
-        revise-decision roadmap roadmap-id roadmap-pause
-        roadmap-status roadmap-status-names runtime-names
-        session session-kind-names settings show-decision
-        show-item show-report status status-names
-        supersedes-change timestamp work-session)
+        propose-decision pull-request pull-request-refusal
+        read-log read-report readiness ready-batch
+        ready-items recommendation record-report
+        record-review recorded-report recorded-review
+        refusal refusal->message refusal-catalog
+        refusal-code-text refusal-description
+        reject-decision remove-decision-block remove-dep
+        report report-id report-kind report-kind-names
+        report-query report-reading report-request
+        resume-roadmap review review-kind-names
+        review-request revise-decision roadmap roadmap-id
+        roadmap-pause roadmap-status roadmap-status-names
+        runtime-names session session-kind-names settings
+        show-decision show-item show-pull-request
+        show-report status status-names supersedes-change
+        timestamp verdict-names work-session)

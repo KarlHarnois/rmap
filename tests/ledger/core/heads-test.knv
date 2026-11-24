@@ -1,0 +1,25 @@
+(use ledger/model/pull-requests ->head)
+(use ledger/refusal refusal)
+(use ledger/pull-request-refusals pull-request-refusal)
+(use ledger/core/heads head-of)
+
+(def full-sha "0123456789abcdef0123456789abcdef01234567")
+
+(defn invalid (text)
+  (err (refusal/pull-request (pull-request-refusal/invalid-head (str text)))))
+
+(deftest a-full-lowercase-sha-is-a-head
+  (assert (= (head-of (ref (str full-sha)))
+             (ok (->head :sha (str full-sha))))))
+
+(deftest an-abbreviated-sha-is-refused
+  (assert (= (head-of (ref (str "0123456")))
+             (invalid "0123456"))))
+
+(deftest an-uppercase-sha-is-refused
+  (assert (= (head-of (ref (str "0123456789ABCDEF0123456789ABCDEF01234567")))
+             (invalid "0123456789ABCDEF0123456789ABCDEF01234567"))))
+
+(deftest a-sha-with-other-letters-is-refused
+  (assert (= (head-of (ref (str "z123456789abcdef0123456789abcdef01234567")))
+             (invalid "z123456789abcdef0123456789abcdef01234567"))))

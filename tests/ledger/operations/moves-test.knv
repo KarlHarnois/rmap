@@ -9,6 +9,11 @@
 (use ledger/sqlite/connection open query)
 (use ledger/sqlite/rows optional-text-cell rows->values)
 (use support/repositories repository-with-origin-head)
+(use ledger/model/pull-requests verdict)
+
+(use support/pull-requests approved-build first-head
+                           in-review-build reviewed
+                           second-head)
 
 (use support/ledger added-id all-events blocked-research
                     claim-by claimed item-draft
@@ -38,7 +43,7 @@
 (defn end-reasons (settings)
   (let (connection (unwrap-ok (open (as-str (:database-path settings))))
         rows (unwrap-ok (query (ref connection)
-                               "SELECT end_reason FROM sessions ORDER BY id"
+                               "SELECT end_reason FROM sessions WHERE kind = 'work' ORDER BY id"
                                (ref (vec)))))
     (unwrap-ok (rows->values (ref rows)
                  (fn (row) (optional-text-cell row 0))))))
@@ -175,12 +180,13 @@
 
 (deftest a-merge-an-accept-and-a-drop-end-the-session-as-finished
   (let (settings (scratch-ledger "finish-ends-session")
-        merged (claimed (ref settings)
-                        (build (ref settings)))
+        merged (approved-build (ref settings)
+                               (ref (claimed (ref settings)
+                                             (build (ref settings))))
+                               12)
         accepted (reported-research (ref settings))
         dropped (claimed (ref settings)
                          (research (ref settings))))
-    (assert (ok? (advance (ref settings) (clone merged) status/in-review)))
     (assert (ok? (advance (ref settings) (clone merged) status/merging)))
     (assert (= (claim-of (close-item (ref settings) merged))
                claim/unclaimed))
@@ -192,3 +198,48 @@
                (vec (some (str "finished"))
                     (some (str "finished"))
                     (some (str "finished")))))))
+
+(deftest a-build-in-review-moves-to-merging-only-once-approved
+  (let (settings (scratch-ledger "merge-needs-approval")
+        id (in-review-build (ref settings)
+                            (ref (claimed (ref settings)
+                                          (build (ref settings))))
+                            12))
+    (assert (= (refusal-code-of
+                 (advance (ref settings) (clone id) status/merging))
+               (some (str "not-approved"))))
+    (reviewed (ref settings)
+              (ref id)
+              "r1" verdict/approve first-head)
+    (assert (ok? (advance (ref settings) id status/merging)))))
+
+(deftest a-change-request-holds-the-build-in-review
+  (let (settings (scratch-ledger "merge-held-by-changes")
+        id (approved-build (ref settings)
+                           (ref (claimed (ref settings)
+                                         (build (ref settings))))
+                           12))
+    (reviewed (ref settings)
+              (ref id)
+              "r2" verdict/changes first-head)
+    (assert (= (refusal-code-of (advance (ref settings) id status/merging))
+               (some (str "not-approved"))))))
+
+(deftest an-approval-of-an-older-head-does-not-count
+  (let (settings (scratch-ledger "merge-old-head")
+        id (in-review-build (ref settings)
+                            (ref (claimed (ref settings)
+                                          (build (ref settings))))
+                            12))
+    (reviewed (ref settings)
+              (ref id)
+              "r1" verdict/approve second-head)
+    (assert (= (refusal-code-of (advance (ref settings) id status/merging))
+               (some (str "not-approved"))))))
+
+(deftest a-build-cannot-skip-its-report-into-review
+  (let (settings (scratch-ledger "advance-into-review")
+        id (claimed (ref settings)
+                    (build (ref settings))))
+    (assert (= (refusal-code-of (advance (ref settings) id status/in-review))
+               (some (str "invalid-transition"))))))

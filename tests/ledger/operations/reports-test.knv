@@ -7,10 +7,14 @@
 (use ledger/model kind)
 (use ledger/sqlite/connection open query)
 (use ledger/sqlite/rows optional-text-cell rows->values)
-(use support/payloads columns side-text)
+(use support/payloads columns side-int side-text)
 
-(use support/ledger added-id all-events claimed item-draft
-                    refusal-code-of research scratch-ledger)
+(use support/pull-requests first-head in-review-build
+                           pr-report-as second-head)
+
+(use support/ledger added-id advanced all-events claimed
+                    item-draft refusal-code-of research
+                    scratch-ledger)
 
 (use support/report-requests report-as reported-by
                              worker-of)
@@ -90,18 +94,6 @@
                    (ref settings)
                    (report-as (ref id) "intruder" report-kind/question "why?")))
                (some (str "session-not-claimant"))))))
-
-(deftest a-done-report-on-a-build-is-an-invalid-transition
-  (let (settings (scratch-ledger "report-build-done")
-        id (claimed (ref settings)
-                    (added-id (ref settings) (item-draft kind/build))))
-    (assert (= (refusal-code-of (record-report (ref settings)
-                                               (report-as (ref id)
-                                                          (as-str (worker-of (ref
-                                                                               id)))
-                                                          report-kind/done
-                                                          "built")))
-               (some (str "invalid-transition"))))))
 
 (deftest a-fixed-report-is-an-invalid-transition
   (let (settings (scratch-ledger "report-fixed")
@@ -224,3 +216,68 @@
     (unwrap-ok (close-item (ref settings) (clone id)))
     (assert (= (end-reasons (ref settings))
                (vec (some (str "finished")))))))
+
+(deftest a-done-report-on-a-build-opens-its-pull-request-and-moves-it-to-review
+  (let (settings (scratch-ledger "report-build-done")
+        id (claimed (ref settings)
+                    (added-id (ref settings) (item-draft kind/build)))
+        recorded (unwrap-ok (record-report (ref settings)
+                                           (pr-report-as (ref id)
+                                                         report-kind/done
+                                                         (some 12)
+                                                         (some (str first-head))))))
+    (assert (= (:status (:item recorded)) status/in-review))
+    (assert (= (map-some (clone (:pull-request recorded))
+                 (fn (pull-request)
+                   (:value (:pr-number pull-request))))
+               (some 12)))
+    (assert (= (side-int (last-payload (ref settings)) "pr_number" "new")
+               (some 12)))))
+
+(deftest a-done-report-on-a-build-without-a-pull-request-is-refused
+  (let (settings (scratch-ledger "report-build-no-pr")
+        id (claimed (ref settings)
+                    (added-id (ref settings) (item-draft kind/build))))
+    (assert (= (refusal-code-of
+                 (record-report
+                   (ref settings)
+                   (pr-report-as (ref id) report-kind/done none none)))
+               (some (str "pr-required"))))))
+
+(deftest a-pull-request-number-cannot-serve-two-builds
+  (let (settings (scratch-ledger "report-build-taken")
+        first (claimed (ref settings)
+                       (added-id (ref settings) (item-draft kind/build)))
+        second (claimed (ref settings)
+                        (added-id (ref settings) (item-draft kind/build))))
+    (in-review-build (ref settings) (ref first) 12)
+    (assert (= (refusal-code-of (record-report (ref settings)
+                                               (pr-report-as (ref second)
+                                                             report-kind/done
+                                                             (some 12)
+                                                             (some (str second-head)))))
+               (some (str "pr-number-taken"))))))
+
+(deftest a-fixed-report-moves-the-head-and-the-build-back-to-review
+  (let (settings (scratch-ledger "report-build-fixed")
+        id (in-review-build (ref settings)
+                            (ref (claimed (ref settings)
+                                          (added-id (ref settings)
+                                                    (item-draft kind/build))))
+                            12))
+    (advanced (ref settings) (clone id) status/fixing)
+    (let (recorded (unwrap-ok (record-report (ref settings)
+                                             (pr-report-as (ref id)
+                                                           report-kind/fixed
+                                                           none
+                                                           (some (str second-head)))))
+          payload (last-payload (ref settings)))
+      (assert (= (:status (:item recorded)) status/in-review))
+      (assert (= (map-some (clone (:pull-request recorded))
+                   (fn (pull-request)
+                     (clone (:sha (:head pull-request)))))
+                 (some (str second-head))))
+      (assert (= (side-text (copy-of (ref payload)) "head_sha" "old")
+                 (some (str first-head))))
+      (assert (= (side-text payload "head_sha" "new")
+                 (some (str second-head)))))))

@@ -1,0 +1,119 @@
+(use json/value copy-of field json->int)
+
+(use ledger/model ->item-id ->session ->timestamp
+                  ->work-session kind runtime session-kind
+                  status)
+
+(use ledger/model/sessions ->finished-session ->session-end
+                           ->session-id end-reason)
+
+(use ledger/model/pull-requests ->head ->pr-number
+                                ->pull-request ->review
+                                ->review-id review-kind
+                                verdict)
+
+(use ledger/core/pull-requests pr-change)
+
+(use ledger/pull-request-events item-reviewed
+                                pr-change-columns)
+
+(use ledger/changes payload-with-changes)
+(use ledger/names case-name event-type-names)
+(use support/items claimed work-item)
+(use support/payloads columns side-int side-text)
+
+(def first-sha "1111111111111111111111111111111111111111")
+
+(def second-sha "2222222222222222222222222222222222222222")
+
+(defn reviewed-draft ()
+  (item-reviewed (ref (claimed
+                        (work-item "rm-0001" kind/build status/in-review)))
+                 (ref (review))
+                 (ref (finished))
+                 (ref (opened))))
+
+(defn payload-of (existing change)
+  (payload-with-changes (ref (pr-change-columns (ref existing)
+                                                (ref change)
+                                                (ref (at))))
+                        (vec)))
+
+(defn opened ()
+  (->pull-request :item (->item-id :value (str "rm-0001"))
+                  :pr-number (->pr-number :value 12)
+                  :head (->head :sha (str first-sha))
+                  :opened-at (at)
+                  :reviews (vec)))
+
+(defn review ()
+  (->review :id (->review-id :value 4)
+            :item (->item-id :value (str "rm-0001"))
+            :session-id (->session-id :value 6)
+            :reviewer (->session :name (str "r1"))
+            :kind review-kind/design
+            :head (->head :sha (str first-sha))
+            :verdict verdict/approve
+            :created-at (at)))
+
+(defn finished ()
+  (->finished-session :id (->session-id :value 6)
+                      :session (->work-session :session (->session :name (str "r1"))
+                                               :kind session-kind/review
+                                               :runtime runtime/ringleader
+                                               :branch none
+                                               :base none
+                                               :started-at (at))
+                      :end (->session-end :reason end-reason/finished
+                                          :at (at))))
+
+(defn at ()
+  (->timestamp :value (str "2026-01-03T00:00:00Z")))
+
+(deftest an-opened-pull-request-inserts-its-number-head-and-time
+  (let (payload (payload-of none
+                            (pr-change/opened (->pr-number :value 12)
+                                              (->head :sha (str first-sha)))))
+    (assert (= (columns (copy-of (ref payload)))
+               (vec (str "head_sha")
+                    (str "opened_at")
+                    (str "pr_number"))))
+    (assert (= (side-int payload "pr_number" "new") (some 12)))))
+
+(deftest a-push-updates-only-the-head
+  (let (payload (payload-of (some (opened))
+                            (pr-change/pushed (->head :sha (str second-sha)))))
+    (assert (= (columns (copy-of (ref payload)))
+               (vec (str "head_sha"))))
+    (assert (= (side-text (copy-of (ref payload)) "head_sha" "old")
+               (some (str first-sha))))
+    (assert (= (side-text payload "head_sha" "new")
+               (some (str second-sha))))))
+
+(deftest an-unchanged-pull-request-adds-no-columns
+  (assert (empty? (columns (payload-of none pr-change/unchanged)))))
+
+(deftest a-review-event-records-the-review-and-its-session
+  (let (draft (reviewed-draft))
+    (assert (= (case-name event-type-names (:type draft))
+               "item-reviewed"))
+    (assert (= (columns (copy-of (ref (:payload draft))))
+               (vec (str "created_at")
+                    (str "end_reason")
+                    (str "ended_at")
+                    (str "head_sha")
+                    (str "item_id")
+                    (str "review_kind")
+                    (str "runtime")
+                    (str "session")
+                    (str "session_id")
+                    (str "session_kind")
+                    (str "started_at")
+                    (str "verdict"))))))
+
+(deftest a-review-event-names-the-review-and-the-pull-request
+  (let (payload (copy-of (ref (:payload (reviewed-draft)))))
+    (assert (= (json->int (ref (unwrap (field (ref payload) "review_id"))))
+               (some 4)))
+    (assert (= (json->int (ref (unwrap (field (ref payload) "pr_number"))))
+               (some 12)))))

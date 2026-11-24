@@ -1,0 +1,83 @@
+(module
+  "Decides whether a reviewer session may record a review of a build's pull request, and the review and the finished review session it records.")
+
+(use ledger/model ->work-session item runtime session-kind
+                  timestamp)
+
+(use ledger/model/sessions ->finished-session ->session-end
+                           end-reason finished-session
+                           session-id)
+
+(use ledger/model/pull-requests ->review head pull-request
+                                review review-id
+                                review-request)
+
+(use ledger/refusal pull-request-refusal refusal)
+(use ledger/core/heads head-of)
+(use ledger/core/phases finished?)
+
+(export ->review-stamp approved-head review-session
+        review-stamp stamped-review)
+
+(defstruct review-stamp
+  :id review-id
+  :session-id session-id
+  :created-at timestamp)
+
+(type approved-head
+  (fn ((ref item)
+       (ref (option pull-request))
+       (ref review-request))
+    (result head refusal)))
+
+(defn approved-head (item pull-request request)
+  (let-try (_ (check-unfinished item)
+            _ (check-pull-request item pull-request))
+    (head-of (ref (:head request)))))
+
+(type stamped-review
+  (fn ((ref review-request) head review-stamp) review))
+
+(defn stamped-review (request head stamp)
+  (->review :id (:id stamp)
+            :item (clone (:item request))
+            :session-id (:session-id stamp)
+            :reviewer (clone (:reviewer request))
+            :kind (:kind request)
+            :head head
+            :verdict (:verdict request)
+            :created-at (clone (:created-at stamp))))
+
+(type review-session
+  (fn ((ref review) (ref review-stamp))
+    finished-session))
+
+(defn review-session (review stamp)
+  (->finished-session :id (:session-id stamp)
+                      :session (->work-session
+                                 :session (clone (:reviewer review))
+                                 :kind session-kind/review
+                                 :runtime runtime/ringleader
+                                 :branch none
+                                 :base none
+                                 :started-at (clone (:created-at stamp)))
+                      :end (->session-end :reason end-reason/finished
+                                          :at (clone (:created-at stamp)))))
+
+(type check-unfinished
+  (fn ((ref item)) (result unit refusal)))
+
+(defn check-unfinished (item)
+  (if (finished? (:status item))
+    (err (refusal/item-closed (clone (:id item))))
+    (ok (do))))
+
+(type check-pull-request
+  (fn ((ref item) (ref (option pull-request)))
+    (result unit refusal)))
+
+(defn check-pull-request (item pull-request)
+  (match pull-request
+    ((some _) (ok (do)))
+    (none (err (refusal/pull-request (pull-request-refusal/pr-not-found (clone
+                                                                          (:id item))))))))

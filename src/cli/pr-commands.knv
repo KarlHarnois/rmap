@@ -1,0 +1,25 @@
+(module
+  "Lists the commands that record and show a build's pull request reviews.")
+
+(use ledger/api review-kind-names verdict-names)
+(use cli/flag-specs choices required)
+
+(use cli/routes ->route operands pr-command subcommand
+                words)
+
+(export pr-routes)
+
+(defn pr-routes ()
+  (vec (->route :subcommand (subcommand/pull-request pr-command/review)
+                :words (words "pr review")
+                :summary (str "Records a review of the build's pull request at --head by the reviewer session, as a finished review session. It never moves the item. The build moves to merging only when, among each reviewer's latest verdict on the pull request's head, one approves and none asks for changes.")
+                :operands (operands (vec "item"))
+                :flags (vec (required "verdict" (choices verdict-names))
+                            (required "kind" (choices review-kind-names))
+                            (required "head" "<commit sha>")
+                            (required "reviewer" "<session>")))
+       (->route :subcommand (subcommand/pull-request pr-command/show)
+                :words (words "pr show")
+                :summary (str "Shows the build's pull request with its reviews and whether they approve its head.")
+                :operands (operands (vec "item"))
+                :flags (vec))))
