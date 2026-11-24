@@ -2,17 +2,20 @@
   "Reads and writes the `decision_blocks` table: the items each decision blocks.")
 
 (use ledger/sqlite/values text->sql)
+
 (use ledger/model ->decision-block ->decision-id ->item-id
                   decision-id item-id)
+
 (use ledger/names decision-status-names)
 
 (use ledger/sqlite/connection connection database-error
                               execute query)
 
-(use ledger/sqlite/rows named-cell rows->values text-cell try-each)
+(use ledger/sqlite/rows named-cell rows->values text-cell
+                        try-each)
 
-(export all-blocks block-exists? blocks-of delete-block insert-block
-        insert-blocks move-blocks)
+(export all-blocks block-exists? blocks-of delete-block
+        insert-block insert-blocks move-blocks)
 
 (def take-over-sql
   "INSERT OR IGNORE INTO decision_blocks (decision_id, item_id) SELECT ?2, item_id FROM decision_blocks WHERE decision_id = ?1")

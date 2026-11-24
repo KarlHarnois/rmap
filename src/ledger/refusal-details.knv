@@ -1,0 +1,20 @@
+(module
+  "Gives the detail sentences a refusal carries beyond its one-line message.")
+
+(use ledger/model decision-id)
+
+(export not-ready-message)
+
+(defn not-ready-message (blockage)
+  (if (empty? (:decisions blockage))
+    (str "the item is not ready")
+    (str "the item is not ready; it waits on decisions "
+         (ids-text (ref (:decisions blockage))))))
+
+(type ids-text
+  (fn ((ref (vec decision-id))) string))
+
+(defn ids-text (ids)
+  (join (collect (map (iter ids)
+                   (fn (id) (clone (:value id)))))
+        ", "))

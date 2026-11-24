@@ -3,9 +3,9 @@
 
 (use ledger/api accept-decision add-decision-block
                 ask-decision deprecate-decision
-                list-decisions propose-decision reject-decision
-                remove-decision-block revise-decision
-                show-decision)
+                list-decisions propose-decision
+                reject-decision remove-decision-block
+                revise-decision show-decision)
 
 (use cli/decision-requests decision-request)
 (use cli/replies reply)

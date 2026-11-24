@@ -5,8 +5,8 @@
 
 (use ledger/model/decisions ->option-draft ->proposal
                             ->recommendation decision
-                            decision-option option-draft outcome
-                            proposal recommendation)
+                            decision-option option-draft
+                            outcome proposal recommendation)
 
 (use ledger/core/decisions ->decision-revision
                            ->new-decision decision-revision
@@ -16,7 +16,7 @@
                                  revise-decision)
 
 (use ledger/operations/decision-blocks add-decision-block
-                                        remove-decision-block)
+                                       remove-decision-block)
 
 (use ledger/core/decision-moves ->acceptance acceptance)
 
@@ -39,11 +39,11 @@
         ->decision-revision ->new-decision ->option-draft
         ->proposal ->recommendation accept-decision
         acceptance add-decision-block ask-decision decision
-        decision-id
-        decision-option decision-query decision-revision
-        decision-status decision-status-names
-        deprecate-decision list-decisions new-decision
-        option-draft optional-decision-id->json
-        options->json outcome proposal propose-decision
-        recommendation reject-decision remove-decision-block
+        decision-id decision-option decision-query
+        decision-revision decision-status
+        decision-status-names deprecate-decision
+        list-decisions new-decision option-draft
+        optional-decision-id->json options->json outcome
+        proposal propose-decision recommendation
+        reject-decision remove-decision-block
         revise-decision show-decision supersedes-change)

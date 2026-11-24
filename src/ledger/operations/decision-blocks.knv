@@ -18,8 +18,8 @@
 (use ledger/failure failure)
 (use ledger/operations/lookups existing-decision)
 
-(use ledger/decision-events decision-block-added
-                            decision-block-removed)
+(use ledger/decision-block-events decision-block-added
+                                  decision-block-removed)
 
 (export add-decision-block remove-decision-block)
 

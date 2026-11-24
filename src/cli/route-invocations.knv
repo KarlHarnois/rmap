@@ -115,12 +115,11 @@
                                        (operand arguments route 0))))
     (subcommand/decision-block (decision-ledger-invocation
                                  arguments
-                                 (ok (decision-block-request
-                                       arguments route))))
-    (subcommand/decision-unblock (decision-ledger-invocation
-                                   arguments
-                                   (ok (decision-unblock-request
-                                         arguments route))))
+                                 (ok (decision-block-request arguments route))))
+    (subcommand/decision-unblock (decision-ledger-invocation arguments
+                                                             (ok (decision-unblock-request
+                                                                   arguments
+                                                                   route))))
     ((subcommand/report command)
      (on-ledger arguments
                 (map-ok (report-operation-of arguments route command)

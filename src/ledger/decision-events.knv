@@ -2,7 +2,6 @@
   "Describes each change to a decision as an event to record.")
 
 (use json/value array json object text->json)
-(use ledger/model decision-id item-id)
 (use ledger/model/decisions decision)
 
 (use ledger/model/events ->event-draft event-draft
@@ -14,13 +13,12 @@
 (use ledger/decision-columns decision->columns
                              options->json)
 
-(use ledger/changes column-change deleted inserted-columns
-                    only-changed payload-with-changes
-                    updated-columns)
+(use ledger/changes inserted-columns only-changed
+                    payload-with-changes updated-columns)
 
-(export decision-accepted decision-asked decision-block-added
-        decision-block-removed decision-deprecated
-        decision-proposed decision-rejected decision-revised)
+(export decision-accepted decision-asked decision-deprecated
+        decision-proposed decision-rejected
+        decision-revised)
 
 (defn decision-proposed (decision)
   (decision-event decision event-type/decision-proposed
@@ -53,19 +51,6 @@
   (decision-event after event-type/decision-rejected
                   (payload-with-changes (ref (changed-columns before after))
                                         (vec))))
-
-(defn decision-block-added (decision item)
-  (decision-block-event
-    decision item event-type/decision-block-added
-    (inserted-columns (ref (block-columns (ref (:id decision)) item)))))
-
-(defn decision-block-removed (decision item)
-  (decision-block-event decision item
-                        event-type/decision-block-removed
-                        (vec (deleted (str "decision_id")
-                                      (text->json (as-str (:value (:id decision)))))
-                             (deleted (str "item_id")
-                                      (text->json (as-str (:value item)))))))
 
 (defn decision-deprecated (before after)
   (decision-event after event-type/decision-deprecated
@@ -139,27 +124,3 @@
   (pair (str key)
         (object (vec (pair (str "old") old)
                      (pair (str "new") new)))))
-
-(type decision-block-event
-  (fn ((ref decision)
-       (ref item-id)
-       event-type
-       (ref (vec column-change)))
-    event-draft))
-
-(defn decision-block-event (decision item type changes)
-  (->event-draft :roadmap-id (some (clone (:roadmap-id decision)))
-                 :item-id (some (clone item))
-                 :decision-id (some (clone (:id decision)))
-                 :type type
-                 :payload (payload-with-changes changes (vec))))
-
-(type block-columns
-  (fn ((ref decision-id) (ref item-id))
-    (vec (pair string json))))
-
-(defn block-columns (decision item)
-  (vec (pair (str "decision_id")
-             (text->json (as-str (:value decision))))
-       (pair (str "item_id")
-             (text->json (as-str (:value item))))))

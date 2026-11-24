@@ -1,12 +1,15 @@
 (module
   "Names each ledger refusal and gives it a sentence for the user.")
 
-(use ledger/model blockage decision-id decision-status item-id
-                  session status)
+(use ledger/model blockage decision-id decision-status
+                  item-id session status)
+
 (use ledger/model/reports report-id)
 
 (use ledger/names case-name decision-status-names
                   status-names)
+
+(use ledger/refusal-details not-ready-message)
 
 (export refusal refusal->message)
 
@@ -141,17 +144,3 @@
      (str "no report has the id " (:value id)))
     ((report-already-read id)
      (str "the report " (:value id) " was already read"))))
-
-(defn not-ready-message (blockage)
-  (if (empty? (:decisions blockage))
-    (str "the item is not ready")
-    (str "the item is not ready; it waits on decisions "
-         (ids-text (ref (:decisions blockage))))))
-
-(type ids-text
-  (fn ((ref (vec decision-id))) string))
-
-(defn ids-text (ids)
-  (join (collect (map (iter ids)
-                   (fn (id) (clone (:value id)))))
-        ", "))

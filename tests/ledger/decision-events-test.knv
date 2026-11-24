@@ -2,14 +2,10 @@
                 json->text null?)
 
 (use ledger/model ->timestamp decision-status)
-
 (use ledger/model/decisions ->outcome decision)
-
 (use ledger/model/events event-type)
 
 (use ledger/decision-events decision-accepted decision-asked
-                            decision-block-added
-                            decision-block-removed
                             decision-deprecated
                             decision-proposed
                             decision-rejected
@@ -237,28 +233,3 @@
     (assert (= (json->text (ref (side payload "supersedes_id" "old")))
                (some (str "rm-d000"))))
     (assert (null? (ref (side payload "supersedes_id" "new"))))))
-
-(deftest a-block-event-records-the-decision-and-the-item-as-inserted
-  (let (draft (decision-block-added (ref (proposed))
-                                    (id-of "rm-0002"))
-        payload (copy-of (ref (:payload draft))))
-    (assert (= (:type draft) event-type/decision-block-added))
-    (assert (= (:item-id draft) (some (id-of "rm-0002"))))
-    (assert (= (:decision-id draft)
-               (some (decision-id-of "rm-d001"))))
-    (assert (= (columns payload)
-               (vec (str "decision_id") (str "item_id"))))
-    (assert (null? (ref (side payload "decision_id" "old"))))
-    (assert (= (json->text (ref (side payload "item_id" "new")))
-               (some (str "rm-0002"))))))
-
-(deftest a-removed-block-event-records-the-old-decision-and-item
-  (let (draft (decision-block-removed (ref (proposed))
-                                      (id-of "rm-0002"))
-        payload (copy-of (ref (:payload draft))))
-    (assert (= (:type draft) event-type/decision-block-removed))
-    (assert (null? (ref (side payload "decision_id" "new"))))
-    (assert (= (json->text (ref (side payload "decision_id" "old")))
-               (some (str "rm-d001"))))
-    (assert (= (json->text (ref (side payload "item_id" "old")))
-               (some (str "rm-0002"))))))

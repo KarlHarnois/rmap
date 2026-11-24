@@ -111,14 +111,12 @@
     (ok (decision-request/deprecate (text->decision-id id) reason))))
 
 (defn decision-block-request (arguments route)
-  (decision-request/block
-    (text->decision-id (operand arguments route 0))
-    (text->item-id (operand arguments route 1))))
+  (decision-request/block (text->decision-id (operand arguments route 0))
+                          (text->item-id (operand arguments route 1))))
 
 (defn decision-unblock-request (arguments route)
-  (decision-request/unblock
-    (text->decision-id (operand arguments route 0))
-    (text->item-id (operand arguments route 1))))
+  (decision-request/unblock (text->decision-id (operand arguments route 0))
+                            (text->item-id (operand arguments route 1))))
 
 (defn text->decision-id (text) (->decision-id :value text))
 
