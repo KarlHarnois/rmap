@@ -12,10 +12,21 @@
   (run-rmap (clone database)
             (vec "item" "advance" (as-str id) status)))
 
+(defn review-count (database id)
+  (len (unwrap (json->items (ref (pull-request-field
+                                   (ref (run-rmap
+                                          (clone database)
+                                          (vec "pr" "show" (as-str id))))
+                                   "reviews"))))))
+
 (defn pull-request-field (reply key)
   (copy-of (unwrap (field (ref (unwrap (field (ref (:json reply))
                                               "pull_request")))
                           key))))
+
+(defn error-field (reply key)
+  (json->text (unwrap (field (ref (unwrap (field (ref (:json reply)) "error")))
+                             key))))
 
 (defn changes-requested (reply)
   (let (error (copy-of (unwrap (field (ref (:json reply)) "error"))))
@@ -116,9 +127,53 @@
                (str "not-approved")))
     (review-build (ref database)
                   (ref id)
-                  "r1" "approve" second-sha)
+                  "r2" "approve" second-sha)
     (assert (= (:exit-code (advance (ref database) (ref id) "merging"))
                0))))
+
+(deftest a-review-by-the-items-own-worker-is-refused
+  (let (database (database-with-roadmap "e2e-pr-worker-review")
+        id (build-id (ref database)))
+    (report-build (ref database)
+                  (ref id)
+                  "done"
+                  (vec "--pr" "7" "--head" first-sha))
+    (let (reply (review-build (ref database)
+                              (ref id)
+                              "s1" "approve" first-sha))
+      (assert (= (:exit-code reply) 1))
+      (assert (= (error-code (ref reply))
+                 (str "reviewer-is-worker")))
+      (assert (= (error-field (ref reply) "reviewer")
+                 (some (str "s1"))))
+      (assert (= (review-count (ref database) (ref id))
+                 0)))))
+
+(deftest a-reviewer-of-another-head-is-refused
+  (let (database (database-with-roadmap "e2e-pr-stale-reviewer")
+        id (build-id (ref database)))
+    (approved-on-first-head (ref database) (ref id))
+    (assert (= (:exit-code (advance (ref database) (ref id) "fixing"))
+               0))
+    (assert (= (:exit-code (report-build (ref database)
+                                         (ref id)
+                                         "fixed"
+                                         (vec "--head" second-sha)))
+               0))
+    (let (reply (review-build (ref database)
+                              (ref id)
+                              "r1" "approve" second-sha))
+      (assert (= (:exit-code reply) 1))
+      (assert (= (error-code (ref reply))
+                 (str "reviewer-not-fresh")))
+      (assert (= (error-field (ref reply) "reviewer")
+                 (some (str "r1"))))
+      (assert (= (error-field (ref reply) "reviewed_head")
+                 (some (str first-sha))))
+      (assert (= (error-field (ref reply) "tried_head")
+                 (some (str second-sha))))
+      (assert (= (review-count (ref database) (ref id))
+                 1)))))
 
 (deftest pr-show-and-item-show-carry-the-pull-request
   (let (database (database-with-roadmap "e2e-pr-show")

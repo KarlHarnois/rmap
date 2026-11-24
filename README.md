@@ -201,5 +201,7 @@ Refusal codes:
   invalid-head                   A head is a full 40-character commit SHA in lowercase hex.
   head-not-current               A review names a head other than the pull request's current head in the ledger.
   head-unchanged                 pr head names the head the pull request is already at.
+  reviewer-is-worker             The reviewer is the item's own worker session, which claimed the item.
+  reviewer-not-fresh             The reviewer already reviewed another head of the same pull request. A new head needs a new reviewer. The error names the reviewer, the head it reviewed and the head it tried.
   not-approved                   Among each reviewer's latest verdict on the pull request's head, none approves or one asks for changes. The error lists the head, approved_by, changes_requested and stale_heads.
 ```

@@ -62,3 +62,15 @@
   (assert (= (pull-request-refusal->message (pull-request-refusal/head-unchanged
                                               (->head :sha (str "1111"))))
              (str "the pull request is already at the head 1111"))))
+
+(deftest a-worker-review-names-the-worker
+  (assert (= (pull-request-refusal->message (pull-request-refusal/reviewer-is-worker
+                                              (->session :name (str "w1"))))
+             (str "the reviewer w1 is the item's own worker session"))))
+
+(deftest a-stale-reviewer-names-itself-and-both-heads
+  (assert (= (pull-request-refusal->message (pull-request-refusal/reviewer-not-fresh
+                                              (->session :name (str "r1"))
+                                              (->head :sha (str "1111"))
+                                              (->head :sha (str "2222"))))
+             (str "the reviewer r1 already reviewed the head 1111 of this pull request, so it cannot review the head 2222"))))
