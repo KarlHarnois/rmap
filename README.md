@@ -39,6 +39,10 @@ Commands:
     Creates a roadmap that a manager session runs.
   list
     Lists the roadmaps.
+  pause <name>
+    Pauses a roadmap: its open items wait, while work already started continues.
+  resume <name>
+    Resumes a paused roadmap.
   ready [--roadmap <name>] [--limit <whole number, at least 1>]
     Lists the items that can start, and what holds back the others. With --limit, picks up to that many ready items.
   next [--roadmap <name>] [--manager <session>]
@@ -132,6 +136,8 @@ Exit codes:
 Refusal codes:
   roadmap-not-found              No roadmap has that name.
   roadmap-exists                 A roadmap already has that name.
+  roadmap-already-paused         A pause changes nothing: the roadmap is already paused.
+  roadmap-not-paused             A resume changes nothing: the roadmap is not paused.
   item-not-found                 No item has that id.
   item-closed                    A merged, accepted or dropped item cannot be edited.
   parent-not-epic                The parent is not an epic.
@@ -141,7 +147,7 @@ Refusal codes:
   epic-status-computed           An epic's status comes from its children, so no command moves it.
   invalid-kind-change            Only an advance to dispatched can turn an item into a build.
   invalid-transition             The transition table has no such move for this item.
-  not-ready                      The item is blocked. The error lists blockers and dropped_blockers.
+  not-ready                      The item is blocked. The error lists whether the roadmap is paused, its blockers and its dropped_blockers.
   cycle                          The dependency would close a cycle of blocks dependencies.
   dep-exists                     The blocks dependency already exists.
   dep-not-found                  No such blocks dependency exists.
