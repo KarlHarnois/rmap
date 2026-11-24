@@ -50,6 +50,12 @@
                       (ref (move/advance status/merging))
                       (ref pull-request)))
 
+(defn to-merged (pull-request)
+  (check-requirements (ref (claimed
+                             (work-item "rm-0001" kind/build status/merging)))
+                      (ref move/close)
+                      (ref pull-request)))
+
 (defn in-review ()
   (claimed (work-item "rm-0001" kind/build status/in-review)))
 
@@ -132,3 +138,26 @@
                                    (vec (review-by 1 "r1"
                                                    verdict/approve
                                                    first-sha))))))))
+
+(deftest closing-a-merging-build-with-changes-asked-is-refused
+  (let (pull-request (pull-request-at
+                       first-sha
+                       (vec (review-by 1 "r1" verdict/approve first-sha)
+                            (review-by 2 "r2" verdict/changes first-sha))))
+    (assert (= (unwrap-err (to-merged (some (clone pull-request))))
+               (refusal/pull-request (pull-request-refusal/not-approved (approval-of
+                                                                          (ref pull-request))))))))
+
+(deftest closing-an-approved-merging-build-is-allowed
+  (assert (ok? (to-merged (some (pull-request-at
+                                  first-sha
+                                  (vec (review-by 1 "r1"
+                                                  verdict/approve
+                                                  first-sha))))))))
+
+(deftest closing-a-reported-research-item-has-no-requirement
+  (assert (ok? (check-requirements (ref (claimed (work-item "rm-0001"
+                                                            kind/research
+                                                            status/reported)))
+                                   (ref move/close)
+                                   (ref none)))))

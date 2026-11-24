@@ -167,3 +167,18 @@
                                               "r2" "approve"
                                               second-sha)))
                (str "head-not-current")))))
+
+(deftest a-change-request-while-merging-blocks-item-close
+  (let (database (database-with-roadmap "e2e-pr-close-held")
+        id (build-id (ref database)))
+    (approved-on-first-head (ref database) (ref id))
+    (assert (= (:exit-code (advance (ref database) (ref id) "merging"))
+               0))
+    (assert (= (:exit-code (review-build (ref database)
+                                         (ref id)
+                                         "r2" "changes"
+                                         first-sha))
+               0))
+    (assert (= (error-code (ref (run-rmap (clone database)
+                                          (vec "item" "close" (as-str id)))))
+               (str "not-approved")))))

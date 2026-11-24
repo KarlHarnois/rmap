@@ -144,9 +144,11 @@
                 (fn (item) (clone (:value (:id item)))))))
 
 (defn in-review-action (verdict)
-  (let (listed (next-of (ref (alone (claimed (work-item "rm-0001"
-                                                        kind/build
-                                                        status/in-review))))
+  (build-action status/in-review verdict))
+
+(defn build-action (status verdict)
+  (let (listed (next-of (ref (alone (claimed
+                                      (work-item "rm-0001" kind/build status))))
                         (ref (vec (road)))
                         (ref (->deliveries :reports (vec)
                                            :pull-requests (vec (pull-request-with
@@ -217,9 +219,9 @@
   (assert (= (claimed-in status/fixing)
              (some (pair action/fix (pair actor/worker (worker)))))))
 
-(deftest a-merging-item-is-merged-by-the-controller
+(deftest a-merging-item-without-a-pull-request-goes-back-to-review
   (assert (= (claimed-in status/merging)
-             (some (pair action/merge (pair actor/controller (worker)))))))
+             (some (pair action/review (pair actor/agent (worker)))))))
 
 (deftest an-epic-is-not-listed
   (assert (empty? (next-in (snapshot-of (vec (epic-item "rm-0001")
@@ -333,4 +335,13 @@
 
 (deftest a-build-with-changes-asked-stays-in-review
   (assert (= (:action (in-review-action verdict/changes))
+             action/review)))
+
+(deftest an-approved-merging-build-is-merged-by-the-controller
+  (let (planned (build-action status/merging verdict/approve))
+    (assert (= (:action planned) action/merge))
+    (assert (= (:actor planned) actor/controller))))
+
+(deftest a-merging-build-with-changes-asked-is-listed-for-review
+  (assert (= (:action (build-action status/merging verdict/changes))
              action/review)))

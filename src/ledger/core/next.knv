@@ -82,9 +82,9 @@
     (open (open-actions readiness item))
     (dispatched (claimed-actions action/work item))
     (reported (claimed-actions action/accept-report item))
-    (in-review (claimed-actions (in-review-action pull-requests item) item))
+    (in-review (claimed-actions (review-or-merge pull-requests item) item))
     (fixing (claimed-actions action/fix item))
-    (merging (claimed-actions action/merge item))
+    (merging (claimed-actions (review-or-merge pull-requests item) item))
     (merged (vec))
     (accepted (vec))
     (dropped (vec))))
@@ -130,11 +130,11 @@
     ((claimed-by session) (some (clone (:session session))))
     (unclaimed none)))
 
-(type in-review-action
+(type review-or-merge
   (fn ((ref (vec pull-request)) (ref item))
     action))
 
-(defn in-review-action (pull-requests item)
+(defn review-or-merge (pull-requests item)
   (if (approved-pull-request? (ref (pull-request-of pull-requests
                                                     (ref (:id item)))))
     action/merge action/review))

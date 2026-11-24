@@ -213,6 +213,23 @@
               "r1" verdict/approve first-head)
     (assert (ok? (advance (ref settings) id status/merging)))))
 
+(deftest a-change-request-while-merging-is-recorded-and-blocks-the-close
+  (let (settings (scratch-ledger "close-held-by-changes")
+        id (approved-build (ref settings)
+                           (ref (claimed (ref settings)
+                                         (build (ref settings))))
+                           12))
+    (assert (ok? (advance (ref settings) (clone id) status/merging)))
+    (reviewed (ref settings)
+              (ref id)
+              "r2" verdict/changes first-head)
+    (assert (= (refusal-code-of (close-item (ref settings) (clone id)))
+               (some (str "not-approved"))))
+    (reviewed (ref settings)
+              (ref id)
+              "r2" verdict/approve first-head)
+    (assert (ok? (close-item (ref settings) id)))))
+
 (deftest a-change-request-holds-the-build-in-review
   (let (settings (scratch-ledger "merge-held-by-changes")
         id (approved-build (ref settings)

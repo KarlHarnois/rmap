@@ -1,5 +1,5 @@
 (module
-  "Decides the requirements a move must meet beyond the transition table: a build moves to merging only when the reviews on its pull request's head approve it.")
+  "Decides the requirements a move must meet beyond the transition table: a build moves to merging, and from merging to merged, only when the reviews on its pull request's head approve it.")
 
 (use ledger/model session status)
 
@@ -12,10 +12,24 @@
 
 (export approval-of approved? check-requirements)
 
+(def requirements
+  (vec (->requirement :to status/merging :rule rule/approved-head)
+       (->requirement :to status/merged :rule rule/approved-head)))
+
+(defstruct requirement
+  :to status
+  :rule rule)
+
+(defenum rule approved-head)
+
 (defn check-requirements (item move pull-request)
-  (if (= (target-status item move) status/merging)
-    (check-merge-requirement item pull-request)
-    (ok (do))))
+  (let (target (target-status item move))
+    (match (find (iter requirements)
+             (fn (requirement)
+               (= (:to requirement) target)))
+      ((some requirement)
+       (check-rule (:rule requirement) item pull-request))
+      (none (ok (do))))))
 
 (defn approval-of (pull-request)
   (let (latest (latest-on-head pull-request))
@@ -28,6 +42,10 @@
 (defn approved? (approval)
   (and (empty? (:changes-requested approval))
        (not (empty? (:approved-by approval)))))
+
+(defn check-rule (rule item pull-request)
+  (match rule
+    (approved-head (check-merge-requirement item pull-request))))
 
 (defn check-merge-requirement (item pull-request)
   (let-try (present (present-pull-request item pull-request))

@@ -107,12 +107,12 @@
                             (optional "base" "<branch>")))
        (->route :subcommand subcommand/item-advance
                 :words (words "item advance")
-                :summary (str "Moves an item to another status. A research or design item reaches reported only through a done report, and a build reaches in_review only through a done or fixed report or pr head. A build moves to merging only when, among each reviewer's latest verdict on its pull request's head, one approves and none asks for changes.")
+                :summary (str "Moves an item to another status. A research or design item reaches reported only through a done report, and a build reaches in_review only through a done or fixed report or pr head. A build moves to merging, and closes as merged, only when, among each reviewer's latest verdict on its pull request's head, one approves and none asks for changes.")
                 :operands (vec (str "id") (choices status-names))
                 :flags (vec (optional "kind" "build")))
        (->route :subcommand subcommand/item-close
                 :words (words "item close")
-                :summary (str "Marks a build merged, or a reported research or design item accepted.")
+                :summary (str "Marks a merging build merged, once the reviews on its pull request's head still approve it, or a reported research or design item accepted.")
                 :operands (operands (vec "id"))
                 :flags (vec))
        (->route :subcommand subcommand/item-drop

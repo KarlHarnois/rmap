@@ -12,7 +12,7 @@
 (defn pr-routes ()
   (vec (->route :subcommand (subcommand/pull-request pr-command/review)
                 :words (words "pr review")
-                :summary (str "Records a review of the build's pull request at --head, which must be the pull request's current head in the ledger, by the reviewer session, as a finished review session. It never moves the item. The build moves to merging only when, among each reviewer's latest verdict on the pull request's head, one approves and none asks for changes.")
+                :summary (str "Records a review of the build's pull request at --head, which must be the pull request's current head in the ledger, by the reviewer session, as a finished review session. It never moves the item. The build moves to merging, and closes as merged, only when, among each reviewer's latest verdict on the pull request's head, one approves and none asks for changes.")
                 :operands (operands (vec "item"))
                 :flags (vec (required "verdict" (choices verdict-names))
                             (required "kind" (choices review-kind-names))
