@@ -1,17 +1,15 @@
 (module
-  "Describes decisions in plain text: a sentence about a proposal or revision, a table of decisions, and the detail of one decision.")
+  "Describes decisions in plain text: a sentence about each change and a table of decisions.")
 
-(use ledger/api case-name decision decision-id
-                decision-status-names item-id timestamp)
+(use ledger/api case-name decision decision-status-names
+                timestamp)
 
-(use cli/tables headed indented table)
-(use cli/item-text optional-id-text)
+(use cli/tables headed table)
+(use cli/decision-detail-text decision-detail-text)
 
-(use cli/decision-sections context-section options-section
-                           outcome-section
-                           recommendation-section)
-
-(export decision-detail-text decision-proposed-text
+(export decision-accepted-text decision-asked-text
+        decision-deprecated-text decision-detail-text
+        decision-proposed-text decision-rejected-text
         decision-revised-text decisions-text)
 
 (type decision-proposed-text
@@ -34,25 +32,37 @@
        ": "
        (:title decision)))
 
+(type decision-asked-text
+  (fn ((ref decision)) string))
+
+(defn decision-asked-text (decision)
+  (str "Asked "
+       (:value (:id decision))
+       ": "
+       (:title decision)))
+
+(type decision-accepted-text
+  (fn ((ref decision)) string))
+
+(defn decision-accepted-text (decision)
+  (str "Accepted " (:value (:id decision)) "."))
+
+(type decision-rejected-text
+  (fn ((ref decision)) string))
+
+(defn decision-rejected-text (decision)
+  (str "Rejected " (:value (:id decision)) "."))
+
+(type decision-deprecated-text
+  (fn ((ref decision)) string))
+
+(defn decision-deprecated-text (decision)
+  (str "Deprecated " (:value (:id decision)) "."))
+
 (defn decisions-text (decisions)
   (if (empty? decisions)
     (str "No decisions.")
     (decision-table decisions)))
-
-(type decision-detail-text
-  (fn ((ref decision)) string))
-
-(defn decision-detail-text (decision)
-  (join (vec (str (:value (:id decision))
-                  "  "
-                  (:title decision)
-                  "\n"
-                  (indented (table (detail-rows decision))))
-             (context-section decision)
-             (options-section decision)
-             (recommendation-section decision)
-             (outcome-section decision))
-        "\n\n"))
 
 (type decision-table
   (fn ((ref (vec decision))) string))
@@ -73,47 +83,6 @@
        (str (case-name decision-status-names (:status decision)))
        (optional-timestamp-text (ref (:asked-at decision)))
        (clone (:title decision))))
-
-(type detail-rows
-  (fn ((ref decision)) (vec (vec string))))
-
-(defn detail-rows (decision)
-  (vec (detail-row "roadmap" (clone (:roadmap-name decision)))
-       (detail-row "status"
-                   (str (case-name decision-status-names (:status decision))))
-       (detail-row "raised by"
-                   (optional-id-text (ref (:item decision))))
-       (detail-row "blocks"
-                   (listed-ids (ref (:blocks decision))))
-       (detail-row "supersedes"
-                   (optional-decision-text (ref (:supersedes decision))))
-       (detail-row "superseded by"
-                   (optional-decision-text (ref (:superseded-by decision))))
-       (detail-row "asked"
-                   (optional-timestamp-text (ref (:asked-at decision))))
-       (detail-row "created"
-                   (clone (:value (:created-at decision))))))
-
-(defn detail-row (label value)
-  (vec (str label) value))
-
-(type listed-ids
-  (fn ((ref (vec item-id))) string))
-
-(defn listed-ids (ids)
-  (if (empty? ids)
-    (str "-")
-    (join (collect (map (iter ids)
-                     (fn (id) (clone (:value id)))))
-          ", ")))
-
-(type optional-decision-text
-  (fn ((ref (option decision-id))) string))
-
-(defn optional-decision-text (id)
-  (match id
-    ((some present) (clone (:value present)))
-    (none (str "-"))))
 
 (type optional-timestamp-text
   (fn ((ref (option timestamp))) string))

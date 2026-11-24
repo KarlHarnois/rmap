@@ -151,6 +151,30 @@
     (assert (= (:status (unwrap-ok (show-decision (ref settings) target)))
                decision-status/superseded))))
 
+(deftest a-takeover-keeps-one-row-when-both-decisions-block-the-same-item
+  (let (settings (scratch-ledger "decision-supersede-same-block")
+        item (research (ref settings))
+        target (clone (:id (unwrap-ok (propose-decision
+                                        (ref settings)
+                                        (assoc (proposal-in roadmap-name)
+                                               :blocks (vec (clone item)))))))
+        _ (accepted (ref settings) (clone target))
+        replacing (clone (:id (unwrap-ok (propose-decision
+                                           (ref settings)
+                                           (assoc (proposal-in roadmap-name)
+                                                  :blocks (vec (clone item))
+                                                  :supersedes (some (clone target)))))))
+        accepted (unwrap-ok (accept-decision (ref settings)
+                                             (clone replacing)
+                                             (acceptance 1))))
+    (assert (= (:blocks accepted)
+               (vec (clone item))))
+    (assert (= (:blocks (unwrap-ok (show-decision (ref settings)
+                                                  (clone replacing))))
+               (vec (clone item))))
+    (assert (empty? (:blocks (unwrap-ok (show-decision (ref settings)
+                                                       target)))))))
+
 (deftest a-second-decision-cannot-supersede-the-same-target
   (let (settings (scratch-ledger "decision-supersede-twice")
         target (:id (accepted (ref settings)

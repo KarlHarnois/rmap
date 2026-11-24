@@ -1,0 +1,136 @@
+(module
+  "Maps a route and its arguments to the invocation the CLI runs.")
+
+(use cli/invocation invocation)
+(use cli/routes subcommand)
+(use cli/arguments arguments operand)
+(use cli/flags optional-text)
+
+(use cli/requests add-item-request advance-request
+                  claim-request drop-request
+                  edit-item-request graph-request
+                  log-request new-roadmap-request
+                  next-request ready-request request
+                  text->id)
+
+(use cli/decision-requests decision-accept-request
+                           decision-ask-request
+                           decision-deprecate-request
+                           decision-list-request
+                           decision-reject-request
+                           decision-show-request
+                           document-source-of
+                           pending-decision proposal-pending
+                           revision-pending)
+
+(use cli/ledger-calls document-call-of ledger-call-of)
+(use cli/report-requests report-operation-of)
+
+(export invocation-of)
+
+(defn invocation-of (route arguments)
+  (match (:subcommand route)
+    (subcommand/help (ok invocation/help))
+    (subcommand/init (on-ledger arguments (ok request/init)))
+    (subcommand/new
+      (on-ledger arguments
+                 (new-roadmap-request arguments (operand arguments route 0))))
+    (subcommand/list (on-ledger arguments (ok request/list-roadmaps)))
+    (subcommand/pause (on-ledger arguments
+                                 (ok (request/pause
+                                       (operand arguments route 0)))))
+    (subcommand/resume (on-ledger arguments
+                                  (ok (request/resume
+                                        (operand arguments route 0)))))
+    (subcommand/ready (on-ledger arguments (ready-request arguments)))
+    (subcommand/next (on-ledger arguments (ok (next-request arguments))))
+    (subcommand/log (on-ledger arguments (log-request arguments)))
+    (subcommand/item-add (on-ledger arguments (add-item-request arguments)))
+    (subcommand/item-list
+      (on-ledger arguments
+                 (ok (request/list-items (optional-text arguments "roadmap")))))
+    (subcommand/item-show (on-ledger arguments
+                                     (ok (request/show-item
+                                           (text->id
+                                             (operand arguments route 0))))))
+    (subcommand/item-edit
+      (on-ledger arguments
+                 (edit-item-request arguments (operand arguments route 0))))
+    (subcommand/item-claim
+      (on-ledger arguments
+                 (claim-request arguments (operand arguments route 0))))
+    (subcommand/item-advance (on-ledger arguments
+                                        (advance-request
+                                          arguments
+                                          (operand arguments route 0)
+                                          (operand arguments route 1))))
+    (subcommand/item-close
+      (on-ledger arguments
+                 (ok (request/close (text->id (operand arguments route 0))))))
+    (subcommand/item-drop
+      (on-ledger arguments
+                 (drop-request arguments (operand arguments route 0))))
+    (subcommand/dep-add
+      (on-ledger arguments
+                 (ok (request/add-dep (text->id (operand arguments route 0))
+                                      (text->id (operand arguments route 1))))))
+    (subcommand/graph (on-ledger arguments (graph-request arguments)))
+    (subcommand/dep-rm (on-ledger arguments
+                                  (ok (request/remove-dep
+                                        (text->id (operand arguments route 0))
+                                        (text->id
+                                          (operand arguments route 1))))))
+    (subcommand/decision-propose (on-document arguments
+                                              (proposal-pending arguments)))
+    (subcommand/decision-revise
+      (on-document arguments
+                   (revision-pending arguments (operand arguments route 0))))
+    (subcommand/decision-show (decision-ledger-invocation
+                                arguments
+                                (ok (decision-show-request
+                                      (operand arguments route 0)))))
+    (subcommand/decision-list (decision-ledger-invocation arguments
+                                                          (decision-list-request
+                                                            arguments)))
+    (subcommand/decision-ask (decision-ledger-invocation
+                               arguments
+                               (ok (decision-ask-request
+                                     (operand arguments route 0)))))
+    (subcommand/decision-accept (decision-ledger-invocation
+                                  arguments
+                                  (decision-accept-request
+                                    arguments
+                                    (operand arguments route 0))))
+    (subcommand/decision-reject (decision-ledger-invocation
+                                  arguments
+                                  (decision-reject-request
+                                    arguments
+                                    (operand arguments route 0))))
+    (subcommand/decision-deprecate (decision-ledger-invocation
+                                     arguments
+                                     (decision-deprecate-request
+                                       arguments
+                                       (operand arguments route 0))))
+    ((subcommand/report command)
+     (on-ledger arguments
+                (map-ok (report-operation-of arguments route command)
+                  (fn (operation) (request/report operation)))))))
+
+(defn decision-ledger-invocation (arguments requested)
+  (on-ledger arguments
+             (map-ok requested
+               (fn (request) (request/decision request)))))
+
+(defn on-ledger (arguments requested)
+  (map-ok requested
+    (fn (request)
+      (invocation/on-ledger (ledger-call-of arguments request)))))
+
+(type on-document
+  (fn ((ref arguments) (result pending-decision string))
+    (result invocation string)))
+
+(defn on-document (arguments pending)
+  (let-try (source (document-source-of arguments)
+            pending pending)
+    (ok (invocation/on-document (document-call-of arguments source pending)))))

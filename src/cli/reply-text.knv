@@ -17,8 +17,12 @@
 (use cli/event-text events-text)
 (use cli/report-text report-reply->text)
 
-(use cli/decision-text decision-detail-text
+(use cli/decision-text decision-accepted-text
+                       decision-asked-text
+                       decision-deprecated-text
+                       decision-detail-text
                        decision-proposed-text
+                       decision-rejected-text
                        decision-revised-text decisions-text)
 
 (export reply->text)
@@ -54,6 +58,14 @@
      (decision-detail-text (ref decision)))
     ((reply/decisions-listed decisions)
      (decisions-text (ref decisions)))
+    ((reply/decision-asked decision)
+     (decision-asked-text (ref decision)))
+    ((reply/decision-accepted decision)
+     (decision-accepted-text (ref decision)))
+    ((reply/decision-rejected decision)
+     (decision-rejected-text (ref decision)))
+    ((reply/decision-deprecated decision)
+     (decision-deprecated-text (ref decision)))
     ((reply/reported answer) (report-reply->text answer))))
 
 (type init-report-text

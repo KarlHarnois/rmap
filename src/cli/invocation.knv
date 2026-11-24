@@ -1,0 +1,13 @@
+(module
+  "Names what the command line asks for: help, help for some commands, or a call to the ledger.")
+
+(use cli/ledger-calls document-call ledger-call)
+(use cli/routes route)
+
+(export invocation)
+
+(defenum invocation
+  help
+  (command-help (vec route))
+  (on-ledger ledger-call)
+  (on-document document-call))

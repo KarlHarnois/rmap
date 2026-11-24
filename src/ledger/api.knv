@@ -112,41 +112,46 @@
                              draw-graph graph-request
                              graph-source)
 
-(export ->acceptance ->advancement ->claim-request ->decision-id
-        ->decision-query ->decision-revision ->graph-request
-        ->graph-source ->item-edit ->item-id ->log-query
-        ->new-decision ->new-item ->option-draft ->proposal
-        ->recommendation ->report-id ->report-query
-        ->report-request ->session ->settings accept-decision
-        acceptance action action-names actor actor-names add-dep
-        add-item advance-item advancement ask-decision batch
-        batch-size batch-size-of blockage blocked-item body-source
-        case-name case-named claim claim-item claim-request clock
-        close-item database-problem decision decision-id
-        decision-option decision-query decision-revision
-        decision-status decision-status-names
-        default-database-path dep dep-type dep-type-names
-        deprecate-decision description-input draw-graph drop-item
-        edit-item event event-type event-type-names failure
+(export ->acceptance ->advancement ->claim-request
+        ->decision-id ->decision-query ->decision-revision
+        ->graph-request ->graph-source ->item-edit ->item-id
+        ->log-query ->new-decision ->new-item ->option-draft
+        ->proposal ->recommendation ->report-id
+        ->report-query ->report-request ->session ->settings
+        accept-decision acceptance action action-names actor
+        actor-names add-dep add-item advance-item
+        advancement ask-decision batch batch-size
+        batch-size-of blockage blocked-item body-source
+        case-name case-named claim claim-item claim-request
+        clock close-item database-problem decision
+        decision-id decision-option decision-query
+        decision-revision decision-status
+        decision-status-names default-database-path dep
+        dep-type dep-type-names deprecate-decision
+        description-input draw-graph drop-item edit-item
+        event event-type event-type-names failure
         failure-code failure-message graph-format
         graph-format-names graph-level graph-level-names
-        graph-request graph-source history ids->json init-ledger
-        init-outcome init-outcome-names init-report item
-        item-detail item-edit item-id kind kind-change kind-names
-        list-decisions list-items list-reports list-roadmaps
-        log-query new-decision new-item new-roadmap next-action
-        next-actions next-item option-draft
-        optional-decision-id->json optional-id->json
-        optional-text->json optional-timestamp->json options->json
-        origin origin-names outcome pause-roadmap proposal
+        graph-request graph-source history ids->json
+        init-ledger init-outcome init-outcome-names
+        init-report item item-detail item-edit item-id kind
+        kind-change kind-names list-decisions list-items
+        list-reports list-roadmaps log-query new-decision
+        new-item new-roadmap next-action next-actions
+        next-item option-draft optional-decision-id->json
+        optional-id->json optional-text->json
+        optional-timestamp->json options->json origin
+        origin-names outcome pause-roadmap proposal
         propose-decision read-log read-report readiness
         ready-batch ready-items recommendation record-report
-        recorded-report refusal refusal->message refusal-catalog
-        refusal-code-text refusal-description reject-decision
-        remove-dep report report-id report-kind report-kind-names
-        report-query report-reading report-request resume-roadmap
-        revise-decision roadmap roadmap-id roadmap-pause
-        roadmap-status roadmap-status-names runtime-names session
-        session-kind-names settings show-decision show-item
-        show-report status status-names supersedes-change
-        timestamp work-session)
+        recorded-report refusal refusal->message
+        refusal-catalog refusal-code-text
+        refusal-description reject-decision remove-dep
+        report report-id report-kind report-kind-names
+        report-query report-reading report-request
+        resume-roadmap revise-decision roadmap roadmap-id
+        roadmap-pause roadmap-status roadmap-status-names
+        runtime-names session session-kind-names settings
+        show-decision show-item show-report status
+        status-names supersedes-change timestamp
+        work-session)

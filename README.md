@@ -94,8 +94,8 @@ Commands:
         },
         "title": "<text>"
       }
-  decision revise <id> --file <path|-> [--supersedes <decision id>]
-    Replaces the title, context, options and recommendation of a proposed decision with the JSON document in --file (- reads stdin), the same shape propose takes, and clears when it was asked. The output of `decision show --json` is accepted as is. --supersedes retargets the decision it would replace, under the same rule.
+  decision revise <id> --file <path|-> [--supersedes <decision id>] [--no-supersedes]
+    Replaces the title, context, options and recommendation of a proposed decision with the JSON document in --file (- reads stdin), the same shape propose takes, and clears when it was asked. The output of `decision show --json` is accepted as is. --supersedes retargets the decision it would replace, under the same rule, and --no-supersedes removes the link. The two flags cannot be given together.
     Document:
       {
         "context": "<text>",
@@ -121,6 +121,14 @@ Commands:
     Shows one decision with its options, recommendation and outcome.
   decision list [--roadmap <name>] [--status proposed|accepted|rejected|deprecated|superseded] [--item <id>]
     Lists the decisions in every status, oldest first. --item keeps those the item raised or that block it.
+  decision ask <id>
+    Puts a proposed decision to the owner. It needs at least 2 options and can be asked once, until a revision clears the ask.
+  decision accept <id> --option <number> --justification <text> --consequences <text>
+    Accepts a proposed decision with one of its options and records who decided and why. When the decision supersedes another, that one becomes superseded in the same call.
+  decision reject <id> --reason <text>
+    Rejects a proposed decision and records the reason.
+  decision deprecate <id> --reason <text>
+    Deprecates an accepted decision and records the reason.
   report list [--item <id>] [--unread]
     Lists the reports, oldest first. --item keeps those on one item, --unread those not read yet.
   report show <id>
@@ -162,6 +170,9 @@ Refusal codes:
   decision-not-found             No decision has that id.
   decision-frozen                Only a proposed decision can change.
   decision-incomplete            A proposal needs a title, a context, at least 2 options with titles, and a recommendation that names one of them with a reason.
+  invalid-decision-transition    The transition table has no such move for this decision.
+  option-not-found               The decision has no option with that number.
+  already-asked                  The decision was already put to the owner.
   not-blockable                  Only an open item or an unfinished epic can wait on a decision.
   decision-in-other-roadmap      The item belongs to another roadmap than the decision.
   supersede-target-not-accepted  Only a decision that is accepted, or rejected in the same roadmap, can be superseded.

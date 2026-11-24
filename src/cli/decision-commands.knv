@@ -3,7 +3,7 @@
 
 (use ledger/api decision-status-names)
 (use cli/proposal-json proposal-document-shape)
-(use cli/flag-specs choices optional required)
+(use cli/flag-specs boolean-flag choices optional required)
 (use cli/routes ->route operands subcommand words)
 
 (export decision-routes route-document)
@@ -20,10 +20,11 @@
                             (optional "supersedes" "<decision id>")))
        (->route :subcommand subcommand/decision-revise
                 :words (words "decision revise")
-                :summary (str "Replaces the title, context, options and recommendation of a proposed decision with the JSON document in --file (- reads stdin), the same shape propose takes, and clears when it was asked. The output of `decision show --json` is accepted as is. --supersedes retargets the decision it would replace, under the same rule.")
+                :summary (str "Replaces the title, context, options and recommendation of a proposed decision with the JSON document in --file (- reads stdin), the same shape propose takes, and clears when it was asked. The output of `decision show --json` is accepted as is. --supersedes retargets the decision it would replace, under the same rule, and --no-supersedes removes the link. The two flags cannot be given together.")
                 :operands (operands (vec "id"))
                 :flags (vec (required "file" "<path|->")
-                            (optional "supersedes" "<decision id>")))
+                            (optional "supersedes" "<decision id>")
+                            (boolean-flag "no-supersedes")))
        (->route :subcommand subcommand/decision-show
                 :words (words "decision show")
                 :summary (str "Shows one decision with its options, recommendation and outcome.")
@@ -35,7 +36,29 @@
                 :operands (vec)
                 :flags (vec (optional "roadmap" "<name>")
                             (optional "status" (choices decision-status-names))
-                            (optional "item" "<id>")))))
+                            (optional "item" "<id>")))
+       (->route :subcommand subcommand/decision-ask
+                :words (words "decision ask")
+                :summary (str "Puts a proposed decision to the owner. It needs at least 2 options and can be asked once, until a revision clears the ask.")
+                :operands (operands (vec "id"))
+                :flags (vec))
+       (->route :subcommand subcommand/decision-accept
+                :words (words "decision accept")
+                :summary (str "Accepts a proposed decision with one of its options and records who decided and why. When the decision supersedes another, that one becomes superseded in the same call.")
+                :operands (operands (vec "id"))
+                :flags (vec (required "option" "<number>")
+                            (required "justification" "<text>")
+                            (required "consequences" "<text>")))
+       (->route :subcommand subcommand/decision-reject
+                :words (words "decision reject")
+                :summary (str "Rejects a proposed decision and records the reason.")
+                :operands (operands (vec "id"))
+                :flags (vec (required "reason" "<text>")))
+       (->route :subcommand subcommand/decision-deprecate
+                :words (words "decision deprecate")
+                :summary (str "Deprecates an accepted decision and records the reason.")
+                :operands (operands (vec "id"))
+                :flags (vec (required "reason" "<text>")))))
 
 (defn route-document (route)
   (match (:subcommand route)

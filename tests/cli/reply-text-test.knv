@@ -3,8 +3,10 @@
 
 (use ledger/model/events event)
 (use ledger/api ->graph-source graph-format)
+(use ledger/model/decisions decision-status)
 (use cli/replies reply)
 (use cli/reply-text reply->text)
+(use support/decisions sample-decision)
 (use support/items blocks-dep)
 
 (deftest adding-a-dep-says-which-item-comes-after-which
@@ -38,3 +40,14 @@
                                                :format graph-format/mermaid
                                                :source (str "flowchart LR"))))
              (str "flowchart LR"))))
+
+(deftest decision-actions-print-a-sentence
+  (let (decision (sample-decision decision-status/proposed))
+    (assert (= (reply->text (reply/decision-asked (clone decision)))
+               (str "Asked rm-d001: Where do sessions live?")))
+    (assert (= (reply->text (reply/decision-accepted (clone decision)))
+               (str "Accepted rm-d001.")))
+    (assert (= (reply->text (reply/decision-rejected (clone decision)))
+               (str "Rejected rm-d001.")))
+    (assert (= (reply->text (reply/decision-deprecated (clone decision)))
+               (str "Deprecated rm-d001.")))))

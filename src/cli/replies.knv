@@ -30,4 +30,8 @@
   (decision-revised decision)
   (decision-shown decision)
   (decisions-listed (vec decision))
+  (decision-asked decision)
+  (decision-accepted decision)
+  (decision-rejected decision)
+  (decision-deprecated decision)
   (reported report-reply))

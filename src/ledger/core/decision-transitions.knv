@@ -7,11 +7,9 @@
 (export approved-decision-move decision-move-type)
 
 (defenum decision-move-type
-  ask
   accept
   reject
-  deprecate
-  supersede)
+  deprecate)
 
 (defstruct decision-allowance
   :move-type decision-move-type
@@ -20,7 +18,9 @@
 (defn approved-decision-move (decision type)
   (if (allowed? decision type)
     (ok (do))
-    (err (move-refusal decision type))))
+    (err (refusal/invalid-decision-transition (clone (:id decision))
+                                              (:status decision)
+                                              (target-status type)))))
 
 (type allowed?
   (fn ((ref decision) (ref decision-move-type))
@@ -33,31 +33,14 @@
         (and (= (:move-type allowance) type)
              (contains? (:steps allowance) step))))))
 
-(type move-refusal
-  (fn ((ref decision) (ref decision-move-type))
-    refusal))
-
-(defn move-refusal (decision type)
-  (match type
-    (ask (refusal/decision-frozen (clone (:id decision))
-                                  (:status decision)))
-    (_ (refusal/invalid-decision-transition (clone (:id decision))
-                                            (:status decision)
-                                            (target-status type)))))
-
 (defn target-status (type)
   (match type
-    (ask decision-status/proposed)
     (accept decision-status/accepted)
     (reject decision-status/rejected)
-    (deprecate decision-status/deprecated)
-    (supersede decision-status/superseded)))
+    (deprecate decision-status/deprecated)))
 
 (defn allowances ()
-  (vec (->decision-allowance :move-type decision-move-type/ask
-                             :steps (vec (pair decision-status/proposed
-                                               decision-status/proposed)))
-       (->decision-allowance :move-type decision-move-type/accept
+  (vec (->decision-allowance :move-type decision-move-type/accept
                              :steps (vec (pair decision-status/proposed
                                                decision-status/accepted)))
        (->decision-allowance :move-type decision-move-type/reject
@@ -65,9 +48,4 @@
                                                decision-status/rejected)))
        (->decision-allowance :move-type decision-move-type/deprecate
                              :steps (vec (pair decision-status/accepted
-                                               decision-status/deprecated)))
-       (->decision-allowance :move-type decision-move-type/supersede
-                             :steps (vec (pair decision-status/accepted
-                                               decision-status/superseded)
-                                         (pair decision-status/rejected
-                                               decision-status/superseded)))))
+                                               decision-status/deprecated)))))
