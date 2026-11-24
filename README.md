@@ -68,7 +68,7 @@ Commands:
   graph [--roadmap <name>] [--all] [--level item|epic|roadmap] [--format mermaid]
     Prints the roadmaps, their items and dependencies as a Mermaid flowchart. Merged items show only with --all. --level epic or roadmap draws one node per epic or roadmap.
   decision propose --roadmap <name> --file <path|-> [--item <id>] [--blocks <ids, comma-separated>] [--supersedes <decision id>]
-    Proposes a decision for the owner to settle, read from the JSON document in --file (- reads stdin). It needs at least 2 options. description, pros and cons may be left out, and keys the document shape does not list are ignored. --item names the item that raised it, --blocks the open items or unfinished epics of its roadmap that wait on it, --supersedes the accepted decision it would replace.
+    Proposes a decision for the owner to settle, read from the JSON document in --file (- reads stdin). It needs at least 2 options. description, pros and cons may be left out, and keys the document shape does not list are ignored. --item names the item that raised it, --blocks the open items or unfinished epics of its roadmap that wait on it, --supersedes the decision it would replace: accepted, or rejected in the same roadmap.
     Document:
       {
         "context": "<text>",
@@ -91,7 +91,7 @@ Commands:
         "title": "<text>"
       }
   decision revise <id> --file <path|-> [--supersedes <decision id>]
-    Replaces the title, context, options and recommendation of a proposed decision with the JSON document in --file (- reads stdin), the same shape propose takes, and clears when it was asked. The output of `decision show --json` is accepted as is. --supersedes retargets the accepted decision it would replace.
+    Replaces the title, context, options and recommendation of a proposed decision with the JSON document in --file (- reads stdin), the same shape propose takes, and clears when it was asked. The output of `decision show --json` is accepted as is. --supersedes retargets the decision it would replace, under the same rule.
     Document:
       {
         "context": "<text>",
@@ -150,5 +150,5 @@ Refusal codes:
   decision-incomplete            A proposal needs a title, a context, at least 2 options with titles, and a recommendation that names one of them with a reason.
   not-blockable                  Only an open item or an unfinished epic can wait on a decision.
   decision-in-other-roadmap      The item belongs to another roadmap than the decision.
-  supersede-target-not-accepted  Only an accepted decision can be superseded.
+  supersede-target-not-accepted  Only a decision that is accepted, or rejected in the same roadmap, can be superseded.
 ```

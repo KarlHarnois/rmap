@@ -87,6 +87,6 @@
      (str (:value id)
           " belongs to another roadmap than the decision"))
     ((supersede-target-not-accepted id)
-     (str "only an accepted decision can be superseded, and "
+     (str "only an accepted decision, or a rejected one in the same roadmap, can be superseded, and "
           (:value id)
-          " is not accepted"))))
+          " is neither"))))

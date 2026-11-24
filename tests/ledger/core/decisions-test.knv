@@ -26,6 +26,12 @@
          :asked-at (some (->timestamp :value (str "2026-02-01T00:00:00Z")))
          :supersedes (some (decision-id-of "rm-d000"))))
 
+(defn road ()
+  (->roadmap-id :value (str "rm-road")))
+
+(defn other-road ()
+  (->roadmap-id :value (str "rm-other")))
+
 (deftest a-proposed-decision-can-be-revised
   (assert (ok? (check-revisable (ref (sample-decision
                                        decision-status/proposed))))))
@@ -36,10 +42,25 @@
              (refusal/decision-frozen (decision-id-of "rm-d001")
                                       decision-status/accepted))))
 
-(deftest only-an-accepted-decision-can-be-superseded
+(deftest an-accepted-decision-of-any-roadmap-can-be-superseded
   (assert (ok? (check-supersede-target (ref (sample-decision
-                                              decision-status/accepted)))))
-  (assert (= (unwrap-err (check-supersede-target (ref (sample-decision decision-status/rejected))))
+                                              decision-status/accepted))
+                                       (ref (other-road))))))
+
+(deftest a-rejected-decision-of-the-same-roadmap-can-be-superseded
+  (assert (ok? (check-supersede-target (ref (sample-decision
+                                              decision-status/rejected))
+                                       (ref (road))))))
+
+(deftest a-rejected-decision-of-another-roadmap-cannot-be-superseded
+  (assert (= (unwrap-err (check-supersede-target (ref (sample-decision decision-status/rejected))
+                                                 (ref (other-road))))
+             (refusal/supersede-target-not-accepted (decision-id-of
+                                                      "rm-d001")))))
+
+(deftest a-proposed-decision-cannot-be-superseded
+  (assert (= (unwrap-err (check-supersede-target (ref (sample-decision decision-status/proposed))
+                                                 (ref (road))))
              (refusal/supersede-target-not-accepted (decision-id-of
                                                       "rm-d001")))))
 

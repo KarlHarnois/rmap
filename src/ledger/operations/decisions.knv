@@ -67,7 +67,9 @@
     (let-try (roadmap-id (roadmap-id-named connection
                                            (as-str (:roadmap request)))
               _ (check-placement connection (ref roadmap-id) (ref request))
-              _ (check-supersedes connection (ref (:supersedes request)))
+              _ (check-supersedes connection
+                                  (ref roadmap-id)
+                                  (ref (:supersedes request)))
               _ (check-proposal (ref (:proposal request)))
               id (fresh-id connection))
       (store-proposed transaction
@@ -95,11 +97,11 @@
                             (ref (:blocks request))))
     (ok (do))))
 
-(defn check-supersedes (connection target)
+(defn check-supersedes (connection roadmap-id target)
   (match target
     ((some id)
      (let-try (found (existing-decision connection id)
-               _ (check-supersede-target (ref found)))
+               _ (check-supersede-target (ref found) roadmap-id))
        (ok (do))))
     (none (ok (do)))))
 
@@ -121,7 +123,9 @@
   (let (connection (ref (:connection transaction)))
     (let-try (before (existing-decision connection (ref (:id revision)))
               _ (check-revisable (ref before))
-              _ (check-retarget connection (ref (:supersedes revision)))
+              _ (check-retarget connection
+                                (ref (:roadmap-id before))
+                                (ref (:supersedes revision)))
               _ (check-proposal (ref (:proposal revision))))
       (let (after (revised-decision (ref before) revision))
         (let-try (_ (update-decision connection (ref after))
@@ -129,9 +133,9 @@
                             (decision-revised (ref before) (ref after))))
           (ok after))))))
 
-(defn check-retarget (connection change)
+(defn check-retarget (connection roadmap-id change)
   (match change
     (supersedes-change/keep (ok (do)))
     ((supersedes-change/retarget id)
-     (check-supersedes connection
+     (check-supersedes connection roadmap-id
                        (ref (some (clone id)))))))

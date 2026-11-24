@@ -11,7 +11,7 @@
 (defn decision-routes ()
   (vec (->route :subcommand subcommand/decision-propose
                 :words (words "decision propose")
-                :summary (str "Proposes a decision for the owner to settle, read from the JSON document in --file (- reads stdin). It needs at least 2 options. description, pros and cons may be left out, and keys the document shape does not list are ignored. --item names the item that raised it, --blocks the open items or unfinished epics of its roadmap that wait on it, --supersedes the accepted decision it would replace.")
+                :summary (str "Proposes a decision for the owner to settle, read from the JSON document in --file (- reads stdin). It needs at least 2 options. description, pros and cons may be left out, and keys the document shape does not list are ignored. --item names the item that raised it, --blocks the open items or unfinished epics of its roadmap that wait on it, --supersedes the decision it would replace: accepted, or rejected in the same roadmap.")
                 :operands (vec)
                 :flags (vec (required "roadmap" "<name>")
                             (required "file" "<path|->")
@@ -20,7 +20,7 @@
                             (optional "supersedes" "<decision id>")))
        (->route :subcommand subcommand/decision-revise
                 :words (words "decision revise")
-                :summary (str "Replaces the title, context, options and recommendation of a proposed decision with the JSON document in --file (- reads stdin), the same shape propose takes, and clears when it was asked. The output of `decision show --json` is accepted as is. --supersedes retargets the accepted decision it would replace.")
+                :summary (str "Replaces the title, context, options and recommendation of a proposed decision with the JSON document in --file (- reads stdin), the same shape propose takes, and clears when it was asked. The output of `decision show --json` is accepted as is. --supersedes retargets the decision it would replace, under the same rule.")
                 :operands (operands (vec "id"))
                 :flags (vec (required "file" "<path|->")
                             (optional "supersedes" "<decision id>")))

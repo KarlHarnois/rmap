@@ -166,3 +166,31 @@
                                                            (supersedes-change/retarget
                                                              other))))
                (some (str "supersede-target-not-accepted"))))))
+
+(deftest superseding-a-rejected-decision-of-the-same-roadmap-is-recorded
+  (let (settings (scratch-ledger "decision-supersede-rejected")
+        target (proposed-id (ref settings)))
+    (mark-status (ref settings) (ref target) "rejected")
+    (assert (ok? (propose-decision (ref settings)
+                                   (assoc (proposal-in roadmap-name)
+                                          :supersedes (some target)))))))
+
+(deftest superseding-a-rejected-decision-of-another-roadmap-is-refused
+  (let (settings (ledger-with-two-roadmaps
+                   "decision-supersede-rejected-elsewhere")
+        target (proposed-id (ref settings)))
+    (mark-status (ref settings) (ref target) "rejected")
+    (assert (= (refusal-code-of (propose-decision (ref settings)
+                                                  (assoc (proposal-in
+                                                           other-roadmap-name)
+                                                         :supersedes (some target))))
+               (some (str "supersede-target-not-accepted"))))))
+
+(deftest superseding-an-accepted-decision-of-another-roadmap-is-recorded
+  (let (settings (ledger-with-two-roadmaps
+                   "decision-supersede-accepted-elsewhere")
+        target (proposed-id (ref settings)))
+    (mark-status (ref settings) (ref target) "accepted")
+    (assert (ok? (propose-decision (ref settings)
+                                   (assoc (proposal-in other-roadmap-name)
+                                          :supersedes (some target)))))))

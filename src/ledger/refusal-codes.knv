@@ -137,7 +137,7 @@
     (decision-in-other-roadmap (described "decision-in-other-roadmap"
                                           "The item belongs to another roadmap than the decision."))
     (supersede-target-not-accepted (described "supersede-target-not-accepted"
-                                              "Only an accepted decision can be superseded."))))
+                                              "Only a decision that is accepted, or rejected in the same roadmap, can be superseded."))))
 
 (defn described (code meaning)
   (->refusal-description :code (str code)

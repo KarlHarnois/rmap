@@ -38,13 +38,16 @@
   :created-at timestamp)
 
 (type check-supersede-target
-  (fn ((ref decision))
+  (fn ((ref decision) (ref roadmap-id))
     (result unit refusal)))
 
-(defn check-supersede-target (target)
-  (if (= (:status target) decision-status/accepted)
-    (ok (do))
-    (err (refusal/supersede-target-not-accepted (clone (:id target))))))
+(defn check-supersede-target (target roadmap-id)
+  (cond
+    ((= (:status target) decision-status/accepted) (ok (do)))
+    ((and (= (:status target) decision-status/rejected)
+          (= (ref (:roadmap-id target)) roadmap-id))
+     (ok (do)))
+    (else (err (refusal/supersede-target-not-accepted (clone (:id target)))))))
 
 (type check-revisable
   (fn ((ref decision))
