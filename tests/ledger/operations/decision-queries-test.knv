@@ -1,0 +1,84 @@
+(use ledger/api ->decision-query ->item-id list-decisions
+                propose-decision show-decision)
+
+(use ledger/model/decisions decision-status)
+
+(use support/ledger ledger-with-two-roadmaps
+                    other-roadmap-name refusal-code-of
+                    research roadmap-name scratch-ledger)
+
+(use support/decisions decision-id-of mark-status
+                       proposal-in proposed-id)
+
+(defn listed-ids (settings query)
+  (collect (map (iter (unwrap-ok (list-decisions settings query)))
+             (fn (decision) (clone (:id decision))))))
+
+(defn every-decision ()
+  (->decision-query :roadmap none :status none :item none))
+
+(deftest showing-a-missing-decision-is-refused
+  (let (settings (scratch-ledger "decision-show-missing"))
+    (assert (= (refusal-code-of (show-decision (ref settings)
+                                               (decision-id-of "rm-ffff")))
+               (some (str "decision-not-found"))))))
+
+(deftest the-list-holds-every-decision-oldest-first
+  (let (settings (scratch-ledger "decision-list-all")
+        first-id (proposed-id (ref settings))
+        second-id (proposed-id (ref settings)))
+    (mark-status (ref settings) (ref second-id) "rejected")
+    (assert (= (listed-ids (ref settings) (every-decision))
+               (vec first-id second-id)))))
+
+(deftest the-list-narrows-to-a-roadmap
+  (let (settings (ledger-with-two-roadmaps "decision-list-roadmap")
+        here (proposed-id (ref settings)))
+    (unwrap-ok (propose-decision (ref settings)
+                                 (proposal-in other-roadmap-name)))
+    (assert (= (listed-ids (ref settings)
+                           (assoc (every-decision)
+                                  :roadmap (some (str roadmap-name))))
+               (vec here)))))
+
+(deftest the-list-narrows-to-a-status
+  (let (settings (scratch-ledger "decision-list-status")
+        kept (proposed-id (ref settings))
+        dropped (proposed-id (ref settings)))
+    (mark-status (ref settings) (ref dropped) "rejected")
+    (assert (= (listed-ids (ref settings)
+                           (assoc (every-decision)
+                                  :status (some decision-status/proposed)))
+               (vec kept)))))
+
+(deftest the-list-narrows-to-the-decisions-an-item-raised-or-waits-on
+  (let (settings (scratch-ledger "decision-list-item")
+        item (research (ref settings))
+        raised (clone (:id (unwrap-ok (propose-decision
+                                        (ref settings)
+                                        (assoc (proposal-in roadmap-name)
+                                               :item (some (clone item)))))))
+        blocking (clone (:id (unwrap-ok (propose-decision (ref settings)
+                                                          (assoc (proposal-in
+                                                                   roadmap-name)
+                                                                 :blocks (vec (clone
+                                                                                item))))))))
+    (proposed-id (ref settings))
+    (assert (= (listed-ids (ref settings)
+                           (assoc (every-decision) :item (some item)))
+               (vec raised blocking)))))
+
+(deftest listing-an-unknown-roadmap-is-refused
+  (let (settings (scratch-ledger "decision-list-no-roadmap"))
+    (assert (= (refusal-code-of (list-decisions (ref settings)
+                                                (assoc (every-decision)
+                                                       :roadmap (some (str "nowhere")))))
+               (some (str "roadmap-not-found"))))))
+
+(deftest listing-an-unknown-item-is-refused
+  (let (settings (scratch-ledger "decision-list-no-item"))
+    (assert (= (refusal-code-of (list-decisions
+                                  (ref settings)
+                                  (assoc (every-decision)
+                                         :item (some (->item-id :value (str "rm-ffff"))))))
+               (some (str "item-not-found"))))))

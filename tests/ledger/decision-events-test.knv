@@ -1,0 +1,113 @@
+(use json/value copy-of field json json->entries json->items
+                json->text null?)
+
+(use ledger/model ->timestamp)
+(use ledger/model/decisions decision decision-status)
+(use ledger/model/events event-type)
+
+(use ledger/decision-events decision-proposed
+                            decision-revised)
+
+(use support/decisions decision-id-of sample-decision)
+(use support/items id-of)
+
+(defn proposed ()
+  (sample-decision decision-status/proposed))
+
+(defn columns (payload)
+  (let (names (collect (map (iter (json->entries (ref (changes-of payload))))
+                         (fn (entry) (clone (first entry))))))
+    (sort! names)
+    names))
+
+(defn changes-of (payload)
+  (unwrap (field (ref payload) "changes")))
+
+(defn side (payload column which)
+  (-> (ref (changes-of payload))
+      (field column)
+      unwrap
+      (field which)
+      unwrap))
+
+(defn context-count (payload key which)
+  (len (unwrap (json->items (ref (context-side payload key which))))))
+
+(defn context-side (payload key which)
+  (-> payload (field key) unwrap (field which) unwrap))
+
+(type revised-payload (fn (decision decision) json))
+
+(defn revised-payload (before after)
+  (copy-of (ref (:payload (decision-revised (ref before) (ref after))))))
+
+(deftest a-proposal-records-every-decision-column-as-inserted
+  (let (payload (copy-of (ref (:payload (decision-proposed (ref (proposed)))))))
+    (assert (= (columns payload)
+               (vec (str "asked_at")
+                    (str "chosen_option")
+                    (str "consequences")
+                    (str "context")
+                    (str "decided_at")
+                    (str "decided_by")
+                    (str "deprecation_reason")
+                    (str "item_id")
+                    (str "justification")
+                    (str "recommendation_reason")
+                    (str "recommended_option")
+                    (str "status")
+                    (str "supersedes_id")
+                    (str "title"))))
+    (for-each (columns payload)
+      (fn (column)
+        (assert (null? (ref (side payload (as-str column) "old"))))))
+    (assert (= (json->text (ref (side payload "status" "new")))
+               (some (str "proposed"))))
+    (assert (null? (ref (side payload "asked_at" "new"))))))
+
+(deftest a-proposal-records-its-options-and-blocks-as-context
+  (let (decision (assoc (proposed)
+                        :blocks (vec (id-of "rm-0002")))
+        payload (copy-of (ref (:payload (decision-proposed (ref decision))))))
+    (assert (= (context-count (ref payload) "options" "new") 2))
+    (assert (= (context-count (ref payload) "options" "old") 0))
+    (assert (= (json->text (unwrap (first (unwrap (json->items (ref (context-side
+                                                                      (ref
+                                                                        payload)
+                                                                      "blocks"
+                                                                      "new")))))))
+               (some (str "rm-0002"))))))
+
+(deftest a-proposal-event-names-the-decision-and-its-raising-item
+  (let (draft (decision-proposed (ref (assoc (proposed)
+                                             :item (some (id-of "rm-0001"))))))
+    (assert (= (:decision-id draft)
+               (some (decision-id-of "rm-d001"))))
+    (assert (= (:item-id draft)
+               (some (id-of "rm-0001"))))
+    (assert (= (:type draft) event-type/decision-proposed))))
+
+(deftest a-revision-records-only-the-changed-columns
+  (let (payload (revised-payload (proposed)
+                                 (assoc (proposed)
+                                        :title (str "Where do caches live?"))))
+    (assert (= (columns payload)
+               (vec (str "title"))))
+    (assert (none? (field (ref payload) "options")))))
+
+(deftest a-revision-that-clears-asked-at-records-it
+  (let (payload (revised-payload (assoc (proposed)
+                                        :asked-at (some (->timestamp :value (str
+                                                                              "2026-02-01T00:00:00Z"))))
+                                 (proposed)))
+    (assert (= (columns payload)
+               (vec (str "asked_at"))))
+    (assert (null? (ref (side payload "asked_at" "new"))))))
+
+(deftest a-revision-that-changes-the-options-records-both-lists
+  (let (after (assoc (proposed)
+                     :options (vec)
+                     :title (str "x"))
+        payload (revised-payload (proposed) after))
+    (assert (= (context-count (ref payload) "options" "old") 2))
+    (assert (= (context-count (ref payload) "options" "new") 0))))

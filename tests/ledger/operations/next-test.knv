@@ -1,7 +1,7 @@
-(use ledger/api list-items new-roadmap next-actions read-log
+(use ledger/api list-items new-roadmap next-actions
                 settings)
 
-(use support/ledger ledger-with-two-roadmaps
+(use support/ledger all-events ledger-with-two-roadmaps
                     other-roadmap-name refusal-code-of
                     research research-in roadmap-name
                     session-named)
@@ -37,7 +37,7 @@
   (let (all names) (sort! all) all))
 
 (defn event-ids (settings)
-  (collect (map (iter (unwrap-ok (read-log settings none 0)))
+  (collect (map (iter (unwrap-ok (all-events settings)))
              (fn (event) (:id event)))))
 
 (deftest an-unknown-roadmap-is-refused

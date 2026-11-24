@@ -1,0 +1,112 @@
+(module
+  "Names the requests that propose or revise a decision, checks what they may change, and builds the decision each one makes.")
+
+(use ledger/model decision-id item-id roadmap-id timestamp)
+
+(use ledger/model/decisions ->decision decision
+                            decision-status proposal)
+
+(use ledger/refusal refusal)
+(use ledger/core/proposals numbered-options)
+
+(export ->decision-revision ->decision-stamp ->new-decision
+        check-revisable check-supersede-target
+        decision-revision decision-stamp new-decision
+        proposed-decision revised-decision
+        supersedes-change)
+
+(defstruct new-decision
+  :roadmap string
+  :item (option item-id)
+  :blocks (vec item-id)
+  :supersedes (option decision-id)
+  :proposal proposal)
+
+(defstruct decision-revision
+  :id decision-id
+  :proposal proposal
+  :supersedes supersedes-change)
+
+(defenum supersedes-change
+  keep
+  (retarget decision-id))
+
+(defstruct decision-stamp
+  :id decision-id
+  :roadmap-id roadmap-id
+  :roadmap-name string
+  :created-at timestamp)
+
+(type check-supersede-target
+  (fn ((ref decision))
+    (result unit refusal)))
+
+(defn check-supersede-target (target)
+  (if (= (:status target) decision-status/accepted)
+    (ok (do))
+    (err (refusal/supersede-target-not-accepted (clone (:id target))))))
+
+(type check-revisable
+  (fn ((ref decision))
+    (result unit refusal)))
+
+(defn check-revisable (decision)
+  (if (= (:status decision) decision-status/proposed)
+    (ok (do))
+    (err (refusal/decision-frozen (clone (:id decision))
+                                  (:status decision)))))
+
+(defn proposed-decision (request stamp)
+  (let-match ((decision-stamp :id id
+                              :roadmap-id roadmap-id
+                              :roadmap-name roadmap-name
+                              :created-at created-at) stamp)
+    (proposed-from request id roadmap-id roadmap-name
+                   created-at)))
+
+(type revised-decision
+  (fn ((ref decision) (ref decision-revision))
+    decision))
+
+(defn revised-decision (decision revision)
+  (let (proposal (ref (:proposal revision)))
+    (assoc (clone decision)
+           :title (clone (:title proposal))
+           :context (clone (:context proposal))
+           :options (numbered-options (ref (:options proposal)))
+           :recommendation (clone (:recommendation proposal))
+           :supersedes (revised-supersedes decision
+                                           (ref (:supersedes revision)))
+           :asked-at none)))
+
+(type proposed-from
+  (fn ((ref new-decision) decision-id roadmap-id string timestamp)
+    decision))
+
+(defn proposed-from (request id roadmap-id roadmap-name created-at)
+  (let (proposal (ref (:proposal request)))
+    (->decision :id id
+                :roadmap-id roadmap-id
+                :roadmap-name roadmap-name
+                :item (clone (:item request))
+                :title (clone (:title proposal))
+                :context (clone (:context proposal))
+                :status decision-status/proposed
+                :options (numbered-options (ref (:options proposal)))
+                :recommendation (clone (:recommendation proposal))
+                :outcome none
+                :deprecation-reason none
+                :supersedes (clone (:supersedes request))
+                :superseded-by none
+                :blocks (clone (:blocks request))
+                :asked-at none
+                :created-at created-at)))
+
+(type revised-supersedes
+  (fn ((ref decision) (ref supersedes-change))
+    (option decision-id)))
+
+(defn revised-supersedes (decision change)
+  (match change
+    (keep (clone (:supersedes decision)))
+    ((retarget id) (some (clone id)))))

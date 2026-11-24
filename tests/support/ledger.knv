@@ -1,14 +1,14 @@
 (use ledger/model ->timestamp)
 
-(use ledger/api ->advancement ->new-item ->session
-                ->settings add-item advance-item claim-item
-                clock description-input failure-code
-                init-ledger kind kind-change new-roadmap
-                origin status)
+(use ledger/api ->advancement ->log-query ->new-item
+                ->session ->settings add-item advance-item
+                claim-item clock description-input
+                failure-code init-ledger kind kind-change
+                new-roadmap origin read-log status)
 
 (use support/scratch scratch-database)
 
-(export added-id advanced blocked-research
+(export added-id advanced all-events blocked-research
         blocked-research-in claimed fixed-clock-settings
         initialized-settings item-draft
         ledger-with-two-roadmaps other-roadmap-name
@@ -95,6 +95,10 @@
   (match outcome
     ((ok _) none)
     ((err failure) (some (failure-code (ref failure))))))
+
+(defn all-events (settings)
+  (read-log settings
+            (ref (->log-query :item none :decision none :after-id 0))))
 
 (defn added-id-in (settings roadmap draft)
   (clone (:id (unwrap-ok (add-item settings (str roadmap) draft)))))

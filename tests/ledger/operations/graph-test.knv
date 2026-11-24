@@ -1,17 +1,17 @@
 (use ledger/api ->graph-request draw-graph graph-format
-                graph-level history list-items read-log)
+                graph-level history list-items)
 
-(use support/ledger blocked-research refusal-code-of
-                    research scratch-ledger)
+(use support/ledger all-events blocked-research
+                    refusal-code-of research scratch-ledger)
 
 (defn draws-without-writing? (name level)
   (let (settings (scratch-ledger name)
         blocker (research (ref settings))
         _ (blocked-research (ref settings) blocker)
-        event-count (len (unwrap-ok (read-log (ref settings) none 0)))
+        event-count (len (unwrap-ok (all-events (ref settings))))
         items-before (unwrap-ok (list-items (ref settings) none)))
     (and (ok? (draw-graph (ref settings) (mermaid-request none level)))
-         (= (len (unwrap-ok (read-log (ref settings) none 0)))
+         (= (len (unwrap-ok (all-events (ref settings))))
             event-count)
          (= (unwrap-ok (list-items (ref settings) none))
             items-before))))

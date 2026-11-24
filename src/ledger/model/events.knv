@@ -5,7 +5,7 @@
         event-draft event-stamp event-type)
 
 (use json/value json)
-(use ledger/model item-id roadmap-id timestamp)
+(use ledger/model decision-id item-id roadmap-id timestamp)
 
 (defstruct event-stamp
   :at timestamp
@@ -14,6 +14,7 @@
 (defstruct event-draft
   :roadmap-id (option roadmap-id)
   :item-id (option item-id)
+  :decision-id (option decision-id)
   :type event-type
   :payload json)
 
@@ -23,6 +24,7 @@
   :actor string
   :roadmap-id (option roadmap-id)
   :item-id (option item-id)
+  :decision-id (option decision-id)
   :type event-type
   :payload json)
 
@@ -35,4 +37,6 @@
   item-dropped
   edited
   dep-added
-  dep-removed)
+  dep-removed
+  decision-proposed
+  decision-revised)

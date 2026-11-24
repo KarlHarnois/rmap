@@ -1,0 +1,103 @@
+(module
+  "Turns the columns of a decision and its options into JSON values, as events record them.")
+
+(use json/value array int->json json object text->json)
+(use ledger/model decision-id)
+(use ledger/model/decisions decision outcome)
+(use ledger/names case-name decision-status-names)
+
+(use ledger/json-values optional-id->json
+                        optional-text->json
+                        optional-timestamp->json)
+
+(export decision->columns optional-decision-id->json
+        options->json)
+
+(type decision->columns
+  (fn ((ref decision))
+    (vec (pair string json))))
+
+(defn decision->columns (decision)
+  (let (outcome (ref (:outcome decision)))
+    (vec (column "item_id"
+                 (optional-id->json (ref (:item decision))))
+         (column "title"
+                 (text->json (as-str (:title decision))))
+         (column "context"
+                 (text->json (as-str (:context decision))))
+         (column "status"
+                 (text->json (case-name decision-status-names
+                                        (:status decision))))
+         (column "recommended_option"
+                 (int->json (:option (:recommendation decision))))
+         (column "recommendation_reason"
+                 (text->json (as-str (:reason (:recommendation decision)))))
+         (column "chosen_option" (chosen-option->json outcome))
+         (column "justification" (justification->json outcome))
+         (column "consequences" (consequences->json outcome))
+         (column "deprecation_reason"
+                 (optional-text->json (ref (:deprecation-reason decision))))
+         (column "supersedes_id"
+                 (optional-decision-id->json (ref (:supersedes decision))))
+         (column "asked_at"
+                 (optional-timestamp->json (ref (:asked-at decision))))
+         (column "decided_by" (decided-by->json outcome))
+         (column "decided_at" (decided-at->json outcome)))))
+
+(defn options->json (options)
+  (array (collect (map (iter options) option->json))))
+
+(type optional-decision-id->json
+  (fn ((ref (option decision-id))) json))
+
+(defn optional-decision-id->json (id)
+  (optional-text->json (ref (map-some (clone id)
+                              (fn (present) (clone (:value present)))))))
+
+(defn column (name value)
+  (pair (str name) value))
+
+(defn option->json (option)
+  (object (vec (pair (str "number")
+                     (int->json (:number option)))
+               (pair (str "title")
+                     (text->json (as-str (:title option))))
+               (pair (str "description")
+                     (text->json (as-str (:description option))))
+               (pair (str "pros")
+                     (texts->json (ref (:pros option))))
+               (pair (str "cons")
+                     (texts->json (ref (:cons option)))))))
+
+(defn texts->json (texts)
+  (array (collect (map (iter texts)
+                    (fn (text) (text->json (as-str text)))))))
+
+(type chosen-option->json
+  (fn ((ref (option outcome))) json))
+
+(defn chosen-option->json (outcome)
+  (match (then-some (clone outcome)
+           (fn (present) (:option present)))
+    ((some number) (int->json number))
+    (none json/null)))
+
+(defn justification->json (outcome)
+  (optional-text->json (ref (map-some (clone outcome)
+                              (fn (present)
+                                (clone (:justification present)))))))
+
+(defn consequences->json (outcome)
+  (optional-text->json (ref (then-some (clone outcome)
+                              (fn (present)
+                                (clone (:consequences present)))))))
+
+(defn decided-by->json (outcome)
+  (optional-text->json (ref (map-some (clone outcome)
+                              (fn (present)
+                                (clone (:decided-by present)))))))
+
+(defn decided-at->json (outcome)
+  (optional-timestamp->json (ref (map-some (clone outcome)
+                                   (fn (present)
+                                     (clone (:decided-at present)))))))

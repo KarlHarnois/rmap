@@ -36,6 +36,7 @@
 (defn roadmap-created (roadmap)
   (->event-draft :roadmap-id (some (clone (:id roadmap)))
                  :item-id none
+                 :decision-id none
                  :type event-type/roadmap-created
                  :payload (payload-with-changes (ref (roadmap-insert-changes
                                                        roadmap))
@@ -48,6 +49,7 @@
 (defn item-added (item request)
   (->event-draft :roadmap-id (some (clone (:roadmap-id item)))
                  :item-id (some (clone (:id item)))
+                 :decision-id none
                  :type event-type/item-added
                  :payload (payload-with-changes
                             (ref (item-insert-changes item request))
@@ -60,6 +62,7 @@
 (defn dep-changed (owner dep change)
   (->event-draft :roadmap-id (some (clone (:roadmap-id owner)))
                  :item-id (some (clone (:item dep)))
+                 :decision-id none
                  :type (dep-change->event-type change)
                  :payload (payload-with-changes (ref (dep-row-changes dep
                                                                       change))
@@ -68,6 +71,7 @@
 (defn item-moved (applied)
   (->event-draft :roadmap-id (some (clone (:roadmap-id (:after applied))))
                  :item-id (some (clone (:id (:after applied))))
+                 :decision-id none
                  :type (event-type-of (ref (:move applied)))
                  :payload (payload-with-changes (ref (move-changes applied))
                                                 (move-context (ref (:move applied))))))
@@ -83,6 +87,7 @@
 (defn item-edited (after changes)
   (->event-draft :roadmap-id (some (clone (:roadmap-id after)))
                  :item-id (some (clone (:id after)))
+                 :decision-id none
                  :type event-type/edited
                  :payload (payload-with-changes changes (vec))))
 

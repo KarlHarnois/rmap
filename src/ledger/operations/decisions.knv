@@ -1,0 +1,137 @@
+(module
+  "Proposes a decision and revises a proposed one, each in one transaction with its event.")
+
+(use ledger/model ->decision-id roadmap-id)
+(use ledger/model/decisions decision)
+
+(use ledger/core/decisions ->decision-stamp check-revisable
+                           check-supersede-target
+                           decision-revision new-decision
+                           proposed-decision
+                           revised-decision
+                           supersedes-change)
+
+(use ledger/core/decision-placement check-blocks
+                                    check-raising-item)
+
+(use ledger/core/proposals check-proposal)
+(use ledger/core/new-items distinct)
+
+(use ledger/sqlite/decisions insert-decision
+                             update-decision)
+
+(use ledger/sqlite/snapshot load-snapshot)
+(use ledger/sqlite/generated fresh-id)
+
+(use ledger/operations/transaction in-transaction now record
+                                   settings transaction)
+
+(use ledger/failure failure)
+
+(use ledger/operations/lookups existing-decision
+                               roadmap-id-named)
+
+(use ledger/decision-events decision-proposed
+                            decision-revised)
+
+(use ledger/sqlite/connection connection)
+
+(export propose-decision revise-decision)
+
+(type propose-decision
+  (fn ((ref settings) new-decision)
+    (result decision failure)))
+
+(defn propose-decision (settings request)
+  (in-transaction settings
+    (fn (transaction)
+      (insert-proposed transaction
+                       (assoc request
+                              :blocks (distinct (ref (:blocks request))))))))
+
+(type revise-decision
+  (fn ((ref settings) decision-revision)
+    (result decision failure)))
+
+(defn revise-decision (settings revision)
+  (in-transaction settings
+    (fn (transaction)
+      (store-revision transaction (ref revision)))))
+
+(type insert-proposed
+  (fn ((ref transaction) new-decision)
+    (result decision failure)))
+
+(defn insert-proposed (transaction request)
+  (let (connection (ref (:connection transaction)))
+    (let-try (roadmap-id (roadmap-id-named connection
+                                           (as-str (:roadmap request)))
+              _ (check-placement connection (ref roadmap-id) (ref request))
+              _ (check-supersedes connection (ref (:supersedes request)))
+              _ (check-proposal (ref (:proposal request)))
+              id (fresh-id connection))
+      (store-proposed transaction
+                      (proposed-decision (ref request)
+                                         (->decision-stamp
+                                           :id (->decision-id :value id)
+                                           :roadmap-id roadmap-id
+                                           :roadmap-name (clone (:roadmap
+                                                                  request))
+                                           :created-at (now transaction)))))))
+
+(type check-placement
+  (fn ((ref connection)
+       (ref roadmap-id)
+       (ref new-decision))
+    (result unit failure)))
+
+(defn check-placement (connection roadmap-id request)
+  (let-try (snapshot (load-snapshot connection)
+            _ (check-raising-item (ref snapshot)
+                                  roadmap-id
+                                  (ref (:item request)))
+            _ (check-blocks (ref snapshot)
+                            roadmap-id
+                            (ref (:blocks request))))
+    (ok (do))))
+
+(defn check-supersedes (connection target)
+  (match target
+    ((some id)
+     (let-try (found (existing-decision connection id)
+               _ (check-supersede-target (ref found)))
+       (ok (do))))
+    (none (ok (do)))))
+
+(type store-proposed
+  (fn ((ref transaction) decision)
+    (result decision failure)))
+
+(defn store-proposed (transaction decision)
+  (let-try (_ (insert-decision (ref (:connection transaction))
+                               (ref decision))
+            _ (record transaction (decision-proposed (ref decision))))
+    (ok decision)))
+
+(type store-revision
+  (fn ((ref transaction) (ref decision-revision))
+    (result decision failure)))
+
+(defn store-revision (transaction revision)
+  (let (connection (ref (:connection transaction)))
+    (let-try (before (existing-decision connection (ref (:id revision)))
+              _ (check-revisable (ref before))
+              _ (check-retarget connection (ref (:supersedes revision)))
+              _ (check-proposal (ref (:proposal revision))))
+      (let (after (revised-decision (ref before) revision))
+        (let-try (_ (update-decision connection (ref after))
+                  _ (record transaction
+                            (decision-revised (ref before) (ref after))))
+          (ok after))))))
+
+(defn check-retarget (connection change)
+  (match change
+    (supersedes-change/keep (ok (do)))
+    ((supersedes-change/retarget id)
+     (check-supersedes connection
+                       (ref (some (clone id)))))))

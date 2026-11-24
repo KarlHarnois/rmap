@@ -1,7 +1,7 @@
 (module
   "Reads the events the ledger recorded.")
 
-(use ledger/model item-id)
+(use ledger/model decision-id item-id)
 (use ledger/model/events event)
 
 (use ledger/sqlite/events ->event-filter event-filter
@@ -13,18 +13,24 @@
 (use ledger/failure failure)
 (use ledger/sqlite/connection connection)
 
-(export read-log)
+(export ->log-query log-query read-log)
+
+(defstruct log-query
+  :item (option item-id)
+  :decision (option decision-id)
+  :after-id int)
 
 (type read-log
-  (fn ((ref settings) (option item-id) int)
+  (fn ((ref settings) (ref log-query))
     (result (vec event) failure)))
 
-(defn read-log (settings item after-id)
+(defn read-log (settings query)
   (in-read-transaction settings
     (fn (transaction)
       (events-within (ref (:connection transaction))
-                     (ref (->event-filter :item-id (clone item)
-                                          :after-id after-id))))))
+                     (ref (->event-filter :item-id (clone (:item query))
+                                          :decision-id (clone (:decision query))
+                                          :after-id (:after-id query)))))))
 
 (type events-within
   (fn ((ref connection) (ref event-filter))

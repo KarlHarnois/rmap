@@ -1,9 +1,9 @@
 (use ledger/api ->advancement advance-item claim-item
                 close-item drop-item failure kind
-                kind-change read-log refusal status)
+                kind-change refusal status)
 
-(use support/ledger added-id blocked-research claimed
-                    item-draft refusal-code-of
+(use support/ledger added-id all-events blocked-research
+                    claimed item-draft refusal-code-of
                     reported-research research
                     scratch-ledger session-named)
 
@@ -23,7 +23,7 @@
 (deftest every-event-records-the-settings-actor
   (let (settings (scratch-ledger "actor-recorded")
         _research (reported-research (ref settings)))
-    (assert (every? (iter (unwrap-ok (read-log (ref settings) none 0)))
+    (assert (every? (iter (unwrap-ok (all-events (ref settings))))
               (fn (event)
                 (= (:actor event) (str "tester")))))))
 

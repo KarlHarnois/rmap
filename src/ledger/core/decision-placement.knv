@@ -1,0 +1,44 @@
+(module
+  "Checks the items a decision names: the item that raised it and the items it blocks.")
+
+(use ledger/model item kind roadmap-id status)
+(use ledger/refusal refusal)
+(use ledger/core/snapshot existing)
+
+(export check-blocks check-raising-item)
+
+(defn check-raising-item (snapshot roadmap-id item)
+  (match item
+    ((some id)
+     (let-try (found (existing snapshot id))
+       (check-same-roadmap (ref found) roadmap-id)))
+    (none (ok (do)))))
+
+(defn check-blocks (snapshot roadmap-id blocks)
+  (loop (index 0)
+    (if (< index (len blocks))
+      (let-try (_ (check-block snapshot roadmap-id (at blocks index)))
+        (recur (inc index)))
+      (ok (do)))))
+
+(defn check-block (snapshot roadmap-id id)
+  (let-try (found (existing snapshot id)
+            _ (check-same-roadmap (ref found) roadmap-id))
+    (if (blockable? (ref found))
+      (ok (do))
+      (err (refusal/not-blockable (clone id))))))
+
+(type blockable? (fn ((ref item)) bool))
+
+(defn blockable? (item)
+  (and (not= (:kind item) kind/epic)
+       (= (:status item) status/open)))
+
+(type check-same-roadmap
+  (fn ((ref item) (ref roadmap-id))
+    (result unit refusal)))
+
+(defn check-same-roadmap (item roadmap-id)
+  (if (= (ref (:roadmap-id item)) roadmap-id)
+    (ok (do))
+    (err (refusal/decision-in-other-roadmap (clone (:id item))))))

@@ -1,0 +1,76 @@
+(use ledger/model ->roadmap-id ->timestamp)
+(use ledger/model/decisions decision-status)
+(use ledger/refusal refusal)
+
+(use ledger/core/decisions ->decision-revision
+                           ->decision-stamp ->new-decision
+                           check-revisable
+                           check-supersede-target
+                           proposed-decision
+                           revised-decision
+                           supersedes-change)
+
+(use support/decisions decision-id-of sample-decision
+                       sample-proposal)
+
+(use support/items id-of)
+
+(defn revision (change)
+  (->decision-revision :id (decision-id-of "rm-d001")
+                       :proposal (assoc (sample-proposal)
+                                        :title (str "Where do caches live?"))
+                       :supersedes change))
+
+(defn asked-decision ()
+  (assoc (sample-decision decision-status/proposed)
+         :asked-at (some (->timestamp :value (str "2026-02-01T00:00:00Z")))
+         :supersedes (some (decision-id-of "rm-d000"))))
+
+(deftest a-proposed-decision-can-be-revised
+  (assert (ok? (check-revisable (ref (sample-decision
+                                       decision-status/proposed))))))
+
+(deftest an-accepted-decision-is-frozen
+  (assert (= (unwrap-err (check-revisable (ref (sample-decision
+                                                 decision-status/accepted))))
+             (refusal/decision-frozen (decision-id-of "rm-d001")
+                                      decision-status/accepted))))
+
+(deftest only-an-accepted-decision-can-be-superseded
+  (assert (ok? (check-supersede-target (ref (sample-decision
+                                              decision-status/accepted)))))
+  (assert (= (unwrap-err (check-supersede-target (ref (sample-decision decision-status/rejected))))
+             (refusal/supersede-target-not-accepted (decision-id-of
+                                                      "rm-d001")))))
+
+(deftest a-proposal-makes-a-proposed-decision-with-numbered-options
+  (let (made (proposed-decision
+               (ref (->new-decision :roadmap (str "road")
+                                    :item (some (id-of "rm-0001"))
+                                    :blocks (vec (id-of "rm-0002"))
+                                    :supersedes none
+                                    :proposal (sample-proposal)))
+               (->decision-stamp :id (decision-id-of "rm-d001")
+                                 :roadmap-id (->roadmap-id :value (str
+                                                                    "rm-road"))
+                                 :roadmap-name (str "road")
+                                 :created-at (->timestamp :value (str "2026-01-01T00:00:00Z")))))
+    (assert (= made
+               (assoc (sample-decision decision-status/proposed)
+                      :item (some (id-of "rm-0001"))
+                      :blocks (vec (id-of "rm-0002")))))))
+
+(deftest a-revision-replaces-the-proposal-and-clears-asked-at
+  (let (revised (revised-decision (ref (asked-decision))
+                                  (ref (revision supersedes-change/keep))))
+    (assert (= (:title revised) (str "Where do caches live?")))
+    (assert (none? (:asked-at revised)))
+    (assert (= (:supersedes revised)
+               (some (decision-id-of "rm-d000"))))))
+
+(deftest a-revision-can-retarget-what-it-supersedes
+  (let (revised (revised-decision (ref (asked-decision))
+                                  (ref (revision (supersedes-change/retarget (decision-id-of
+                                                                               "rm-d009"))))))
+    (assert (= (:supersedes revised)
+               (some (decision-id-of "rm-d009"))))))

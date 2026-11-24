@@ -1,4 +1,5 @@
-(use ledger/model ->blockage ->item-id status)
+(use ledger/model ->blockage ->decision-id ->item-id status)
+(use ledger/model/decisions decision-status)
 (use ledger/refusal refusal)
 (use ledger/refusal-codes refusal-catalog refusal-code-text)
 
@@ -17,7 +18,17 @@
        (refusal/not-ready (->blockage :blockers (vec) :dropped-blockers (vec)))
        (refusal/cycle (sample-id) (sample-id))
        (refusal/dep-exists (sample-id) (sample-id))
-       (refusal/dep-not-found (sample-id) (sample-id))))
+       (refusal/dep-not-found (sample-id) (sample-id))
+       (refusal/decision-not-found (sample-decision-id))
+       (refusal/decision-frozen (sample-decision-id)
+                                decision-status/accepted)
+       (refusal/decision-incomplete (str "the title is empty"))
+       (refusal/not-blockable (sample-id))
+       (refusal/decision-in-other-roadmap (sample-id))
+       (refusal/supersede-target-not-accepted (sample-decision-id))))
+
+(defn sample-decision-id ()
+  (->decision-id :value (str "rm-0002")))
 
 (defn sample-id ()
   (->item-id :value (str "rm-0001")))

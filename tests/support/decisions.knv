@@ -1,0 +1,80 @@
+(use ledger/model ->decision-id ->roadmap-id ->timestamp
+                  decision-id)
+
+(use ledger/model/decisions ->decision ->option-draft
+                            ->proposal ->recommendation)
+
+(use ledger/core/proposals numbered-options)
+(use ledger/core/decisions ->new-decision)
+(use ledger/operations/decisions propose-decision)
+(use ledger/operations/transaction settings)
+(use ledger/sqlite/connection open run-batch)
+(use support/ledger roadmap-name)
+
+(export decision-id-of mark-status option-titled proposal-in
+        proposed-id sample-decision sample-proposal)
+
+(defn sample-decision (status)
+  (let (proposal (sample-proposal))
+    (->decision :id (decision-id-of "rm-d001")
+                :roadmap-id (->roadmap-id :value (str "rm-road"))
+                :roadmap-name (str "road")
+                :item none
+                :title (clone (:title proposal))
+                :context (clone (:context proposal))
+                :status status
+                :options (numbered-options (ref (:options proposal)))
+                :recommendation (clone (:recommendation proposal))
+                :outcome none
+                :deprecation-reason none
+                :supersedes none
+                :superseded-by none
+                :blocks (vec)
+                :asked-at none
+                :created-at (->timestamp :value (str "2026-01-01T00:00:00Z")))))
+
+(defn sample-proposal ()
+  (->proposal :title (str "Where do sessions live?")
+              :context (str "Sessions must survive a restart.")
+              :options (vec (assoc (option-titled "Postgres")
+                                   :description (str "Keep them in the main database.")
+                                   :pros (vec (str "One store to run"))
+                                   :cons (vec (str "More load")))
+                            (option-titled "Redis"))
+              :recommendation (->recommendation :option 1
+                                                :reason (str "Postgres already runs."))))
+
+(defn option-titled (title)
+  (->option-draft :title (str title)
+                  :description (str "")
+                  :pros (vec)
+                  :cons (vec)))
+
+(defn decision-id-of (text)
+  (->decision-id :value (str text)))
+
+(defn proposed-id (settings)
+  (clone (:id (unwrap-ok (propose-decision settings
+                                           (proposal-in roadmap-name))))))
+
+(defn proposal-in (roadmap)
+  (->new-decision :roadmap (str roadmap)
+                  :item none
+                  :blocks (vec)
+                  :supersedes none
+                  :proposal (sample-proposal)))
+
+(type mark-status
+  (fn ((ref settings)
+       (ref decision-id)
+       (ref str))
+    unit))
+
+(defn mark-status (settings id status)
+  (let (connection (unwrap-ok (open (as-str (:database-path settings)))))
+    (unwrap-ok (run-batch (ref connection)
+                          (as-str (str "UPDATE decisions SET status = '"
+                                       status
+                                       "' WHERE id = '"
+                                       (:value id)
+                                       "';"))))))

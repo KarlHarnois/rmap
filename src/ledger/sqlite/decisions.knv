@@ -1,0 +1,139 @@
+(module
+  "Reads and writes the `decisions` table, with the options and blocked items of each decision.")
+
+(use ledger/sqlite/values int->sql optional-text->sql
+                          sql-value text->sql)
+
+(use ledger/model decision-id item-id roadmap-id timestamp)
+(use ledger/model/decisions decision decision-status)
+(use ledger/names case-name decision-status-names)
+
+(use ledger/sqlite/connection connection database-error
+                              execute query)
+
+(use ledger/sqlite/rows rows->values)
+
+(use ledger/sqlite/decision-rows row->decision
+                                 selected-columns)
+
+(use ledger/sqlite/decision-options delete-options
+                                    insert-options)
+
+(use ledger/sqlite/decision-blocks insert-blocks)
+
+(export ->decision-filter decision-filter decision-with-id
+        decisions-matching insert-decision update-decision)
+
+(defstruct decision-filter
+  :roadmap-id (option roadmap-id)
+  :status (option decision-status)
+  :item (option item-id))
+
+(type insert-decision
+  (fn ((ref connection) (ref decision))
+    (result unit database-error)))
+
+(defn insert-decision (connection decision)
+  (let-try (_ (execute
+                connection
+                "INSERT INTO decisions (id, roadmap_id, item_id, title, context, status, recommended_option, recommendation_reason, supersedes_id, asked_at, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"
+                (ref (vec
+                       (decision-id->sql (ref (:id decision)))
+                       (text->sql (as-str (:value (:roadmap-id decision))))
+                       (optional-item->sql (ref (:item decision)))
+                       (text->sql (as-str (:title decision)))
+                       (text->sql (as-str (:context decision)))
+                       (text->sql (case-name decision-status-names
+                                             (:status decision)))
+                       (int->sql (:option (:recommendation decision)))
+                       (text->sql (as-str (:reason (:recommendation decision))))
+                       (optional-decision->sql (ref (:supersedes decision)))
+                       (optional-timestamp->sql (ref (:asked-at decision)))
+                       (text->sql (as-str (:value (:created-at decision)))))))
+            _ (insert-options connection
+                              (ref (:id decision))
+                              (ref (:options decision))))
+    (insert-blocks connection
+                   (ref (:id decision))
+                   (ref (:blocks decision)))))
+
+(type update-decision
+  (fn ((ref connection) (ref decision))
+    (result unit database-error)))
+
+(defn update-decision (connection decision)
+  (let-try (_ (execute
+                connection
+                "UPDATE decisions SET title = ?2, context = ?3, recommended_option = ?4, recommendation_reason = ?5, supersedes_id = ?6, asked_at = ?7 WHERE id = ?1"
+                (ref (vec
+                       (decision-id->sql (ref (:id decision)))
+                       (text->sql (as-str (:title decision)))
+                       (text->sql (as-str (:context decision)))
+                       (int->sql (:option (:recommendation decision)))
+                       (text->sql (as-str (:reason (:recommendation decision))))
+                       (optional-decision->sql (ref (:supersedes decision)))
+                       (optional-timestamp->sql (ref (:asked-at decision))))))
+            _ (delete-options connection (ref (:id decision))))
+    (insert-options connection
+                    (ref (:id decision))
+                    (ref (:options decision)))))
+
+(defn decision-with-id (connection id)
+  (let-try (rows (query connection
+                        (as-str (str selected-columns " WHERE d.id = ?1"))
+                        (ref (vec (decision-id->sql id))))
+            decisions (rows->values (ref rows)
+                        (fn (row) (row->decision connection row))))
+    (ok (map-some (first decisions) clone))))
+
+(defn decisions-matching (connection filter)
+  (let-try (rows (query connection
+                        (as-str (str selected-columns
+                                     " WHERE (?1 IS NULL OR d.roadmap_id = ?1)"
+                                     " AND (?2 IS NULL OR d.status = ?2)"
+                                     " AND (?3 IS NULL OR d.item_id = ?3 OR EXISTS (SELECT 1 FROM decision_blocks b WHERE b.decision_id = d.id AND b.item_id = ?3))"
+                                     " ORDER BY d.created_at, d.rowid"))
+                        (ref (filter->row filter))))
+    (rows->values (ref rows)
+      (fn (row) (row->decision connection row)))))
+
+(type filter->row
+  (fn ((ref decision-filter))
+    (vec sql-value)))
+
+(defn filter->row (filter)
+  (vec (optional-text->sql (map-some (clone (:roadmap-id filter))
+                             (fn (id) (clone (:value id)))))
+       (optional-text->sql (map-some (:status filter)
+                             (fn (status)
+                               (str (case-name decision-status-names status)))))
+       (optional-item->sql (ref (:item filter)))))
+
+(type decision-id->sql
+  (fn ((ref decision-id)) sql-value))
+
+(defn decision-id->sql (id)
+  (text->sql (as-str (:value id))))
+
+(type optional-decision->sql
+  (fn ((ref (option decision-id)))
+    sql-value))
+
+(defn optional-decision->sql (id)
+  (optional-text->sql (map-some (clone id)
+                        (fn (present) (clone (:value present))))))
+
+(type optional-item->sql
+  (fn ((ref (option item-id))) sql-value))
+
+(defn optional-item->sql (id)
+  (optional-text->sql (map-some (clone id)
+                        (fn (present) (clone (:value present))))))
+
+(type optional-timestamp->sql
+  (fn ((ref (option timestamp)))
+    sql-value))
+
+(defn optional-timestamp->sql (at)
+  (optional-text->sql (map-some (clone at)
+                        (fn (present) (clone (:value present))))))

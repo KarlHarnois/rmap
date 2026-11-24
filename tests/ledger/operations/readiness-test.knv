@@ -1,8 +1,8 @@
 (use ledger/api batch-size-of close-item kind list-items
-                read-log ready-batch ready-items status)
+                ready-batch ready-items status)
 
-(use support/ledger added-id advanced blocked-research-in
-                    claimed item-draft
+(use support/ledger added-id advanced all-events
+                    blocked-research-in claimed item-draft
                     ledger-with-two-roadmaps
                     other-roadmap-name refusal-code-of
                     research roadmap-name scratch-ledger)
@@ -19,7 +19,7 @@
   (added-id settings (item-draft kind/build)))
 
 (defn event-ids (settings)
-  (collect (map (iter (unwrap-ok (read-log settings none 0)))
+  (collect (map (iter (unwrap-ok (all-events settings)))
              (fn (event) (:id event)))))
 
 (deftest an-unknown-roadmap-is-refused
