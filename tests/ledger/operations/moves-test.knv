@@ -254,6 +254,20 @@
     (assert (= (refusal-code-of (advance (ref settings) id status/merging))
                (some (str "not-approved"))))))
 
+(deftest an-approval-counts-again-when-the-head-returns-to-its-sha
+  (let (settings (scratch-ledger "merge-head-returns")
+        id (approved-build (ref settings)
+                           (ref (claimed (ref settings)
+                                         (build (ref settings))))
+                           12))
+    (assert (ok? (record-head (ref settings)
+                              (clone id)
+                              (str second-head))))
+    (assert (ok? (record-head (ref settings)
+                              (clone id)
+                              (str first-head))))
+    (assert (ok? (advance (ref settings) id status/merging)))))
+
 (deftest a-research-item-reaches-reported-only-through-its-report
   (let (settings (scratch-ledger "advance-into-reported")
         id (claimed (ref settings)
