@@ -2,7 +2,7 @@
   "Names each way a ledger operation can fail, with its stable code and a message for the user.")
 
 (use ledger/refusal refusal refusal->message)
-(use ledger/refusal-codes refusal-code-text)
+(use ledger/refusal-text refusal-code-text)
 
 (use ledger/sqlite/connection database-error
                               database-problem)

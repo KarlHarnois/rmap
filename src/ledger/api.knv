@@ -41,8 +41,8 @@
 
 (use ledger/refusal refusal refusal->message)
 
-(use ledger/refusal-codes refusal-catalog refusal-code-text
-                          refusal-description)
+(use ledger/refusal-text refusal-catalog refusal-code-text
+                         refusal-description)
 
 (use ledger/core/ready blocked-item readiness)
 (use ledger/core/batch batch batch-size batch-size-of)

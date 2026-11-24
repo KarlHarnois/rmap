@@ -3,7 +3,7 @@
 
 (use ledger/model/decisions decision-status)
 (use ledger/refusal refusal)
-(use ledger/refusal-codes refusal-catalog refusal-code-text)
+(use ledger/refusal-text refusal-catalog refusal-code-text)
 
 (defn every-refusal ()
   (vec (refusal/roadmap-not-found (str "road"))

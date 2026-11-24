@@ -1,0 +1,18 @@
+(module
+  "Lists the commands that pause and resume a roadmap.")
+
+(use cli/routes ->route operands subcommand words)
+
+(export lifecycle-routes)
+
+(defn lifecycle-routes ()
+  (vec (->route :subcommand subcommand/pause
+                :words (words "pause")
+                :summary (str "Pauses a roadmap: its open items wait, while work already started continues.")
+                :operands (operands (vec "name"))
+                :flags (vec))
+       (->route :subcommand subcommand/resume
+                :words (words "resume")
+                :summary (str "Resumes a paused roadmap.")
+                :operands (operands (vec "name"))
+                :flags (vec))))

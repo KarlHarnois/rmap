@@ -9,6 +9,7 @@
 
 (use cli/routes ->route operands subcommand words)
 (use cli/decision-commands decision-routes)
+(use cli/lifecycle-commands lifecycle-routes)
 
 (export boolean-flag-names routes)
 
@@ -24,6 +25,8 @@
 
 (defn routes ()
   (let (all (item-routes))
+    (for-each (lifecycle-routes)
+      (fn (route) (push! all (clone route))))
     (for-each (decision-routes)
       (fn (route) (push! all (clone route))))
     all))
@@ -48,16 +51,6 @@
                 :words (words "list")
                 :summary (str "Lists the roadmaps.")
                 :operands (vec)
-                :flags (vec))
-       (->route :subcommand subcommand/pause
-                :words (words "pause")
-                :summary (str "Pauses a roadmap: its open items wait, while work already started continues.")
-                :operands (operands (vec "name"))
-                :flags (vec))
-       (->route :subcommand subcommand/resume
-                :words (words "resume")
-                :summary (str "Resumes a paused roadmap.")
-                :operands (operands (vec "name"))
                 :flags (vec))
        (->route :subcommand subcommand/ready
                 :words (words "ready")
