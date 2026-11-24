@@ -5,7 +5,9 @@
                   decision-status item kind roadmap-pause
                   snapshot status)
 
-(use ledger/core/actions action planned)
+(use ledger/model/decisions decision)
+(use ledger/core/actions action next-action planned)
+(use ledger/core/phases finished?)
 (use ledger/core/ready blockage-in readiness)
 
 (use ledger/core/decision-next raised-proposed
@@ -14,13 +16,17 @@
 
 (export blocked-only-by-rejected? with-decision-actions)
 
+(type with-decision-actions
+  (fn ((ref readiness)
+       (ref (vec decision))
+       (ref item)
+       (vec next-action))
+    (vec next-action)))
+
 (defn with-decision-actions (readiness decisions item actions)
-  (let (rejected (raised-rejected decisions item))
-    (if (empty? rejected)
-      (with-proposed-action readiness decisions item actions)
-      (append-or-replace actions
-                         (held-action item)
-                         (replan-action readiness item rejected)))))
+  (if (finished? (:status item))
+    actions
+    (raised-actions readiness decisions item actions)))
 
 (defn blocked-only-by-rejected? (snapshot blockage)
   (and (not (empty? (:decisions blockage)))
@@ -29,6 +35,14 @@
        (= (:pause blockage) roadmap-pause/not-paused)
        (every? (iter (:decisions blockage))
          (fn (id) (rejected-in? snapshot id)))))
+
+(defn raised-actions (readiness decisions item actions)
+  (let (rejected (raised-rejected decisions item))
+    (if (empty? rejected)
+      (with-proposed-action readiness decisions item actions)
+      (append-or-replace actions
+                         (held-action item)
+                         (replan-action readiness item rejected)))))
 
 (defn with-proposed-action (readiness decisions item actions)
   (let (proposed (raised-proposed decisions item))
@@ -41,7 +55,17 @@
 (defn append-or-replace (actions held replacement)
   (match held
     ((some want) (replace-held actions want replacement))
-    (none (appended actions replacement))))
+    (none (replan-once actions replacement))))
+
+(defn replan-once (actions replacement)
+  (if (has-action? actions action/replan)
+    (replace-held actions action/replan replacement)
+    (appended actions replacement)))
+
+(defn has-action? (actions wanted)
+  (any? (iter actions)
+    (fn (planned)
+      (= (:action planned) wanted))))
 
 (defn replace-when-held (actions held replacement)
   (match held

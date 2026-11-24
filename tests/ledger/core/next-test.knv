@@ -220,6 +220,15 @@
     ((next-entry/listed-decision decision)
      (clone (:actions decision)))))
 
+(defn finished-with-rejected (status)
+  (let (item (work-item "rm-0001" kind/build status)
+        decision (assoc (sample-decision decision-status/rejected)
+                        :item (some (clone (:id item)))))
+    (next-of (ref (snapshot-of (vec item) (vec)))
+             (ref (vec (road)))
+             (ref (reports-only (vec)))
+             (ref (vec decision)))))
+
 (deftest an-open-ready-item-is-dispatched-by-the-controller
   (assert (= (taken-by (sole-action
                          (work-item "rm-0001" kind/research status/open)))
@@ -510,3 +519,58 @@
                               "rm-0001"))
     (assert (= (:action (clone (unwrap (first (entry-actions entry)))))
                action/replan))))
+
+(deftest an-open-item-lists-one-replan-when-one-decision-is-raised-and-blocking
+  (let (item (work-item "rm-0001" kind/build status/open)
+        decision (assoc (sample-decision decision-status/rejected)
+                        :id (->decision-id :value (str "rm-d1"))
+                        :item (some (clone (:id item))))
+        snapshot (assoc (snapshot-of (vec item) (vec))
+                        :decision-blocks (vec (decision-block-on
+                                                "rm-d1"
+                                                "rm-0001"
+                                                decision-status/rejected)))
+        entry (item-entry-for (next-of (ref snapshot)
+                                       (ref (vec (road)))
+                                       (ref (reports-only (vec)))
+                                       (ref (vec decision)))
+                              "rm-0001")
+        actions (entry-actions entry))
+    (assert (= (len actions) 1))
+    (assert (= (:action (clone (unwrap (first actions))))
+               action/replan))
+    (assert (= (reason-ids (clone (unwrap (first actions))))
+               (vec (str "rm-d1"))))))
+
+(deftest an-open-item-lists-one-replan-with-both-decisions-when-two-apply
+  (let (item (work-item "rm-0001" kind/build status/open)
+        raised (assoc (sample-decision decision-status/rejected)
+                      :id (->decision-id :value (str "rm-d1"))
+                      :item (some (clone (:id item))))
+        blocking (assoc (sample-decision decision-status/rejected)
+                        :id (->decision-id :value (str "rm-d2")))
+        snapshot (assoc (snapshot-of (vec item) (vec))
+                        :decision-blocks (vec (decision-block-on
+                                                "rm-d2"
+                                                "rm-0001"
+                                                decision-status/rejected)))
+        entry (item-entry-for (next-of (ref snapshot)
+                                       (ref (vec (road)))
+                                       (ref (reports-only (vec)))
+                                       (ref (vec raised blocking)))
+                              "rm-0001")
+        actions (entry-actions entry))
+    (assert (= (len actions) 1))
+    (assert (= (:action (clone (unwrap (first actions))))
+               action/replan))
+    (assert (= (reason-ids (clone (unwrap (first actions))))
+               (vec (str "rm-d1") (str "rm-d2"))))))
+
+(deftest an-accepted-item-with-a-raised-rejection-is-not-listed
+  (assert (empty? (finished-with-rejected status/accepted))))
+
+(deftest a-merged-item-with-a-raised-rejection-is-not-listed
+  (assert (empty? (finished-with-rejected status/merged))))
+
+(deftest a-dropped-item-with-a-raised-rejection-is-not-listed
+  (assert (empty? (finished-with-rejected status/dropped))))
