@@ -3,8 +3,8 @@
 
 (use ledger/sqlite/values int->sql sql-value text->sql)
 
-(use ledger/model ->item ->item-id ->roadmap-id ->session
-                  ->timestamp claim item item-id timestamp)
+(use ledger/model ->item ->item-id ->roadmap-id ->timestamp
+                  item item-id timestamp)
 
 (use ledger/names case-name kind-names origin-names
                   status-names)
@@ -16,13 +16,18 @@
                         optional-text-cell rows->values
                         text-cell)
 
+(use ledger/sqlite/sessions live-session-columns
+                            live-session-join row->claim)
+
 (export all-items insert-item update-item)
 
 (def columns
-  "id, roadmap_id, parent_id, title, kind, status, origin, priority, claimed_by, created_at, closed_at, description")
+  "id, roadmap_id, parent_id, title, kind, status, origin, priority, created_at, closed_at, description")
 
 (def joined-columns
-  "items.id, items.roadmap_id, items.parent_id, items.title, items.kind, items.status, items.origin, items.priority, items.claimed_by, items.created_at, items.closed_at, items.description, roadmaps.name")
+  "items.id, items.roadmap_id, items.parent_id, items.title, items.kind, items.status, items.origin, items.priority, items.created_at, items.closed_at, items.description, roadmaps.name")
+
+(def live-session-first-column 12)
 
 (type insert-item
   (fn ((ref connection) (ref item))
@@ -30,8 +35,9 @@
 
 (defn insert-item (connection item)
   (execute connection
-           (as-str (str "INSERT INTO items (" columns
-                        ") VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"))
+           (as-str (str
+                     "INSERT INTO items (" columns
+                     ") VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"))
            (ref (vec (text->sql (as-str (:value (:id item))))
                      (text->sql (as-str (:value (:roadmap-id item))))
                      (optional-id->sql (ref (:parent item)))
@@ -40,7 +46,6 @@
                      (text->sql (case-name status-names (:status item)))
                      (text->sql (case-name origin-names (:origin item)))
                      (int->sql (:priority item))
-                     (claim->sql (ref (:claim item)))
                      (text->sql (as-str (:value (:created-at item))))
                      (closed-at->sql (ref (:closed-at item)))
                      (optional-text->sql (ref (:description item)))))))
@@ -51,21 +56,22 @@
 
 (defn update-item (connection item)
   (execute connection
-           "UPDATE items SET title = ?2, description = ?3, kind = ?4, status = ?5, priority = ?6, claimed_by = ?7, closed_at = ?8 WHERE id = ?1"
+           "UPDATE items SET title = ?2, description = ?3, kind = ?4, status = ?5, priority = ?6, closed_at = ?7 WHERE id = ?1"
            (ref (vec (text->sql (as-str (:value (:id item))))
                      (text->sql (as-str (:title item)))
                      (optional-text->sql (ref (:description item)))
                      (text->sql (case-name kind-names (:kind item)))
                      (text->sql (case-name status-names (:status item)))
                      (int->sql (:priority item))
-                     (claim->sql (ref (:claim item)))
                      (closed-at->sql (ref (:closed-at item)))))))
 
 (defn all-items (connection)
   (let-try (rows (query connection
                         (as-str (str "SELECT "
-                                     joined-columns
+                                     joined-columns ", "
+                                     live-session-columns
                                      " FROM items JOIN roadmaps ON roadmaps.id = items.roadmap_id"
+                                     live-session-join
                                      " ORDER BY items.created_at, items.id"))
                         (ref (vec))))
     (rows->values (ref rows) row->item)))
@@ -77,11 +83,6 @@
   (match id
     ((some present) (text->sql (as-str (:value present))))
     (none sql-value/null)))
-
-(defn claim->sql (claim)
-  (match claim
-    ((claimed-by session) (text->sql (as-str (:name session))))
-    (unclaimed sql-value/null)))
 
 (type closed-at->sql
   (fn ((ref (option timestamp)))
@@ -106,11 +107,11 @@
             status (named-cell row 5 status-names)
             origin (named-cell row 6 origin-names)
             priority (int-cell row 7)
-            claimed-by (optional-text-cell row 8)
-            created-at (text-cell row 9)
-            closed-at (optional-text-cell row 10)
-            description (optional-text-cell row 11)
-            roadmap-name (text-cell row 12))
+            created-at (text-cell row 8)
+            closed-at (optional-text-cell row 9)
+            description (optional-text-cell row 10)
+            roadmap-name (text-cell row 11)
+            claim (row->claim row live-session-first-column))
     (ok (->item :id (->item-id :value id)
                 :roadmap-id (->roadmap-id :value roadmap-id)
                 :roadmap-name roadmap-name
@@ -122,12 +123,7 @@
                 :status status
                 :origin origin
                 :priority priority
-                :claim (text->claim claimed-by)
+                :claim claim
                 :created-at (->timestamp :value created-at)
                 :closed-at (map-some closed-at
                              (fn (value) (->timestamp :value value)))))))
-
-(defn text->claim (claimed-by)
-  (match claimed-by
-    ((some name) (claim/claimed-by (->session :name name)))
-    (none claim/unclaimed)))

@@ -1,0 +1,39 @@
+(module
+  "Turns an item's claim into the JSON of its live session and of the name that claims it.")
+
+(use json/value json object text->json)
+
+(use ledger/api case-name claim optional-text->json
+                runtime-names session-kind-names
+                work-session)
+
+(export claim->json claim->session-json)
+
+(defn claim->json (claim)
+  (match claim
+    ((claimed-by session)
+     (text->json (as-str (:name (:session session)))))
+    (unclaimed json/null)))
+
+(defn claim->session-json (claim)
+  (match claim
+    ((claimed-by session) (session->json session))
+    (unclaimed json/null)))
+
+(type session->json
+  (fn ((ref work-session)) json))
+
+(defn session->json (session)
+  (object (vec (pair (str "name")
+                     (text->json (as-str (:name (:session session)))))
+               (pair (str "kind")
+                     (text->json (case-name session-kind-names
+                                            (:kind session))))
+               (pair (str "runtime")
+                     (text->json (case-name runtime-names (:runtime session))))
+               (pair (str "branch")
+                     (optional-text->json (ref (:branch session))))
+               (pair (str "base")
+                     (optional-text->json (ref (:base session))))
+               (pair (str "started_at")
+                     (text->json (as-str (:value (:started-at session))))))))

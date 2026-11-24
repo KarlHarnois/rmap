@@ -1,0 +1,46 @@
+(module
+  "Says how a move changes an item's session: a claim starts one, and a reopen or a finish ends it.")
+
+(use ledger/model ->work-session claim runtime session-kind
+                  status timestamp work-session)
+
+(use ledger/model/sessions end-reason session-start)
+(use ledger/core/phases finished?)
+
+(export claim-after ending session-change starting)
+
+(defenum session-change
+  kept
+  (started work-session)
+  (ended end-reason))
+
+(type starting
+  (fn ((ref session-start) (ref timestamp))
+    session-change))
+
+(defn starting (start now)
+  (session-change/started (->work-session :session (clone (:session start))
+                                          :kind session-kind/work
+                                          :runtime runtime/ringleader
+                                          :branch (some (clone (:branch start)))
+                                          :base (some (clone (:base start)))
+                                          :started-at (clone now))))
+
+(defn ending (item target)
+  (match (:claim item)
+    ((claimed-by _) (ending-for target))
+    (unclaimed session-change/kept)))
+
+(defn claim-after (item change)
+  (match change
+    ((started session) (claim/claimed-by (clone session)))
+    ((ended _) claim/unclaimed)
+    (kept (clone (:claim item)))))
+
+(defn ending-for (target)
+  (cond
+    ((= target status/open)
+     (session-change/ended end-reason/reopened))
+    ((finished? target)
+     (session-change/ended end-reason/finished))
+    (else session-change/kept)))

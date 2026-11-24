@@ -17,6 +17,7 @@
 (defn settings-for (call)
   (let-try (path (database-path (ref (:database call))))
     (ok (->settings :database-path path
+                    :repository (str ".")
                     :clock clock/system
                     :actor (actor-for (ref (:actor call)))))))
 

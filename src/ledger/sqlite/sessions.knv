@@ -1,0 +1,78 @@
+(module
+  "Reads and writes the `sessions` table: starts an item's live session, ends it, and reads it back as the item's claim.")
+
+(use ledger/sqlite/values optional-text->sql text->sql)
+
+(use ledger/model ->session ->timestamp ->work-session claim
+                  item-id timestamp work-session)
+
+(use ledger/model/sessions end-reason)
+
+(use ledger/names case-name end-reason-names runtime-names
+                  session-kind-names)
+
+(use ledger/sqlite/connection connection database-error
+                              execute)
+
+(use ledger/sqlite/rows named-cell optional-text-cell
+                        text-cell)
+
+(export end-session live-session-columns live-session-join
+        row->claim start-session)
+
+(def live-session-columns
+  "sessions.name, sessions.kind, sessions.runtime, sessions.branch, sessions.base, sessions.started_at")
+
+(def live-session-join
+  " LEFT JOIN sessions ON sessions.item_id = items.id AND sessions.ended_at IS NULL")
+
+(type start-session
+  (fn ((ref connection)
+       (ref item-id)
+       (ref work-session))
+    (result int database-error)))
+
+(defn start-session (connection item session)
+  (execute connection
+           "INSERT INTO sessions (name, item_id, kind, runtime, branch, base, started_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+           (ref (vec (text->sql (as-str (:name (:session session))))
+                     (text->sql (as-str (:value item)))
+                     (text->sql (case-name session-kind-names (:kind session)))
+                     (text->sql (case-name runtime-names (:runtime session)))
+                     (optional-text->sql (ref (:branch session)))
+                     (optional-text->sql (ref (:base session)))
+                     (text->sql (as-str (:value (:started-at session))))))))
+
+(type end-session
+  (fn ((ref connection)
+       (ref item-id)
+       end-reason
+       (ref timestamp))
+    (result int database-error)))
+
+(defn end-session (connection item reason now)
+  (execute connection
+           "UPDATE sessions SET ended_at = ?2, end_reason = ?3 WHERE item_id = ?1 AND ended_at IS NULL"
+           (ref (vec (text->sql (as-str (:value item)))
+                     (text->sql (as-str (:value now)))
+                     (text->sql (case-name end-reason-names reason))))))
+
+(defn row->claim (row first-column)
+  (let-try (name (optional-text-cell row first-column))
+    (match name
+      ((some present) (claimed-by row first-column present))
+      (none (ok claim/unclaimed)))))
+
+(defn claimed-by (row first-column name)
+  (let-try (kind (named-cell row (+ first-column 1) session-kind-names)
+            runtime (named-cell row (+ first-column 2) runtime-names)
+            branch (optional-text-cell row (+ first-column 3))
+            base (optional-text-cell row (+ first-column 4))
+            started-at (text-cell row (+ first-column 5)))
+    (ok (claim/claimed-by (->work-session :session (->session :name name)
+                                          :kind kind
+                                          :runtime runtime
+                                          :branch branch
+                                          :base base
+                                          :started-at (->timestamp
+                                                        :value started-at))))))

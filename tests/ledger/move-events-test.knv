@@ -1,0 +1,103 @@
+(use json/value copy-of field json->text null?)
+(use ledger/model ->timestamp kind status)
+(use ledger/model/sessions end-reason)
+(use ledger/core/move move)
+(use ledger/core/session-changes session-change)
+(use ledger/move-events ->applied-move item-moved)
+
+(use support/items claimed session-start-named work-item
+                   work-session-named)
+
+(use support/payloads columns side side-text)
+
+(defn claim-payload ()
+  (moved-payload (research status/open)
+                 (claimed (research status/dispatched))
+                 (move/claim (session-start-named "worker"))
+                 (session-change/started (work-session-named "worker"))))
+
+(defn moved-payload (before after move change)
+  (let (draft (item-moved (ref (->applied-move :before before
+                                               :after after
+                                               :move move
+                                               :session-change change))))
+    (copy-of (ref (:payload draft)))))
+
+(defn closed (item)
+  (assoc item
+         :closed-at (some (->timestamp :value (str "2026-01-02T00:00:00Z")))))
+
+(defn research (status)
+  (work-item "rm-0001" kind/research status))
+
+(deftest a-claim-records-its-status-and-every-session-column-it-sets
+  (let (payload (claim-payload))
+    (assert (= (columns payload)
+               (vec (str "base")
+                    (str "branch")
+                    (str "runtime")
+                    (str "session")
+                    (str "session_kind")
+                    (str "started_at")
+                    (str "status"))))
+    (for-each (vec "base" "branch" "runtime" "session"
+                   "session_kind" "started_at")
+              (fn (column)
+                (assert (null? (ref (side (copy-of (ref payload))
+                                          column "old"))))))
+    (assert (= (side-text payload "session" "new")
+               (some (str "worker"))))
+    (assert (= (side-text payload "branch" "new")
+               (some (str "worker"))))
+    (assert (= (side-text payload "base" "new")
+               (some (str "main"))))
+    (assert (= (side-text payload "session_kind" "new")
+               (some (str "work"))))
+    (assert (= (side-text payload "runtime" "new")
+               (some (str "ringleader"))))
+    (assert (= (side-text payload "status" "new")
+               (some (str "dispatched"))))))
+
+(deftest reopening-records-the-session-it-ends
+  (let (payload (moved-payload (claimed (research status/dispatched))
+                               (research status/open)
+                               (move/advance status/open)
+                               (session-change/ended end-reason/reopened)))
+    (assert (= (columns payload)
+               (vec (str "session") (str "status"))))
+    (assert (= (side-text payload "session" "old")
+               (some (str "worker"))))
+    (assert (null? (ref (side payload "session" "new"))))))
+
+(deftest a-new-build-records-its-old-kind
+  (let (payload (moved-payload (research status/reported)
+                               (assoc (research status/dispatched)
+                                      :kind kind/build)
+                               move/advance-to-build
+                               session-change/kept))
+    (assert (= (side-text payload "kind" "old")
+               (some (str "research"))))
+    (assert (= (side-text payload "kind" "new")
+               (some (str "build"))))))
+
+(deftest a-drop-records-its-reason-beside-the-changes
+  (let (payload (moved-payload (research status/open)
+                               (closed (research status/dropped))
+                               (move/drop (str "obsolete"))
+                               session-change/kept))
+    (assert (= (json->text (ref (unwrap (field (ref payload) "reason"))))
+               (some (str "obsolete"))))
+    (assert (= (columns payload)
+               (vec (str "closed_at") (str "status"))))))
+
+(deftest a-close-records-when-it-closed-and-the-session-it-ends
+  (let (payload (moved-payload (claimed (research status/merging))
+                               (closed (research status/merged))
+                               move/close
+                               (session-change/ended end-reason/finished)))
+    (assert (null? (ref (side payload "closed_at" "old"))))
+    (assert (= (side-text payload "closed_at" "new")
+               (some (str "2026-01-02T00:00:00Z"))))
+    (assert (= (side-text payload "session" "old")
+               (some (str "worker"))))
+    (assert (null? (ref (side payload "session" "new"))))))

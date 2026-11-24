@@ -1,7 +1,7 @@
 (module
   "Decides whether a move is a legal transition for an item in the ledger.")
 
-(use ledger/model item kind status)
+(use ledger/model claim item kind session snapshot status)
 (use ledger/refusal refusal)
 
 (use ledger/core/move move move-type move-type-of
@@ -89,7 +89,9 @@
 
 (defn check-ledger (snapshot item move)
   (match move
-    ((move/claim _) (check-ready snapshot item))
+    ((move/claim start)
+     (let-try (_ (check-ready snapshot item))
+       (check-session-free snapshot (ref (:session start)))))
     (_ (ok (do)))))
 
 (defn check-ready (snapshot item)
@@ -97,3 +99,21 @@
     (if (unblocked? (ref blockage))
       (ok (do))
       (err (refusal/not-ready blockage)))))
+
+(type check-session-free
+  (fn ((ref snapshot) (ref session))
+    (result unit refusal)))
+
+(defn check-session-free (snapshot session)
+  (if (any? (:items snapshot)
+        (fn (item) (live-session-named? item session)))
+    (err (refusal/session-busy (clone session)))
+    (ok (do))))
+
+(type live-session-named?
+  (fn ((ref item) (ref session)) bool))
+
+(defn live-session-named? (item session)
+  (match (:claim item)
+    ((claim/claimed-by live) (= (ref (:session live)) session))
+    (claim/unclaimed false)))

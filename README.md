@@ -53,8 +53,8 @@ Commands:
     Shows one item with its dependencies.
   item edit <id> [--title <text>] [--priority <0 (highest) to 4 (lowest)>] [--description <text>] [--description-file <path|->]
     Changes an item's title, priority or description. Give at least one of the flags, and only while the item is open.
-  item claim <id> --session <name>
-    Gives a ready item to a session and marks it dispatched.
+  item claim <id> --session <name> [--branch <name>] [--base <branch>]
+    Gives a ready item to a new session and marks it dispatched. The branch defaults to the session name and the base to the repository's default branch.
   item advance <id> <open|dispatched|reported|in_review|fixing|merging|merged|accepted|dropped> [--kind build]
     Moves an item to another status.
   item close <id>
@@ -151,4 +151,5 @@ Refusal codes:
   not-blockable                  Only an open item or an unfinished epic can wait on a decision.
   decision-in-other-roadmap      The item belongs to another roadmap than the decision.
   supersede-target-not-accepted  Only a decision that is accepted, or rejected in the same roadmap, can be superseded.
+  session-busy                   A live session already has that name.
 ```

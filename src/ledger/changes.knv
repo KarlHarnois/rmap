@@ -3,9 +3,9 @@
 
 (use json/value copy-of json object same?)
 
-(export column-change deleted inserted inserted-columns
-        only-changed payload-with-changes updated
-        updated-columns)
+(export column-change copy-change deleted inserted
+        inserted-columns only-changed payload-with-changes
+        updated updated-columns)
 
 (defstruct column-change
   :column string
@@ -59,6 +59,11 @@
            (pair (str "changes") (changes->json changes)))
     (object entries)))
 
+(defn copy-change (change)
+  (->column-change :column (clone (:column change))
+                   :old (copy-of (ref (:old change)))
+                   :new (copy-of (ref (:new change)))))
+
 (type value-named
   (fn ((ref (vec (pair string json)))
        (ref string))
@@ -73,11 +78,6 @@
 (defn changed? (change)
   (not (same? (ref (:old change))
               (ref (:new change)))))
-
-(defn copy-change (change)
-  (->column-change :column (clone (:column change))
-                   :old (copy-of (ref (:old change)))
-                   :new (copy-of (ref (:new change)))))
 
 (defn changes->json (changes)
   (object (collect (map (iter changes) change-entry))))

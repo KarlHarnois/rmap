@@ -1,7 +1,9 @@
 (module
   "Names each ledger refusal and gives it a sentence for the user.")
 
-(use ledger/model blockage decision-id item-id status)
+(use ledger/model blockage decision-id item-id session
+                  status)
+
 (use ledger/model/decisions decision-status)
 
 (use ledger/names case-name decision-status-names
@@ -30,7 +32,8 @@
   (decision-incomplete string)
   (not-blockable item-id)
   (decision-in-other-roadmap item-id)
-  (supersede-target-not-accepted decision-id))
+  (supersede-target-not-accepted decision-id)
+  (session-busy session))
 
 (defn refusal->message (failure)
   (match failure
@@ -89,4 +92,6 @@
     ((supersede-target-not-accepted id)
      (str "only an accepted decision, or a rejected one in the same roadmap, can be superseded, and "
           (:value id)
-          " is neither"))))
+          " is neither"))
+    ((session-busy session)
+     (str "a live session is already named " (:name session)))))

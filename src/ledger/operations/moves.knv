@@ -2,22 +2,34 @@
   "Claims, advances, closes and drops items, each in one transaction.")
 
 (use ledger/model item item-id timestamp)
-(use ledger/events ->applied-move applied-move item-moved)
-(use ledger/core/move advancement->move move moved)
+
+(use ledger/model/sessions ->session-start claim-request
+                           session-start)
+
+(use ledger/move-events ->applied-move applied-move
+                        item-moved)
+
+(use ledger/core/move advancement->move move moved
+                      session-change-of)
+
 (use ledger/core/transitions approved-move)
 (use ledger/sqlite/items update-item)
+(use ledger/sqlite/sessions end-session start-session)
+(use ledger/core/session-changes session-change)
+(use git/branches default-branch)
 (use ledger/sqlite/snapshot load-snapshot)
 
 (use ledger/operations/transaction in-transaction now record
-                                   transaction)
+                                   settings transaction)
 
 (use ledger/failure failure)
 (use ledger/core/snapshot existing)
 
 (export advance-item claim-item close-item drop-item)
 
-(defn claim-item (settings id session)
-  (perform-move settings id (move/claim (clone session))))
+(defn claim-item (settings id request)
+  (perform-move settings id
+                (move/claim (session-start-of settings request))))
 
 (defn advance-item (settings id advancement)
   (match (advancement->move advancement)
@@ -29,6 +41,26 @@
 
 (defn drop-item (settings id reason)
   (perform-move settings id (move/drop reason)))
+
+(type session-start-of
+  (fn ((ref settings) (ref claim-request))
+    session-start))
+
+(defn session-start-of (settings request)
+  (let (session (clone (:session request)))
+    (->session-start :branch (unwrap-or (clone (:branch request))
+                                        (clone (:name session)))
+                     :base (base-of settings request)
+                     :session session)))
+
+(type base-of
+  (fn ((ref settings) (ref claim-request))
+    string))
+
+(defn base-of (settings request)
+  (match (:base request)
+    ((some base) (clone base))
+    (none (default-branch (ref (:repository settings))))))
 
 (defn perform-move (settings id move)
   (in-transaction settings
@@ -50,9 +82,14 @@
   (fn ((ref item) move timestamp) applied-move))
 
 (defn applied (item move now)
-  (->applied-move :before (clone item)
-                  :after (moved item (ref move) (ref now))
-                  :move move))
+  (let (change (session-change-of item (ref move) (ref now)))
+    (->applied-move :before (clone item)
+                    :after (moved item
+                                  (ref move)
+                                  (ref change)
+                                  (ref now))
+                    :move move
+                    :session-change change)))
 
 (type store-move
   (fn ((ref transaction) applied-move)
@@ -61,5 +98,17 @@
 (defn store-move (transaction applied)
   (let-try (_ (update-item (ref (:connection transaction))
                            (ref (:after applied)))
+            _ (write-session-change transaction (ref applied))
             _ (record transaction (item-moved (ref applied))))
     (ok (clone (:after applied)))))
+
+(defn write-session-change (transaction applied)
+  (let (connection (ref (:connection transaction))
+        item (ref (:id (:after applied))))
+    (match (:session-change applied)
+      ((started session) (start-session connection item session))
+      ((ended reason)
+       (end-session connection item
+                    (clone reason)
+                    (ref (now transaction))))
+      (kept (ok 0)))))

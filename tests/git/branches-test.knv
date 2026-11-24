@@ -1,0 +1,18 @@
+(use git/branches default-branch)
+(use support/scratch scratch-directory)
+
+(use support/repositories fresh-repository
+                          repository-with-origin-head)
+
+(deftest a-directory-outside-any-repository-falls-back-to-main
+  (assert (= (default-branch (ref (scratch-directory)))
+             (str "main"))))
+
+(deftest a-repository-without-origin-head-falls-back-to-main
+  (assert (= (default-branch (ref (fresh-repository "no-origin-head")))
+             (str "main"))))
+
+(deftest origin-head-names-the-default-branch-without-its-remote
+  (assert (= (default-branch (ref (repository-with-origin-head "origin-head"
+                                                               "trunk")))
+             (str "trunk"))))

@@ -5,9 +5,10 @@
                   claim decision-id dep dep-type
                   graph-format history item item-id kind
                   origin roadmap roadmap-id session status
-                  timestamp)
+                  timestamp work-session)
 
 (use ledger/model/events event event-type)
+(use ledger/model/sessions ->claim-request claim-request)
 
 (use ledger/model/decisions ->option-draft ->proposal
                             ->recommendation decision
@@ -34,7 +35,8 @@
                   case-named decision-status-names
                   dep-type-names event-type-names
                   graph-format-names kind-names origin-names
-                  roadmap-status-names status-names)
+                  roadmap-status-names runtime-names
+                  session-kind-names status-names)
 
 (use ledger/refusal refusal refusal->message)
 
@@ -87,16 +89,16 @@
                              draw-graph graph-request
                              graph-source)
 
-(export ->advancement ->decision-id ->decision-query
-        ->decision-revision ->graph-request ->graph-source
-        ->item-edit ->item-id ->log-query ->new-decision
-        ->new-item ->option-draft ->proposal
+(export ->advancement ->claim-request ->decision-id
+        ->decision-query ->decision-revision ->graph-request
+        ->graph-source ->item-edit ->item-id ->log-query
+        ->new-decision ->new-item ->option-draft ->proposal
         ->recommendation ->session ->settings action
         action-names actor actor-names add-dep add-item
         advance-item advancement batch batch-size
         batch-size-of blockage blocked-item case-name
-        case-named claim claim-item clock close-item
-        database-problem decision decision-id
+        case-named claim claim-item claim-request clock
+        close-item database-problem decision decision-id
         decision-option decision-query decision-revision
         decision-status decision-status-names
         default-database-path dep dep-type dep-type-names
@@ -118,6 +120,7 @@
         recommendation refusal refusal->message
         refusal-catalog refusal-code-text
         refusal-description remove-dep revise-decision
-        roadmap roadmap-id roadmap-status-names session
-        settings show-decision show-item status status-names
-        supersedes-change timestamp)
+        roadmap roadmap-id roadmap-status-names
+        runtime-names session session-kind-names settings
+        show-decision show-item status status-names
+        supersedes-change timestamp work-session)

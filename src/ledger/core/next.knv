@@ -106,5 +106,5 @@
 
 (defn claimant (claim)
   (match claim
-    ((claimed-by session) (some (clone session)))
+    ((claimed-by session) (some (clone (:session session))))
     (unclaimed none)))

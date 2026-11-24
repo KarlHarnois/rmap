@@ -59,7 +59,8 @@
 
 (defn claim-text (claim)
   (match claim
-    ((claim/claimed-by session) (clone (:name session)))
+    ((claim/claimed-by session)
+     (clone (:name (:session session))))
     (claim/unclaimed (str "-"))))
 
 (type dep-targets

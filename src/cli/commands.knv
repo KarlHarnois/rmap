@@ -104,9 +104,11 @@
                             (optional "description-file" "<path|->")))
        (->route :subcommand subcommand/item-claim
                 :words (words "item claim")
-                :summary (str "Gives a ready item to a session and marks it dispatched.")
+                :summary (str "Gives a ready item to a new session and marks it dispatched. The branch defaults to the session name and the base to the repository's default branch.")
                 :operands (operands (vec "id"))
-                :flags (vec (required "session" "<name>")))
+                :flags (vec (required "session" "<name>")
+                            (optional "branch" "<name>")
+                            (optional "base" "<branch>")))
        (->route :subcommand subcommand/item-advance
                 :words (words "item advance")
                 :summary (str "Moves an item to another status.")

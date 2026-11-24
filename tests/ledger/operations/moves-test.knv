@@ -1,14 +1,53 @@
-(use ledger/api ->advancement advance-item claim-item
-                close-item drop-item failure kind
-                kind-change refusal status)
+(use ledger/api ->advancement ->claim-request ->session
+                advance-item claim claim-item close-item
+                drop-item failure kind kind-change refusal
+                settings status)
+
+(use ledger/model ->timestamp ->work-session runtime
+                  session-kind)
+
+(use ledger/sqlite/connection open query)
+(use ledger/sqlite/rows optional-text-cell rows->values)
+(use support/repositories repository-with-origin-head)
 
 (use support/ledger added-id all-events blocked-research
-                    claimed item-draft refusal-code-of
-                    reported-research research
-                    scratch-ledger session-named)
+                    claim-by claimed item-draft
+                    refusal-code-of reported-research
+                    research scratch-ledger)
+
+(def clock-time "2026-03-03T00:00:00Z")
 
 (defn build (settings)
   (added-id settings (item-draft kind/build)))
+
+(defn claim-of (outcome)
+  (clone (:claim (unwrap-ok outcome))))
+
+(defn live-session (name branch base)
+  (claim/claimed-by (->work-session :session (->session :name (str name))
+                                    :kind session-kind/work
+                                    :runtime runtime/ringleader
+                                    :branch (some (str branch))
+                                    :base (some (str base))
+                                    :started-at (->timestamp :value (str clock-time)))))
+
+(type end-reasons
+  (fn ((ref settings))
+    (vec (option string))))
+
+(defn end-reasons (settings)
+  (let (connection (unwrap-ok (open (as-str (:database-path settings))))
+        rows (unwrap-ok (query (ref connection)
+                               "SELECT end_reason FROM sessions ORDER BY id"
+                               (ref (vec)))))
+    (unwrap-ok (rows->values (ref rows)
+                 (fn (row) (optional-text-cell row 0))))))
+
+(defn advance (settings id target)
+  (advance-item settings
+                (clone id)
+                (->advancement :to target
+                               :kind-change kind-change/keep-kind)))
 
 (deftest a-kind-change-is-refused-unless-the-item-advances-to-dispatched
   (let (settings (scratch-ledger "kind-change-needs-dispatch")
@@ -31,7 +70,7 @@
   (let (settings (scratch-ledger "claim-epic")
         epic (added-id (ref settings) (item-draft kind/epic)))
     (assert (= (refusal-code-of
-                 (claim-item (ref settings) epic (session-named "worker")))
+                 (claim-item (ref settings) epic (claim-by "worker")))
                (some (str "epic-status-computed"))))))
 
 (deftest closing-an-open-item-is-refused
@@ -57,7 +96,7 @@
         item (claimed (ref settings)
                       (research (ref settings))))
     (assert (= (refusal-code-of
-                 (claim-item (ref settings) item (session-named "other")))
+                 (claim-item (ref settings) item (claim-by "other")))
                (some (str "invalid-transition"))))))
 
 (deftest claiming-a-blocked-item-is-refused
@@ -65,7 +104,7 @@
         blocker (research (ref settings))
         blocked (blocked-research (ref settings) blocker))
     (assert (= (refusal-code-of
-                 (claim-item (ref settings) blocked (session-named "worker")))
+                 (claim-item (ref settings) blocked (claim-by "worker")))
                (some (str "not-ready"))))))
 
 (deftest dropping-a-dropped-item-is-refused
@@ -76,3 +115,80 @@
                             (str "obsolete"))))
     (assert (= (refusal-code-of (drop-item (ref settings) item (str "again")))
                (some (str "invalid-transition"))))))
+
+(deftest a-claim-defaults-the-branch-to-the-session-name
+  (let (settings (scratch-ledger "claim-defaults"))
+    (assert (= (claim-of (claim-item (ref settings)
+                                     (research (ref settings))
+                                     (claim-by "s1")))
+               (live-session "s1" "s1" "main")))))
+
+(deftest a-claim-takes-its-default-base-from-origin-head
+  (let (settings (assoc (scratch-ledger "claim-origin-head")
+                        :repository (repository-with-origin-head
+                                      "claim-origin-head"
+                                      "trunk")))
+    (assert (= (claim-of (claim-item (ref settings)
+                                     (research (ref settings))
+                                     (claim-by "s1")))
+               (live-session "s1" "s1" "trunk")))))
+
+(deftest a-claim-keeps-the-branch-and-base-it-is-given
+  (let (settings (scratch-ledger "claim-flags"))
+    (assert (= (claim-of (claim-item (ref settings)
+                                     (research (ref settings))
+                                     (->claim-request
+                                       :session (->session :name (str "s1"))
+                                       :branch (some (str "feature"))
+                                       :base (some (str "release")))))
+               (live-session "s1" "feature" "release")))))
+
+(deftest a-claim-under-the-name-of-a-live-session-is-refused
+  (let (settings (scratch-ledger "claim-session-busy")
+        first (research (ref settings))
+        second (research (ref settings)))
+    (assert (ok? (claim-item (ref settings) first (claim-by "s1"))))
+    (assert (= (refusal-code-of
+                 (claim-item (ref settings) second (claim-by "s1")))
+               (some (str "session-busy"))))))
+
+(deftest a-name-is-free-again-once-its-session-ends
+  (let (settings (scratch-ledger "claim-name-reused")
+        first (research (ref settings))
+        second (research (ref settings)))
+    (assert (ok? (claim-item (ref settings)
+                             (clone first)
+                             (claim-by "s1"))))
+    (assert (ok? (advance (ref settings) first status/open)))
+    (assert (= (claim-of (claim-item (ref settings) second (claim-by "s1")))
+               (live-session "s1" "s1" "main")))))
+
+(deftest a-reopen-ends-the-session-and-frees-the-item-for-a-new-one
+  (let (settings (scratch-ledger "reopen-ends-session")
+        item (claimed (ref settings)
+                      (research (ref settings))))
+    (assert (= (claim-of (advance (ref settings) (clone item) status/open))
+               claim/unclaimed))
+    (assert (ok? (claim-item (ref settings) item (claim-by "s2"))))
+    (assert (= (end-reasons (ref settings))
+               (vec (some (str "reopened")) none)))))
+
+(deftest a-merge-an-accept-and-a-drop-end-the-session-as-finished
+  (let (settings (scratch-ledger "finish-ends-session")
+        merged (claimed (ref settings)
+                        (build (ref settings)))
+        accepted (reported-research (ref settings))
+        dropped (claimed (ref settings)
+                         (research (ref settings))))
+    (assert (ok? (advance (ref settings) (clone merged) status/in-review)))
+    (assert (ok? (advance (ref settings) (clone merged) status/merging)))
+    (assert (= (claim-of (close-item (ref settings) merged))
+               claim/unclaimed))
+    (assert (= (claim-of (close-item (ref settings) accepted))
+               claim/unclaimed))
+    (assert (= (claim-of (drop-item (ref settings) dropped (str "obsolete")))
+               claim/unclaimed))
+    (assert (= (end-reasons (ref settings))
+               (vec (some (str "finished"))
+                    (some (str "finished"))
+                    (some (str "finished")))))))

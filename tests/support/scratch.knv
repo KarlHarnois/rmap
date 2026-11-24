@@ -1,4 +1,4 @@
-(export scratch-database)
+(export scratch-database scratch-directory)
 
 (def temp-directory
   (rust "std::env::temp_dir().display().to_string()"

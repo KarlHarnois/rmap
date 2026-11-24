@@ -1,0 +1,22 @@
+(module
+  "Holds what a claim asks for and why a session ends.")
+
+(use ledger/model session)
+
+(export ->claim-request ->session-start claim-request
+        end-reason session-start)
+
+(defstruct claim-request
+  :session session
+  :branch (option string)
+  :base (option string))
+
+(defstruct session-start
+  :session session
+  :branch string
+  :base string)
+
+(defenum end-reason
+  reopened
+  replaced
+  finished)

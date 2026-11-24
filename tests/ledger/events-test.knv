@@ -1,48 +1,17 @@
-(use json/value copy-of field json->entries json->int
-                json->text null?)
+(use json/value copy-of null?)
 
 (use ledger/model ->dep ->roadmap ->roadmap-id ->session
                   ->timestamp dep-type item kind
                   roadmap-status status)
 
-(use ledger/core/move move)
 (use ledger/core/deps dep-change)
 (use ledger/core/new-items ->new-item description-input)
 
-(use ledger/events ->applied-move dep-changed edit-changes
-                   item-added item-edited item-moved
-                   roadmap-created)
+(use ledger/events dep-changed edit-changes item-added
+                   item-edited roadmap-created)
 
-(use support/items claimed id-of work-item)
-
-(defn moved-payload (before after move)
-  (let (draft (item-moved
-                (ref (->applied-move :before before :after after :move move))))
-    (copy-of (ref (:payload draft)))))
-
-(defn closed (item)
-  (assoc item
-         :closed-at (some (->timestamp :value (str "2026-01-02T00:00:00Z")))))
-
-(defn side-text (payload column which)
-  (json->text (ref (side payload column which))))
-
-(defn side-int (payload column which)
-  (json->int (ref (side payload column which))))
-
-(defn side (payload column which)
-  (-> (ref payload)
-      (field "changes")
-      unwrap
-      (field column)
-      unwrap
-      (field which)
-      unwrap))
-
-(defn columns (payload)
-  (collect (map (iter (json->entries (ref (unwrap (field (ref payload)
-                                                         "changes")))))
-                (fn (entry) (clone (first entry))))))
+(use support/items id-of work-item)
+(use support/payloads columns side side-int side-text)
 
 (defn new-research ()
   (->new-item :parent none
@@ -75,61 +44,11 @@
          :on (id-of "rm-0002")
          :type dep-type/blocks))
 
-(deftest a-claim-records-its-status-and-session-as-old-and-new
-  (let (payload (moved-payload (research status/open)
-                               (claimed (research status/dispatched))
-                               (move/claim (->session :name (str "worker")))))
-    (assert (= (columns payload)
-               (vec (str "claimed_by") (str "status"))))
-    (assert (null? (ref (side payload "claimed_by" "old"))))
-    (assert (= (side-text payload "claimed_by" "new")
-               (some (str "worker"))))
-    (assert (= (side-text payload "status" "old")
-               (some (str "open"))))
-    (assert (= (side-text payload "status" "new")
-               (some (str "dispatched"))))))
-
-(deftest reopening-records-the-session-it-releases
-  (let (payload (moved-payload (claimed (research status/dispatched))
-                               (research status/open)
-                               (move/advance status/open)))
-    (assert (= (side-text payload "claimed_by" "old")
-               (some (str "worker"))))
-    (assert (null? (ref (side payload "claimed_by" "new"))))))
-
-(deftest a-new-build-records-its-old-kind
-  (let (payload (moved-payload (research status/reported)
-                               (assoc (research status/dispatched)
-                                      :kind kind/build)
-                               move/advance-to-build))
-    (assert (= (side-text payload "kind" "old")
-               (some (str "research"))))
-    (assert (= (side-text payload "kind" "new")
-               (some (str "build"))))))
-
-(deftest a-drop-records-its-reason-beside-the-changes
-  (let (payload (moved-payload (research status/open)
-                               (closed (research status/dropped))
-                               (move/drop (str "obsolete"))))
-    (assert (= (json->text (ref (unwrap (field (ref payload) "reason"))))
-               (some (str "obsolete"))))
-    (assert (= (columns payload)
-               (vec (str "closed_at") (str "status"))))))
-
-(deftest a-close-records-when-it-closed
-  (let (payload (moved-payload (research status/merging)
-                               (closed (research status/merged))
-                               move/close))
-    (assert (null? (ref (side payload "closed_at" "old"))))
-    (assert (= (side-text payload "closed_at" "new")
-               (some (str "2026-01-02T00:00:00Z"))))))
-
 (deftest an-added-item-records-every-column-it-sets
   (let (payload (copy-of (ref (:payload (item-added (ref (described (research status/open)))
                                                     (ref (new-research)))))))
     (assert (= (columns payload)
                (vec (str "blocked_by")
-                    (str "claimed_by")
                     (str "closed_at")
                     (str "description")
                     (str "discovered_from")

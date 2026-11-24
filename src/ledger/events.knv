@@ -10,8 +10,6 @@
 (use ledger/names case-name dep-type-names
                   roadmap-status-names)
 
-(use ledger/core/move move)
-
 (use ledger/json-values id->json ids->json item->columns
                         optional-ids->json)
 
@@ -22,13 +20,8 @@
 (use ledger/core/new-items new-item)
 (use ledger/core/deps dep-change)
 
-(export ->applied-move applied-move dep-changed edit-changes
-        item-added item-edited item-moved roadmap-created)
-
-(defstruct applied-move
-  :before item
-  :after item
-  :move move)
+(export dep-changed edit-changes item-added item-edited
+        roadmap-created)
 
 (type roadmap-created
   (fn ((ref roadmap)) event-draft))
@@ -67,14 +60,6 @@
                  :payload (payload-with-changes (ref (dep-row-changes dep
                                                                       change))
                                                 (vec))))
-
-(defn item-moved (applied)
-  (->event-draft :roadmap-id (some (clone (:roadmap-id (:after applied))))
-                 :item-id (some (clone (:id (:after applied))))
-                 :decision-id none
-                 :type (event-type-of (ref (:move applied)))
-                 :payload (payload-with-changes (ref (move-changes applied))
-                                                (move-context (ref (:move applied))))))
 
 (defn edit-changes (before after)
   (only-changed (updated-columns (ref (item->columns before))
@@ -124,22 +109,3 @@
   (match change
     (add event-type/dep-added)
     (remove event-type/dep-removed)))
-
-(defn event-type-of (move)
-  (match move
-    ((claim _) event-type/item-claimed)
-    ((advance _) event-type/item-advanced)
-    (advance-to-build event-type/item-advanced)
-    (close event-type/item-closed)
-    ((drop _) event-type/item-dropped)))
-
-(defn move-changes (applied)
-  (only-changed (updated-columns (ref (item->columns (ref (:before applied))))
-                                 (ref (item->columns (ref (:after applied)))))))
-
-(defn move-context (move)
-  (match move
-    ((drop reason)
-     (vec (pair (str "reason")
-                (text->json (as-str reason)))))
-    (_ (vec))))

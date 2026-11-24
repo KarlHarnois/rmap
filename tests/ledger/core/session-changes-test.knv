@@ -1,0 +1,43 @@
+(use ledger/model ->timestamp kind status)
+(use ledger/model/sessions end-reason)
+
+(use ledger/core/session-changes claim-after ending
+                                 session-change starting)
+
+(use support/items claimed session-start-named work-item
+                   work-session-named)
+
+(defn dispatched ()
+  (claimed (work-item "rm-0001" kind/build status/dispatched)))
+
+(deftest a-start-holds-a-work-session-that-starts-now
+  (let (now (->timestamp :value (str "2026-02-02T00:00:00Z")))
+    (assert (= (starting (ref (session-start-named "s1"))
+                         (ref now))
+               (session-change/started (assoc (work-session-named "s1")
+                                              :started-at now))))))
+
+(deftest a-reopen-ends-the-session-as-reopened
+  (assert (= (ending (ref (dispatched)) status/open)
+             (session-change/ended end-reason/reopened))))
+
+(deftest a-merge-an-accept-and-a-drop-end-the-session-as-finished
+  (for-each (vec status/merged status/accepted status/dropped)
+    (fn (target)
+      (assert (= (ending (ref (dispatched))
+                         (deref target))
+                 (session-change/ended end-reason/finished))))))
+
+(deftest an-unfinished-target-keeps-the-session
+  (assert (= (ending (ref (dispatched)) status/in-review)
+             session-change/kept)))
+
+(deftest an-unclaimed-item-has-no-session-to-end
+  (assert (= (ending (ref (work-item "rm-0001" kind/build status/merging))
+                     status/merged)
+             session-change/kept)))
+
+(deftest a-kept-session-leaves-the-claim
+  (assert (= (claim-after (ref (dispatched))
+                          (ref session-change/kept))
+             (:claim (dispatched)))))

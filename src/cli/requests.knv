@@ -1,10 +1,11 @@
 (module
   "Names each ledger request the CLI can make and builds it from the command line.")
 
-(use ledger/api ->advancement ->graph-request ->item-id
-                ->log-query ->session advancement batch-size
-                batch-size-of case-named graph-format
-                graph-format-names graph-level
+(use ledger/api ->advancement ->claim-request
+                ->graph-request ->item-id ->log-query
+                ->session advancement batch-size
+                batch-size-of case-named claim-request
+                graph-format graph-format-names graph-level
                 graph-level-names graph-request history
                 item-edit item-id kind-change log-query
                 new-item session status-names)
@@ -34,7 +35,7 @@
   (list-items (option string))
   (show-item item-id)
   (edit-item item-id item-edit)
-  (claim item-id session)
+  (claim item-id claim-request)
   (advance item-id advancement)
   (close item-id)
   (drop item-id string)
@@ -88,7 +89,11 @@
 
 (defn claim-request (arguments id)
   (let-try (session (required-text arguments "session"))
-    (ok (request/claim (text->id id) (->session :name session)))))
+    (ok (request/claim (text->id id)
+                       (->claim-request
+                         :session (->session :name session)
+                         :branch (optional-text arguments "branch")
+                         :base (optional-text arguments "base"))))))
 
 (defn drop-request (arguments id)
   (let-try (reason (required-text arguments "reason"))
