@@ -9,8 +9,9 @@
                 event-type-names ids->json item item-id
                 kind-names optional-decision-id->json
                 optional-id->json optional-text->json
-                origin-names roadmap roadmap-id roadmap-pause
-                roadmap-status-names status-names timestamp)
+                origin-names roadmap roadmap-id
+                roadmap-pause roadmap-status-names
+                status-names timestamp)
 
 (export blockage-fields blocked->json dep->json event->json
         ids->json item->json item-id->json roadmap->json)

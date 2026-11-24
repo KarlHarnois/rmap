@@ -2,11 +2,12 @@
 
 (use ledger/api action claim-item event event-type failure
                 list-roadmaps next-actions pause-roadmap
-                read-log ready-items refusal resume-roadmap
+                ready-items refusal resume-roadmap
                 roadmap-pause roadmap-status)
 
-(use support/ledger refusal-code-of research roadmap-name
-                    scratch-ledger session-named)
+(use support/ledger all-events refusal-code-of research
+                    roadmap-name scratch-ledger
+                    session-named)
 
 (defn readiness-in (settings)
   (unwrap-ok (ready-items settings (some (str roadmap-name)))))
@@ -65,7 +66,7 @@
   (let (settings (scratch-ledger "pause-events"))
     (unwrap-ok (pause-roadmap (ref settings) (str roadmap-name)))
     (unwrap-ok (resume-roadmap (ref settings) (str roadmap-name)))
-    (let (events (unwrap-ok (read-log settings none 0)))
+    (let (events (unwrap-ok (all-events settings)))
       (assert (= (status-side events event-type/roadmap-paused "old")
                  (str "active")))
       (assert (= (status-side events event-type/roadmap-paused "new")

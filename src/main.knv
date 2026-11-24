@@ -3,8 +3,8 @@
 (use ledger/api add-dep add-item advance-item claim-item
                 close-item draw-graph drop-item edit-item
                 failure init-ledger list-items list-roadmaps
-                new-roadmap next-actions pause-roadmap read-log
-                ready-batch ready-items remove-dep
+                new-roadmap next-actions pause-roadmap
+                read-log ready-batch ready-items remove-dep
                 resume-roadmap show-item)
 
 (use process/environment variable)

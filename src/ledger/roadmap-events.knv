@@ -19,6 +19,7 @@
 (defn roadmap-status-changed (before after type)
   (->event-draft :roadmap-id (some (clone (:id after)))
                  :item-id none
+                 :decision-id none
                  :type type
                  :payload (payload-with-changes
                             (ref (vec (updated "status"
