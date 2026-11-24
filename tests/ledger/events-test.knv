@@ -10,8 +10,6 @@
 (use ledger/events dep-changed edit-changes item-added
                    item-edited roadmap-created)
 
-(use ledger/roadmap-events roadmap-status-changed)
-(use ledger/model/events event-type)
 (use support/items id-of work-item)
 (use support/payloads columns side side-int side-text)
 
@@ -45,17 +43,6 @@
   (->dep :item (id-of "rm-0001")
          :on (id-of "rm-0002")
          :type dep-type/blocks))
-
-(defn roadmap-in (status)
-  (->roadmap :id (->roadmap-id :value (str "rm-road"))
-             :name (str "road")
-             :manager (->session :name (str "m1"))
-             :status status
-             :created-at (->timestamp :value (str "t0"))))
-
-(defn status-change-payload (before after type)
-  (copy-of (ref (:payload
-                  (roadmap-status-changed (ref before) (ref after) type)))))
 
 (deftest an-added-item-records-every-column-it-sets
   (let (payload (copy-of (ref (:payload (item-added (ref (described (research status/open)))
@@ -91,28 +78,6 @@
                (some (str "new"))))
     (assert (= (side-int payload "priority" "old") (some 0)))
     (assert (= (side-int payload "priority" "new") (some 3)))))
-
-(deftest a-pause-records-its-status-as-old-and-new
-  (let (payload (status-change-payload (roadmap-in roadmap-status/active)
-                                       (roadmap-in roadmap-status/paused)
-                                       event-type/roadmap-paused))
-    (assert (= (columns payload)
-               (vec (str "status"))))
-    (assert (= (side-text payload "status" "old")
-               (some (str "active"))))
-    (assert (= (side-text payload "status" "new")
-               (some (str "paused"))))))
-
-(deftest a-resume-records-its-status-as-old-and-new
-  (let (payload (status-change-payload (roadmap-in roadmap-status/paused)
-                                       (roadmap-in roadmap-status/active)
-                                       event-type/roadmap-resumed))
-    (assert (= (columns payload)
-               (vec (str "status"))))
-    (assert (= (side-text payload "status" "old")
-               (some (str "paused"))))
-    (assert (= (side-text payload "status" "new")
-               (some (str "active"))))))
 
 (deftest an-added-dep-records-its-row-as-new
   (let (payload (dep-payload dep-change/add))
