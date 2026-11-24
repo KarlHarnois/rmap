@@ -51,18 +51,23 @@
                   roadmap-status-names runtime-names
                   session-kind-names status-names)
 
+(use ledger/item-api ->advancement ->item-edit ->new-item
+                     add-dep add-item advance-item
+                     advancement claim-item close-item
+                     description-input drop-item edit-item
+                     item-detail item-edit kind-change
+                     list-items new-item remove-dep
+                     show-item)
+
 (use ledger/failure-api database-problem failure
                         failure-code failure-message
                         pull-request-refusal refusal
-                        refusal-catalog refusal-description)
+                        refusal->message refusal-catalog
+                        refusal-code-text
+                        refusal-description)
 
 (use ledger/core/ready blocked-item readiness)
 (use ledger/core/batch batch batch-size batch-size-of)
-
-(use ledger/core/new-items ->new-item description-input
-                           new-item)
-
-(use ledger/core/item-edits ->item-edit item-edit)
 (use ledger/operations/database-path default-database-path)
 
 (use ledger/operations/transaction ->settings clock
@@ -85,19 +90,7 @@
 (use ledger/core/actions action actor next-action)
 (use ledger/core/next next-item)
 (use ledger/operations/log ->log-query log-query read-log)
-
-(use ledger/operations/items item-detail list-items
-                             show-item)
-
-(use ledger/operations/new-items add-item)
-(use ledger/operations/item-edits edit-item)
-
-(use ledger/operations/moves advance-item claim-item
-                             close-item drop-item)
-
-(use ledger/core/move ->advancement advancement kind-change)
 (use ledger/core/graph/levels graph-level graph-level-names)
-(use ledger/operations/deps add-dep remove-dep)
 
 (use ledger/operations/graph ->graph-request ->graph-source
                              draw-graph graph-request

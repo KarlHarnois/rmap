@@ -1,0 +1,25 @@
+(module
+  "Holds the items part of the ledger's public surface: adding, editing, showing and moving items, and the deps between them.")
+
+(use ledger/core/new-items ->new-item description-input
+                           new-item)
+
+(use ledger/core/item-edits ->item-edit item-edit)
+
+(use ledger/operations/items item-detail list-items
+                             show-item)
+
+(use ledger/operations/new-items add-item)
+(use ledger/operations/item-edits edit-item)
+
+(use ledger/operations/moves advance-item claim-item
+                             close-item drop-item)
+
+(use ledger/core/move ->advancement advancement kind-change)
+(use ledger/operations/deps add-dep remove-dep)
+
+(export ->advancement ->item-edit ->new-item add-dep
+        add-item advance-item advancement claim-item
+        close-item description-input drop-item edit-item
+        item-detail item-edit kind-change list-items
+        new-item remove-dep show-item)

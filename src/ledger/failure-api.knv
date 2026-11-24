@@ -4,11 +4,13 @@
 (use ledger/failure failure failure-code failure-message)
 (use ledger/sqlite/connection database-problem)
 (use ledger/refusal refusal)
+(use ledger/refusal-messages refusal->message)
 (use ledger/pull-request-refusals pull-request-refusal)
 
-(use ledger/refusal-text refusal-catalog
+(use ledger/refusal-text refusal-catalog refusal-code-text
                          refusal-description)
 
 (export database-problem failure failure-code
         failure-message pull-request-refusal refusal
-        refusal-catalog refusal-description)
+        refusal->message refusal-catalog refusal-code-text
+        refusal-description)
