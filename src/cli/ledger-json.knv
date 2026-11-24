@@ -1,21 +1,20 @@
 (module
   "Turns ledger values into the JSON objects the CLI prints.")
 
-(use json/value bool->json copy-of int->json json object
-                text->json)
-
+(use json/value copy-of int->json json object text->json)
 (use cli/session-json claim->json claim->session-json)
 
 (use ledger/api case-name dep dep-type-names event
-                event-type-names ids->json item item-id
-                kind-names optional-decision-id->json
-                optional-id->json optional-text->json
-                origin-names roadmap roadmap-id
-                roadmap-pause roadmap-status-names
-                status-names timestamp)
+                event-type-names item item-id kind-names
+                optional-decision-id->json optional-id->json
+                optional-text->json origin-names roadmap
+                roadmap-id roadmap-status-names status-names
+                timestamp)
 
-(export blockage-fields blocked->json dep->json event->json
-        ids->json item->json item-id->json roadmap->json)
+(use cli/blockage-json blockage-fields)
+
+(export blocked->json dep->json event->json item->json
+        item-id->json roadmap->json)
 
 (type roadmap->json
   (fn ((ref roadmap)) json))
@@ -103,22 +102,11 @@
                (pair (str "closed_at")
                      (optional-timestamp->json (ref (:closed-at item)))))))
 
-(defn blockage-fields (blockage)
-  (vec (pair (str "paused")
-             (bool->json (paused? blockage)))
-       (pair (str "blockers")
-             (ids->json (ref (:blockers blockage))))
-       (pair (str "dropped_blockers")
-             (ids->json (ref (:dropped-blockers blockage))))))
-
 (type item-id->json
   (fn ((ref item-id)) json))
 
 (defn item-id->json (id)
   (text->json (as-str (:value id))))
-
-(defn paused? (blockage)
-  (= (:pause blockage) roadmap-pause/paused))
 
 (defn optional-roadmap-id->json (id)
   (match id

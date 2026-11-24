@@ -3,10 +3,11 @@
 
 (use ledger/model timestamp)
 
+(use ledger/model decision-status)
 (use ledger/model/decisions ->option-draft ->outcome
                             ->proposal decision
-                            decision-option decision-status
-                            option-draft proposal)
+                            decision-option option-draft
+                            proposal)
 
 (use ledger/core/decisions check-revisable)
 (use ledger/core/proposals check-proposal)

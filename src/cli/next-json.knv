@@ -7,7 +7,7 @@
                 kind-names next-item report-id session
                 status-names)
 
-(use cli/ledger-json blockage-fields)
+(use cli/blockage-json blockage-fields)
 
 (export next-item->json)
 

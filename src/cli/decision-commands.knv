@@ -58,7 +58,17 @@
                 :words (words "decision deprecate")
                 :summary (str "Deprecates an accepted decision and records the reason.")
                 :operands (operands (vec "id"))
-                :flags (vec (required "reason" "<text>")))))
+                :flags (vec (required "reason" "<text>")))
+       (->route :subcommand subcommand/decision-block
+                :words (words "decision block")
+                :summary (str "Makes a proposed decision hold an open item or an unfinished epic of its roadmap; an epic holds all its open children, including ones added later.")
+                :operands (operands (vec "id" "item"))
+                :flags (vec))
+       (->route :subcommand subcommand/decision-unblock
+                :words (words "decision unblock")
+                :summary (str "Removes an item from what a decision blocks, in any decision status.")
+                :operands (operands (vec "id" "item"))
+                :flags (vec))))
 
 (defn route-document (route)
   (match (:subcommand route)
