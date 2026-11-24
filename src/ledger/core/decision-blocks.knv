@@ -1,18 +1,22 @@
 (module
   "Answers which decisions hold an item and whether a decision may start blocking one.")
 
-(use ledger/model decision-block decision-status item)
+(use ledger/model decision-block decision-id decision-status
+                  item)
+
 (use ledger/core/decisions check-revisable)
 (use ledger/core/decision-placement check-block)
+(use ledger/core/new-items distinct)
 
 (export blocking-decisions blocking-status? check-block-add)
 
 (defn blocking-decisions (snapshot item)
-  (collect (map (filter (iter (:decision-blocks snapshot))
-                  (fn (block)
-                    (and (blocking-status? (:status block))
-                         (blocks-item? block item))))
-                (fn (block) (clone (:decision block))))))
+  (let (ids (collect (map (filter (iter (:decision-blocks snapshot))
+                            (fn (block)
+                              (and (blocking-status? (:status block))
+                                   (blocks-item? block item))))
+                          (fn (block) (clone (:decision block))))))
+    (sorted-ids (distinct ids))))
 
 (defn blocking-status? (status)
   (or (= status decision-status/proposed)
@@ -32,3 +36,13 @@
   (or (= (ref (:item block)) (ref (:id item)))
       (= (:parent item)
          (some (clone (:item block))))))
+
+(type sorted-ids
+  (fn ((vec decision-id))
+    (vec decision-id)))
+
+(defn sorted-ids (ids)
+  (let (sorted ids)
+    (sort-by! sorted
+      (fn (id) (clone (:value id))))
+    sorted))

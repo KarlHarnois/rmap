@@ -115,6 +115,10 @@
                              "--title" "c" "--kind" "build"
                              "--parent"
                              (as-str group)))
+        _child-blocked (run-rmap (clone database)
+                                 (vec "decision" "block"
+                                      (as-str decision)
+                                      (as-str child)))
         ready (run-rmap (clone database) (vec "ready"))
         entry (blocked-entry (ref ready) (as-str child)))
     (assert (= (entry-decisions entry)

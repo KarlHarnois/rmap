@@ -64,3 +64,24 @@
   (assert (not (blocking-status? decision-status/accepted)))
   (assert (not (blocking-status? decision-status/deprecated)))
   (assert (not (blocking-status? decision-status/superseded))))
+
+(deftest a-decision-that-blocks-an-epic-and-its-child-is-listed-once
+  (let (child (child-of (open-item) "rm-e1")
+        snapshot (snapshot-with
+                   (vec (epic-item "rm-e1") (clone child))
+                   (vec (decision-block-on "rm-d1" "rm-e1"
+                                           decision-status/proposed)
+                        (decision-block-on "rm-d1" "rm-0001"
+                                           decision-status/proposed))))
+    (assert (= (blocked-ids snapshot child)
+               (vec (str "rm-d1"))))))
+
+(deftest blocking-decisions-are-ordered-by-id
+  (let (snapshot (snapshot-with
+                   (vec (open-item))
+                   (vec (decision-block-on "rm-d2" "rm-0001"
+                                           decision-status/proposed)
+                        (decision-block-on "rm-d1" "rm-0001"
+                                           decision-status/proposed))))
+    (assert (= (blocked-ids snapshot (open-item))
+               (vec (str "rm-d1") (str "rm-d2"))))))
