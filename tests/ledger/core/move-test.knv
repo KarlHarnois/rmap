@@ -1,5 +1,9 @@
 (use ledger/model ->timestamp claim kind status)
-(use ledger/core/move move moved session-change-of)
+
+(use ledger/core/move move moved session-change-of
+                      target-status)
+
+(use ledger/model/reports report-kind)
 
 (use support/items claimed session-start-named work-item
                    work-session-named)
@@ -68,3 +72,24 @@
   (assert (= (:status (moved-now (work-item "rm-0001" kind/build status/merging)
                                  move/close))
              status/merged)))
+
+(deftest a-done-report-moves-a-research-item-to-reported-and-keeps-its-session
+  (let (before (claimed (work-item "rm-0001" kind/research status/dispatched))
+        after (moved-now (clone before) (move/report report-kind/done)))
+    (assert (= (:status after) status/reported))
+    (assert (= (:claim after) (:claim before)))
+    (assert (none? (:closed-at after)))))
+
+(deftest a-question-keeps-the-status
+  (assert (= (target-status (ref (work-item "rm-0001" kind/build status/fixing))
+                            (ref (move/report report-kind/question)))
+             status/fixing)))
+
+(deftest a-done-or-fixed-report-on-a-build-targets-in-review
+  (let (build (work-item "rm-0001" kind/build status/dispatched))
+    (assert (= (target-status (ref build)
+                              (ref (move/report report-kind/done)))
+               status/in-review))
+    (assert (= (target-status (ref build)
+                              (ref (move/report report-kind/fixed)))
+               status/in-review))))

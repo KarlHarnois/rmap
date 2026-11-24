@@ -29,7 +29,11 @@
   not-blockable
   decision-in-other-roadmap
   supersede-target-not-accepted
-  session-busy)
+  session-busy
+  session-not-claimant
+  report-empty
+  report-not-found
+  report-already-read)
 
 (defn code-of (refused)
   (match refused
@@ -66,4 +70,10 @@
      refusal-code/decision-in-other-roadmap)
     ((refusal/supersede-target-not-accepted _)
      refusal-code/supersede-target-not-accepted)
-    ((refusal/session-busy _) refusal-code/session-busy)))
+    ((refusal/session-busy _) refusal-code/session-busy)
+    ((refusal/session-not-claimant _ _)
+     refusal-code/session-not-claimant)
+    (refusal/report-empty refusal-code/report-empty)
+    ((refusal/report-not-found _) refusal-code/report-not-found)
+    ((refusal/report-already-read _)
+     refusal-code/report-already-read)))

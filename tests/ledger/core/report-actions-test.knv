@@ -1,0 +1,90 @@
+(use ledger/model ->session kind status)
+(use ledger/model/reports ->report-id report-kind)
+(use ledger/core/actions action next-action planned)
+(use ledger/core/report-actions with-reports)
+(use support/items claimed work-item)
+(use support/reports read-report-on report-on)
+
+(defn reported-item ()
+  (claimed (work-item "rm-0001" kind/research status/reported)))
+
+(defn accept ()
+  (vec (planned action/accept-report (worker) none)))
+
+(defn worker ()
+  (some (->session :name (str "worker"))))
+
+(type report-ids
+  (fn ((vec next-action))
+    (vec (option int))))
+
+(defn report-ids (actions)
+  (collect (map (iter actions)
+             (fn (planned)
+               (map-some (:report planned)
+                 (fn (id) (:value id)))))))
+
+(deftest an-unread-done-report-names-the-report-to-accept
+  (assert (= (report-ids (with-reports
+                           (accept)
+                           (ref (vec (report-on 3 "rm-0001" report-kind/done)))
+                           (ref (reported-item))))
+             (vec (some 3)))))
+
+(deftest the-newest-unread-done-report-is-the-one-to-accept
+  (assert (= (report-ids (with-reports
+                           (accept)
+                           (ref (vec (report-on 3 "rm-0001" report-kind/done)
+                                     (report-on 5 "rm-0001" report-kind/done)))
+                           (ref (reported-item))))
+             (vec (some 5)))))
+
+(deftest a-read-done-report-leaves-the-accept-action-without-a-report
+  (assert (= (report-ids
+               (with-reports
+                 (accept)
+                 (ref (vec (read-report-on 3 "rm-0001" report-kind/done)))
+                 (ref (reported-item))))
+             (vec none))))
+
+(deftest another-item-report-is-ignored
+  (assert (= (report-ids (with-reports
+                           (accept)
+                           (ref (vec (report-on 3 "rm-0002" report-kind/done)
+                                     (report-on 4 "rm-0002"
+                                                report-kind/question)))
+                           (ref (reported-item))))
+             (vec none))))
+
+(deftest each-unread-question-adds-an-answer-after-the-status-action
+  (let (actions (with-reports
+                  (vec (planned action/work (worker) none))
+                  (ref (vec (report-on 2 "rm-0001" report-kind/question)
+                            (read-report-on 3 "rm-0001" report-kind/question)
+                            (report-on 4 "rm-0001" report-kind/question)))
+                  (ref (claimed
+                         (work-item "rm-0001" kind/build status/dispatched)))))
+    (assert (= (collect (map (iter actions)
+                          (fn (planned) (:action planned))))
+               (vec action/work action/answer action/answer)))
+    (assert (= (:session (at actions 1)) (worker)))
+    (assert (= (report-ids actions)
+               (vec none (some 2) (some 4))))))
+
+(deftest the-answer-goes-to-the-agent
+  (let (actions (with-reports
+                  (vec)
+                  (ref (vec (report-on 2 "rm-0001" report-kind/question)))
+                  (ref (reported-item)))
+        answer (ref (at actions 0)))
+    (assert (= (:actor answer)
+               (:actor (planned action/answer none none))))
+    (assert (= (:report answer)
+               (some (->report-id :value 2))))))
+
+(deftest a-finished-item-gets-no-answer
+  (assert (empty? (with-reports
+                    (vec)
+                    (ref (vec (report-on 2 "rm-0001" report-kind/question)))
+                    (ref (work-item "rm-0001" kind/research
+                                    status/accepted))))))

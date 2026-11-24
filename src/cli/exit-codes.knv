@@ -26,5 +26,5 @@
     (done "The command ran.")
     (refused
       "The ledger refused the command. The error holds a code and a message.")
-    (usage "The call cannot be completed. The error has the code usage when the arguments match no command or a decision's --file cannot be read or holds no proposal, no-repository when no --db was given outside a git repository, no-ledger when no ledger exists at the path yet, or description-unreadable when a --description-file or stdin read fails.")
+    (usage "The call cannot be completed. The error has the code usage when the arguments match no command or a decision's --file cannot be read or holds no proposal, no-repository when no --db was given outside a git repository, no-ledger when no ledger exists at the path yet, description-unreadable when a --description-file or stdin read fails, or report-unreadable when a report's --file or stdin read fails.")
     (database "The database could not be opened, read or written. The error has the code busy when the wait for the lock timed out, ledger-too-new when a newer rmap migrated the ledger, otherwise database.")))

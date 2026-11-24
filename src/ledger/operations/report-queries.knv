@@ -1,0 +1,55 @@
+(module
+  "Shows one report and lists the reports an item or their reading narrows to.")
+
+(use ledger/model item-id)
+(use ledger/model/reports report report-query)
+(use ledger/core/snapshot existing)
+(use ledger/sqlite/reports reports-matching)
+(use ledger/sqlite/snapshot load-snapshot)
+
+(use ledger/operations/transaction in-read-transaction
+                                   settings)
+
+(use ledger/failure failure)
+(use ledger/operations/lookups existing-report)
+(use ledger/sqlite/connection connection)
+
+(export list-reports show-report)
+
+(defn show-report (settings id)
+  (in-read-transaction settings
+    (fn (transaction)
+      (existing-report (ref (:connection transaction))
+                       (ref id)))))
+
+(type list-reports
+  (fn ((ref settings) report-query)
+    (result (vec report) failure)))
+
+(defn list-reports (settings query)
+  (in-read-transaction settings
+    (fn (transaction)
+      (reports-within (ref (:connection transaction))
+                      (ref query)))))
+
+(type reports-within
+  (fn ((ref connection) (ref report-query))
+    (result (vec report) failure)))
+
+(defn reports-within (connection query)
+  (let-try (_ (check-item connection (ref (:item query)))
+            reports (reports-matching connection query))
+    (ok reports)))
+
+(type check-item
+  (fn ((ref connection)
+       (ref (option item-id)))
+    (result unit failure)))
+
+(defn check-item (connection item)
+  (match item
+    ((some id)
+     (let-try (snapshot (load-snapshot connection)
+               _ (existing (ref snapshot) id))
+       (ok (do))))
+    (none (ok (do)))))

@@ -1,0 +1,118 @@
+(module
+  "Reads and writes the `reports` table, with the name of the session that sent each report.")
+
+(use ledger/sqlite/values int->sql optional-text->sql
+                          sql-value text->sql)
+
+(use ledger/model ->item-id ->session ->timestamp timestamp)
+
+(use ledger/model/reports ->report ->report-id ->session-id
+                          report report-id report-query
+                          report-reading)
+
+(use ledger/names case-name report-kind-names)
+
+(use ledger/sqlite/connection connection database-error
+                              execute query)
+
+(use ledger/sqlite/rows int-cell named-cell
+                        optional-text-cell rows->values
+                        single-row text-cell)
+
+(export insert-report mark-read next-report-id
+        report-with-id reports-matching)
+
+(def selected-columns
+  "SELECT r.id, r.item_id, r.session_id, s.name, r.kind, r.body, r.created_at, r.read_at FROM reports r JOIN sessions s ON s.id = r.session_id")
+
+(defn next-report-id (connection)
+  (let-try (rows (query connection
+                        "SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'reports'), 0) + 1"
+                        (ref (vec)))
+            row (single-row (ref rows))
+            id (int-cell row 0))
+    (ok (->report-id :value id))))
+
+(type insert-report
+  (fn ((ref connection) (ref report))
+    (result int database-error)))
+
+(defn insert-report (connection report)
+  (execute connection
+           "INSERT INTO reports (id, item_id, session_id, kind, body, created_at, read_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+           (ref (vec (int->sql (:value (:id report)))
+                     (text->sql (as-str (:value (:item report))))
+                     (int->sql (:value (:session-id report)))
+                     (text->sql (case-name report-kind-names (:kind report)))
+                     (text->sql (as-str (:body report)))
+                     (text->sql (as-str (:value (:created-at report))))
+                     (optional-timestamp->sql (ref (:read-at report)))))))
+
+(type mark-read
+  (fn ((ref connection) (ref report))
+    (result int database-error)))
+
+(defn mark-read (connection report)
+  (execute connection
+           "UPDATE reports SET read_at = ?2 WHERE id = ?1"
+           (ref (vec (int->sql (:value (:id report)))
+                     (optional-timestamp->sql (ref (:read-at report)))))))
+
+(type report-with-id
+  (fn ((ref connection) (ref report-id))
+    (result (option report) database-error)))
+
+(defn report-with-id (connection id)
+  (let-try (rows (query connection
+                        (as-str (str selected-columns " WHERE r.id = ?1"))
+                        (ref (vec (int->sql (:value id)))))
+            reports (rows->values (ref rows) row->report))
+    (ok (map-some (first reports) clone))))
+
+(defn reports-matching (connection filter)
+  (let-try (rows (query connection
+                        (as-str (str selected-columns
+                                     " WHERE (?1 IS NULL OR r.item_id = ?1)"
+                                     " AND (?2 = 0 OR r.read_at IS NULL)"
+                                     " ORDER BY r.id"))
+                        (ref (filter->row filter))))
+    (rows->values (ref rows) row->report)))
+
+(type filter->row
+  (fn ((ref report-query))
+    (vec sql-value)))
+
+(defn filter->row (filter)
+  (vec (optional-text->sql (map-some (clone (:item filter))
+                             (fn (id) (clone (:value id)))))
+       (int->sql (unread-flag (:reading filter)))))
+
+(defn unread-flag (reading)
+  (match reading (every-report 0) (unread-only 1)))
+
+(type optional-timestamp->sql
+  (fn ((ref (option timestamp)))
+    sql-value))
+
+(defn optional-timestamp->sql (at)
+  (optional-text->sql (map-some (clone at)
+                        (fn (present) (clone (:value present))))))
+
+(defn row->report (row)
+  (let-try (id (int-cell row 0)
+            item (text-cell row 1)
+            session-id (int-cell row 2)
+            session (text-cell row 3)
+            kind (named-cell row 4 report-kind-names)
+            body (text-cell row 5)
+            created-at (text-cell row 6)
+            read-at (optional-text-cell row 7))
+    (ok (->report :id (->report-id :value id)
+                  :item (->item-id :value item)
+                  :session-id (->session-id :value session-id)
+                  :session (->session :name session)
+                  :kind kind
+                  :body body
+                  :created-at (->timestamp :value created-at)
+                  :read-at (map-some read-at
+                             (fn (value) (->timestamp :value value)))))))

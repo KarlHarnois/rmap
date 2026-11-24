@@ -15,6 +15,7 @@
 (use cli/next-text next-text)
 (use cli/batch-text batch-text)
 (use cli/event-text events-text)
+(use cli/report-text report-reply->text)
 
 (use cli/decision-text decision-detail-text
                        decision-proposed-text
@@ -52,7 +53,8 @@
     ((reply/decision-shown decision)
      (decision-detail-text (ref decision)))
     ((reply/decisions-listed decisions)
-     (decisions-text (ref decisions)))))
+     (decisions-text (ref decisions)))
+    ((reply/reported answer) (report-reply->text answer))))
 
 (type init-report-text
   (fn ((ref init-report)) string))

@@ -1,0 +1,25 @@
+(module
+  "Reads the body a report asks for: its text, a file or stdin.")
+
+(use ledger/model/reports body-source)
+(use ledger/failure failure)
+
+(export resolve-body)
+
+(defn resolve-body (source)
+  (match source
+    ((text value) (ok (clone value)))
+    ((file path) (read-body-file (clone path)))
+    (stdin (read-body-stdin))))
+
+(defn read-body-file (path)
+  (map-err (slurp (as-str path))
+    (fn (cause)
+      (failure/report-unreadable (str "could not read the report file "
+                                      path ": " cause)))))
+
+(defn read-body-stdin ()
+  (map-err (slurp stdin)
+    (fn (cause)
+      (failure/report-unreadable (str "could not read the report from stdin: "
+                                      cause)))))

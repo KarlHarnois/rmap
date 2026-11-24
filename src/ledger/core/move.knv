@@ -5,6 +5,7 @@
 (use ledger/core/phases finished?)
 (use ledger/model item kind status)
 (use ledger/model/sessions session-start)
+(use ledger/model/reports report-kind)
 
 (use ledger/core/session-changes claim-after ending
                                  starting)
@@ -18,14 +19,18 @@
   advance
   advance-to-build
   close
-  drop)
+  drop
+  report-done
+  report-fixed
+  report-question)
 
 (defenum move
   (claim session-start)
   (advance status)
   advance-to-build
   close
-  (drop string))
+  (drop string)
+  (report report-kind))
 
 (defstruct advancement
   :to status
@@ -47,7 +52,8 @@
     ((move/advance _) move-type/advance)
     (move/advance-to-build move-type/advance-to-build)
     (move/close move-type/close)
-    ((move/drop _) move-type/drop)))
+    ((move/drop _) move-type/drop)
+    ((move/report kind) (report-move-type kind))))
 
 (defn session-change-of (item move now)
   (match move
@@ -71,7 +77,21 @@
     ((move/advance target) target)
     (move/advance-to-build status/dispatched)
     (move/close (closed-status (:kind item)))
-    ((move/drop _) status/dropped)))
+    ((move/drop _) status/dropped)
+    ((move/report kind) (reported-status item kind))))
+
+(type reported-status
+  (fn ((ref item) (ref report-kind))
+    status))
+
+(defn reported-status (item kind)
+  (match kind
+    (done (done-status (:kind item)))
+    (fixed status/in-review)
+    (question (:status item))))
+
+(defn done-status (kind)
+  (match kind (build status/in-review) (_ status/reported)))
 
 (defn build-move (target)
   (if (= target status/dispatched)
@@ -96,3 +116,9 @@
   (if (finished? target)
     (some (clone now))
     (clone (:closed-at item))))
+
+(defn report-move-type (kind)
+  (match kind
+    (done move-type/report-done)
+    (fixed move-type/report-fixed)
+    (question move-type/report-question)))

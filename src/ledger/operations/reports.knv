@@ -1,0 +1,120 @@
+(module
+  "Records a session's report on its item with the move it makes, and marks a report read, each in one transaction with its event.")
+
+(use ledger/model item)
+
+(use ledger/model/reports ->recorded-report recorded-report
+                          report report-id report-request
+                          session-id)
+
+(use ledger/core/reports ->report-stamp approved-report
+                         stamped-report)
+
+(use ledger/core/report-reads check-unread marked-read
+                              read-session-change)
+
+(use ledger/core/snapshot existing)
+(use ledger/report-events item-reported report-read)
+
+(use ledger/operations/moves applied write-move
+                             write-session-change)
+
+(use ledger/operations/report-bodies resolve-body)
+(use ledger/operations/lookups existing-report)
+
+(use ledger/operations/transaction in-transaction now record
+                                   settings transaction)
+
+(use ledger/sqlite/reports insert-report mark-read
+                           next-report-id)
+
+(use ledger/sqlite/sessions live-session-id)
+(use ledger/sqlite/snapshot load-snapshot)
+(use ledger/sqlite/connection connection database-failure)
+(use ledger/failure failure)
+
+(export read-report record-report)
+
+(type record-report
+  (fn ((ref settings) report-request)
+    (result recorded-report failure)))
+
+(defn record-report (settings request)
+  (let-try (body (resolve-body (ref (:body request))))
+    (in-transaction settings
+      (fn (transaction)
+        (store-report transaction (ref request) body)))))
+
+(defn read-report (settings id)
+  (in-transaction settings
+    (fn (transaction)
+      (store-read transaction (ref id)))))
+
+(type store-report
+  (fn ((ref transaction) (ref report-request) string)
+    (result recorded-report failure)))
+
+(defn store-report (transaction request body)
+  (let (connection (ref (:connection transaction)))
+    (let-try (snapshot (load-snapshot connection)
+              item (existing (ref snapshot)
+                             (ref (:item request)))
+              move (approved-report (ref snapshot)
+                                    (ref item)
+                                    (ref (:session request))
+                                    (:kind request)
+                                    (ref body))
+              session-id (claimant-id connection (ref item))
+              id (next-report-id connection))
+      (let (applied (applied (ref item) move (now transaction))
+            report (stamped-report (ref item)
+                                   (ref (:session request))
+                                   (:kind request)
+                                   body
+                                   (->report-stamp :id id
+                                                   :session-id session-id
+                                                   :created-at (now
+                                                                 transaction))))
+        (let-try (_ (write-move transaction (ref applied))
+                  _ (insert-report connection (ref report))
+                  _ (record transaction
+                            (item-reported (ref applied) (ref report))))
+          (ok (->recorded-report :report report
+                                 :item (clone (:after applied)))))))))
+
+(type claimant-id
+  (fn ((ref connection) (ref item))
+    (result session-id failure)))
+
+(defn claimant-id (connection item)
+  (let-try (live (live-session-id connection (ref (:id item))))
+    (ok-or live
+           (failure/database (database-failure (str "the item has no live session"))))))
+
+(type store-read
+  (fn ((ref transaction) (ref report-id))
+    (result report failure)))
+
+(defn store-read (transaction id)
+  (let (connection (ref (:connection transaction))
+        now (now transaction))
+    (let-try (before (existing-report connection id)
+              _ (check-unread (ref before))
+              snapshot (load-snapshot connection)
+              item (existing (ref snapshot)
+                             (ref (:item before)))
+              live (live-session-id connection (ref (:id item))))
+      (let (report (marked-read (ref before) (ref now))
+            change (read-session-change (ref report)
+                                        (ref item)
+                                        (ref live)
+                                        (ref now)))
+        (let-try (_ (mark-read connection (ref report))
+                  _ (write-session-change connection
+                                          (ref (:id item))
+                                          (ref change))
+                  _ (record transaction
+                            (report-read (ref item)
+                                         (ref report)
+                                         (ref change))))
+          (ok report))))))

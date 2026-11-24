@@ -18,6 +18,7 @@
                   text->id)
 
 (use cli/flags optional-text)
+(use cli/report-requests report-operation-of)
 
 (use cli/decision-requests decision-list-request
                            decision-show-request
@@ -125,6 +126,10 @@
       (on-ledger arguments
                  (ok (request/decision (decision-show-request
                                          (operand arguments route 0))))))
+    ((subcommand/report command)
+     (on-ledger arguments
+                (map-ok (report-operation-of arguments route command)
+                  (fn (operation) (request/report operation)))))
     (subcommand/decision-list (on-ledger
                                 arguments
                                 (map-ok (decision-list-request arguments)

@@ -41,4 +41,6 @@
   dep-added
   dep-removed
   decision-proposed
-  decision-revised)
+  decision-revised
+  item-reported
+  report-read)

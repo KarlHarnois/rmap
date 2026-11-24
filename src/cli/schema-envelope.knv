@@ -1,0 +1,23 @@
+(module
+  "Wraps a JSON object the CLI prints with its output schema version, and builds the object of an error.")
+
+(use json/value int->json object text->json)
+
+(export envelope error-envelope)
+
+(def output-schema-version 4)
+
+(defn error-envelope (code message details)
+  (let (fields details)
+    (push! fields
+           (pair (str "code") (text->json code)))
+    (push! fields
+           (pair (str "message") (text->json message)))
+    (envelope (vec (pair (str "error") (object fields))))))
+
+(defn envelope (fields)
+  (let (all fields)
+    (push! all
+           (pair (str "schema_version")
+                 (int->json output-schema-version)))
+    (object all)))

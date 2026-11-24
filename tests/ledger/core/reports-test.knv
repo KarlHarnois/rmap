@@ -1,0 +1,101 @@
+(use ledger/model ->session ->timestamp kind status)
+
+(use ledger/model/reports ->report-id ->session-id
+                          report-kind)
+
+(use ledger/refusal refusal)
+(use ledger/core/move move)
+
+(use ledger/core/reports ->report-stamp approved-report
+                         stamped-report)
+
+(use support/items claimed snapshot-of work-item)
+
+(defn verdict (item kind body)
+  (approved-report (ref (snapshot-of (vec (clone item)) (vec)))
+                   (ref item)
+                   (ref (->session :name (str "worker")))
+                   kind
+                   (ref (str body))))
+
+(defn research (status)
+  (claimed (work-item "rm-0001" kind/research status)))
+
+(defn build (status)
+  (claimed (work-item "rm-0001" kind/build status)))
+
+(deftest a-done-report-on-a-dispatched-research-is-a-report-move
+  (assert (= (verdict (research status/dispatched)
+                      report-kind/done "found it")
+             (ok (move/report report-kind/done)))))
+
+(deftest a-done-report-on-a-dispatched-design-is-a-report-move
+  (assert (= (verdict (claimed
+                        (work-item "rm-0001" kind/design status/dispatched))
+                      report-kind/done "drew it")
+             (ok (move/report report-kind/done)))))
+
+(deftest a-question-is-allowed-while-the-item-has-a-session
+  (assert (= (verdict (build status/in-review)
+                      report-kind/question "why?")
+             (ok (move/report report-kind/question)))))
+
+(deftest a-session-that-does-not-hold-the-item-is-refused
+  (assert
+    (= (approved-report (ref (snapshot-of (vec (research status/dispatched))
+                                          (vec)))
+                        (ref (research status/dispatched))
+                        (ref (->session :name (str "intruder")))
+                        report-kind/done
+                        (ref (str "found it")))
+       (err (refusal/session-not-claimant (->session :name (str "intruder"))
+                                          (clone (:id (research status/dispatched))))))))
+
+(deftest an-unclaimed-item-refuses-every-session
+  (let (item (work-item "rm-0001" kind/research status/open))
+    (assert (= (verdict item report-kind/question "why?")
+               (err (refusal/session-not-claimant (->session :name (str
+                                                                     "worker"))
+                                                  (clone (:id item))))))))
+
+(deftest a-done-report-on-a-build-waits-for-pull-requests
+  (assert (= (verdict (build status/dispatched)
+                      report-kind/done "built it")
+             (err (refusal/invalid-transition status/dispatched
+                                              status/in-review)))))
+
+(deftest a-fixed-report-waits-for-pull-requests
+  (assert (= (verdict (build status/fixing) report-kind/fixed "fixed it")
+             (err (refusal/invalid-transition status/fixing
+                                              status/in-review)))))
+
+(deftest a-second-done-report-is-an-invalid-transition
+  (assert (= (verdict (research status/reported)
+                      report-kind/done "again")
+             (err (refusal/invalid-transition status/reported
+                                              status/reported)))))
+
+(deftest a-blank-body-is-refused-as-empty
+  (assert (= (verdict (research status/dispatched)
+                      report-kind/question " \n ")
+             (err refusal/report-empty))))
+
+(deftest the-transition-is-checked-before-the-body
+  (assert (= (verdict (build status/dispatched) report-kind/done "")
+             (err (refusal/invalid-transition status/dispatched
+                                              status/in-review)))))
+
+(deftest a-stamped-report-is-unread-and-names-its-session
+  (let (report (stamped-report (ref (research status/dispatched))
+                               (ref (->session :name (str "worker")))
+                               report-kind/question
+                               (str "why?")
+                               (->report-stamp
+                                 :id (->report-id :value 4)
+                                 :session-id (->session-id :value 2)
+                                 :created-at (->timestamp :value (str "2026-01-02T00:00:00Z")))))
+    (assert (= (:value (:id report)) 4))
+    (assert (= (:value (:session-id report)) 2))
+    (assert (= (:name (:session report))
+               (str "worker")))
+    (assert (none? (:read-at report)))))

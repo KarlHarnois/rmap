@@ -1,0 +1,43 @@
+(use ledger/model kind status)
+(use ledger/model/reports ->recorded-report report-kind)
+(use cli/report-replies report-reply)
+(use cli/report-text report-reply->text)
+(use support/items claimed work-item)
+(use support/reports read-report-on report-on)
+
+(deftest a-recorded-report-names-its-kind-id-item-and-status
+  (assert (= (report-reply->text
+               (report-reply/recorded
+                 (->recorded-report
+                   :report (report-on 3 "rm-0001" report-kind/done)
+                   :item (claimed (work-item "rm-0001"
+                                             kind/research
+                                             status/reported)))))
+             (str "Recorded done report 3 on rm-0001, which is reported."))))
+
+(deftest with-no-reports-the-list-says-so
+  (assert (= (report-reply->text (report-reply/listed (vec)))
+             (str "No reports."))))
+
+(deftest the-list-is-a-table-with-when-each-report-was-read
+  (assert (= (report-reply->text
+               (report-reply/listed
+                 (vec (report-on 3 "rm-0001" report-kind/question)
+                      (read-report-on 4 "rm-0002" report-kind/done))))
+             (str "ID  ITEM     SESSION  KIND      CREATED               READ\n"
+                  "3   rm-0001  worker   question  2026-01-02T00:00:00Z  -\n"
+                  "4   rm-0002  worker   done      2026-01-02T00:00:00Z  2026-01-03T00:00:00Z"))))
+
+(deftest a-shown-report-ends-with-its-body
+  (assert (= (report-reply->text (report-reply/shown
+                                   (report-on 3 "rm-0001" report-kind/done)))
+             (str "Report 3  done on rm-0001\n"
+                  "  session  worker\n"
+                  "  created  2026-01-02T00:00:00Z\n"
+                  "  read     -\n" "\n" "the findings"))))
+
+(deftest a-read-report-says-so
+  (assert (= (report-reply->text
+               (report-reply/read
+                 (read-report-on 3 "rm-0001" report-kind/done)))
+             (str "Read report 3 on rm-0001."))))

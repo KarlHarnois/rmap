@@ -121,6 +121,14 @@ Commands:
     Shows one decision with its options, recommendation and outcome.
   decision list [--roadmap <name>] [--status proposed|accepted|rejected|deprecated|superseded] [--item <id>]
     Lists the decisions in every status, oldest first. --item keeps those the item raised or that block it.
+  report list [--item <id>] [--unread]
+    Lists the reports, oldest first. --item keeps those on one item, --unread those not read yet.
+  report show <id>
+    Shows one report with its body.
+  report read <id>
+    Marks a report read. Reading the done report of a research or design item ends the session that sent it, if it is still live.
+  report <item> --session <name> --kind done|fixed|question [--text <text>] [--file <path|->]
+    Records a report from the item's live session, with its body in --text, or in --file (- reads stdin). done moves a dispatched research or design item to reported. question leaves the status as it is.
 
 Environment:
   RMAP_JSON   Set to 1 to print JSON, as --json does.
@@ -130,7 +138,7 @@ Environment:
 Exit codes:
   0  The command ran.
   1  The ledger refused the command. The error holds a code and a message.
-  2  The call cannot be completed. The error has the code usage when the arguments match no command or a decision's --file cannot be read or holds no proposal, no-repository when no --db was given outside a git repository, no-ledger when no ledger exists at the path yet, or description-unreadable when a --description-file or stdin read fails.
+  2  The call cannot be completed. The error has the code usage when the arguments match no command or a decision's --file cannot be read or holds no proposal, no-repository when no --db was given outside a git repository, no-ledger when no ledger exists at the path yet, description-unreadable when a --description-file or stdin read fails, or report-unreadable when a report's --file or stdin read fails.
   3  The database could not be opened, read or written. The error has the code busy when the wait for the lock timed out, ledger-too-new when a newer rmap migrated the ledger, otherwise database.
 
 Refusal codes:
@@ -158,4 +166,8 @@ Refusal codes:
   decision-in-other-roadmap      The item belongs to another roadmap than the decision.
   supersede-target-not-accepted  Only a decision that is accepted, or rejected in the same roadmap, can be superseded.
   session-busy                   A live session already has that name.
+  session-not-claimant           The session is not the item's live session.
+  report-empty                   A report needs a body.
+  report-not-found               No report has that id.
+  report-already-read            The report was already read.
 ```

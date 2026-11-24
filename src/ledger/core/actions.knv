@@ -2,14 +2,17 @@
   "Names each next action, the actor who takes it, and builds an action with the actor the table gives.")
 
 (use ledger/model blockage session)
+(use ledger/model/reports report-id)
 
-(export action actor actor-of next-action planned)
+(export action actor actor-of next-action planned
+        planned-for-report)
 
 (defstruct next-action
   :action action
   :actor actor
   :session (option session)
-  :reasons (option blockage))
+  :reasons (option blockage)
+  :report (option report-id))
 
 (defenum action
   dispatch
@@ -18,7 +21,8 @@
   accept-report
   review
   fix
-  merge)
+  merge
+  answer)
 
 (defenum actor
   controller
@@ -26,11 +30,15 @@
   worker
   user)
 
+(defn planned-for-report (action session report)
+  (assoc (planned action session none) :report (some report)))
+
 (defn planned (action session reasons)
   (->next-action :action action
                  :actor (actor-of action)
                  :session session
-                 :reasons reasons))
+                 :reasons reasons
+                 :report none))
 
 (defn actor-of (action)
   (match action
@@ -40,4 +48,5 @@
     (accept-report actor/agent)
     (review actor/agent)
     (fix actor/worker)
-    (merge actor/controller)))
+    (merge actor/controller)
+    (answer actor/agent)))

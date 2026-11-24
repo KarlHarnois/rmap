@@ -4,6 +4,7 @@
 (use ledger/model/events event-type)
 (use ledger/model/decisions decision-status)
 (use ledger/model/sessions end-reason)
+(use ledger/model/reports report-kind)
 
 (use ledger/model dep-type graph-format kind origin
                   roadmap-status runtime session-kind
@@ -14,8 +15,9 @@
 (export action-names actor-names case-name case-named
         decision-status-names dep-type-names
         end-reason-names event-type-names graph-format-names
-        kind-names origin-names roadmap-status-names
-        runtime-names session-kind-names status-names)
+        kind-names origin-names report-kind-names
+        roadmap-status-names runtime-names
+        session-kind-names status-names)
 
 (def roadmap-status-names
   (vec (pair roadmap-status/active "active")
@@ -73,7 +75,14 @@
        (pair event-type/dep-added "dep-added")
        (pair event-type/dep-removed "dep-removed")
        (pair event-type/decision-proposed "decision-proposed")
-       (pair event-type/decision-revised "decision-revised")))
+       (pair event-type/decision-revised "decision-revised")
+       (pair event-type/item-reported "item-reported")
+       (pair event-type/report-read "report-read")))
+
+(def report-kind-names
+  (vec (pair report-kind/done "done")
+       (pair report-kind/fixed "fixed")
+       (pair report-kind/question "question")))
 
 (def decision-status-names
   (vec (pair decision-status/proposed "proposed")
@@ -92,7 +101,8 @@
        (pair action/accept-report "accept-report")
        (pair action/review "review")
        (pair action/fix "fix")
-       (pair action/merge "merge")))
+       (pair action/merge "merge")
+       (pair action/answer "answer")))
 
 (def actor-names
   (vec (pair actor/controller "controller")

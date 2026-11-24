@@ -1,0 +1,226 @@
+(use json/value copy-of field json->int)
+
+(use ledger/api ->item-id ->report-id ->report-request
+                body-source close-item read-report
+                record-report report-kind settings status)
+
+(use ledger/model kind)
+(use ledger/sqlite/connection open query)
+(use ledger/sqlite/rows optional-text-cell rows->values)
+(use support/payloads columns side-text)
+
+(use support/ledger added-id all-events claimed item-draft
+                    refusal-code-of research scratch-ledger)
+
+(use support/report-requests report-as reported-by
+                             worker-of)
+
+(defn claimed-research (settings)
+  (claimed settings (research settings)))
+
+(type end-reasons
+  (fn ((ref settings))
+    (vec (option string))))
+
+(defn end-reasons (settings)
+  (let (connection (unwrap-ok (open (as-str (:database-path settings))))
+        rows (unwrap-ok (query (ref connection)
+                               "SELECT end_reason FROM sessions ORDER BY id"
+                               (ref (vec)))))
+    (unwrap-ok (rows->values (ref rows)
+                 (fn (row) (optional-text-cell row 0))))))
+
+(defn last-payload (settings)
+  (let (events (unwrap-ok (all-events settings)))
+    (copy-of (ref (:payload (unwrap (last events)))))))
+
+(defn last-item-id (settings)
+  (let (events (unwrap-ok (all-events settings)))
+    (clone (:item-id (unwrap (last events))))))
+
+(deftest a-done-report-moves-a-dispatched-research-item-to-reported
+  (let (settings (scratch-ledger "report-done")
+        id (claimed-research (ref settings))
+        recorded (unwrap-ok (record-report (ref settings)
+                                           (report-as (ref id)
+                                                      (as-str (worker-of (ref
+                                                                           id)))
+                                                      report-kind/done
+                                                      "found it"))))
+    (assert (= (:status (:item recorded)) status/reported))
+    (assert (= (:body (:report recorded))
+               (str "found it")))
+    (assert (none? (:read-at (:report recorded))))
+    (assert (= (:name (:session (:report recorded)))
+               (worker-of (ref id))))))
+
+(deftest a-question-leaves-the-status-alone
+  (let (settings (scratch-ledger "report-question")
+        id (claimed-research (ref settings))
+        recorded (unwrap-ok (record-report (ref settings)
+                                           (report-as (ref id)
+                                                      (as-str (worker-of (ref
+                                                                           id)))
+                                                      report-kind/question
+                                                      "which one?"))))
+    (assert (= (:status (:item recorded)) status/dispatched))))
+
+(deftest each-report-gets-the-next-id
+  (let (settings (scratch-ledger "report-ids")
+        id (claimed-research (ref settings))
+        first (reported-by (ref settings) (ref id) report-kind/question)
+        second (reported-by (ref settings) (ref id) report-kind/question))
+    (assert (= (:value second) (+ (:value first) 1)))))
+
+(deftest a-report-on-a-missing-item-is-refused
+  (let (settings (scratch-ledger "report-missing-item"))
+    (assert (= (refusal-code-of (record-report (ref settings)
+                                               (report-as (ref (->item-id
+                                                                 :value (str "rm-ffff")))
+                                                          "worker"
+                                                          report-kind/question
+                                                          "why?")))
+               (some (str "item-not-found"))))))
+
+(deftest a-report-from-another-session-is-refused
+  (let (settings (scratch-ledger "report-not-claimant")
+        id (claimed-research (ref settings)))
+    (assert (= (refusal-code-of
+                 (record-report
+                   (ref settings)
+                   (report-as (ref id) "intruder" report-kind/question "why?")))
+               (some (str "session-not-claimant"))))))
+
+(deftest a-done-report-on-a-build-is-an-invalid-transition
+  (let (settings (scratch-ledger "report-build-done")
+        id (claimed (ref settings)
+                    (added-id (ref settings) (item-draft kind/build))))
+    (assert (= (refusal-code-of (record-report (ref settings)
+                                               (report-as (ref id)
+                                                          (as-str (worker-of (ref
+                                                                               id)))
+                                                          report-kind/done
+                                                          "built")))
+               (some (str "invalid-transition"))))))
+
+(deftest a-fixed-report-is-an-invalid-transition
+  (let (settings (scratch-ledger "report-fixed")
+        id (claimed-research (ref settings)))
+    (assert (= (refusal-code-of (record-report (ref settings)
+                                               (report-as (ref id)
+                                                          (as-str (worker-of (ref
+                                                                               id)))
+                                                          report-kind/fixed
+                                                          "fixed")))
+               (some (str "invalid-transition"))))))
+
+(deftest a-blank-report-is-refused-as-empty
+  (let (settings (scratch-ledger "report-empty")
+        id (claimed-research (ref settings)))
+    (assert (= (refusal-code-of (record-report (ref settings)
+                                               (report-as (ref id)
+                                                          (as-str (worker-of (ref
+                                                                               id)))
+                                                          report-kind/question
+                                                          "  ")))
+               (some (str "report-empty"))))))
+
+(deftest a-report-body-can-come-from-a-file
+  (let (settings (scratch-ledger "report-file")
+        id (claimed-research (ref settings))
+        path (str "tests/fixtures/report-body.md"))
+    (assert (= (:body (:report
+                        (unwrap-ok (record-report
+                                     (ref settings)
+                                     (assoc (report-as (ref id)
+                                                       (as-str (worker-of (ref id)))
+                                                       report-kind/done
+                                                       "")
+                                            :body (body-source/file path))))))
+               (str "The study found two options.\n")))))
+
+(deftest an-unreadable-report-file-is-refused
+  (let (settings (scratch-ledger "report-file-missing")
+        id (claimed-research (ref settings)))
+    (assert (= (refusal-code-of
+                 (record-report (ref settings)
+                                (assoc (report-as (ref id)
+                                                  (as-str (worker-of (ref id)))
+                                                  report-kind/done
+                                                  "")
+                                       :body (body-source/file (str "/no/such/report.md")))))
+               (some (str "report-unreadable"))))))
+
+(deftest a-report-records-an-item-reported-event
+  (let (settings (scratch-ledger "report-event")
+        id (claimed-research (ref settings))
+        report (reported-by (ref settings) (ref id) report-kind/done)
+        payload (last-payload (ref settings)))
+    (assert (= (last-item-id (ref settings))
+               (some (clone id))))
+    (assert (= (json->int (ref (unwrap (field (ref payload) "report_id"))))
+               (some (:value report))))
+    (assert (= (side-text payload "status" "new")
+               (some (str "reported"))))))
+
+(deftest reading-a-report-stamps-it
+  (let (settings (scratch-ledger "report-read")
+        id (claimed-research (ref settings))
+        report (reported-by (ref settings) (ref id) report-kind/question)
+        read (unwrap-ok (read-report (ref settings) (clone report))))
+    (assert (some? (:read-at read)))
+    (assert (= (columns (last-payload (ref settings)))
+               (vec (str "read_at"))))))
+
+(deftest reading-a-missing-report-is-refused
+  (let (settings (scratch-ledger "report-read-missing"))
+    (assert (= (refusal-code-of (read-report (ref settings)
+                                             (->report-id :value 9)))
+               (some (str "report-not-found"))))))
+
+(deftest reading-a-report-twice-is-refused
+  (let (settings (scratch-ledger "report-read-twice")
+        id (claimed-research (ref settings))
+        report (reported-by (ref settings) (ref id) report-kind/question))
+    (unwrap-ok (read-report (ref settings) (clone report)))
+    (assert (= (refusal-code-of (read-report (ref settings) report))
+               (some (str "report-already-read"))))))
+
+(deftest reading-a-done-report-ends-the-research-session
+  (let (settings (scratch-ledger "report-read-ends")
+        id (claimed-research (ref settings))
+        report (reported-by (ref settings) (ref id) report-kind/done))
+    (unwrap-ok (read-report (ref settings) report))
+    (assert (= (end-reasons (ref settings))
+               (vec (some (str "finished")))))
+    (assert (= (columns (last-payload (ref settings)))
+               (vec (str "end_reason")
+                    (str "ended_at")
+                    (str "read_at")
+                    (str "session"))))))
+
+(deftest reading-a-question-keeps-the-session
+  (let (settings (scratch-ledger "report-read-keeps")
+        id (claimed-research (ref settings))
+        report (reported-by (ref settings) (ref id) report-kind/question))
+    (unwrap-ok (read-report (ref settings) report))
+    (assert (= (end-reasons (ref settings))
+               (vec none)))))
+
+(deftest accepting-after-reading-the-done-report-closes-the-item
+  (let (settings (scratch-ledger "report-read-accept")
+        id (claimed-research (ref settings))
+        report (reported-by (ref settings) (ref id) report-kind/done))
+    (unwrap-ok (read-report (ref settings) report))
+    (assert (= (:status (unwrap-ok (close-item (ref settings) (clone id))))
+               status/accepted))
+    (assert (= (end-reasons (ref settings))
+               (vec (some (str "finished")))))))
+
+(deftest accepting-before-reading-ends-the-session-as-today
+  (let (settings (scratch-ledger "report-accept-unread")
+        id (claimed-research (ref settings)))
+    (reported-by (ref settings) (ref id) report-kind/done)
+    (unwrap-ok (close-item (ref settings) (clone id)))
+    (assert (= (end-reasons (ref settings))
+               (vec (some (str "finished")))))))

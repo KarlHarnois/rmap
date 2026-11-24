@@ -1,0 +1,80 @@
+(module
+  "Names each report request the CLI can make and builds it from the command line.")
+
+(use ledger/api ->item-id ->report-id ->report-query
+                ->report-request ->session body-source
+                report-id report-kind-names report-query
+                report-reading report-request)
+
+(use cli/arguments operand)
+(use cli/routes report-command)
+
+(use cli/flags optional-text required-choice required-text
+               switch-on?)
+
+(export report-operation report-operation-of)
+
+(defenum report-operation
+  (record report-request)
+  (list report-query)
+  (show report-id)
+  (read report-id))
+
+(defn report-operation-of (arguments route command)
+  (match command
+    (record (record-request arguments (operand arguments route 0)))
+    (list (ok (list-request arguments)))
+    (show (map-ok (text->report-id (ref (operand arguments route 0)))
+            (fn (id) (report-operation/show id))))
+    (read (map-ok (text->report-id (ref (operand arguments route 0)))
+            (fn (id) (report-operation/read id))))))
+
+(defn record-request (arguments item)
+  (let-try (session (required-text arguments "session")
+            kind (required-choice arguments "kind" report-kind-names)
+            body (body-source-of arguments))
+    (ok (report-operation/record (->report-request :item (->item-id :value item)
+                                                   :session (->session
+                                                              :name session)
+                                                   :kind kind
+                                                   :body body)))))
+
+(defn list-request (arguments)
+  (report-operation/list (->report-query
+                           :item (map-some (optional-text arguments "item")
+                                   (fn (id) (->item-id :value id)))
+                           :reading (reading-of arguments))))
+
+(defn text->report-id (text)
+  (match (the (result int (parse-error int))
+              (parse (as-str text)))
+    ((ok number) (ok (->report-id :value number)))
+    ((err _)
+     (err (str "a report id is a whole number, got " text)))))
+
+(defn body-source-of (arguments)
+  (let (file (optional-text arguments "file")
+        text (optional-text arguments "text"))
+    (match file
+      ((some path) (body-from-file text path))
+      (none (body-from-text text)))))
+
+(defn body-from-file (text path)
+  (match text
+    ((some _)
+     (err (str "--text and --file cannot both be given")))
+    (none (ok (file-source path)))))
+
+(defn file-source (path)
+  (if (= (as-str path) "-")
+    body-source/stdin
+    (body-source/file path)))
+
+(defn body-from-text (text)
+  (ok-or (map-some text
+           (fn (value) (body-source/text value)))
+         (str "report needs --text or --file")))
+
+(defn reading-of (arguments)
+  (if (switch-on? arguments "unread")
+    report-reading/unread-only report-reading/every-report))

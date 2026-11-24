@@ -11,7 +11,7 @@
 (use ledger/core/index index-of)
 (use ledger/core/phases unfinished-statuses)
 
-(export approved-move)
+(export approved-move reporting-kinds)
 
 (defstruct allowance
   :move-type move-type
@@ -22,6 +22,8 @@
   (let-try (_ (check-table item (ref move))
             _ (check-ledger snapshot item (ref move)))
     (ok move)))
+
+(defn reporting-kinds () (vec kind/research kind/design))
 
 (type check-table
   (fn ((ref item) (ref move))
@@ -75,12 +77,25 @@
                     :steps (vec (pair status/reported status/accepted)))
        (->allowance :move-type move-type/drop
                     :kinds (work-kinds)
-                    :steps (steps-to-dropped))))
+                    :steps (steps-to-dropped))
+       (->allowance :move-type move-type/report-done
+                    :kinds (reporting-kinds)
+                    :steps (vec (pair status/dispatched status/reported)))
+       (->allowance :move-type move-type/report-question
+                    :kinds (work-kinds)
+                    :steps (steps-in-place (session-statuses)))))
 
 (defn work-kinds ()
   (vec kind/research kind/design kind/build))
 
-(defn reporting-kinds () (vec kind/research kind/design))
+(defn session-statuses ()
+  (vec status/dispatched status/reported status/in-review
+       status/fixing status/merging))
+
+(defn steps-in-place (statuses)
+  (collect (map (iter statuses)
+             (fn (status)
+               (pair (deref status) (deref status))))))
 
 (defn steps-to-dropped ()
   (collect (map (iter (unfinished-statuses))

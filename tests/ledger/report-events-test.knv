@@ -1,0 +1,107 @@
+(use json/value copy-of field json->int null?)
+(use ledger/model ->timestamp kind status)
+(use ledger/model/sessions ->session-end end-reason)
+(use ledger/model/reports report-kind)
+(use ledger/core/move move)
+(use ledger/core/session-changes session-change)
+(use ledger/move-events ->applied-move)
+(use ledger/report-events item-reported report-read)
+(use ledger/names case-name event-type-names)
+(use support/items claimed work-item)
+(use support/payloads columns side side-int side-text)
+(use support/reports read-report-on report-on)
+
+(defn reported-payload (before after kind)
+  (let (applied (->applied-move :before before
+                                :after after
+                                :move (move/report kind)
+                                :session-change session-change/kept))
+    (copy-of (ref (:payload (item-reported (ref applied)
+                                           (ref
+                                             (report-on 7 "rm-0001" kind))))))))
+
+(defn research (status)
+  (claimed (work-item "rm-0001" kind/research status)))
+
+(defn finished-at ()
+  (session-change/ended (->session-end :reason end-reason/finished
+                                       :at (->timestamp :value (str "2026-01-03T00:00:00Z")))))
+
+(deftest a-done-report-records-every-report-column-and-the-status-move
+  (let (payload (reported-payload (research status/dispatched)
+                                  (research status/reported)
+                                  report-kind/done))
+    (assert (= (columns payload)
+               (vec (str "body")
+                    (str "created_at")
+                    (str "item_id")
+                    (str "read_at")
+                    (str "report_kind")
+                    (str "session_id")
+                    (str "status"))))
+    (for-each (vec "body" "created_at" "item_id" "read_at"
+                   "report_kind" "session_id")
+              (fn (column)
+                (assert (null? (ref (side (copy-of (ref payload))
+                                          column "old"))))))
+    (assert (null? (ref (side (copy-of (ref payload)) "read_at" "new"))))
+    (assert (= (side-text (copy-of (ref payload)) "report_kind" "new")
+               (some (str "done"))))
+    (assert (= (side-int (copy-of (ref payload)) "session_id" "new")
+               (some 1)))
+    (assert (= (side-text (copy-of (ref payload)) "status" "old")
+               (some (str "dispatched"))))
+    (assert (= (side-text (copy-of (ref payload)) "status" "new")
+               (some (str "reported"))))
+    (assert (= (json->int (ref (unwrap (field (ref payload) "report_id"))))
+               (some 7)))))
+
+(deftest a-question-records-the-report-without-a-status-change
+  (let (payload (reported-payload (research status/dispatched)
+                                  (research status/dispatched)
+                                  report-kind/question))
+    (assert (not (contains? (columns payload) (str "status"))))
+    (assert (= (side-text payload "report_kind" "new")
+               (some (str "question"))))))
+
+(deftest the-reported-event-has-its-own-type
+  (let (applied (->applied-move :before (research status/dispatched)
+                                :after (research status/dispatched)
+                                :move (move/report report-kind/question)
+                                :session-change session-change/kept)
+        draft (item-reported (ref applied)
+                             (ref (report-on 7 "rm-0001"
+                                             report-kind/question))))
+    (assert (= (case-name event-type-names (:type draft))
+               "item-reported"))
+    (assert (= (:item-id draft)
+               (some (clone (:id (:after applied))))))))
+
+(deftest reading-records-when-the-report-was-read
+  (let (draft (report-read (ref (research status/reported))
+                           (ref (read-report-on 7 "rm-0001"
+                                                report-kind/question))
+                           (ref session-change/kept))
+        payload (copy-of (ref (:payload draft))))
+    (assert (= (case-name event-type-names (:type draft)) "report-read"))
+    (assert (= (columns payload)
+               (vec (str "read_at"))))
+    (assert (null? (ref (side (copy-of (ref payload)) "read_at" "old"))))
+    (assert (= (side-text payload "read_at" "new")
+               (some (str "2026-01-03T00:00:00Z"))))))
+
+(deftest reading-that-ends-the-session-records-the-session-columns
+  (let (draft (report-read (ref (research status/reported))
+                           (ref (read-report-on 7 "rm-0001" report-kind/done))
+                           (ref (finished-at)))
+        payload (copy-of (ref (:payload draft))))
+    (assert (= (columns payload)
+               (vec (str "end_reason")
+                    (str "ended_at")
+                    (str "read_at")
+                    (str "session"))))
+    (assert (= (side-text (copy-of (ref payload)) "session" "old")
+               (some (str "worker"))))
+    (assert (null? (ref (side (copy-of (ref payload)) "session" "new"))))
+    (assert (= (side-text payload "end_reason" "new")
+               (some (str "finished"))))))

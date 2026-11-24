@@ -1,0 +1,35 @@
+(module
+  "Lists the commands that record and read reports.")
+
+(use ledger/api report-kind-names)
+(use cli/flag-specs boolean-flag choices optional required)
+
+(use cli/routes ->route operands report-command subcommand
+                words)
+
+(export report-routes)
+
+(defn report-routes ()
+  (vec (->route :subcommand (subcommand/report report-command/list)
+                :words (words "report list")
+                :summary (str "Lists the reports, oldest first. --item keeps those on one item, --unread those not read yet.")
+                :operands (vec)
+                :flags (vec (optional "item" "<id>") (boolean-flag "unread")))
+       (->route :subcommand (subcommand/report report-command/show)
+                :words (words "report show")
+                :summary (str "Shows one report with its body.")
+                :operands (operands (vec "id"))
+                :flags (vec))
+       (->route :subcommand (subcommand/report report-command/read)
+                :words (words "report read")
+                :summary (str "Marks a report read. Reading the done report of a research or design item ends the session that sent it, if it is still live.")
+                :operands (operands (vec "id"))
+                :flags (vec))
+       (->route :subcommand (subcommand/report report-command/record)
+                :words (words "report")
+                :summary (str "Records a report from the item's live session, with its body in --text, or in --file (- reads stdin). done moves a dispatched research or design item to reported. question leaves the status as it is.")
+                :operands (operands (vec "item"))
+                :flags (vec (required "session" "<name>")
+                            (required "kind" (choices report-kind-names))
+                            (optional "text" "<text>")
+                            (optional "file" "<path|->")))))

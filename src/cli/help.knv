@@ -18,7 +18,7 @@
 (use cli/environment-variables environment-variable
                                environment-variables)
 
-(use cli/envelopes envelope)
+(use cli/schema-envelope envelope)
 (use cli/usage usage-line)
 
 (export command-help-document help-document)

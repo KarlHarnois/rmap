@@ -1,0 +1,63 @@
+(module
+  "Turns reports into the JSON objects the CLI prints: a summary in a list, and the body beside it when one report is shown or recorded.")
+
+(use json/value array int->json json object text->json)
+
+(use ledger/api case-name optional-timestamp->json report
+                report-kind-names)
+
+(use cli/report-replies report-reply)
+(use cli/ledger-json item->json)
+
+(export report-reply-fields)
+
+(type report-reply-fields
+  (fn (report-reply)
+    (vec (pair string json))))
+
+(defn report-reply-fields (reply)
+  (match reply
+    ((recorded recorded)
+     (vec (pair (str "report")
+                (report-detail->json (ref (:report recorded))))
+          (pair (str "item")
+                (item->json (ref (:item recorded))))))
+    ((listed reports)
+     (vec (pair (str "reports")
+                (array (collect (map (iter reports) report->json))))))
+    ((shown report)
+     (vec (pair (str "report")
+                (report-detail->json (ref report)))))
+    ((read report)
+     (vec (pair (str "report")
+                (report->json (ref report)))))))
+
+(defn report-detail->json (report)
+  (let (fields (summary-fields report))
+    (push! fields
+           (pair (str "body")
+                 (text->json (as-str (:body report)))))
+    (object fields)))
+
+(defn report->json (report)
+  (object (summary-fields report)))
+
+(type summary-fields
+  (fn ((ref report))
+    (vec (pair string json))))
+
+(defn summary-fields (report)
+  (vec (pair (str "id")
+             (int->json (:value (:id report))))
+       (pair (str "item")
+             (text->json (as-str (:value (:item report)))))
+       (pair (str "session")
+             (text->json (as-str (:name (:session report)))))
+       (pair (str "session_id")
+             (int->json (:value (:session-id report))))
+       (pair (str "kind")
+             (text->json (case-name report-kind-names (:kind report))))
+       (pair (str "created_at")
+             (text->json (as-str (:value (:created-at report)))))
+       (pair (str "read_at")
+             (optional-timestamp->json (ref (:read-at report))))))

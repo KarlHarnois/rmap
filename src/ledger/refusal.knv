@@ -5,6 +5,7 @@
                   status)
 
 (use ledger/model/decisions decision-status)
+(use ledger/model/reports report-id)
 
 (use ledger/names case-name decision-status-names
                   status-names)
@@ -35,7 +36,11 @@
   (not-blockable item-id)
   (decision-in-other-roadmap item-id)
   (supersede-target-not-accepted decision-id)
-  (session-busy session))
+  (session-busy session)
+  (session-not-claimant session item-id)
+  report-empty
+  (report-not-found report-id)
+  (report-already-read report-id))
 
 (defn refusal->message (failure)
   (match failure
@@ -100,4 +105,14 @@
           (:value id)
           " is neither"))
     ((session-busy session)
-     (str "a live session is already named " (:name session)))))
+     (str "a live session is already named " (:name session)))
+    ((session-not-claimant session item)
+     (str "the session "
+          (:name session)
+          " is not the live session of "
+          (:value item)))
+    (report-empty (str "a report needs a body"))
+    ((report-not-found id)
+     (str "no report has the id " (:value id)))
+    ((report-already-read id)
+     (str "the report " (:value id) " was already read"))))

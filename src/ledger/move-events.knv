@@ -12,7 +12,7 @@
 (use ledger/changes copy-change only-changed
                     payload-with-changes updated-columns)
 
-(export ->applied-move applied-move item-moved)
+(export ->applied-move applied-move item-moved move-changes)
 
 (defstruct applied-move
   :before item
@@ -28,14 +28,6 @@
                  :payload (payload-with-changes (ref (move-changes applied))
                                                 (move-context (ref (:move applied))))))
 
-(defn event-type-of (move)
-  (match move
-    ((claim _) event-type/item-claimed)
-    ((advance _) event-type/item-advanced)
-    (advance-to-build event-type/item-advanced)
-    (close event-type/item-closed)
-    ((drop _) event-type/item-dropped)))
-
 (defn move-changes (applied)
   (let (changes (only-changed (updated-columns (ref (item->columns (ref (:before
                                                                           applied))))
@@ -45,6 +37,15 @@
               (fn (change)
                 (push! changes (copy-change change))))
     changes))
+
+(defn event-type-of (move)
+  (match move
+    ((claim _) event-type/item-claimed)
+    ((advance _) event-type/item-advanced)
+    (advance-to-build event-type/item-advanced)
+    (close event-type/item-closed)
+    ((drop _) event-type/item-dropped)
+    ((report _) event-type/item-reported)))
 
 (defn move-context (move)
   (match move
