@@ -80,7 +80,7 @@
     ((decision-incomplete missing)
      (str "the proposal is incomplete: " missing))
     ((not-blockable id)
-     (str "only an open item that is not an epic can wait on a decision, and "
+     (str "only an open item or an unfinished epic can wait on a decision, and "
           (:value id)
           " is not one"))
     ((decision-in-other-roadmap id)

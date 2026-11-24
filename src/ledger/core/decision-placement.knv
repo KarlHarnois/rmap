@@ -1,9 +1,11 @@
 (module
-  "Checks the items a decision names: the item that raised it and the items it blocks.")
+  "Checks the items a decision names: the item that raised it, and the items it blocks, which are open items or unfinished epics.")
 
 (use ledger/model item kind roadmap-id status)
 (use ledger/refusal refusal)
 (use ledger/core/snapshot existing)
+(use ledger/core/index index-of with-shown-status)
+(use ledger/core/phases finished?)
 
 (export check-blocks check-raising-item)
 
@@ -15,24 +17,29 @@
     (none (ok (do)))))
 
 (defn check-blocks (snapshot roadmap-id blocks)
-  (loop (index 0)
-    (if (< index (len blocks))
-      (let-try (_ (check-block snapshot roadmap-id (at blocks index)))
-        (recur (inc index)))
-      (ok (do)))))
+  (let (statuses (index-of snapshot))
+    (loop (position 0)
+      (if (< position (len blocks))
+        (let-try (_ (check-block snapshot
+                                 (ref statuses)
+                                 roadmap-id
+                                 (at blocks position)))
+          (recur (inc position)))
+        (ok (do))))))
 
-(defn check-block (snapshot roadmap-id id)
+(defn check-block (snapshot statuses roadmap-id id)
   (let-try (found (existing snapshot id)
             _ (check-same-roadmap (ref found) roadmap-id))
-    (if (blockable? (ref found))
+    (if (blockable? (ref (with-shown-status statuses (ref found))))
       (ok (do))
       (err (refusal/not-blockable (clone id))))))
 
 (type blockable? (fn ((ref item)) bool))
 
 (defn blockable? (item)
-  (and (not= (:kind item) kind/epic)
-       (= (:status item) status/open)))
+  (if (= (:kind item) kind/epic)
+    (not (finished? (:status item)))
+    (= (:status item) status/open)))
 
 (type check-same-roadmap
   (fn ((ref item) (ref roadmap-id))

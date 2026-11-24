@@ -23,4 +23,4 @@
 
 (deftest a-not-blockable-message-names-the-item
   (assert (= (refusal->message (refusal/not-blockable (->item-id :value (str "rm-0003"))))
-             (str "only an open item that is not an epic can wait on a decision, and rm-0003 is not one"))))
+             (str "only an open item or an unfinished epic can wait on a decision, and rm-0003 is not one"))))

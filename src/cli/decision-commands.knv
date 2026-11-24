@@ -11,7 +11,7 @@
 (defn decision-routes ()
   (vec (->route :subcommand subcommand/decision-propose
                 :words (words "decision propose")
-                :summary (str "Proposes a decision for the owner to settle, read from the JSON document in --file (- reads stdin). It needs at least 2 options. description, pros and cons may be left out, and keys the document shape does not list are ignored. --item names the item that raised it, --blocks the open items that wait on it, --supersedes the accepted decision it would replace.")
+                :summary (str "Proposes a decision for the owner to settle, read from the JSON document in --file (- reads stdin). It needs at least 2 options. description, pros and cons may be left out, and keys the document shape does not list are ignored. --item names the item that raised it, --blocks the open items or unfinished epics of its roadmap that wait on it, --supersedes the accepted decision it would replace.")
                 :operands (vec)
                 :flags (vec (required "roadmap" "<name>")
                             (required "file" "<path|->")

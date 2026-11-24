@@ -133,7 +133,7 @@
     (decision-incomplete (described "decision-incomplete"
                                     "A proposal needs a title, a context, at least 2 options with titles, and a recommendation that names one of them with a reason."))
     (not-blockable (described "not-blockable"
-                              "Only an open item that is not an epic can wait on a decision."))
+                              "Only an open item or an unfinished epic can wait on a decision."))
     (decision-in-other-roadmap (described "decision-in-other-roadmap"
                                           "The item belongs to another roadmap than the decision."))
     (supersede-target-not-accepted (described "supersede-target-not-accepted"
