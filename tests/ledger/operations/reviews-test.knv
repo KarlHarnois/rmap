@@ -1,7 +1,7 @@
 (use json/value copy-of)
 
-(use ledger/api ->item-id record-review settings show-item
-                status)
+(use ledger/api ->item-id claim-item record-review settings
+                show-item status)
 
 (use ledger/model kind)
 (use ledger/model/pull-requests verdict)
@@ -12,8 +12,9 @@
 
 (use support/payloads side-text)
 
-(use support/ledger added-id all-events claimed item-draft
-                    refusal-code-of scratch-ledger)
+(use support/ledger added-id advanced all-events claim-by
+                    claimed item-draft refusal-code-of
+                    scratch-ledger)
 
 (use support/pull-requests first-head in-review-build
                            review-as reviewed second-head)
@@ -115,3 +116,32 @@
                                                           verdict/approve
                                                           first-head)))
                (some (str "item-not-found"))))))
+
+(deftest a-finished-worker-session-of-the-item-cannot-review
+  (let (settings (scratch-ledger "review-finished-worker")
+        id (added-id (ref settings) (item-draft kind/build)))
+    (unwrap-ok (claim-item (ref settings)
+                           (clone id)
+                           (claim-by "old-worker")))
+    (advanced (ref settings) (clone id) status/open)
+    (claimed (ref settings) (clone id))
+    (in-review-build (ref settings) (ref id) 12)
+    (assert (= (refusal-code-of (record-review (ref settings)
+                                               (review-as (ref id)
+                                                          "old-worker"
+                                                          verdict/approve
+                                                          first-head)))
+               (some (str "reviewer-is-worker"))))))
+
+(deftest a-worker-session-of-another-item-can-review
+  (let (settings (scratch-ledger "review-other-item-worker")
+        id (build-in-review (ref settings))
+        other (added-id (ref settings) (item-draft kind/build)))
+    (unwrap-ok (claim-item (ref settings)
+                           (clone other)
+                           (claim-by "other-item-worker")))
+    (assert (ok? (record-review (ref settings)
+                                (review-as (ref id)
+                                           "other-item-worker"
+                                           verdict/approve
+                                           first-head))))))

@@ -19,6 +19,7 @@
 (use ledger/sqlite/reviews insert-review next-review-id)
 
 (use ledger/sqlite/sessions insert-finished-session
+                            item-worker-sessions
                             next-session-id)
 
 (use ledger/sqlite/snapshot load-snapshot)
@@ -46,7 +47,11 @@
               item (existing (ref snapshot)
                              (ref (:item request)))
               before (pull-request-for connection (ref (:id item)))
-              head (approved-head (ref item) (ref before) request)
+              workers (item-worker-sessions connection (ref (:id item)))
+              head (approved-head (ref item)
+                                  (ref before)
+                                  request
+                                  (ref workers))
               stamp (review-stamp-of transaction))
       (let (review (stamped-review request head (clone stamp))
             session (review-session (ref review) (ref stamp)))

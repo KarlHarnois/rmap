@@ -1,11 +1,11 @@
 (module
-  "Reads and writes the `sessions` table: starts an item's live session, ends it, and reads it back as the item's claim.")
+  "Reads and writes the `sessions` table: starts an item's live session, ends it, reads it back as the item's claim, and lists the item's worker sessions.")
 
 (use ledger/sqlite/values int->sql optional-text->sql
                           text->sql)
 
 (use ledger/model ->session ->timestamp ->work-session claim
-                  item-id work-session)
+                  item-id session work-session)
 
 (use ledger/model/sessions finished-session session-end)
 (use ledger/model/sessions ->session-id session-id)
@@ -21,15 +21,29 @@
                         single-row text-cell)
 
 (export end-session insert-finished-session
-        live-session-columns live-session-id
-        live-session-join next-session-id row->claim
-        start-session)
+        item-worker-sessions live-session-columns
+        live-session-id live-session-join next-session-id
+        row->claim start-session)
 
 (def live-session-columns
   "sessions.name, sessions.kind, sessions.runtime, sessions.branch, sessions.base, sessions.started_at")
 
 (def live-session-join
   " LEFT JOIN sessions ON sessions.item_id = items.id AND sessions.ended_at IS NULL")
+
+(type item-worker-sessions
+  (fn ((ref connection) (ref item-id))
+    (result (vec session) database-error)))
+
+(defn item-worker-sessions (connection item)
+  (let-try (rows (query connection
+                        "SELECT name FROM sessions WHERE item_id = ?1 AND kind IN ('work', 'fix') ORDER BY id"
+                        (ref (vec (text->sql (as-str (:value item))))))
+            names (rows->values (ref rows)
+                    (fn (row) (text-cell row 0))))
+    (ok (collect (map (iter names)
+                   (fn (name)
+                     (->session :name (clone name))))))))
 
 (type start-session
   (fn ((ref connection)

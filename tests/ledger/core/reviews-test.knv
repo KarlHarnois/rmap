@@ -20,6 +20,9 @@
 
 (def second-sha "2222222222222222222222222222222222222222")
 
+(defn worker-named (name)
+  (->session :name (str name)))
+
 (defn request (head) (request-from "reviewer" head))
 
 (defn request-from (reviewer head)
@@ -61,26 +64,30 @@
 (deftest a-review-of-an-open-pull-request-is-approved
   (assert (= (approved-head (ref (build status/in-review))
                             (ref (opened))
-                            (ref (request sha)))
+                            (ref (request sha))
+                            (ref (vec)))
              (ok (->head :sha (str sha))))))
 
 (deftest a-review-of-a-build-without-a-pull-request-is-refused
   (assert (= (approved-head (ref (build status/in-review))
                             (ref none)
-                            (ref (request sha)))
+                            (ref (request sha))
+                            (ref (vec)))
              (err (refusal/pull-request
                     (pull-request-refusal/pr-not-found (->item-id :value (str "rm-0001"))))))))
 
 (deftest a-review-of-a-merged-build-is-refused
   (assert (= (approved-head (ref (build status/merged))
                             (ref (opened))
-                            (ref (request sha)))
+                            (ref (request sha))
+                            (ref (vec)))
              (err (refusal/item-closed (->item-id :value (str "rm-0001")))))))
 
 (deftest a-review-at-an-abbreviated-head-is-refused
   (assert (= (approved-head (ref (build status/in-review))
                             (ref (opened))
-                            (ref (request "1111111")))
+                            (ref (request "1111111"))
+                            (ref (vec)))
              (err (refusal/pull-request (pull-request-refusal/invalid-head (str "1111111")))))))
 
 (deftest a-stamped-review-keeps-the-request-and-the-stamp
@@ -109,7 +116,8 @@
 (deftest a-review-at-another-head-is-refused
   (assert (= (approved-head (ref (build status/in-review))
                             (ref (opened))
-                            (ref (request second-sha)))
+                            (ref (request second-sha))
+                            (ref (vec)))
              (err (refusal/pull-request (pull-request-refusal/head-not-current
                                           (->head :sha (str second-sha))
                                           (->head :sha (str sha))))))))
@@ -117,9 +125,17 @@
 (deftest a-review-by-the-items-own-worker-is-refused
   (assert (= (approved-head (ref (build status/in-review))
                             (ref (opened))
-                            (ref (request-from "worker" sha)))
+                            (ref (request-from "worker" sha))
+                            (ref (vec (worker-named "worker"))))
              (err (refusal/pull-request (pull-request-refusal/reviewer-is-worker
                                           (->session :name (str "worker"))))))))
+
+(deftest a-session-that-worked-on-another-item-may-review
+  (assert (= (approved-head (ref (build status/in-review))
+                            (ref (opened))
+                            (ref (request-from "other-item-worker" sha))
+                            (ref (vec (worker-named "worker"))))
+             (ok (->head :sha (str sha))))))
 
 (deftest a-reviewer-of-another-head-cannot-review-the-new-head
   (let (pull-request (some (opened-at
@@ -128,7 +144,8 @@
                                (review-at 1 "reviewer" sha verdict/changes)))))
     (assert (= (approved-head (ref (build status/in-review))
                               (ref pull-request)
-                              (ref (request-from "reviewer" second-sha)))
+                              (ref (request-from "reviewer" second-sha))
+                              (ref (vec)))
                (err (refusal/pull-request (pull-request-refusal/reviewer-not-fresh
                                             (->session :name (str "reviewer"))
                                             (->head :sha (str sha))
@@ -142,7 +159,8 @@
                                (review-at 1 "reviewer" sha verdict/changes)))))
     (assert (= (approved-head (ref (build status/in-review))
                               (ref pull-request)
-                              (ref (request-from "reviewer" sha)))
+                              (ref (request-from "reviewer" sha))
+                              (ref (vec)))
                (ok (->head :sha (str sha)))))))
 
 (deftest a-different-reviewer-can-review-the-new-head
@@ -152,5 +170,6 @@
                                (review-at 1 "reviewer" sha verdict/changes)))))
     (assert (= (approved-head (ref (build status/in-review))
                               (ref pull-request)
-                              (ref (request-from "other" second-sha)))
+                              (ref (request-from "other" second-sha))
+                              (ref (vec)))
                (ok (->head :sha (str second-sha)))))))
