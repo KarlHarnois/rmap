@@ -15,48 +15,67 @@
 
 (export pause-roadmap resume-roadmap)
 
+(defenum status-change
+  pause
+  resume)
+
 (defn pause-roadmap (settings name)
-  (change-status settings
-                 (as-str name)
-                 roadmap-status/paused
-                 event-type/roadmap-paused))
+  (change-status settings (as-str name) status-change/pause))
 
 (defn resume-roadmap (settings name)
-  (change-status settings
-                 (as-str name)
-                 roadmap-status/active
-                 event-type/roadmap-resumed))
+  (change-status settings (as-str name) status-change/resume))
 
-(defn change-status (settings name target type)
+(defn change-status (settings name change)
   (in-transaction settings
     (fn (transaction)
-      (apply-status-change transaction (ref name) target type))))
+      (apply-status-change transaction (ref name) change))))
 
-(defn apply-status-change (transaction name target type)
+(defn apply-status-change (transaction name change)
   (let-try (before (roadmap-required (ref (:connection transaction)) name)
-            _ (check-status-change before target))
-    (let (after (assoc (clone before) :status target))
+            _ (check-status-change before change))
+    (let (after (assoc (clone before) :status (target-status change)))
       (let-try (_ (update-roadmap-status (ref (:connection transaction))
                                          (ref after))
-                _ (record
-                    transaction
-                    (roadmap-status-changed (ref before) (ref after) type)))
+                _ (record transaction
+                          (roadmap-status-changed (ref before)
+                                                  (ref after)
+                                                  (event-type-of change))))
         (ok after)))))
 
-(type check-status-change
-  (fn ((ref roadmap) roadmap-status)
+(defn target-status (change)
+  (match change
+    (pause roadmap-status/paused)
+    (resume roadmap-status/active)))
+
+(defn event-type-of (change)
+  (match change
+    (pause event-type/roadmap-paused)
+    (resume event-type/roadmap-resumed)))
+
+(defn check-status-change (roadmap change)
+  (match change
+    (pause (check-pause roadmap))
+    (resume (check-resume roadmap))))
+
+(type check-pause
+  (fn ((ref roadmap))
     (result unit failure)))
 
-(defn check-status-change (roadmap target)
-  (cond
-    ((and (= target roadmap-status/paused)
-          (= (:status roadmap) roadmap-status/paused))
-     (err (failure/refused (refusal/roadmap-already-paused (clone (:name roadmap))))))
-    ((and (= target roadmap-status/active)
-          (not= (:status roadmap) roadmap-status/paused))
-     (err (failure/refused (refusal/roadmap-not-paused (clone (:name
-                                                                roadmap))))))
-    (else (ok (do)))))
+(defn check-pause (roadmap)
+  (if (= (:status roadmap) roadmap-status/paused)
+    (err (failure/refused (refusal/roadmap-already-paused (clone (:name
+                                                                   roadmap)))))
+    (ok (do))))
+
+(type check-resume
+  (fn ((ref roadmap))
+    (result unit failure)))
+
+(defn check-resume (roadmap)
+  (if (= (:status roadmap) roadmap-status/paused)
+    (ok (do))
+    (err (failure/refused (refusal/roadmap-not-paused (clone (:name
+                                                               roadmap)))))))
 
 (type roadmap-required
   (fn ((ref connection) (ref str))
