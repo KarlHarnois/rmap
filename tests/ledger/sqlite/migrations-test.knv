@@ -40,6 +40,11 @@ INSERT INTO items (id, roadmap_id, title, kind, status, priority, created_at) VA
   ('rm-0006', 'rm-0001', 'e', 'research', 'open', 3, 't'),
   ('rm-0007', 'rm-0001', 'f', 'research', 'open', 7, 't');")
 
+(def decision-rows
+  "INSERT INTO roadmaps (id, name, manager_session, created_at) VALUES ('rm-0001', 'road', 'm1', 't');
+INSERT INTO decisions (id, roadmap_id, title, context, recommended_option, recommendation_reason, created_at) VALUES ('rm-0005', 'rm-0001', 'q', 'c', 2, 'r', 't');
+INSERT INTO decision_options (decision_id, number, title) VALUES ('rm-0005', 1, 'a');")
+
 (defn embedded-files ()
   (let (files (collect (map (iter (migration-sources))
                          (fn (migration)
@@ -227,3 +232,28 @@ INSERT INTO items (id, roadmap_id, title, kind, status, priority, created_at) VA
   (let (connection (upgraded-from-version-three "description-null"))
     (assert (= (unwrap-ok (descriptions (ref connection)))
                (vec none none none)))))
+
+(deftest the-decisions-migration-creates-every-decisions-and-rulings-table
+  (assert (= (row-count (ref (upgraded-from-version-one "decision-tables"))
+                        "sqlite_schema WHERE type = 'table' AND name IN ('decisions', 'decision_options', 'decision_option_points', 'decision_blocks', 'rulings')")
+             5)))
+
+(deftest the-decisions-migration-gives-old-events-no-decision
+  (assert (= (row-count (ref (upgraded-from-version-one "decision-events"))
+                        "events WHERE decision_id IS NULL")
+             2)))
+
+(deftest a-recommendation-that-names-no-option-is-refused-at-commit
+  (let (connection (opened "decision-recommendation"))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    (assert (err? (run-batch (ref connection)
+                             (as-str
+                               (str "BEGIN;\n" decision-rows "\nCOMMIT;")))))))
+
+(deftest a-recommendation-that-names-an-option-is-kept
+  (let (connection (opened "decision-recommendation-kept"))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    (assert (ok? (run-batch (ref connection)
+                            (as-str (str "BEGIN;\n"
+                                         decision-rows
+                                         "\nINSERT INTO decision_options (decision_id, number, title) VALUES ('rm-0005', 2, 'b');\nCOMMIT;")))))))
