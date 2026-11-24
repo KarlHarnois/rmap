@@ -113,8 +113,13 @@
 
 (defn present-field (value key)
   (match (field value key)
-    ((some found) (if (null? (ref found)) none (some found)))
+    ((some found) (non-null found))
     (none none)))
+
+(defn non-null (value)
+  (if (null? (ref value))
+    none
+    (some value)))
 
 (defn recommendation-field (document)
   (let-try (found (ok-or (field document "recommendation")
