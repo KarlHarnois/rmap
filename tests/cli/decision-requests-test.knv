@@ -1,0 +1,98 @@
+(use ledger/api ->decision-id ->item-id decision-status
+                supersedes-change)
+
+(use cli/arguments ->arguments)
+
+(use cli/decision-requests decision-list-request
+                           decision-request
+                           decision-show-request
+                           document-source
+                           document-source-of
+                           proposal-pending revision-pending
+                           with-proposal)
+
+(use support/decisions sample-proposal)
+
+(defn no-flags ()
+  (arguments-with (the (vec (pair (ref str) (ref str)))
+                       (vec))))
+
+(defn arguments-with (flags)
+  (->arguments :words (vec)
+               :flags (collect (map (iter flags)
+                                 (fn (entry)
+                                   (let-match ((pair key value) (deref entry))
+                                     (pair (str key) (str value))))))
+               :switches (vec)))
+
+(defn proposed (flags)
+  (with-proposal (unwrap-ok (proposal-pending (ref (arguments-with flags))))
+                 (sample-proposal)))
+
+(defn decision-of (text)
+  (->decision-id :value (str text)))
+
+(deftest a-proposal-needs-a-roadmap
+  (assert (= (unwrap-err (proposal-pending (ref (no-flags))))
+             (str "--roadmap is required"))))
+
+(deftest a-proposal-reads-its-item-blocks-and-supersedes
+  (match (proposed (vec (pair "roadmap" "road")
+                        (pair "item" "rm-0001")
+                        (pair "blocks" "rm-0002,rm-0003")
+                        (pair "supersedes" "rm-d000")))
+    ((decision-request/propose draft)
+     (assert (= (:roadmap draft) (str "road")))
+     (assert (= (:item draft)
+                (some (->item-id :value (str "rm-0001")))))
+     (assert (= (:blocks draft)
+                (vec (->item-id :value (str "rm-0002"))
+                     (->item-id :value (str "rm-0003")))))
+     (assert (= (:supersedes draft)
+                (some (decision-of "rm-d000"))))
+     (assert (= (:proposal draft) (sample-proposal))))
+    (_ (assert false))))
+
+(deftest a-revision-without-supersedes-keeps-the-target
+  (match (with-proposal (revision-pending (ref (no-flags))
+                                          (str "rm-d001"))
+                        (sample-proposal))
+    ((decision-request/revise revision)
+     (assert (= (:id revision) (decision-of "rm-d001")))
+     (assert (= (:supersedes revision) supersedes-change/keep)))
+    (_ (assert false))))
+
+(deftest a-revision-with-supersedes-retargets
+  (match (with-proposal (revision-pending (ref (arguments-with (vec (pair "supersedes"
+                                                                          "rm-d009"))))
+                                          (str "rm-d001"))
+                        (sample-proposal))
+    ((decision-request/revise revision)
+     (assert (= (:supersedes revision)
+                (supersedes-change/retarget (decision-of "rm-d009")))))
+    (_ (assert false))))
+
+(deftest a-dash-file-reads-stdin
+  (assert (= (unwrap-ok (document-source-of (ref (arguments-with
+                                                   (vec (pair "file" "-"))))))
+             document-source/stdin)))
+
+(deftest a-file-path-reads-that-file
+  (assert (= (unwrap-ok (document-source-of
+                          (ref (arguments-with (vec (pair "file" "p.json"))))))
+             (document-source/file (str "p.json")))))
+
+(deftest the-list-reads-its-status
+  (match (unwrap-ok (decision-list-request
+                      (ref (arguments-with (vec (pair "status" "rejected"))))))
+    ((decision-request/list query)
+     (assert (= (:status query) (some decision-status/rejected))))
+    (_ (assert false))))
+
+(deftest the-list-refuses-an-unknown-status
+  (assert (err? (decision-list-request (ref (arguments-with (vec (pair "status"
+                                                                       "pending"))))))))
+
+(deftest show-names-the-decision
+  (assert (= (decision-show-request (str "rm-d001"))
+             (decision-request/show (decision-of "rm-d001")))))

@@ -1,0 +1,57 @@
+(use ledger/model/decisions ->recommendation)
+(use ledger/refusal refusal)
+(use ledger/core/proposals check-proposal numbered-options)
+(use support/decisions option-titled sample-proposal)
+
+(defn gap-of (proposal)
+  (match (check-proposal (ref proposal))
+    ((err (refusal/decision-incomplete gap)) (some gap))
+    (_ none)))
+
+(defn recommending (number reason)
+  (assoc (sample-proposal)
+         :recommendation (->recommendation :option number
+                                           :reason (str reason))))
+
+(deftest a-complete-proposal-passes
+  (assert (ok? (check-proposal (ref (sample-proposal))))))
+
+(deftest a-blank-title-is-incomplete
+  (assert (= (gap-of (assoc (sample-proposal) :title (str "  ")))
+             (some (str "the title is empty")))))
+
+(deftest an-empty-context-is-incomplete
+  (assert (= (gap-of (assoc (sample-proposal) :context (str "")))
+             (some (str "the context is empty")))))
+
+(deftest a-single-option-is-incomplete
+  (assert (= (gap-of (assoc (sample-proposal)
+                            :options (vec (option-titled "Postgres"))))
+             (some (str "it needs at least 2 options, got 1")))))
+
+(deftest an-untitled-option-is-incomplete
+  (assert (= (gap-of (assoc (sample-proposal)
+                            :options (vec (option-titled "Postgres")
+                                          (option-titled ""))))
+             (some (str "an option has an empty title")))))
+
+(deftest a-recommendation-past-the-last-option-is-incomplete
+  (assert (= (gap-of (recommending 3 "why"))
+             (some (str "the recommendation names option 3, but the options run from 1 to 2")))))
+
+(deftest a-recommendation-of-option-zero-is-incomplete
+  (assert (some? (gap-of (recommending 0 "why")))))
+
+(deftest a-recommendation-without-a-reason-is-incomplete
+  (assert (= (gap-of (recommending 2 " "))
+             (some (str "the recommendation gives no reason")))))
+
+(deftest options-are-numbered-from-one-in-order
+  (assert (= (-> (numbered-options (ref (:options (sample-proposal))))
+                 iter
+                 (map (fn (option)
+                        (pair (:number option)
+                              (clone (:title option)))))
+                 collect)
+             (vec (pair 1 (str "Postgres"))
+                  (pair 2 (str "Redis"))))))

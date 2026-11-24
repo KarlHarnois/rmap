@@ -1,0 +1,64 @@
+(module
+  "Holds the ledger's decisions: a question for the owner, the options it weighs and the option recommended.")
+
+(use ledger/model decision-id item-id roadmap-id timestamp)
+
+(export ->decision ->decision-option ->option-draft
+        ->outcome ->proposal ->recommendation decision
+        decision-option decision-status option-draft outcome
+        proposal recommendation)
+
+(defstruct proposal
+  :title string
+  :context string
+  :options (vec option-draft)
+  :recommendation recommendation)
+
+(defstruct option-draft
+  :title string
+  :description string
+  :pros (vec string)
+  :cons (vec string))
+
+(defstruct recommendation
+  :option int
+  :reason string)
+
+(defstruct decision
+  :id decision-id
+  :roadmap-id roadmap-id
+  :roadmap-name string
+  :item (option item-id)
+  :title string
+  :context string
+  :status decision-status
+  :options (vec decision-option)
+  :recommendation recommendation
+  :outcome (option outcome)
+  :deprecation-reason (option string)
+  :supersedes (option decision-id)
+  :superseded-by (option decision-id)
+  :blocks (vec item-id)
+  :asked-at (option timestamp)
+  :created-at timestamp)
+
+(defenum decision-status
+  proposed
+  accepted
+  rejected
+  deprecated
+  superseded)
+
+(defstruct decision-option
+  :number int
+  :title string
+  :description string
+  :pros (vec string)
+  :cons (vec string))
+
+(defstruct outcome
+  :option (option int)
+  :justification string
+  :consequences (option string)
+  :decided-by string
+  :decided-at timestamp)

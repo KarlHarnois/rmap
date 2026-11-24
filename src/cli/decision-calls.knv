@@ -1,0 +1,25 @@
+(module
+  "Calls the ledger for each decision request and names the reply it gives.")
+
+(use ledger/api list-decisions propose-decision
+                revise-decision show-decision)
+
+(use cli/decision-requests decision-request)
+(use cli/replies reply)
+
+(export perform-decision)
+
+(defn perform-decision (settings request)
+  (match request
+    ((decision-request/propose draft)
+     (map-ok (propose-decision settings draft)
+       (fn (decision) (reply/decision-proposed decision))))
+    ((decision-request/revise revision)
+     (map-ok (revise-decision settings revision)
+       (fn (decision) (reply/decision-revised decision))))
+    ((decision-request/show id)
+     (map-ok (show-decision settings id)
+       (fn (decision) (reply/decision-shown decision))))
+    ((decision-request/list query)
+     (map-ok (list-decisions settings query)
+       (fn (decisions) (reply/decisions-listed decisions))))))

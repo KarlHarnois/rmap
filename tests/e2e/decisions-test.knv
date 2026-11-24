@@ -1,0 +1,145 @@
+(use json/value field json->int json->items json->source
+                json->text null?)
+
+(use support/rmap database-with-roadmap error-code run-rmap
+                  run-rmap-text run-rmap-with-stdin text-at)
+
+(use support/scratch scratch-database)
+
+(def write-file
+  (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
+    (fn ((ref str) (ref str))
+      (result unit string))))
+
+(def proposal
+  "{\"title\": \"Where do sessions live?\", \"context\": \"Sessions must survive a restart.\", \"options\": [{\"title\": \"Postgres\", \"description\": \"Keep them in the main database.\", \"pros\": [\"One store to run\"], \"cons\": [\"More load\"]}, {\"title\": \"Redis\", \"pros\": [\"Fast\"]}], \"recommendation\": {\"option\": 1, \"reason\": \"Postgres already runs.\"}}")
+
+(defn proposed-id (database name)
+  (let (reply (propose database name
+                       (the (vec string) (vec))))
+    (assert (= (:exit-code reply) 0))
+    (text-at (ref reply) "decision" "id")))
+
+(defn propose (database name extra)
+  (let (args (vec (str "decision")
+                  (str "propose")
+                  (str "--roadmap")
+                  (str "road")
+                  (str "--file")
+                  (document-file name proposal)))
+    (for-each extra
+      (fn (arg) (push! args (str arg))))
+    (run-rmap (clone database) args)))
+
+(defn document-file (name text)
+  (let (path (str (scratch-database name) ".json"))
+    (unwrap-ok (write-file (as-str path) text))
+    path))
+
+(defn shown (database id)
+  (let (reply (run-rmap (clone database)
+                        (vec "decision" "show" (as-str id))))
+    (assert (= (:exit-code reply) 0))
+    reply))
+
+(defn decision-field (reply key)
+  (-> (:json reply)
+      (field "decision")
+      unwrap
+      (field key)
+      unwrap))
+
+(deftest a-proposal-from-a-file-is-stored-as-proposed
+  (let (database (database-with-roadmap "e2e-decision-file")
+        reply (shown (ref database)
+                     (proposed-id (ref database) "e2e-decision-file-doc")))
+    (assert (= (text-at (ref reply) "decision" "status")
+               (str "proposed")))
+    (assert (= (text-at (ref reply) "decision" "roadmap")
+               (str "road")))
+    (assert (= (-> (decision-field (ref reply) "options")
+                   json->items unwrap len)
+               2))
+    (assert (= (-> (decision-field (ref reply) "recommendation")
+                   (field "option")
+                   unwrap json->int)
+               (some 1)))
+    (assert (null? (ref (decision-field (ref reply) "outcome"))))))
+
+(deftest a-proposal-reads-from-stdin
+  (let (database (database-with-roadmap "e2e-decision-stdin")
+        reply (run-rmap-with-stdin (clone database)
+                                   (vec (str "decision")
+                                        (str "propose")
+                                        (str "--roadmap")
+                                        (str "road")
+                                        (str "--file")
+                                        (str "-"))
+                                   (str proposal)))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (text-at (ref reply) "decision" "title")
+               (str "Where do sessions live?")))))
+
+(deftest the-shown-json-revises-the-decision-unchanged
+  (let (database (database-with-roadmap "e2e-decision-round-trip")
+        id (proposed-id (ref database) "e2e-decision-round-trip-doc")
+        before (shown (ref database) (ref id))
+        path (document-file "e2e-decision-round-trip-shown"
+                            (as-str (json->source (ref (:json before)))))
+        revised (run-rmap
+                  (clone database)
+                  (vec "decision" "revise" (as-str id) "--file" (as-str path)))
+        after (shown (ref database) (ref id)))
+    (assert (= (:exit-code revised) 0))
+    (assert (= (json->source (ref (:json before)))
+               (json->source (ref (:json after)))))))
+
+(deftest a-malformed-document-is-a-usage-error
+  (let (database (database-with-roadmap "e2e-decision-malformed")
+        reply (run-rmap (clone database)
+                        (vec "decision" "propose"
+                             "--roadmap" "road" "--file"
+                             (as-str (document-file "e2e-decision-malformed-doc"
+                                                    "{\"title\": 1")))))
+    (assert (= (:exit-code reply) 2))
+    (assert (= (error-code (ref reply))
+               (str "usage")))))
+
+(deftest an-incomplete-proposal-is-refused
+  (let (database (database-with-roadmap "e2e-decision-incomplete")
+        reply (run-rmap (clone database)
+                        (vec "decision" "propose"
+                             "--roadmap" "road" "--file"
+                             (as-str (document-file
+                                       "e2e-decision-incomplete-doc"
+                                       "{\"title\": \"t\", \"context\": \"c\", \"options\": [{\"title\": \"only\"}], \"recommendation\": {\"option\": 1, \"reason\": \"r\"}}")))))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "decision-incomplete")))))
+
+(deftest the-log-narrows-to-a-decision
+  (let (database (database-with-roadmap "e2e-decision-log")
+        id (proposed-id (ref database) "e2e-decision-log-doc")
+        reply (run-rmap (clone database)
+                        (vec "log" "--decision" (as-str id)))
+        events (-> (:json reply)
+                   (field "events")
+                   unwrap json->items unwrap))
+    (assert (= (len events) 1))
+    (assert (= (json->text (unwrap (field (unwrap (first events))
+                                          "decision_id")))
+               (some id)))))
+
+(deftest the-list-prints-a-table
+  (let (database (database-with-roadmap "e2e-decision-list")
+        id (proposed-id (ref database) "e2e-decision-list-doc")
+        output (run-rmap-text (vec "--db" (as-str database) "decision" "list")))
+    (assert (= (:code output) 0))
+    (assert (contains? (:stdout output)
+                       "ID       ROADMAP  STATUS    ASKED  TITLE"))
+    (assert (contains? (:stdout output) (as-str id)))))
+
+(deftest propose-help-shows-the-document-shape
+  (let (output (run-rmap-text (vec "decision" "propose" "--help")))
+    (assert (= (:code output) 0))
+    (assert (contains? (:stdout output) "Document:"))))

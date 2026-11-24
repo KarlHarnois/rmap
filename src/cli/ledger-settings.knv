@@ -1,0 +1,38 @@
+(module
+  "Builds the settings a ledger call runs with: the database path, the clock and the actor from the flags or the environment.")
+
+(use ledger/api ->settings clock default-database-path
+                failure settings)
+
+(use cli/ledger-calls ledger-call)
+(use process/environment variable)
+(use cli/environment-variables actor-variable user-variable)
+
+(export settings-for)
+
+(type settings-for
+  (fn ((ref ledger-call))
+    (result settings failure)))
+
+(defn settings-for (call)
+  (let-try (path (database-path (ref (:database call))))
+    (ok (->settings :database-path path
+                    :clock clock/system
+                    :actor (actor-for (ref (:actor call)))))))
+
+(defn actor-for (given)
+  (match given
+    ((some actor) (clone actor))
+    (none (unwrap-or (or-else (variable actor-variable)
+                              (variable user-variable))
+                     (str "unknown")))))
+
+(defn or-else (first-choice second-choice)
+  (match first-choice
+    ((some value) (some value))
+    (none second-choice)))
+
+(defn database-path (database)
+  (match database
+    ((some path) (ok (clone path)))
+    (none (default-database-path))))

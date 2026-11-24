@@ -1,0 +1,27 @@
+(module
+  "Reads the proposal document a decision command names, from a file or from standard input.")
+
+(use json/value parse-json)
+(use cli/decision-requests document-source)
+(use cli/proposal-json json->proposal)
+
+(export read-proposal)
+
+(defn read-proposal (source)
+  (let-try (text (document-text source)
+            document (map-err (parse-json (as-str text))
+                       (fn (failure)
+                         (str "the proposal is not valid JSON: "
+                              (:cause failure)))))
+    (json->proposal (ref document))))
+
+(defn document-text (source)
+  (match source
+    ((document-source/file path)
+     (map-err (slurp path)
+       (fn (cause)
+         (str "could not read the proposal file " path ": " cause))))
+    (document-source/stdin (map-err (slurp stdin)
+                             (fn (cause)
+                               (str "could not read the proposal from stdin: "
+                                    cause))))))

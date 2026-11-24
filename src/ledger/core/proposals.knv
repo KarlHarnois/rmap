@@ -1,0 +1,65 @@
+(module
+  "Checks that a proposal is complete enough to put to the owner, and numbers its options.")
+
+(use ledger/model/decisions ->decision-option
+                            decision-option option-draft
+                            proposal)
+
+(use ledger/refusal refusal)
+
+(export check-proposal numbered-options)
+
+(def fewest-options 2)
+
+(defn check-proposal (proposal)
+  (match (first-gap proposal)
+    ((some gap) (err (refusal/decision-incomplete gap)))
+    (none (ok (do)))))
+
+(defn numbered-options (drafts)
+  (collect (map (range 0 (len drafts))
+             (fn (index)
+               (numbered (at drafts index) (inc index))))))
+
+(type first-gap
+  (fn ((ref proposal)) (option string)))
+
+(defn first-gap (proposal)
+  (let (option-count (len (:options proposal))
+        chosen (:option (:recommendation proposal)))
+    (cond
+      ((blank? (:title proposal))
+       (some (str "the title is empty")))
+      ((blank? (:context proposal))
+       (some (str "the context is empty")))
+      ((< option-count fewest-options)
+       (some (str "it needs at least " fewest-options
+                  " options, got " option-count)))
+      ((any? (iter (:options proposal)) untitled?)
+       (some (str "an option has an empty title")))
+      ((or (< chosen 1) (> chosen option-count))
+       (some (str "the recommendation names option " chosen
+                  ", but the options run from 1 to "
+                  option-count)))
+      ((blank? (:reason (:recommendation proposal)))
+       (some (str "the recommendation gives no reason")))
+      (else none))))
+
+(type untitled?
+  (fn ((ref option-draft)) bool))
+
+(defn untitled? (draft)
+  (blank? (:title draft)))
+
+(defn blank? (text)
+  (empty? (trim (as-str text))))
+
+(type numbered
+  (fn ((ref option-draft) int) decision-option))
+
+(defn numbered (draft number)
+  (->decision-option :number number
+                     :title (clone (:title draft))
+                     :description (clone (:description draft))
+                     :pros (clone (:pros draft))
+                     :cons (clone (:cons draft))))

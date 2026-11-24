@@ -60,8 +60,8 @@ jobs:
           fi
       - name: Keep the ledger core pure
         run: |
-          if grep -rn '^(use ' src/ledger/core | grep -vE ':\(use ledger/(model|names|refusal|core/[a-z/-]+)[ )]'; then
-            echo "src/ledger/core may import only ledger/model, ledger/names, ledger/refusal and other core modules: the core stays pure."
+          if grep -rn '^(use ' src/ledger/core | grep -vE ':\(use ledger/(model(/[a-z-]+)?|names|refusal|core/[a-z/-]+)[ )]'; then
+            echo "src/ledger/core may import only ledger/model and its modules, ledger/names, ledger/refusal and other core modules: the core stays pure."
             exit 1
           fi
       - name: Keep committed migrations unchanged

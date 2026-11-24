@@ -1,5 +1,5 @@
 (use json/value copy-of field json->bool json->items
-                json->text)
+                json->text null?)
 
 (use cli/help command-help-document help-document)
 (use cli/routes route-name)
@@ -43,6 +43,17 @@
              (unwrap (json->text (unwrap (field variable "name"))))))
       collect))
 
+(defn command-document (name)
+  (-> (help-document)
+      (field "commands")
+      unwrap json->items unwrap iter
+      (find (fn (command)
+              (= (json->text (unwrap (field command "command")))
+                 (some (str name)))))
+      unwrap
+      (field "document")
+      unwrap))
+
 (deftest a-boolean-flag-keeps-a-text-value-and-says-it-is-boolean
   (let (spec (global-flag "json"))
     (assert (= (json->text (unwrap (field (ref spec) "value")))
@@ -74,3 +85,9 @@
              (vec (str "RMAP_JSON")
                   (str "RMAP_ACTOR")
                   (str "USER")))))
+
+(deftest the-json-help-gives-decision-revise-the-document-shape
+  (assert (some? (field (ref (command-document "decision revise")) "options"))))
+
+(deftest the-json-help-gives-other-commands-a-null-document
+  (assert (null? (ref (command-document "item add")))))

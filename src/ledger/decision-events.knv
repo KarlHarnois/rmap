@@ -1,0 +1,63 @@
+(module
+  "Describes each change to a decision as an event to record.")
+
+(use json/value array json object)
+(use ledger/model/decisions decision)
+
+(use ledger/model/events ->event-draft event-draft
+                         event-type)
+
+(use ledger/json-values ids->json)
+
+(use ledger/decision-columns decision->columns
+                             options->json)
+
+(use ledger/changes inserted-columns only-changed
+                    payload-with-changes updated-columns)
+
+(export decision-proposed decision-revised)
+
+(defn decision-proposed (decision)
+  (decision-event decision event-type/decision-proposed
+                  (payload-with-changes
+                    (ref (inserted-columns (ref (decision->columns decision))))
+                    (vec (old-and-new "options"
+                                      (array (vec))
+                                      (options->json (ref (:options decision))))
+                         (old-and-new "blocks"
+                                      (array (vec))
+                                      (ids->json (ref (:blocks decision))))))))
+
+(defn decision-revised (before after)
+  (decision-event after event-type/decision-revised
+                  (payload-with-changes
+                    (ref (only-changed (updated-columns
+                                         (ref (decision->columns before))
+                                         (ref (decision->columns after)))))
+                    (option-changes before after))))
+
+(type option-changes
+  (fn ((ref decision) (ref decision))
+    (vec (pair string json))))
+
+(defn option-changes (before after)
+  (if (= (:options before) (:options after))
+    (vec)
+    (vec (old-and-new "options"
+                      (options->json (ref (:options before)))
+                      (options->json (ref (:options after)))))))
+
+(type decision-event
+  (fn ((ref decision) event-type json) event-draft))
+
+(defn decision-event (decision type payload)
+  (->event-draft :roadmap-id (some (clone (:roadmap-id decision)))
+                 :item-id (clone (:item decision))
+                 :decision-id (some (clone (:id decision)))
+                 :type type
+                 :payload payload))
+
+(defn old-and-new (key old new)
+  (pair (str key)
+        (object (vec (pair (str "old") old)
+                     (pair (str "new") new)))))

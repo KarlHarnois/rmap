@@ -1,4 +1,6 @@
 (use ledger/refusal refusal refusal->message)
+(use ledger/model ->decision-id ->item-id)
+(use ledger/model/decisions decision-status)
 
 (deftest a-priority-below-zero-message-names-the-range-and-the-value
   (assert (= (refusal->message (refusal/priority-out-of-range -1))
@@ -8,3 +10,17 @@
 (deftest a-priority-above-four-message-names-the-range-and-the-value
   (assert (= (refusal->message (refusal/priority-out-of-range 5))
              (str "a priority must be from 0 (highest) to 4 (lowest), got 5"))))
+
+(deftest a-frozen-decision-message-names-its-status
+  (assert (= (refusal->message (refusal/decision-frozen
+                                 (->decision-id :value (str "rm-0002"))
+                                 decision-status/rejected))
+             (str "the decision rm-0002 is rejected, and only a proposed decision can change"))))
+
+(deftest an-incomplete-proposal-message-names-the-gap
+  (assert (= (refusal->message (refusal/decision-incomplete (str "the context is empty")))
+             (str "the proposal is incomplete: the context is empty"))))
+
+(deftest a-not-blockable-message-names-the-item
+  (assert (= (refusal->message (refusal/not-blockable (->item-id :value (str "rm-0003"))))
+             (str "only an open item or an unfinished epic can wait on a decision, and rm-0003 is not one"))))

@@ -1,5 +1,5 @@
 (use json/value array json object text->json)
-(use ledger/model ->roadmap-id ->timestamp)
+(use ledger/model ->decision-id ->roadmap-id ->timestamp)
 (use ledger/model/events ->event event-type)
 (use cli/event-text events-text)
 (use support/items id-of)
@@ -13,6 +13,7 @@
            :actor (str "ana")
            :roadmap-id (some (->roadmap-id :value (str "rm-0a0a")))
            :item-id (some (id-of "rm-0001"))
+           :decision-id none
            :type event-type/item-claimed
            :payload payload))
 
@@ -95,3 +96,22 @@
     (assert (= (events-text (ref (vec (claim-event payload))))
                (lines (vec (header)
                            "4   2026-01-01T00:00:00Z  ana    item-claimed  rm-0a0a  rm-0001  status=open->dropped reason=obsolete"))))))
+
+(deftest a-decision-event-names-its-decision-first
+  (let (event (assoc (claim-event
+                       (set-changes-payload
+                         (vec (change "title" json/null (text->json "q")))))
+                     :decision-id (some (->decision-id :value (str
+                                                                "rm-d001")))))
+    (assert (= (events-text (ref (vec event)))
+               (lines (vec (header)
+                           "4   2026-01-01T00:00:00Z  ana    item-claimed  rm-0a0a  rm-0001  decision=rm-d001 title=-->q"))))))
+
+(deftest a-context-key-with-old-and-new-prints-as-a-change
+  (let (payload (object (vec (change "blocks"
+                                     (array (vec))
+                                     (array (vec (text->json "rm-0002"))))
+                             (pair (str "changes") (object (vec))))))
+    (assert (= (events-text (ref (vec (claim-event payload))))
+               (lines (vec (header)
+                           "4   2026-01-01T00:00:00Z  ana    item-claimed  rm-0a0a  rm-0001  blocks=[]->[\"rm-0002\"]"))))))

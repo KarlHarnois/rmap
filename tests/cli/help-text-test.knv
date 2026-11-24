@@ -22,3 +22,12 @@
 (deftest help-lists-the-environment-variables
   (assert (contains? (as-str (help-text))
                      "Environment:\n  RMAP_JSON   Set to 1 to print JSON")))
+
+(deftest decision-propose-help-shows-the-document-shape
+  (let (text (command-help-text (routes-named "decision propose")))
+    (assert (contains? (as-str text) "Document:"))
+    (assert (contains? (as-str text) "\"recommendation\": {"))))
+
+(deftest commands-without-a-document-show-no-document
+  (assert (not (contains? (as-str (command-help-text (routes-named "item add")))
+                          "Document:"))))

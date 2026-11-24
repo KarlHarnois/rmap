@@ -1,0 +1,95 @@
+(module
+  "Names each decision request the CLI can make, builds it from the command line, and completes a proposal or revision once its document is read.")
+
+(use ledger/api ->decision-id ->decision-query
+                ->decision-revision ->item-id ->new-decision
+                decision-id decision-query decision-revision
+                decision-status-names item-id new-decision
+                proposal supersedes-change)
+
+(use cli/flags id-list optional-choice optional-text
+               required-text)
+
+(export decision-list-request decision-request
+        decision-show-request document-source
+        document-source-of pending-decision proposal-pending
+        revision-pending text->decision-id with-proposal)
+
+(defenum decision-request
+  (propose new-decision)
+  (revise decision-revision)
+  (show decision-id)
+  (list decision-query))
+
+(defenum document-source
+  (file string)
+  stdin)
+
+(defenum pending-decision
+  (propose placement)
+  (revise decision-id supersedes-change))
+
+(defstruct placement
+  :roadmap string
+  :item (option item-id)
+  :blocks (vec item-id)
+  :supersedes (option decision-id))
+
+(defn proposal-pending (arguments)
+  (let-try (roadmap (required-text arguments "roadmap"))
+    (ok (pending-decision/propose
+          (->placement
+            :roadmap roadmap
+            :item (map-some (optional-text arguments "item") text->item-id)
+            :blocks (id-list arguments "blocks")
+            :supersedes (map-some (optional-text arguments "supersedes")
+                                  text->decision-id))))))
+
+(defn revision-pending (arguments id)
+  (pending-decision/revise (text->decision-id id)
+                           (supersedes-change-of (optional-text arguments
+                                                                "supersedes"))))
+
+(defn decision-show-request (id)
+  (decision-request/show (text->decision-id id)))
+
+(defn decision-list-request (arguments)
+  (let-try (status (optional-choice arguments "status" decision-status-names))
+    (ok (decision-request/list
+          (->decision-query :roadmap (optional-text arguments "roadmap")
+                            :status status
+                            :item (map-some (optional-text arguments "item")
+                                            text->item-id))))))
+
+(type with-proposal
+  (fn (pending-decision proposal) decision-request))
+
+(defn with-proposal (pending proposal)
+  (match pending
+    ((propose placement)
+     (decision-request/propose (->new-decision
+                                 :roadmap (clone (:roadmap placement))
+                                 :item (clone (:item placement))
+                                 :blocks (clone (:blocks placement))
+                                 :supersedes (clone (:supersedes placement))
+                                 :proposal proposal)))
+    ((revise id change)
+     (decision-request/revise (->decision-revision :id id
+                                                   :proposal proposal
+                                                   :supersedes change)))))
+
+(defn text->decision-id (text) (->decision-id :value text))
+
+(defn document-source-of (arguments)
+  (let-try (path (required-text arguments "file"))
+    (ok (if (= (as-str path) "-")
+          document-source/stdin
+          (document-source/file path)))))
+
+(defn supersedes-change-of (target)
+  (match target
+    ((some id)
+     (supersedes-change/retarget (text->decision-id id)))
+    (none supersedes-change/keep)))
+
+(defn text->item-id (text) (->item-id :value text))

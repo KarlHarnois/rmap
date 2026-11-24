@@ -1,9 +1,10 @@
 (use ledger/api ->item-edit close-item description-input
                 edit-item event-type failure-code kind
-                read-log show-item)
+                show-item)
 
-(use support/ledger added-id item-draft refusal-code-of
-                    reported-research scratch-ledger)
+(use support/ledger added-id all-events item-draft
+                    refusal-code-of reported-research
+                    scratch-ledger)
 
 (defn edit (title priority description)
   (->item-edit :title title
@@ -14,7 +15,7 @@
   (clone (:item (unwrap-ok (show-item (ref settings) id)))))
 
 (defn events (settings)
-  (unwrap-ok (read-log (ref settings) none 0)))
+  (unwrap-ok (all-events (ref settings))))
 
 (deftest an-edit-changes-title-priority-and-description
   (let (settings (scratch-ledger "edit-fields")

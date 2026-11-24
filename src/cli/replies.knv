@@ -1,9 +1,9 @@
 (module
   "Names each result a ledger call hands back to the CLI.")
 
-(use ledger/api batch dep event graph-source init-report
-                item item-detail next-item readiness
-                roadmap)
+(use ledger/api batch decision dep event graph-source
+                init-report item item-detail next-item
+                readiness roadmap)
 
 (export reply)
 
@@ -22,4 +22,8 @@
   (item-shown item-detail)
   (dep-added dep)
   (dep-removed dep)
-  (graph-drawn graph-source))
+  (graph-drawn graph-source)
+  (decision-proposed decision)
+  (decision-revised decision)
+  (decision-shown decision)
+  (decisions-listed (vec decision)))

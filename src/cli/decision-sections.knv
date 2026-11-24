@@ -1,0 +1,112 @@
+(module
+  "Writes the sections of a decision's detail: its context, its options with their pros and cons, the recommendation and the outcome.")
+
+(use ledger/api decision decision-option)
+(use cli/tables indented)
+
+(export context-section options-section outcome-section
+        recommendation-section)
+
+(def option-body-indent "   ")
+
+(type context-section
+  (fn ((ref decision)) string))
+
+(defn context-section (decision)
+  (section "Context" (clone (:context decision))))
+
+(type options-section
+  (fn ((ref decision)) string))
+
+(defn options-section (decision)
+  (section "Options"
+           (join (collect (map (iter (:options decision)) option-text))
+                 "\n")))
+
+(type recommendation-section
+  (fn ((ref decision)) string))
+
+(defn recommendation-section (decision)
+  (let (recommendation (ref (:recommendation decision)))
+    (section "Recommendation"
+             (str "Option "
+                  (:option recommendation)
+                  (option-title decision (:option recommendation))
+                  "\n"
+                  (:reason recommendation)))))
+
+(defn outcome-section (decision)
+  (let (lines (vec (outcome-text decision)))
+    (match (ref (:deprecation-reason decision))
+      ((some reason) (push! lines (str "Deprecated: " reason)))
+      (none (do)))
+    (section "Outcome" (join lines "\n"))))
+
+(defn section (title body)
+  (str title ":\n" (indented body)))
+
+(type option-text
+  (fn ((ref decision-option)) string))
+
+(defn option-text (option)
+  (let (lines (vec))
+    (when (not (empty? (trim (as-str (:description option)))))
+      (push! lines (clone (:description option))))
+    (for-each (:pros option)
+      (fn (pro) (push! lines (str "+ " pro))))
+    (for-each (:cons option)
+      (fn (con) (push! lines (str "- " con))))
+    (if (empty? lines)
+      (str (:number option) ". " (:title option))
+      (str (:number option)
+           ". "
+           (:title option)
+           "\n"
+           (under-title (join lines "\n"))))))
+
+(defn under-title (text)
+  (join (collect (map (lines (as-str text))
+                   (fn (line) (str option-body-indent line))))
+        "\n"))
+
+(type outcome-text
+  (fn ((ref decision)) string))
+
+(defn outcome-text (decision)
+  (match (ref (:outcome decision))
+    ((some outcome) (decided-text decision outcome))
+    (none (str "Not decided yet."))))
+
+(defn decided-text (decision outcome)
+  (let (lines (vec (str "Decided by "
+                        (:decided-by outcome)
+                        " at "
+                        (:value (:decided-at outcome)))
+                   (chosen-text decision (ref (:option outcome)))
+                   (str "Justification: " (:justification outcome))))
+    (match (ref (:consequences outcome))
+      ((some consequences)
+       (push! lines (str "Consequences: " consequences)))
+      (none (do)))
+    (join lines "\n")))
+
+(type chosen-text
+  (fn ((ref decision) (ref (option int)))
+    string))
+
+(defn chosen-text (decision chosen)
+  (match chosen
+    ((some number)
+     (str "Chose option " number
+          (option-title decision (deref number))))
+    (none (str "Chose no option."))))
+
+(type option-title
+  (fn ((ref decision) int) string))
+
+(defn option-title (decision number)
+  (match (find (iter (:options decision))
+           (fn (option)
+             (= (:number option) number)))
+    ((some option) (str ": " (:title option)))
+    (none (str ""))))

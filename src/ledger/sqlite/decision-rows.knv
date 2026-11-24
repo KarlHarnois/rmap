@@ -1,0 +1,78 @@
+(module
+  "Selects decisions with their roadmap's name and their successor, and turns each row into a decision with its options and blocked items.")
+
+(use ledger/model ->decision-id ->item-id ->roadmap-id
+                  ->timestamp)
+
+(use ledger/model/decisions ->decision ->outcome
+                            ->recommendation)
+
+(use ledger/names decision-status-names)
+
+(use ledger/sqlite/rows int-cell named-cell
+                        optional-int-cell optional-text-cell
+                        text-cell)
+
+(use ledger/sqlite/decision-options options-of)
+(use ledger/sqlite/decision-blocks blocks-of)
+
+(export row->decision selected-columns)
+
+(def selected-columns
+  "SELECT d.id, d.roadmap_id, r.name, d.item_id, d.title, d.context, d.status, d.recommended_option, d.recommendation_reason, d.chosen_option, d.justification, d.consequences, d.deprecation_reason, d.supersedes_id, d.asked_at, d.decided_by, d.decided_at, d.created_at, (SELECT s.id FROM decisions s WHERE s.supersedes_id = d.id AND s.status IN ('accepted', 'deprecated', 'superseded') ORDER BY s.decided_at, s.id LIMIT 1) FROM decisions d JOIN roadmaps r ON r.id = d.roadmap_id")
+
+(defn row->decision (connection row)
+  (let-try (id (map-ok (text-cell row 0)
+                 (fn (value) (->decision-id :value value)))
+            roadmap-id (text-cell row 1)
+            roadmap-name (text-cell row 2)
+            item (optional-text-cell row 3)
+            title (text-cell row 4)
+            context (text-cell row 5)
+            status (named-cell row 6 decision-status-names)
+            recommended (int-cell row 7)
+            reason (text-cell row 8)
+            outcome (row->outcome row)
+            deprecation-reason (optional-text-cell row 12)
+            supersedes (optional-text-cell row 13)
+            asked-at (optional-text-cell row 14)
+            created-at (text-cell row 17)
+            superseded-by (optional-text-cell row 18)
+            options (options-of connection (ref id))
+            blocks (blocks-of connection (ref id)))
+    (ok (->decision :id id
+                    :roadmap-id (->roadmap-id :value roadmap-id)
+                    :roadmap-name roadmap-name
+                    :item (map-some item
+                            (fn (value) (->item-id :value value)))
+                    :title title
+                    :context context
+                    :status status
+                    :options options
+                    :recommendation (->recommendation :option recommended
+                                                      :reason reason)
+                    :outcome outcome
+                    :deprecation-reason deprecation-reason
+                    :supersedes (map-some supersedes text->decision-id)
+                    :superseded-by (map-some superseded-by text->decision-id)
+                    :blocks blocks
+                    :asked-at (map-some asked-at
+                                (fn (value) (->timestamp :value value)))
+                    :created-at (->timestamp :value created-at)))))
+
+(defn row->outcome (row)
+  (let-try (chosen (optional-int-cell row 9)
+            justification (optional-text-cell row 10)
+            consequences (optional-text-cell row 11)
+            decided-by (optional-text-cell row 15)
+            decided-at (optional-text-cell row 16))
+    (ok (map-some decided-at
+          (fn (at)
+            (->outcome :option chosen
+                       :justification (unwrap-or (clone justification) (str ""))
+                       :consequences (clone consequences)
+                       :decided-by (unwrap-or (clone decided-by) (str ""))
+                       :decided-at (->timestamp :value at)))))))
+
+(defn text->decision-id (value)
+  (->decision-id :value value))

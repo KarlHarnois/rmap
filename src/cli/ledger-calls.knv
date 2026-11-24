@@ -1,0 +1,43 @@
+(module
+  "Names a call the CLI makes to the ledger, with the database and actor it runs as, and the call that waits on a proposal document.")
+
+(use ledger/api proposal)
+(use cli/requests request)
+(use cli/flags optional-text)
+
+(use cli/decision-requests document-source pending-decision
+                           with-proposal)
+
+(export document-call document-call->ledger-call
+        document-call-of ledger-call ledger-call-of)
+
+(defstruct ledger-call
+  :database (option string)
+  :actor (option string)
+  :request request)
+
+(defstruct document-call
+  :database (option string)
+  :actor (option string)
+  :source document-source
+  :pending pending-decision)
+
+(defn ledger-call-of (arguments request)
+  (->ledger-call :database (optional-text arguments "db")
+                 :actor (optional-text arguments "actor")
+                 :request request))
+
+(defn document-call-of (arguments source pending)
+  (->document-call :database (optional-text arguments "db")
+                   :actor (optional-text arguments "actor")
+                   :source source
+                   :pending pending))
+
+(type document-call->ledger-call
+  (fn (document-call proposal) ledger-call))
+
+(defn document-call->ledger-call (call proposal)
+  (->ledger-call :database (clone (:database call))
+                 :actor (clone (:actor call))
+                 :request (request/decision
+                            (with-proposal (clone (:pending call)) proposal))))

@@ -1,0 +1,63 @@
+(use ledger/model ->timestamp)
+(use ledger/model/decisions ->outcome decision-status)
+
+(use cli/decision-text decision-detail-text
+                       decision-proposed-text
+                       decisions-text)
+
+(use support/decisions sample-decision)
+(use support/items id-of)
+
+(defn proposed ()
+  (sample-decision decision-status/proposed))
+
+(defn lines (texts) (join texts "\n"))
+
+(deftest a-proposal-names-its-id-roadmap-and-title
+  (assert (= (decision-proposed-text (ref (proposed)))
+             (str "Proposed rm-d001 in road: Where do sessions live?"))))
+
+(deftest no-decisions-print-a-sentence
+  (assert (= (decisions-text (ref (vec)))
+             (str "No decisions."))))
+
+(deftest the-list-shows-id-roadmap-status-asked-and-title
+  (assert (= (decisions-text (ref (vec (proposed))))
+             (lines (vec "ID       ROADMAP  STATUS    ASKED  TITLE"
+                         "rm-d001  road     proposed  -      Where do sessions live?")))))
+
+(deftest the-detail-shows-each-section
+  (assert
+    (= (decision-detail-text (ref (assoc (proposed)
+                                         :blocks (vec (id-of "rm-0002")))))
+       (lines
+         (vec
+           "rm-d001  Where do sessions live?"
+           "  roadmap        road"
+           "  status         proposed" "  raised by      -"
+           "  blocks         rm-0002" "  supersedes     -"
+           "  superseded by  -" "  asked          -"
+           "  created        2026-01-01T00:00:00Z" ""
+           "Context:" "  Sessions must survive a restart."
+           "" "Options:" "  1. Postgres"
+           "     Keep them in the main database."
+           "     + One store to run" "     - More load"
+           "  2. Redis" "" "Recommendation:"
+           "  Option 1: Postgres" "  Postgres already runs."
+           "" "Outcome:" "  Not decided yet.")))))
+
+(deftest a-decided-outcome-shows-who-chose-what-and-why
+  (let (decided (assoc (sample-decision decision-status/accepted)
+                       :outcome (some (->outcome :option (some 2)
+                                                 :justification (str "Speed matters most.")
+                                                 :consequences (some (str "Run Redis."))
+                                                 :decided-by (str "owner")
+                                                 :decided-at (->timestamp
+                                                               :value (str "2026-02-01T00:00:00Z"))))))
+    (assert (contains? (as-str (decision-detail-text (ref decided)))
+                       (as-str (lines (vec
+                                        "Outcome:"
+                                        "  Decided by owner at 2026-02-01T00:00:00Z"
+                                        "  Chose option 2: Redis"
+                                        "  Justification: Speed matters most."
+                                        "  Consequences: Run Redis.")))))))

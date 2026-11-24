@@ -1,0 +1,135 @@
+(module
+  "Reads a proposal out of the JSON document `decision propose` and `decision revise` take, and describes that document's shape.")
+
+(use json/value array copy-of field int->json json json->int
+                json->items json->text null? object
+                text->json)
+
+(use ledger/api ->option-draft ->proposal ->recommendation)
+
+(export json->proposal proposal-document-shape)
+
+(defn proposal-document-shape ()
+  (object (vec (pair (str "title") (placeholder "<text>"))
+               (pair (str "context") (placeholder "<text>"))
+               (pair (str "options")
+                     (array (vec (option-shape))))
+               (pair (str "recommendation")
+                     (object (vec (pair (str "option") (int->json 1))
+                                  (pair (str "reason")
+                                        (placeholder "<text>"))))))))
+
+(defn json->proposal (given)
+  (let (document (ref (unwrapped-decision given)))
+    (proposal-in document)))
+
+(defn unwrapped-decision (given)
+  (match (field given "decision")
+    ((some (json/object entries)) (json/object entries))
+    (_ (copy-of given))))
+
+(defn proposal-in (document)
+  (let-try (_ (check-object document "the proposal")
+            title (text-field document "title" "the proposal")
+            context (text-field document "context" "the proposal")
+            options (options-field document)
+            recommendation (recommendation-field document))
+    (ok (->proposal :title title
+                    :context context
+                    :options options
+                    :recommendation recommendation))))
+
+(defn option-shape ()
+  (object (vec (pair (str "title") (placeholder "<text>"))
+               (pair (str "description")
+                     (placeholder "<text, may be left out>"))
+               (pair (str "pros")
+                     (array (vec (placeholder "<text>"))))
+               (pair (str "cons")
+                     (array (vec (placeholder "<text>")))))))
+
+(defn placeholder (text) (text->json text))
+
+(defn check-object (value owner)
+  (match value
+    ((json/object _) (ok (do)))
+    (_ (err (str owner " must be a JSON object")))))
+
+(defn text-field (value key owner)
+  (ok-or (then-some (field value key)
+           (fn (found) (json->text (ref found))))
+         (str owner " needs \"" key "\" as text")))
+
+(defn options-field (document)
+  (let-try (items (ok-or (then-some (field document "options")
+                           (fn (found) (json->items (ref found))))
+                         (str "the proposal needs \"options\" as a list")))
+    (json->option-drafts (ref items))))
+
+(defn json->option-drafts (items)
+  (loop (index 0
+         drafts (vec))
+    (if (< index (len items))
+      (let-try (draft (json->option-draft (at items index) (inc index)))
+        (recur (inc index) (appended drafts draft)))
+      (ok drafts))))
+
+(defn json->option-draft (value number)
+  (let (owner (str "option " number))
+    (let-try (_ (check-object value (as-str owner))
+              title (text-field value "title" (as-str owner))
+              description (optional-text-field value
+                                               "description"
+                                               (as-str owner))
+              pros (texts-field value "pros" (as-str owner))
+              cons (texts-field value "cons" (as-str owner)))
+      (ok (->option-draft :title title
+                          :description description
+                          :pros pros
+                          :cons cons)))))
+
+(defn optional-text-field (value key owner)
+  (match (present-field value key)
+    ((some found)
+     (ok-or (json->text (ref found))
+            (str owner " gives \"" key "\" that is not text")))
+    (none (ok (str "")))))
+
+(defn texts-field (value key owner)
+  (match (present-field value key)
+    ((some found) (json->texts (ref found) key owner))
+    (none (ok (vec)))))
+
+(defn json->texts (value key owner)
+  (let (problem (str owner " gives \"" key "\" that is not a list of texts"))
+    (let-try (items (ok-or (json->items value) (clone problem)))
+      (loop (index 0
+             texts (vec))
+        (if (< index (len items))
+          (let-try (text (ok-or (json->text (at items index))
+                                (clone problem)))
+            (recur (inc index) (appended texts text)))
+          (ok texts))))))
+
+(defn present-field (value key)
+  (match (field value key)
+    ((some found) (non-null found))
+    (none none)))
+
+(defn non-null (value)
+  (if (null? (ref value))
+    none
+    (some value)))
+
+(defn recommendation-field (document)
+  (let-try (found (ok-or (field document "recommendation")
+                         (str "the proposal needs \"recommendation\" as an object"))
+            _ (check-object (ref found) "the recommendation")
+            option (ok-or (then-some (field (ref found) "option")
+                            (fn (number) (json->int (ref number))))
+                          (str "the recommendation needs \"option\" as a whole number"))
+            reason (text-field (ref found) "reason" "the recommendation"))
+    (ok (->recommendation :option option :reason reason))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))

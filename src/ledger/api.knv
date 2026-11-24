@@ -1,15 +1,38 @@
 (module
   "The ledger's public functions. Code outside `src/ledger/` calls only these.")
 
-(use ledger/model ->item-id ->session blockage claim dep
-                  dep-type graph-format history item item-id
-                  kind origin roadmap roadmap-id session
-                  status timestamp)
+(use ledger/model ->decision-id ->item-id ->session blockage
+                  claim decision-id dep dep-type
+                  graph-format history item item-id kind
+                  origin roadmap roadmap-id session status
+                  timestamp)
 
 (use ledger/model/events event event-type)
 
+(use ledger/model/decisions ->option-draft ->proposal
+                            ->recommendation decision
+                            decision-option decision-status
+                            option-draft outcome proposal
+                            recommendation)
+
+(use ledger/core/decisions ->decision-revision
+                           ->new-decision decision-revision
+                           new-decision supersedes-change)
+
+(use ledger/operations/decisions propose-decision
+                                 revise-decision)
+
+(use ledger/operations/decision-queries ->decision-query
+                                        decision-query
+                                        list-decisions
+                                        show-decision)
+
+(use ledger/decision-columns optional-decision-id->json
+                             options->json)
+
 (use ledger/names action-names actor-names case-name
-                  case-named dep-type-names event-type-names
+                  case-named decision-status-names
+                  dep-type-names event-type-names
                   graph-format-names kind-names origin-names
                   roadmap-status-names status-names)
 
@@ -31,7 +54,8 @@
                                    settings)
 
 (use ledger/json-values ids->json optional-id->json
-                        optional-text->json)
+                        optional-text->json
+                        optional-timestamp->json)
 
 (use ledger/failure failure failure-code failure-message)
 (use ledger/sqlite/connection database-problem)
@@ -44,7 +68,7 @@
 (use ledger/operations/next next-actions)
 (use ledger/core/actions action actor next-action)
 (use ledger/core/next next-item)
-(use ledger/operations/log read-log)
+(use ledger/operations/log ->log-query log-query read-log)
 
 (use ledger/operations/items item-detail list-items
                              show-item)
@@ -63,26 +87,37 @@
                              draw-graph graph-request
                              graph-source)
 
-(export ->advancement ->graph-request ->graph-source
-        ->item-edit ->item-id ->new-item ->session
-        ->settings action action-names actor actor-names
-        add-dep add-item advance-item advancement batch
-        batch-size batch-size-of blockage blocked-item
-        case-name case-named claim claim-item clock
-        close-item database-problem default-database-path
-        dep dep-type dep-type-names description-input
-        draw-graph drop-item edit-item event event-type
-        event-type-names failure failure-code
-        failure-message graph-format graph-format-names
-        graph-level graph-level-names graph-request
-        graph-source history ids->json init-ledger
-        init-outcome init-outcome-names init-report item
-        item-detail item-edit item-id kind kind-change
-        kind-names list-items list-roadmaps new-item
+(export ->advancement ->decision-id ->decision-query
+        ->decision-revision ->graph-request ->graph-source
+        ->item-edit ->item-id ->log-query ->new-decision
+        ->new-item ->option-draft ->proposal
+        ->recommendation ->session ->settings action
+        action-names actor actor-names add-dep add-item
+        advance-item advancement batch batch-size
+        batch-size-of blockage blocked-item case-name
+        case-named claim claim-item clock close-item
+        database-problem decision decision-id
+        decision-option decision-query decision-revision
+        decision-status decision-status-names
+        default-database-path dep dep-type dep-type-names
+        description-input draw-graph drop-item edit-item
+        event event-type event-type-names failure
+        failure-code failure-message graph-format
+        graph-format-names graph-level graph-level-names
+        graph-request graph-source history ids->json
+        init-ledger init-outcome init-outcome-names
+        init-report item item-detail item-edit item-id kind
+        kind-change kind-names list-decisions list-items
+        list-roadmaps log-query new-decision new-item
         new-roadmap next-action next-actions next-item
-        optional-id->json optional-text->json origin
-        origin-names read-log readiness ready-batch
-        ready-items refusal refusal->message refusal-catalog
-        refusal-code-text refusal-description remove-dep
+        option-draft optional-decision-id->json
+        optional-id->json optional-text->json
+        optional-timestamp->json options->json origin
+        origin-names outcome proposal propose-decision
+        read-log readiness ready-batch ready-items
+        recommendation refusal refusal->message
+        refusal-catalog refusal-code-text
+        refusal-description remove-dep revise-decision
         roadmap roadmap-id roadmap-status-names session
-        settings show-item status status-names timestamp)
+        settings show-decision show-item status status-names
+        supersedes-change timestamp)

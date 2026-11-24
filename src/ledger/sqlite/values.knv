@@ -1,7 +1,7 @@
 (module
   "Names the values SQLite stores and builds them from text and numbers.")
 
-(export int->sql sql-value text->sql)
+(export int->sql optional-text->sql sql-value text->sql)
 
 (defenum sql-value
   (rust "rusqlite::types::Value")
@@ -11,7 +11,12 @@
   (text string)
   (blob (vec u8)))
 
+(defn int->sql (number) (sql-value/integer number))
+
+(defn optional-text->sql (text)
+  (match text
+    ((some present) (text->sql (as-str present)))
+    (none sql-value/null)))
+
 (defn text->sql (text)
   (sql-value/text (str text)))
-
-(defn int->sql (number) (sql-value/integer number))

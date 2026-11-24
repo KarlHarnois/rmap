@@ -1,17 +1,41 @@
-(use ledger/api read-log)
-(use support/ledger claimed research scratch-ledger)
+(use ledger/api ->log-query read-log)
+
+(use support/ledger all-events claimed research
+                    scratch-ledger)
+
+(use support/decisions proposed-id)
 
 (deftest adding-and-claiming-each-log-one-event
   (let (settings (scratch-ledger "logged-events")
         item (claimed (ref settings)
                       (research (ref settings))))
-    (assert (= (len (unwrap-ok (read-log (ref settings) (some item) 0)))
+    (assert (= (len (unwrap-ok (read-log (ref settings)
+                                         (ref (->log-query :item (some item)
+                                                           :decision none
+                                                           :after-id 0)))))
                2))))
 
 (deftest reading-since-an-event-skips-the-earlier-ones
   (let (settings (scratch-ledger "logged-since")
         _ (research (ref settings))
-        all (unwrap-ok (read-log (ref settings) none 0))
+        all (unwrap-ok (all-events (ref settings)))
         first-id (:id (unwrap (first all))))
-    (assert (= (len (unwrap-ok (read-log (ref settings) none first-id)))
+    (assert (= (len (unwrap-ok (read-log (ref settings)
+                                         (ref (->log-query
+                                                :item none
+                                                :decision none
+                                                :after-id first-id)))))
                (dec (len all))))))
+
+(deftest the-log-narrows-to-one-decision
+  (let (settings (scratch-ledger "logged-decision")
+        _ (research (ref settings))
+        id (proposed-id (ref settings))
+        events (unwrap-ok (read-log (ref settings)
+                                    (ref (->log-query :item none
+                                                      :decision (some (clone
+                                                                        id))
+                                                      :after-id 0)))))
+    (assert (= (len events) 1))
+    (assert (= (:decision-id (unwrap (first events)))
+               (some id)))))

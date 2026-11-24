@@ -1,0 +1,86 @@
+(use json/value copy-of field json->int json->items
+                json->text null?)
+
+(use ledger/model ->timestamp)
+(use ledger/model/decisions ->outcome decision-status)
+(use cli/decision-json decision->json)
+(use support/decisions decision-id-of sample-decision)
+(use support/items id-of)
+
+(defn proposed-json ()
+  (decision->json (ref (assoc (sample-decision decision-status/proposed)
+                              :item (some (id-of "rm-0001"))
+                              :blocks (vec (id-of "rm-0002"))
+                              :supersedes (some (decision-id-of "rm-d000"))))))
+
+(defn text-at (value key)
+  (json->text (ref (unwrap (field value key)))))
+
+(defn first-option (value)
+  (copy-of (unwrap (first (unwrap (json->items
+                                    (ref (unwrap (field value "options")))))))))
+
+(deftest a-decision-names-its-id-roadmap-and-status
+  (let (value (proposed-json))
+    (assert (= (text-at (ref value) "id")
+               (some (str "rm-d001"))))
+    (assert (= (text-at (ref value) "roadmap_id")
+               (some (str "rm-road"))))
+    (assert (= (text-at (ref value) "roadmap")
+               (some (str "road"))))
+    (assert (= (text-at (ref value) "status")
+               (some (str "proposed"))))))
+
+(deftest a-decision-names-its-item-blocks-and-supersedes
+  (let (value (proposed-json))
+    (assert (= (text-at (ref value) "item_id")
+               (some (str "rm-0001"))))
+    (assert (= (text-at (ref value) "supersedes")
+               (some (str "rm-d000"))))
+    (assert (= (json->text
+                 (unwrap (first (unwrap (json->items (ref (unwrap (field (ref value)
+                                                                         "blocks"))))))))
+               (some (str "rm-0002"))))
+    (assert (null? (ref (unwrap (field (ref value) "superseded_by")))))))
+
+(deftest options-carry-their-number-and-points
+  (let (option (first-option (ref (proposed-json))))
+    (assert (= (json->int (ref (unwrap (field (ref option) "number"))))
+               (some 1)))
+    (assert (= (text-at (ref option) "title")
+               (some (str "Postgres"))))
+    (assert (= (len (unwrap (json->items (ref (unwrap (field (ref option)
+                                                             "pros"))))))
+               1))))
+
+(deftest the-recommendation-names-its-option-and-reason
+  (let (recommendation (unwrap (field (ref (proposed-json)) "recommendation")))
+    (assert (= (json->int (ref (unwrap (field (ref recommendation) "option"))))
+               (some 1)))
+    (assert (= (text-at (ref recommendation) "reason")
+               (some (str "Postgres already runs."))))))
+
+(deftest an-undecided-decision-has-a-null-outcome-and-asked-at
+  (let (value (proposed-json))
+    (assert (null? (ref (unwrap (field (ref value) "outcome")))))
+    (assert (null? (ref (unwrap (field (ref value) "asked_at")))))))
+
+(deftest a-decided-outcome-lists-its-fields
+  (let (outcome (-> (decision->json
+                      (ref (assoc (sample-decision decision-status/rejected)
+                                  :outcome (some (->outcome
+                                                   :option none
+                                                   :justification (str
+                                                                    "Not now.")
+                                                   :consequences none
+                                                   :decided-by (str "owner")
+                                                   :decided-at (->timestamp
+                                                                 :value (str "2026-02-01T00:00:00Z")))))))
+                    (field "outcome")
+                    unwrap))
+    (assert (null? (ref (unwrap (field (ref outcome) "option")))))
+    (assert (null? (ref (unwrap (field (ref outcome) "consequences")))))
+    (assert (= (text-at (ref outcome) "justification")
+               (some (str "Not now."))))
+    (assert (= (text-at (ref outcome) "decided_by")
+               (some (str "owner"))))))

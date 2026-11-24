@@ -4,7 +4,7 @@
 (use json/value array int->json json object text->json)
 
 (use ledger/api case-name graph-format-names graph-source
-                init-outcome-names item-detail)
+                init-outcome-names init-report item-detail)
 
 (use cli/replies reply)
 
@@ -12,6 +12,7 @@
                      item->json roadmap->json)
 
 (use cli/next-json next-item->json)
+(use cli/decision-json decision->json)
 
 (export envelope error-envelope reply-envelope)
 
@@ -51,7 +52,24 @@
     ((reply/item-shown detail) (detail-envelope detail))
     ((reply/dep-added dep) (dep-envelope dep))
     ((reply/dep-removed dep) (dep-envelope dep))
-    ((reply/graph-drawn graph) (graph-envelope graph))))
+    ((reply/graph-drawn graph) (graph-envelope graph))
+    ((reply/decision-proposed decision)
+     (decision-envelope decision))
+    ((reply/decision-revised decision)
+     (decision-envelope decision))
+    ((reply/decision-shown decision)
+     (decision-envelope decision))
+    ((reply/decisions-listed decisions)
+     (decisions-envelope decisions))))
+
+(defn decision-envelope (decision)
+  (envelope (vec (pair (str "decision")
+                       (decision->json (ref decision))))))
+
+(defn decisions-envelope (decisions)
+  (envelope (vec (pair (str "decisions")
+                       (array (collect (map (iter decisions)
+                                            decision->json)))))))
 
 (type graph-envelope (fn (graph-source) json))
 
@@ -65,6 +83,9 @@
 (defn init-report-envelope (report)
   (envelope (vec (pair (str "ledger")
                        (init-report->json (ref report))))))
+
+(type init-report->json
+  (fn ((ref init-report)) json))
 
 (defn init-report->json (report)
   (let (outcome (case-name init-outcome-names (:outcome report)))

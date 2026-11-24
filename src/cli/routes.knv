@@ -3,7 +3,8 @@
 
 (use cli/flag-specs flag-spec)
 
-(export ->route route route-name subcommand word-count)
+(export ->route operands route route-name subcommand
+        word-count words)
 
 (defstruct route
   :subcommand subcommand
@@ -30,7 +31,11 @@
   item-drop
   dep-add
   dep-rm
-  graph)
+  graph
+  decision-propose
+  decision-revise
+  decision-show
+  decision-list)
 
 (type word-count (fn ((ref route)) int))
 
@@ -42,3 +47,9 @@
 
 (defn route-name (route)
   (join (:words route) " "))
+
+(defn words (text)
+  (collect (map (split text " ") str)))
+
+(defn operands (names)
+  (collect (map (iter names) str)))

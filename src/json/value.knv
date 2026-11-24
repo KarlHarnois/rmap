@@ -3,8 +3,9 @@
 
 (export array bool->json copy-of field float->json int->json
         json json->bool json->entries json->float json->int
-        json->items json->source json->text json-error null?
-        object parse-json same? text->json)
+        json->items json->pretty-source json->source
+        json->text json-error null? object parse-json same?
+        text->json)
 
 (rust-type json-number "serde_json::Number")
 
@@ -49,6 +50,10 @@
 
 (def json->source
   (rust "{0}.to_string()"
+    (fn ((ref json)) string)))
+
+(def json->pretty-source
+  (rust "serde_json::to_string_pretty({0}).unwrap_or_else(|_| {0}.to_string())"
     (fn ((ref json)) string)))
 
 (def copy-of

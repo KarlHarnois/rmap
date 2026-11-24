@@ -1,0 +1,67 @@
+(use json/value parse-json)
+
+(use cli/proposal-json json->proposal
+                       proposal-document-shape)
+
+(def full-document
+  "{\"title\": \"Where do sessions live?\", \"context\": \"They must survive a restart.\", \"options\": [{\"title\": \"Postgres\", \"description\": \"The main database.\", \"pros\": [\"One store\"], \"cons\": [\"Load\"]}, {\"title\": \"Redis\"}], \"recommendation\": {\"option\": 1, \"reason\": \"It already runs.\"}}")
+
+(defn problem-of (text)
+  (unwrap-err (proposal-of text)))
+
+(defn proposal-of (text)
+  (json->proposal (ref (unwrap-ok (parse-json text)))))
+
+(deftest a-full-document-gives-every-field
+  (let (proposal (unwrap-ok (proposal-of full-document))
+        first-option (unwrap (first (:options proposal))))
+    (assert (= (:title proposal) (str "Where do sessions live?")))
+    (assert (= (:context proposal) (str "They must survive a restart.")))
+    (assert (= (:description first-option) (str "The main database.")))
+    (assert (= (:pros first-option)
+               (vec (str "One store"))))
+    (assert (= (:cons first-option)
+               (vec (str "Load"))))
+    (assert (= (:option (:recommendation proposal)) 1))))
+
+(deftest a-left-out-description-pros-and-cons-are-empty
+  (let (second-option (unwrap (get (:options (unwrap-ok (proposal-of
+                                                          full-document)))
+                                   1)))
+    (assert (= (:description second-option) (str "")))
+    (assert (= (:pros second-option) (vec)))
+    (assert (= (:cons second-option) (vec)))))
+
+(deftest the-shown-decision-envelope-is-read-as-a-proposal
+  (assert (= (proposal-of (as-str (str "{\"decision\": "
+                                       full-document
+                                       ", \"schema_version\": 4, \"id\": \"ignored\"}")))
+             (proposal-of full-document))))
+
+(deftest the-document-shape-is-read-as-a-proposal
+  (assert (ok? (json->proposal (ref (proposal-document-shape))))))
+
+(deftest a-document-that-is-not-an-object-is-refused
+  (assert (= (problem-of "[1]")
+             (str "the proposal must be a JSON object"))))
+
+(deftest a-missing-title-is-refused
+  (assert (= (problem-of "{\"context\": \"c\"}")
+             (str "the proposal needs \"title\" as text"))))
+
+(deftest options-that-are-not-a-list-are-refused
+  (assert (= (problem-of
+               "{\"title\": \"t\", \"context\": \"c\", \"options\": {}}")
+             (str "the proposal needs \"options\" as a list"))))
+
+(deftest an-option-without-a-title-names-its-number
+  (assert (= (problem-of "{\"title\": \"t\", \"context\": \"c\", \"options\": [{\"title\": \"a\"}, {}]}")
+             (str "option 2 needs \"title\" as text"))))
+
+(deftest pros-that-are-not-texts-are-refused
+  (assert (= (problem-of "{\"title\": \"t\", \"context\": \"c\", \"options\": [{\"title\": \"a\", \"pros\": [1]}]}")
+             (str "option 1 gives \"pros\" that is not a list of texts"))))
+
+(deftest a-recommendation-without-a-whole-number-is-refused
+  (assert (= (problem-of "{\"title\": \"t\", \"context\": \"c\", \"options\": [], \"recommendation\": {\"option\": \"1\", \"reason\": \"r\"}}")
+             (str "the recommendation needs \"option\" as a whole number"))))

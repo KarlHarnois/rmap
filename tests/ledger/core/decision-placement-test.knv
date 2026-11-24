@@ -1,0 +1,68 @@
+(use ledger/model ->roadmap-id kind status)
+(use ledger/refusal refusal)
+
+(use ledger/core/decision-placement check-blocks
+                                    check-raising-item)
+
+(use support/items child-of epic-item id-of in-roadmap
+                   snapshot-of work-item)
+
+(defn blocks-check (ids)
+  (check-blocks (ref (snapshot))
+                (ref (road-id))
+                (ref ids)))
+
+(defn snapshot ()
+  (snapshot-of (vec (work-item "rm-0001" kind/design status/reported)
+                    (work-item "rm-0002" kind/build status/open)
+                    (work-item "rm-0003" kind/build status/dispatched)
+                    (epic-item "rm-0004")
+                    (epic-item "rm-0006")
+                    (child-of (work-item "rm-0007" kind/build status/merged)
+                              "rm-0006")
+                    (in-roadmap (work-item "rm-0005" kind/build status/open)
+                                "rm-other"))
+               (vec)))
+
+(defn road-id ()
+  (->roadmap-id :value (str "rm-road")))
+
+(deftest any-item-in-the-roadmap-can-raise-a-decision
+  (assert (ok? (check-raising-item (ref (snapshot))
+                                   (ref (road-id))
+                                   (ref (some (id-of "rm-0001")))))))
+
+(deftest a-missing-raising-item-is-refused
+  (assert (= (unwrap-err (check-raising-item (ref (snapshot))
+                                             (ref (road-id))
+                                             (ref (some (id-of "rm-0009")))))
+             (refusal/item-not-found (id-of "rm-0009")))))
+
+(deftest a-raising-item-in-another-roadmap-is-refused
+  (assert (= (unwrap-err (check-raising-item (ref (snapshot))
+                                             (ref (road-id))
+                                             (ref (some (id-of "rm-0005")))))
+             (refusal/decision-in-other-roadmap (id-of "rm-0005")))))
+
+(deftest an-open-build-can-wait-on-a-decision
+  (assert (ok? (blocks-check (vec (id-of "rm-0002"))))))
+
+(deftest an-unfinished-epic-can-wait-on-a-decision
+  (assert (ok? (blocks-check (vec (id-of "rm-0004"))))))
+
+(deftest a-finished-epic-cannot-wait-on-a-decision
+  (assert (= (unwrap-err (blocks-check (vec (id-of "rm-0006"))))
+             (refusal/not-blockable (id-of "rm-0006")))))
+
+(deftest a-dispatched-item-cannot-wait-on-a-decision
+  (assert (= (unwrap-err (blocks-check (vec (id-of "rm-0002")
+                                            (id-of "rm-0003"))))
+             (refusal/not-blockable (id-of "rm-0003")))))
+
+(deftest a-blocked-item-in-another-roadmap-is-refused
+  (assert (= (unwrap-err (blocks-check (vec (id-of "rm-0005"))))
+             (refusal/decision-in-other-roadmap (id-of "rm-0005")))))
+
+(deftest a-missing-blocked-item-is-refused
+  (assert (= (unwrap-err (blocks-check (vec (id-of "rm-0009"))))
+             (refusal/item-not-found (id-of "rm-0009")))))

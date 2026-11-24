@@ -1,8 +1,11 @@
 (module
   "Names each ledger refusal and gives it a sentence for the user.")
 
-(use ledger/model blockage item-id status)
-(use ledger/names case-name status-names)
+(use ledger/model blockage decision-id item-id status)
+(use ledger/model/decisions decision-status)
+
+(use ledger/names case-name decision-status-names
+                  status-names)
 
 (export refusal refusal->message)
 
@@ -21,7 +24,13 @@
   (not-ready blockage)
   (cycle item-id item-id)
   (dep-exists item-id item-id)
-  (dep-not-found item-id item-id))
+  (dep-not-found item-id item-id)
+  (decision-not-found decision-id)
+  (decision-frozen decision-id decision-status)
+  (decision-incomplete string)
+  (not-blockable item-id)
+  (decision-in-other-roadmap item-id)
+  (supersede-target-not-accepted decision-id))
 
 (defn refusal->message (failure)
   (match failure
@@ -59,4 +68,25 @@
     ((dep-exists item on)
      (str (:value item) " already depends on " (:value on)))
     ((dep-not-found item on)
-     (str (:value item) " does not depend on " (:value on)))))
+     (str (:value item) " does not depend on " (:value on)))
+    ((decision-not-found id)
+     (str "no decision has the id " (:value id)))
+    ((decision-frozen id status)
+     (str "the decision "
+          (:value id)
+          " is "
+          (case-name decision-status-names status)
+          ", and only a proposed decision can change"))
+    ((decision-incomplete missing)
+     (str "the proposal is incomplete: " missing))
+    ((not-blockable id)
+     (str "only an open item or an unfinished epic can wait on a decision, and "
+          (:value id)
+          " is not one"))
+    ((decision-in-other-roadmap id)
+     (str (:value id)
+          " belongs to another roadmap than the decision"))
+    ((supersede-target-not-accepted id)
+     (str "only an accepted decision, or a rejected one in the same roadmap, can be superseded, and "
+          (:value id)
+          " is neither"))))

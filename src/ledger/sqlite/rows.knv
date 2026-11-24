@@ -8,8 +8,9 @@
 
 (use ledger/sqlite/values sql-value)
 
-(export int-cell named-cell optional-text-cell rows->values
-        single-row text-cell try-each)
+(export int-cell named-cell optional-int-cell
+        optional-text-cell rows->values single-row text-cell
+        try-each)
 
 (defn single-row (rows)
   (ok-or (first rows)
@@ -20,6 +21,12 @@
     (match cell
       ((integer number) (ok (deref number)))
       (_ (err (database-failure (str "column " index " is not an integer")))))))
+
+(defn optional-int-cell (row index)
+  (let-try (cell (raw-cell row index))
+    (match cell
+      ((integer number) (ok (some (deref number))))
+      (_ (ok none)))))
 
 (defn optional-text-cell (row index)
   (let-try (cell (raw-cell row index))

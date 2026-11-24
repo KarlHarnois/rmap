@@ -1,0 +1,196 @@
+(use ledger/api ->decision-revision kind propose-decision
+                revise-decision show-decision
+                supersedes-change)
+
+(use ledger/model/decisions decision-status)
+
+(use support/ledger added-id all-events claimed item-draft
+                    ledger-with-two-roadmaps
+                    other-roadmap-name refusal-code-of
+                    research research-in roadmap-name
+                    scratch-ledger)
+
+(use support/decisions decision-id-of mark-status
+                       proposal-in proposed-id
+                       sample-proposal)
+
+(defn revision (id change)
+  (->decision-revision :id (clone id)
+                       :proposal (assoc (sample-proposal)
+                                        :title (str "Where do caches live?"))
+                       :supersedes change))
+
+(deftest a-proposal-is-stored-as-proposed
+  (let (settings (scratch-ledger "decision-proposed")
+        id (proposed-id (ref settings))
+        shown (unwrap-ok (show-decision (ref settings) (clone id))))
+    (assert (= (:status shown) decision-status/proposed))
+    (assert (= (:title shown)
+               (:title (sample-proposal))))
+    (assert (= (len (:options shown)) 2))
+    (assert (= (:pros (unwrap (first (:options shown))))
+               (vec (str "One store to run"))))
+    (assert (= (:roadmap-name shown) (str roadmap-name)))))
+
+(deftest a-proposal-keeps-its-raising-item-and-the-items-it-blocks
+  (let (settings (scratch-ledger "decision-placed")
+        design (research (ref settings))
+        build (added-id (ref settings) (item-draft kind/build))
+        made (unwrap-ok (propose-decision (ref settings)
+                                          (assoc (proposal-in roadmap-name)
+                                                 :item (some (clone design))
+                                                 :blocks (vec (clone build)
+                                                              (clone build)))))
+        shown (unwrap-ok (show-decision (ref settings)
+                                        (clone (:id made)))))
+    (assert (= (:item shown) (some design)))
+    (assert (= (:blocks shown) (vec build)))))
+
+(deftest a-proposal-records-one-event-on-the-decision
+  (let (settings (scratch-ledger "decision-event")
+        before (len (unwrap-ok (all-events (ref settings))))
+        id (proposed-id (ref settings))
+        events (unwrap-ok (all-events (ref settings))))
+    (assert (= (len events) (inc before)))
+    (assert (= (:decision-id (unwrap (last events)))
+               (some id)))))
+
+(deftest a-proposal-in-an-unknown-roadmap-is-refused
+  (let (settings (scratch-ledger "decision-no-roadmap"))
+    (assert (= (refusal-code-of (propose-decision (ref settings)
+                                                  (proposal-in "nowhere")))
+               (some (str "roadmap-not-found"))))))
+
+(deftest an-incomplete-proposal-is-refused
+  (let (settings (scratch-ledger "decision-incomplete"))
+    (assert (= (refusal-code-of (propose-decision
+                                  (ref settings)
+                                  (assoc (proposal-in roadmap-name)
+                                         :proposal (assoc (sample-proposal)
+                                                          :title (str "")))))
+               (some (str "decision-incomplete"))))))
+
+(deftest blocking-an-item-of-another-roadmap-is-refused
+  (let (settings (ledger-with-two-roadmaps "decision-other-roadmap")
+        elsewhere (research-in (ref settings) other-roadmap-name))
+    (assert (= (refusal-code-of (propose-decision (ref settings)
+                                                  (assoc
+                                                    (proposal-in roadmap-name)
+                                                    :blocks (vec elsewhere))))
+               (some (str "decision-in-other-roadmap"))))))
+
+(deftest blocking-a-claimed-item-is-refused
+  (let (settings (scratch-ledger "decision-not-blockable")
+        busy (claimed (ref settings)
+                      (research (ref settings))))
+    (assert (= (refusal-code-of (propose-decision (ref settings)
+                                                  (assoc (proposal-in
+                                                           roadmap-name)
+                                                         :blocks (vec busy))))
+               (some (str "not-blockable"))))))
+
+(deftest superseding-a-missing-decision-is-refused
+  (let (settings (scratch-ledger "decision-supersede-missing"))
+    (assert (= (refusal-code-of (propose-decision (ref settings)
+                                                  (assoc (proposal-in
+                                                           roadmap-name)
+                                                         :supersedes (some (decision-id-of
+                                                                             "rm-ffff")))))
+               (some (str "decision-not-found"))))))
+
+(deftest superseding-a-proposed-decision-is-refused
+  (let (settings (scratch-ledger "decision-supersede-proposed")
+        target (proposed-id (ref settings)))
+    (assert (= (refusal-code-of (propose-decision (ref settings)
+                                                  (assoc (proposal-in
+                                                           roadmap-name)
+                                                         :supersedes (some target))))
+               (some (str "supersede-target-not-accepted"))))))
+
+(deftest superseding-an-accepted-decision-is-recorded
+  (let (settings (scratch-ledger "decision-supersede-accepted")
+        target (proposed-id (ref settings)))
+    (mark-status (ref settings) (ref target) "accepted")
+    (let (made (unwrap-ok (propose-decision (ref settings)
+                                            (assoc (proposal-in roadmap-name)
+                                                   :supersedes (some (clone target))))))
+      (assert (= (:supersedes made) (some target))))))
+
+(deftest a-revision-replaces-the-proposal
+  (let (settings (scratch-ledger "decision-revised")
+        id (proposed-id (ref settings)))
+    (unwrap-ok (revise-decision (ref settings)
+                                (revision (ref id) supersedes-change/keep)))
+    (assert (= (:title (unwrap-ok (show-decision (ref settings) id)))
+               (str "Where do caches live?")))))
+
+(deftest revising-a-settled-decision-is-refused
+  (let (settings (scratch-ledger "decision-frozen")
+        id (proposed-id (ref settings)))
+    (mark-status (ref settings) (ref id) "rejected")
+    (assert (= (refusal-code-of (revise-decision
+                                  (ref settings)
+                                  (revision (ref id) supersedes-change/keep)))
+               (some (str "decision-frozen"))))))
+
+(deftest revising-a-missing-decision-is-refused
+  (let (settings (scratch-ledger "decision-revise-missing"))
+    (assert (= (refusal-code-of (revise-decision
+                                  (ref settings)
+                                  (revision (ref (decision-id-of "rm-ffff"))
+                                            supersedes-change/keep)))
+               (some (str "decision-not-found"))))))
+
+(deftest a-revision-retargets-what-it-supersedes
+  (let (settings (scratch-ledger "decision-retarget")
+        old-target (proposed-id (ref settings))
+        new-target (proposed-id (ref settings)))
+    (mark-status (ref settings) (ref old-target) "accepted")
+    (mark-status (ref settings) (ref new-target) "accepted")
+    (let (id (clone (:id (unwrap-ok (propose-decision
+                                      (ref settings)
+                                      (assoc (proposal-in roadmap-name)
+                                             :supersedes (some (clone old-target)))))))
+          revised (unwrap-ok (revise-decision
+                               (ref settings)
+                               (revision (ref id)
+                                         (supersedes-change/retarget (clone new-target))))))
+      (assert (= (:supersedes revised) (some new-target))))))
+
+(deftest retargeting-to-a-decision-that-is-not-accepted-is-refused
+  (let (settings (scratch-ledger "decision-retarget-refused")
+        id (proposed-id (ref settings))
+        other (proposed-id (ref settings)))
+    (assert (= (refusal-code-of (revise-decision (ref settings)
+                                                 (revision (ref id)
+                                                           (supersedes-change/retarget
+                                                             other))))
+               (some (str "supersede-target-not-accepted"))))))
+
+(deftest superseding-a-rejected-decision-of-the-same-roadmap-is-recorded
+  (let (settings (scratch-ledger "decision-supersede-rejected")
+        target (proposed-id (ref settings)))
+    (mark-status (ref settings) (ref target) "rejected")
+    (assert (ok? (propose-decision (ref settings)
+                                   (assoc (proposal-in roadmap-name)
+                                          :supersedes (some target)))))))
+
+(deftest superseding-a-rejected-decision-of-another-roadmap-is-refused
+  (let (settings (ledger-with-two-roadmaps
+                   "decision-supersede-rejected-elsewhere")
+        target (proposed-id (ref settings)))
+    (mark-status (ref settings) (ref target) "rejected")
+    (assert (= (refusal-code-of (propose-decision (ref settings)
+                                                  (assoc (proposal-in
+                                                           other-roadmap-name)
+                                                         :supersedes (some target))))
+               (some (str "supersede-target-not-accepted"))))))
+
+(deftest superseding-an-accepted-decision-of-another-roadmap-is-recorded
+  (let (settings (ledger-with-two-roadmaps
+                   "decision-supersede-accepted-elsewhere")
+        target (proposed-id (ref settings)))
+    (mark-status (ref settings) (ref target) "accepted")
+    (assert (ok? (propose-decision (ref settings)
+                                   (assoc (proposal-in other-roadmap-name)
+                                          :supersedes (some target)))))))

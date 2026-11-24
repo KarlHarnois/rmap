@@ -1,22 +1,24 @@
 (use json/value json->source)
 
-(use ledger/api ->settings add-dep add-item advance-item
-                claim-item clock close-item
-                default-database-path draw-graph drop-item
-                edit-item failure init-ledger list-items
-                list-roadmaps new-roadmap next-actions
-                read-log ready-batch ready-items remove-dep
+(use ledger/api add-dep add-item advance-item claim-item
+                close-item draw-graph drop-item edit-item
+                failure init-ledger list-items list-roadmaps
+                new-roadmap next-actions read-log
+                ready-batch ready-items remove-dep
                 show-item)
 
 (use process/environment variable)
 (use cli/requests request)
+(use cli/environment-variables json-variable)
+(use cli/invocations invocation parse-invocation)
 
-(use cli/environment-variables actor-variable json-variable
-                               user-variable)
+(use cli/ledger-calls document-call
+                      document-call->ledger-call
+                      ledger-call)
 
-(use cli/invocations invocation ledger-call
-                     parse-invocation)
-
+(use cli/ledger-settings settings-for)
+(use cli/proposal-files read-proposal)
+(use cli/decision-calls perform-decision)
 (use cli/exit-codes exit-code->number)
 (use cli/replies reply)
 (use cli/responses response response-exit-code)
@@ -53,7 +55,16 @@
     (invocation/help response/help)
     ((invocation/command-help routes)
      (response/command-help routes))
-    ((invocation/on-ledger call) (call-ledger call))))
+    ((invocation/on-ledger call) (call-ledger call))
+    ((invocation/on-document call) (call-with-document call))))
+
+(type call-with-document (fn (document-call) response))
+
+(defn call-with-document (call)
+  (match (read-proposal (ref (:source call)))
+    ((ok proposal)
+     (call-ledger (document-call->ledger-call call proposal)))
+    ((err message) (response/misused message))))
 
 (defn call-ledger (call)
   (match (ledger-result call)
@@ -67,29 +78,6 @@
   (let-try (settings (settings-for (ref call)))
     (perform (ref settings)
              (clone (:request call)))))
-
-(defn settings-for (call)
-  (let-try (path (database-path (ref (:database call))))
-    (ok (->settings :database-path path
-                    :clock clock/system
-                    :actor (actor-for (ref (:actor call)))))))
-
-(defn actor-for (given)
-  (match given
-    ((some actor) (clone actor))
-    (none (unwrap-or (or-else (variable actor-variable)
-                              (variable user-variable))
-                     (str "unknown")))))
-
-(defn or-else (first-choice second-choice)
-  (match first-choice
-    ((some value) (some value))
-    (none second-choice)))
-
-(defn database-path (database)
-  (match database
-    ((some path) (ok (clone path)))
-    (none (default-database-path))))
 
 (defn perform (settings request)
   (match request
@@ -109,8 +97,8 @@
     ((ready-batch roadmap size)
      (map-ok (ready-batch settings roadmap size)
        (fn (batch) (reply/batch-picked batch))))
-    ((log item since)
-     (map-ok (read-log settings item since)
+    ((log query)
+     (map-ok (read-log settings (ref query))
        (fn (events) (reply/log-read events))))
     ((add-item roadmap draft)
      (map-ok (add-item settings roadmap draft)
@@ -144,4 +132,5 @@
        (fn (dep) (reply/dep-removed dep))))
     ((graph graph)
      (map-ok (draw-graph settings graph)
-       (fn (source) (reply/graph-drawn source))))))
+       (fn (source) (reply/graph-drawn source))))
+    ((decision request) (perform-decision settings request))))

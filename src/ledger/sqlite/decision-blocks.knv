@@ -1,0 +1,42 @@
+(module
+  "Reads and writes the `decision_blocks` table: the items each decision blocks.")
+
+(use ledger/sqlite/values text->sql)
+(use ledger/model ->item-id decision-id item-id)
+
+(use ledger/sqlite/connection connection database-error
+                              execute query)
+
+(use ledger/sqlite/rows rows->values text-cell try-each)
+
+(export blocks-of insert-blocks)
+
+(defn insert-blocks (connection decision items)
+  (try-each items
+    (fn (item) (insert-block connection decision item))))
+
+(type blocks-of
+  (fn ((ref connection) (ref decision-id))
+    (result (vec item-id) database-error)))
+
+(defn blocks-of (connection decision)
+  (let-try (rows (query connection
+                        "SELECT item_id FROM decision_blocks WHERE decision_id = ?1 ORDER BY item_id"
+                        (ref (vec (text->sql (as-str (:value decision)))))))
+    (rows->values (ref rows) row->item-id)))
+
+(type insert-block
+  (fn ((ref connection)
+       (ref decision-id)
+       (ref item-id))
+    (result int database-error)))
+
+(defn insert-block (connection decision item)
+  (execute connection
+           "INSERT INTO decision_blocks (decision_id, item_id) VALUES (?1, ?2)"
+           (ref (vec (text->sql (as-str (:value decision)))
+                     (text->sql (as-str (:value item)))))))
+
+(defn row->item-id (row)
+  (let-try (id (text-cell row 0))
+    (ok (->item-id :value id))))

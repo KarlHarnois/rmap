@@ -1,11 +1,12 @@
 (module
   "Holds the ledger's values: roadmaps, items, dependencies and blockages.")
 
-(export ->blockage ->dep ->item ->item-id ->roadmap
-        ->roadmap-id ->session ->snapshot ->timestamp
-        blockage claim decision-id dep dep-type graph-format
-        history item item-id kind origin roadmap roadmap-id
-        roadmap-status session snapshot status timestamp)
+(export ->blockage ->decision-id ->dep ->item ->item-id
+        ->roadmap ->roadmap-id ->session ->snapshot
+        ->timestamp blockage claim decision-id dep dep-type
+        graph-format history item item-id kind origin
+        roadmap roadmap-id roadmap-status session snapshot
+        status timestamp)
 
 (defstruct decision-id
   :value string)

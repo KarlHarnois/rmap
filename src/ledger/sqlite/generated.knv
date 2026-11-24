@@ -1,5 +1,5 @@
 (module
-  "Asks the database for the values it generates: fresh item ids and the current time.")
+  "Asks the database for the values it generates: fresh ids for items, roadmaps, decisions and rulings and the current time.")
 
 (use ledger/sqlite/values text->sql)
 (use ledger/model ->timestamp)
@@ -37,6 +37,6 @@
 
 (defn id-taken? (connection candidate)
   (let-try (rows (query connection
-                        "SELECT id FROM items WHERE id = ?1 UNION SELECT id FROM roadmaps WHERE id = ?1"
+                        "SELECT id FROM items WHERE id = ?1 UNION SELECT id FROM roadmaps WHERE id = ?1 UNION SELECT id FROM decisions WHERE id = ?1 UNION SELECT id FROM rulings WHERE id = ?1"
                         (ref (vec (text->sql candidate)))))
     (ok (not (empty? rows)))))

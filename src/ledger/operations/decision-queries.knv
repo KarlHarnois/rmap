@@ -1,0 +1,85 @@
+(module
+  "Shows one decision and lists the decisions a roadmap, a status or an item narrows to.")
+
+(use ledger/model decision-id item-id)
+(use ledger/model/decisions decision decision-status)
+(use ledger/core/snapshot existing)
+
+(use ledger/sqlite/decisions ->decision-filter
+                             decision-filter
+                             decisions-matching)
+
+(use ledger/sqlite/snapshot load-snapshot)
+
+(use ledger/operations/transaction in-read-transaction
+                                   settings)
+
+(use ledger/failure failure)
+
+(use ledger/operations/lookups existing-decision
+                               roadmap-id-named)
+
+(use ledger/sqlite/connection connection)
+
+(export ->decision-query decision-query list-decisions
+        show-decision)
+
+(defstruct decision-query
+  :roadmap (option string)
+  :status (option decision-status)
+  :item (option item-id))
+
+(type show-decision
+  (fn ((ref settings) decision-id)
+    (result decision failure)))
+
+(defn show-decision (settings id)
+  (in-read-transaction settings
+    (fn (transaction)
+      (existing-decision (ref (:connection transaction))
+                         (ref id)))))
+
+(type list-decisions
+  (fn ((ref settings) decision-query)
+    (result (vec decision) failure)))
+
+(defn list-decisions (settings query)
+  (in-read-transaction settings
+    (fn (transaction)
+      (decisions-within (ref (:connection transaction))
+                        (ref query)))))
+
+(defn decisions-within (connection query)
+  (let-try (filter (filter-of connection query)
+            decisions (decisions-matching connection (ref filter)))
+    (ok decisions)))
+
+(type filter-of
+  (fn ((ref connection) (ref decision-query))
+    (result decision-filter failure)))
+
+(defn filter-of (connection query)
+  (let-try (roadmap-id (roadmap-id-of connection (ref (:roadmap query)))
+            _ (check-item connection (ref (:item query))))
+    (ok (->decision-filter :roadmap-id roadmap-id
+                           :status (:status query)
+                           :item (clone (:item query))))))
+
+(defn roadmap-id-of (connection roadmap)
+  (match roadmap
+    ((some name)
+     (map-ok (roadmap-id-named connection (as-str name)) some))
+    (none (ok none))))
+
+(type check-item
+  (fn ((ref connection)
+       (ref (option item-id)))
+    (result unit failure)))
+
+(defn check-item (connection item)
+  (match item
+    ((some id)
+     (let-try (snapshot (load-snapshot connection)
+               _ (existing (ref snapshot) id))
+       (ok (do))))
+    (none (ok (do)))))

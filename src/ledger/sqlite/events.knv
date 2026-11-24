@@ -4,7 +4,8 @@
 (use ledger/sqlite/values int->sql sql-value text->sql)
 (use json/value json->source parse-json)
 
-(use ledger/model ->item-id ->roadmap-id ->timestamp item-id
+(use ledger/model ->decision-id ->item-id ->roadmap-id
+                  ->timestamp decision-id item-id
                   roadmap-id)
 
 (use ledger/model/events ->event event event-draft
@@ -25,6 +26,7 @@
 
 (defstruct event-filter
   :item-id (option item-id)
+  :decision-id (option decision-id)
   :after-id int)
 
 (type append-event
@@ -35,11 +37,12 @@
 
 (defn append-event (connection stamp draft)
   (execute connection
-           "INSERT INTO events (at, actor, roadmap_id, item_id, type, payload_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+           "INSERT INTO events (at, actor, roadmap_id, item_id, decision_id, type, payload_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
            (ref (vec (text->sql (as-str (:value (:at stamp))))
                      (text->sql (as-str (:actor stamp)))
                      (optional-roadmap->sql (ref (:roadmap-id draft)))
                      (optional-item->sql (ref (:item-id draft)))
+                     (optional-decision->sql (ref (:decision-id draft)))
                      (text->sql (case-name event-type-names (:type draft)))
                      (text->sql (as-str (json->source (ref (:payload
                                                              draft)))))))))
@@ -50,8 +53,10 @@
 
 (defn events-matching (connection filter)
   (let-try (rows (query connection
-                        "SELECT id, at, actor, roadmap_id, item_id, type, payload_json FROM events WHERE (?1 IS NULL OR item_id = ?1) AND id > ?2 ORDER BY id"
+                        "SELECT id, at, actor, roadmap_id, item_id, decision_id, type, payload_json FROM events WHERE (?1 IS NULL OR item_id = ?1) AND (?2 IS NULL OR decision_id = ?2) AND id > ?3 ORDER BY id"
                         (ref (vec (optional-item->sql (ref (:item-id filter)))
+                                  (optional-decision->sql (ref (:decision-id
+                                                                 filter)))
                                   (int->sql (:after-id filter))))))
     (rows->values (ref rows) row->event)))
 
@@ -72,14 +77,24 @@
     ((some present) (text->sql (as-str (:value present))))
     (none sql-value/null)))
 
+(type optional-decision->sql
+  (fn ((ref (option decision-id)))
+    sql-value))
+
+(defn optional-decision->sql (id)
+  (match id
+    ((some present) (text->sql (as-str (:value present))))
+    (none sql-value/null)))
+
 (defn row->event (row)
   (let-try (id (int-cell row 0)
             at (text-cell row 1)
             actor (text-cell row 2)
             roadmap-id (optional-text-cell row 3)
             item-id (optional-text-cell row 4)
-            type (named-cell row 5 event-type-names)
-            payload-text (text-cell row 6)
+            decision-id (optional-text-cell row 5)
+            type (named-cell row 6 event-type-names)
+            payload-text (text-cell row 7)
             payload (map-err (parse-json (as-str payload-text))
                       (fn (_)
                         (database-failure (str "event " id
@@ -91,5 +106,7 @@
                                (fn (value) (->roadmap-id :value value)))
                  :item-id (map-some item-id
                             (fn (value) (->item-id :value value)))
+                 :decision-id (map-some decision-id
+                                (fn (value) (->decision-id :value value)))
                  :type type
                  :payload payload))))
