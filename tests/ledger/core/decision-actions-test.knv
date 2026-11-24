@@ -1,0 +1,190 @@
+(use ledger/model ->blockage ->decision-id ->item-id
+                  decision-status item kind roadmap-pause
+                  status)
+
+(use ledger/model/decisions decision)
+(use ledger/core/actions action actor planned)
+
+(use ledger/core/decision-actions blocked-only-by-rejected?
+                                  with-decision-actions)
+
+(use ledger/core/ready readiness-of)
+(use ledger/core/snapshot scope)
+(use support/decisions sample-decision)
+
+(use support/items claimed decision-block-on snapshot-of
+                   work-item)
+
+(type raised
+  (fn ((ref item) decision-status) decision))
+
+(defn raised (item status)
+  (assoc (sample-decision status)
+         :id (->decision-id :value (str "rm-d1"))
+         :item (some (clone (:id item)))))
+
+(defn actions-for (item decisions normal)
+  (let (readiness (readiness-for item))
+    (with-decision-actions (ref readiness)
+                           decisions item normal)))
+
+(defn readiness-for (item)
+  (readiness-of (ref (snapshot-of (vec (clone item)) (vec)))
+                (ref scope/every-roadmap)))
+
+(defn actions (values)
+  (collect (map (iter values)
+             (fn (planned) (:action planned)))))
+
+(defn one-action (value)
+  (vec (planned value none none)))
+
+(defn sole-action (values)
+  (clone (unwrap (first values))))
+
+(defn reported-design ()
+  (claimed (work-item "rm-0001" kind/design status/reported)))
+
+(defn merging-build ()
+  (claimed (work-item "rm-0001" kind/build status/merging)))
+
+(defn dispatched-build ()
+  (claimed (work-item "rm-0001" kind/build status/dispatched)))
+
+(defn in-review-build ()
+  (claimed (work-item "rm-0001" kind/build status/in-review)))
+
+(defn blocked-report ()
+  (->blockage :pause roadmap-pause/not-paused
+              :blockers (vec)
+              :dropped-blockers (vec)
+              :decisions (vec (->decision-id :value (str "rm-d1")))))
+
+(deftest a-reported-design-waits-on-a-proposed-decision-it-raised
+  (let (item (reported-design)
+        decisions (vec (raised item decision-status/proposed))
+        result (actions-for item
+                            (ref decisions)
+                            (one-action action/accept-report))
+        planned (sole-action result))
+    (assert (= (:action planned) action/wait))
+    (assert (= (:actor planned) actor/controller))
+    (assert (= (:decisions (unwrap (clone (:reasons planned))))
+               (vec (->decision-id :value (str "rm-d1")))))))
+
+(deftest a-reported-design-replans-a-rejected-decision-it-raised
+  (let (item (reported-design)
+        decisions (vec (raised item decision-status/rejected))
+        planned (sole-action (actions-for item
+                                          (ref decisions)
+                                          (one-action action/accept-report))))
+    (assert (= (:action planned) action/replan))
+    (assert (= (:actor planned) actor/agent))))
+
+(deftest a-merging-build-waits-on-a-proposed-decision-it-raised
+  (let (item (merging-build)
+        decisions (vec (raised item decision-status/proposed))
+        planned (sole-action
+                  (actions-for item (ref decisions) (one-action action/merge))))
+    (assert (= (:action planned) action/wait))))
+
+(deftest a-merging-build-replans-a-rejected-decision-it-raised
+  (let (item (merging-build)
+        decisions (vec (raised item decision-status/rejected))
+        planned (sole-action
+                  (actions-for item (ref decisions) (one-action action/merge))))
+    (assert (= (:action planned) action/replan))))
+
+(deftest a-dispatched-build-keeps-working-and-lists-a-replan
+  (let (item (dispatched-build)
+        proposed (raised item decision-status/proposed)
+        rejected (assoc (raised item decision-status/rejected)
+                        :id (->decision-id :value (str "rm-d2"))))
+    (assert (= (actions (actions-for item
+                                     (ref (vec proposed))
+                                     (one-action action/work)))
+               (vec action/work)))
+    (assert (= (actions (actions-for item
+                                     (ref (vec rejected))
+                                     (one-action action/work)))
+               (vec action/work action/replan)))))
+
+(deftest an-in-review-build-keeps-its-review-and-lists-a-replan
+  (let (item (in-review-build)
+        proposed (raised item decision-status/proposed)
+        rejected (assoc (raised item decision-status/rejected)
+                        :id (->decision-id :value (str "rm-d2"))))
+    (assert (= (actions (actions-for item
+                                     (ref (vec proposed))
+                                     (one-action action/review)))
+               (vec action/review)))
+    (assert (= (actions (actions-for item
+                                     (ref (vec rejected))
+                                     (one-action action/review)))
+               (vec action/review action/replan)))))
+
+(deftest a-rejected-raised-decision-outranks-a-proposed-one
+  (let (item (reported-design)
+        proposed (raised item decision-status/proposed)
+        rejected (assoc (raised item decision-status/rejected)
+                        :id (->decision-id :value (str "rm-d2")))
+        result (actions-for item
+                            (ref (vec proposed rejected))
+                            (one-action action/accept-report)))
+    (assert (= (:action (sole-action result)) action/replan))))
+
+(deftest a-decision-replaces-only-the-held-action
+  (let (item (reported-design)
+        decisions (vec (raised item decision-status/proposed))
+        normal (vec (planned action/accept-report none none)
+                    (planned action/answer none none))
+        result (actions-for item (ref decisions) normal))
+    (assert (= (actions (ref result))
+               (vec action/wait action/answer)))))
+
+(deftest no-raised-decision-keeps-every-action
+  (let (item (reported-design)
+        normal (one-action action/accept-report))
+    (assert (= (actions (actions-for item (ref (vec)) normal))
+               (vec action/accept-report)))))
+
+(deftest an-item-held-only-by-a-rejected-decision-replans
+  (let (item (work-item "rm-0001" kind/build status/open)
+        snapshot (assoc (snapshot-of (vec item) (vec))
+                        :decision-blocks (vec (decision-block-on
+                                                "rm-d1"
+                                                "rm-0001"
+                                                decision-status/rejected))))
+    (assert (blocked-only-by-rejected? (ref snapshot)
+                                       (ref (blocked-report))))))
+
+(deftest a-proposed-decision-still-waits
+  (let (item (work-item "rm-0001" kind/build status/open)
+        snapshot (assoc (snapshot-of (vec item) (vec))
+                        :decision-blocks (vec (decision-block-on
+                                                "rm-d1"
+                                                "rm-0001"
+                                                decision-status/proposed))))
+    (assert (not (blocked-only-by-rejected? (ref snapshot)
+                                            (ref (blocked-report)))))))
+
+(deftest another-blocker-keeps-the-wait
+  (let (item (work-item "rm-0001" kind/build status/open)
+        snapshot (assoc (snapshot-of (vec item) (vec))
+                        :decision-blocks (vec (decision-block-on
+                                                "rm-d1"
+                                                "rm-0001"
+                                                decision-status/rejected)))
+        blockage (assoc (blocked-report)
+                        :blockers (vec (->item-id (str "rm-other")))))
+    (assert (not (blocked-only-by-rejected? (ref snapshot) (ref blockage))))))
+
+(deftest a-paused-roadmap-keeps-the-wait
+  (let (item (work-item "rm-0001" kind/build status/open)
+        snapshot (assoc (snapshot-of (vec item) (vec))
+                        :decision-blocks (vec (decision-block-on
+                                                "rm-d1"
+                                                "rm-0001"
+                                                decision-status/rejected)))
+        blockage (assoc (blocked-report) :pause roadmap-pause/paused))
+    (assert (not (blocked-only-by-rejected? (ref snapshot) (ref blockage))))))

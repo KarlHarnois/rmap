@@ -1,0 +1,25 @@
+(module
+  "Pairs each next action and actor with the text that names it on the command line.")
+
+(use ledger/core/actions action actor)
+
+(export action-names actor-names)
+
+(def action-names
+  (vec (pair action/dispatch "dispatch")
+       (pair action/wait "wait")
+       (pair action/ask "ask")
+       (pair action/await-decision "await-decision")
+       (pair action/replan "replan")
+       (pair action/work "work")
+       (pair action/accept-report "accept-report")
+       (pair action/review "review")
+       (pair action/fix "fix")
+       (pair action/merge "merge")
+       (pair action/answer "answer")))
+
+(def actor-names
+  (vec (pair actor/controller "controller")
+       (pair actor/agent "agent")
+       (pair actor/worker "worker")
+       (pair actor/user "user")))

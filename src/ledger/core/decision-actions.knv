@@ -1,0 +1,120 @@
+(module
+  "Replaces the next action a raised decision holds, once a decision is proposed or rejected.")
+
+(use ledger/model ->blockage blockage decision-id
+                  decision-status item kind roadmap-pause
+                  snapshot status)
+
+(use ledger/core/actions action planned)
+(use ledger/core/ready blockage-in readiness)
+
+(use ledger/core/decision-next raised-proposed
+                               raised-reasons
+                               raised-rejected)
+
+(export blocked-only-by-rejected? with-decision-actions)
+
+(defn with-decision-actions (readiness decisions item actions)
+  (let (rejected (raised-rejected decisions item))
+    (if (empty? rejected)
+      (with-proposed-action readiness decisions item actions)
+      (append-or-replace actions
+                         (held-action item)
+                         (replan-action readiness item rejected)))))
+
+(defn blocked-only-by-rejected? (snapshot blockage)
+  (and (not (empty? (:decisions blockage)))
+       (empty? (:blockers blockage))
+       (empty? (:dropped-blockers blockage))
+       (= (:pause blockage) roadmap-pause/not-paused)
+       (every? (iter (:decisions blockage))
+         (fn (id) (rejected-in? snapshot id)))))
+
+(defn with-proposed-action (readiness decisions item actions)
+  (let (proposed (raised-proposed decisions item))
+    (if (empty? proposed)
+      actions
+      (replace-when-held actions
+                         (held-action item)
+                         (raised-wait readiness item proposed)))))
+
+(defn append-or-replace (actions held replacement)
+  (match held
+    ((some want) (replace-held actions want replacement))
+    (none (appended actions replacement))))
+
+(defn replace-when-held (actions held replacement)
+  (match held
+    ((some want) (replace-held actions want replacement))
+    (none actions)))
+
+(defn replace-held (actions want replacement)
+  (collect (map (iter actions)
+             (fn (planned) (substitute planned want replacement)))))
+
+(defn appended (actions replacement)
+  (let (all actions)
+    (push! all (clone replacement))
+    all))
+
+(defn substitute (planned want replacement)
+  (if (= (:action planned) want)
+    (clone replacement)
+    (clone planned)))
+
+(type held-action
+  (fn ((ref item)) (option action)))
+
+(defn held-action (item)
+  (match (:status item)
+    (reported (reported-hold (:kind item)))
+    (merging (merging-hold (:kind item)))
+    (_ none)))
+
+(defn reported-hold (item-kind)
+  (match item-kind
+    (research (some action/accept-report))
+    (design (some action/accept-report))
+    (_ none)))
+
+(defn merging-hold (item-kind)
+  (match item-kind
+    (build (some action/merge))
+    (_ none)))
+
+(defn replan-action (readiness item rejected)
+  (planned action/replan none
+           (some (raised-reasons (blockage-for readiness item) rejected))))
+
+(defn raised-wait (readiness item proposed)
+  (planned action/wait none
+           (some (raised-reasons (blockage-for readiness item) proposed))))
+
+(type blockage-for
+  (fn ((ref readiness) (ref item))
+    blockage))
+
+(defn blockage-for (readiness item)
+  (unwrap-or (blockage-in readiness (ref (:id item)))
+             (empty-blockage)))
+
+(defn empty-blockage ()
+  (->blockage :pause roadmap-pause/not-paused
+              :blockers (vec)
+              :dropped-blockers (vec)
+              :decisions (vec)))
+
+(defn rejected-in? (snapshot id)
+  (= (decision-status-in snapshot id)
+     (some decision-status/rejected)))
+
+(type decision-status-in
+  (fn ((ref snapshot) (ref decision-id))
+    (option decision-status)))
+
+(defn decision-status-in (snapshot id)
+  (-> (:decision-blocks snapshot)
+      iter
+      (find (fn (block)
+              (= (ref (:decision block)) id)))
+      (map-some (fn (block) (clone (:status block))))))

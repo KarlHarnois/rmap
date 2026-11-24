@@ -1,8 +1,11 @@
-(use ledger/model ->blockage kind roadmap-pause status)
+(use ledger/model ->blockage ->decision-id decision-status
+                  kind roadmap-pause status)
+
 (use ledger/api ->session action)
 (use ledger/core/actions planned planned-for-report)
 (use ledger/model/reports ->report-id)
-(use ledger/core/next ->next-item)
+(use ledger/core/decision-next ->decision-next)
+(use ledger/core/next ->next-item next-entry)
 (use cli/next-text next-text)
 (use support/items roadmap-of work-item)
 
@@ -23,7 +26,7 @@
                                                :blockers (vec)
                                                :dropped-blockers (vec)
                                                :decisions (vec)))))))
-    (assert (= (next-text (ref (vec entry)))
+    (assert (= (next-text (ref (vec (next-entry/listed-item entry))))
                (str "review  agent       s1  rm-0001  work\n"
                     "wait    controller  -   rm-0001  work")))))
 
@@ -37,6 +40,17 @@
                               (planned-for-report action/answer
                                                   (some (->session :name (str "s1")))
                                                   (->report-id :value 4)))))
-    (assert (= (next-text (ref (vec entry)))
+    (assert (= (next-text (ref (vec (next-entry/listed-item entry))))
                (str "accept-report (report 3)  agent  -   rm-0001  work\n"
                     "answer (report 4)         agent  s1  rm-0001  work")))))
+
+(deftest a-decision-gets-its-own-line-naming-the-decision
+  (let (entry (next-entry/listed-decision
+                (->decision-next
+                  :decision (->decision-id :value (str "rm-d1"))
+                  :roadmap (roadmap-of "rm-road" "manager")
+                  :status decision-status/proposed
+                  :title (str "Where?")
+                  :actions (vec (planned action/await-decision none none)))))
+    (assert (= (next-text (ref (vec entry)))
+               (str "await-decision  user  -  rm-d1  Where?")))))

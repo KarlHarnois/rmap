@@ -1,0 +1,109 @@
+(module
+  "Builds the next entries for proposed decisions, and finds the decisions an item raised.")
+
+(use ledger/model ->blockage decision-id decision-status
+                  item roadmap)
+
+(use ledger/model/decisions decision)
+(use ledger/core/actions action next-action planned)
+(use ledger/core/new-items distinct)
+
+(export ->decision-next decision-entries decision-next
+        raised-proposed raised-reasons raised-rejected)
+
+(defstruct decision-next
+  :decision decision-id
+  :roadmap roadmap
+  :status decision-status
+  :title string
+  :actions (vec next-action))
+
+(defn decision-entries (roadmap decisions)
+  (collect (map (iter (proposed-in roadmap decisions))
+             (fn (decision) (entry-of roadmap decision)))))
+
+(defn raised-proposed (decisions item)
+  (raised-ids decisions item decision-status/proposed))
+
+(defn raised-rejected (decisions item)
+  (raised-ids decisions item decision-status/rejected))
+
+(defn raised-reasons (blockage raised)
+  (->blockage :pause (:pause blockage)
+              :blockers (clone (:blockers blockage))
+              :dropped-blockers (clone (:dropped-blockers blockage))
+              :decisions (merged-ids (ref (:decisions blockage)) raised)))
+
+(type proposed-in
+  (fn ((ref roadmap) (ref (vec decision)))
+    (vec decision)))
+
+(defn proposed-in (roadmap decisions)
+  (let (chosen (collect (map (filter (iter decisions)
+                               (fn (decision)
+                                 (and (proposed? decision)
+                                      (= (:roadmap-id decision)
+                                         (:id roadmap)))))
+                             clone)))
+    (sort-by! chosen
+      (fn (decision)
+        (clone (:value (:created-at decision)))))
+    chosen))
+
+(type proposed?
+  (fn ((ref decision)) bool))
+
+(defn proposed? (decision)
+  (= (:status decision) decision-status/proposed))
+
+(type entry-of
+  (fn ((ref roadmap) (ref decision))
+    decision-next))
+
+(defn entry-of (roadmap decision)
+  (->decision-next :decision (clone (:id decision))
+                   :roadmap (clone roadmap)
+                   :status (:status decision)
+                   :title (clone (:title decision))
+                   :actions (vec (planned (ask-action decision) none none))))
+
+(defn ask-action (decision)
+  (match (:asked-at decision)
+    ((some _) action/await-decision)
+    (none action/ask)))
+
+(type raised-ids
+  (fn ((ref (vec decision))
+       (ref item)
+       decision-status)
+    (vec decision-id)))
+
+(defn raised-ids (decisions item status)
+  (sorted-ids (collect (map (filter (iter decisions)
+                              (fn (decision)
+                                (and (= (:status decision) status)
+                                     (= (:item decision)
+                                        (some (clone (:id item)))))))
+                            (fn (decision) (clone (:id decision)))))))
+
+(type merged-ids
+  (fn ((ref (vec decision-id))
+       (ref (vec decision-id)))
+    (vec decision-id)))
+
+(defn merged-ids (first second)
+  (let (all (vec))
+    (for-each first
+      (fn (id) (push! all (clone id))))
+    (for-each second
+      (fn (id) (push! all (clone id))))
+    (sorted-ids (distinct (ref all)))))
+
+(type sorted-ids
+  (fn ((vec decision-id))
+    (vec decision-id)))
+
+(defn sorted-ids (ids)
+  (sort-by! ids
+    (fn (id) (clone (:value id))))
+  ids)

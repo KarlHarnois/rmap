@@ -1,8 +1,9 @@
-(use ledger/model ->item-id ->session ->timestamp item kind
-                  roadmap-pause status)
+(use ledger/model ->decision-id ->item-id ->roadmap-id
+                  ->session ->timestamp decision-status item
+                  kind roadmap-pause status)
 
 (use ledger/core/actions action actor actor-of)
-(use ledger/core/next ->deliveries next-item next-of)
+(use ledger/core/next ->deliveries next-entry next-of)
 (use ledger/model/sessions ->session-id)
 
 (use ledger/model/pull-requests ->head ->pr-number
@@ -15,9 +16,12 @@
 (use ledger/model/reports ->report-id report-kind)
 (use support/reports report-on)
 
-(use support/items blocks-dep child-of claimed epic-item
+(use support/items blocks-dep child-of claimed
+                   decision-block-on epic-item id-of
                    in-roadmap paused-snapshot-of roadmap-of
                    snapshot-of work-item)
+
+(use support/decisions sample-decision)
 
 (use support/generated-snapshots generated-roadmap-ids
                                  generated-snapshot)
@@ -35,8 +39,8 @@
 (defn sole-action (item)
   (-> (next-in (alone item))
       first
-      (then-some (fn (entry) (first (:actions entry))))
-      (map-some clone)))
+      (then-some (fn (entry)
+                   (map-some (first (entry-actions entry)) clone)))))
 
 (defn alone (item)
   (snapshot-of (vec item) (vec)))
@@ -54,50 +58,56 @@
                (vec (blocks-dep "rm-0001" "rm-0002"))))
 
 (defn action-of-first (snapshot)
-  (clone (unwrap (first (:actions (unwrap (first (next-in (clone
-                                                            snapshot)))))))))
+  (let (entry (unwrap (first (next-in (clone snapshot)))))
+    (clone (unwrap (first (entry-actions entry))))))
 
 (defn next-in (snapshot)
   (next-of (ref snapshot)
            (ref (vec (road)))
-           (ref (reports-only (vec)))))
+           (ref (reports-only (vec)))
+           (ref (vec))))
 
 (defn road () (roadmap-of "rm-road" "manager"))
 
 (defn reports-only (reports)
   (->deliveries :reports reports :pull-requests (vec)))
 
-(type ids-of
-  (fn ((ref (vec next-item)))
-    (vec string)))
-
 (defn ids-of (listed)
-  (collect (map (iter listed)
+  (collect (map (filter (iter listed) item-listed?)
              (fn (entry)
-               (clone (:value (:id (:item entry))))))))
+               (clone (:value (:id (:item (unwrap (entry-item entry))))))))))
+
+(defn item-listed? (entry)
+  (match (entry-item entry)
+    ((some _) true)
+    (none false)))
 
 (defn wait-reasons-match-ready? (snapshot)
   (let (blocked (:blocked (readiness-of snapshot (ref scope/every-roadmap))))
     (every? (iter (generated-next snapshot))
       (fn (entry)
-        (every? (iter (:actions entry))
+        (every? (iter (entry-actions entry))
           (fn (planned)
             (or (not= (:action planned) action/wait)
-                (any? (iter blocked)
-                  (fn (held)
-                    (and (= (:id (:item held))
-                            (:id (:item entry)))
-                         (= (:reasons planned)
-                            (some (clone (:blockage held))))))))))))))
+                (match (entry-item entry)
+                  ((some item)
+                   (any? (iter blocked)
+                     (fn (held)
+                       (and (= (:id (:item held))
+                               (:id (:item item)))
+                            (= (:reasons planned)
+                               (some (clone (:blockage held))))))))
+                  (none false)))))))))
 
 (defn actors-from-table? (snapshot)
   (every? (iter (generated-next snapshot))
     (fn (entry)
-      (and (not (empty? (:actions entry)))
-           (every? (iter (:actions entry))
-             (fn (planned)
-               (= (:actor planned)
-                  (actor-of (:action planned)))))))))
+      (let (actions (entry-actions entry))
+        (and (not (empty? actions))
+             (every? (iter actions)
+               (fn (planned)
+                 (= (:actor planned)
+                    (actor-of (:action planned))))))))))
 
 (defn dispatch-order-matches-ready? (snapshot)
   (let (listed (generated-next snapshot)
@@ -110,27 +120,29 @@
 (defn generated-next (snapshot)
   (next-of snapshot
            (ref (generated-roadmaps))
-           (ref (reports-only (vec)))))
+           (ref (reports-only (vec)))
+           (ref (vec))))
 
 (defn generated-roadmaps ()
   (collect (map (iter generated-roadmap-ids)
              (fn (id)
                (roadmap-of (deref id) "manager")))))
 
-(type dispatched-ids-in
-  (fn ((ref (vec next-item)) (ref str))
-    (vec string)))
-
 (defn dispatched-ids-in (listed roadmap-id)
   (collect (map (filter (iter listed)
-                  (fn (entry)
-                    (and (= (as-str (:value (:roadmap-id (:item entry))))
-                            roadmap-id)
-                         (any? (iter (:actions entry))
-                           (fn (planned)
-                             (= (:action planned) action/dispatch))))))
+                  (fn (entry) (dispatched-entry? entry roadmap-id)))
                 (fn (entry)
-                  (clone (:value (:id (:item entry))))))))
+                  (clone (:value (:id (:item (unwrap (entry-item entry))))))))))
+
+(defn dispatched-entry? (entry roadmap-id)
+  (match (entry-item entry)
+    ((some item)
+     (and (= (as-str (:value (:id (:roadmap item))))
+             roadmap-id)
+          (any? (iter (entry-actions entry))
+            (fn (planned)
+              (= (:action planned) action/dispatch)))))
+    (none false)))
 
 (type ready-ids-in
   (fn ((ref (vec item)) (ref str))
@@ -152,8 +164,13 @@
                         (ref (vec (road)))
                         (ref (->deliveries :reports (vec)
                                            :pull-requests (vec (pull-request-with
-                                                                 verdict))))))
-    (clone (at (:actions (at listed 0)) 0))))
+                                                                 verdict))))
+                        (ref (vec))))
+    (clone (at (entry-actions (at listed 0)) 0))))
+
+(defn approved-deliveries ()
+  (->deliveries :reports (vec)
+                :pull-requests (vec (pull-request-with verdict/approve))))
 
 (defn pull-request-with (verdict)
   (->pull-request :item (->item-id :value (str "rm-0001"))
@@ -169,6 +186,39 @@
                                           :head (->head :sha (str sha))
                                           :verdict verdict
                                           :created-at (->timestamp :value (str "2026-01-03T00:00:00Z"))))))
+
+(defn item-entry-for (listed id)
+  (clone (unwrap (find (iter listed)
+                   (fn (entry)
+                     (match (entry-item entry)
+                       ((some item) (= (:id (:item item)) (id-of id)))
+                       (none false)))))))
+
+(defn decision-listed? (entry)
+  (match entry
+    ((next-entry/listed-item _) false)
+    ((next-entry/listed-decision _) true)))
+
+(defn reason-ids (planned)
+  (collect (map (iter (:decisions (unwrap (clone (:reasons planned)))))
+             (fn (id) (clone (:value id))))))
+
+(defn blocked-snapshot (status)
+  (let (item (work-item "rm-0001" kind/build status/open))
+    (assoc (snapshot-of (vec item) (vec))
+           :decision-blocks (vec
+                              (decision-block-on "rm-d1" "rm-0001" status)))))
+
+(defn entry-item (entry)
+  (match entry
+    ((next-entry/listed-item item) (some (clone item)))
+    ((next-entry/listed-decision _) none)))
+
+(defn entry-actions (entry)
+  (match entry
+    ((next-entry/listed-item item) (clone (:actions item)))
+    ((next-entry/listed-decision decision)
+     (clone (:actions decision)))))
 
 (deftest an-open-ready-item-is-dispatched-by-the-controller
   (assert (= (taken-by (sole-action
@@ -259,7 +309,8 @@
                    (vec))
         listed (next-of (ref snapshot)
                         (ref (vec (roadmap-of "rm-other" "manager") (road)))
-                        (ref (reports-only (vec)))))
+                        (ref (reports-only (vec)))
+                        (ref (vec))))
     (assert (= (ids-of (ref listed))
                (vec (str "rm-0002") (str "rm-0001"))))))
 
@@ -268,7 +319,8 @@
                                                   kind/research
                                                   status/open)))
                            (ref (vec (roadmap-of "rm-other" "manager")))
-                           (ref (reports-only (vec)))))))
+                           (ref (reports-only (vec)))
+                           (ref (vec))))))
 
 (deftest a-waiting-item-gives-the-reasons-ready-gives
   (for-each (range 0 seed-count)
@@ -308,11 +360,12 @@
                         (ref (vec (road)))
                         (ref (reports-only
                                (vec (report-on 2 "rm-0001"
-                                               report-kind/question))))))
-    (assert (= (collect (map (iter (:actions (at listed 0)))
+                                               report-kind/question))))
+                        (ref (vec))))
+    (assert (= (collect (map (iter (entry-actions (at listed 0)))
                           (fn (planned) (:action planned))))
                (vec action/work action/answer)))
-    (assert (= (:actor (at (:actions (at listed 0)) 1))
+    (assert (= (:actor (at (entry-actions (at listed 0)) 1))
                actor/agent))))
 
 (deftest an-unread-done-report-names-its-id-on-accept-report
@@ -321,11 +374,11 @@
                                                         status/reported))))
                         (ref (vec (road)))
                         (ref (reports-only
-                               (vec (report-on 3 "rm-0001"
-                                               report-kind/done))))))
-    (assert (= (:action (at (:actions (at listed 0)) 0))
+                               (vec (report-on 3 "rm-0001" report-kind/done))))
+                        (ref (vec))))
+    (assert (= (:action (at (entry-actions (at listed 0)) 0))
                action/accept-report))
-    (assert (= (:report (at (:actions (at listed 0)) 0))
+    (assert (= (:report (at (entry-actions (at listed 0)) 0))
                (some (->report-id :value 3))))))
 
 (deftest an-approved-build-in-review-is-merged-by-the-controller
@@ -345,3 +398,115 @@
 (deftest a-merging-build-with-changes-asked-is-listed-for-review
   (assert (= (:action (build-action status/merging verdict/changes))
              action/review)))
+
+(deftest a-proposed-decision-is-listed-before-the-roadmaps-items
+  (let (snapshot (snapshot-of (vec (work-item "rm-0001" kind/build status/open))
+                              (vec))
+        decisions (vec (sample-decision decision-status/proposed))
+        listed (next-of (ref snapshot)
+                        (ref (vec (road)))
+                        (ref (reports-only (vec)))
+                        (ref decisions)))
+    (assert (= (len listed) 2))
+    (assert (decision-listed? (at listed 0)))
+    (assert (item-listed? (at listed 1)))))
+
+(deftest a-standalone-decision-is-listed-without-items
+  (let (snapshot (snapshot-of (vec) (vec))
+        decisions (vec (sample-decision decision-status/proposed))
+        listed (next-of (ref snapshot)
+                        (ref (vec (road)))
+                        (ref (reports-only (vec)))
+                        (ref decisions)))
+    (assert (= (len listed) 1))
+    (assert (decision-listed? (at listed 0)))))
+
+(deftest a-decision-in-an-unlisted-roadmap-is-listed-nowhere
+  (let (snapshot (snapshot-of (vec) (vec))
+        decisions (vec (assoc (sample-decision decision-status/proposed)
+                              :roadmap-id (->roadmap-id (str "rm-other"))))
+        listed (next-of (ref snapshot)
+                        (ref (vec (road)))
+                        (ref (reports-only (vec)))
+                        (ref decisions)))
+    (assert (empty? listed))))
+
+(deftest an-item-held-only-by-a-proposed-decision-waits-on-it
+  (let (listed (next-in (blocked-snapshot decision-status/proposed))
+        entry (item-entry-for listed "rm-0001")
+        planned (clone (unwrap (first (entry-actions entry)))))
+    (assert (= (:action planned) action/wait))
+    (assert (= (reason-ids planned)
+               (vec (str "rm-d1"))))))
+
+(deftest an-item-held-only-by-a-rejected-decision-replans
+  (let (listed (next-in (blocked-snapshot decision-status/rejected))
+        entry (item-entry-for listed "rm-0001"))
+    (assert (= (:action (clone (unwrap (first (entry-actions entry)))))
+               action/replan))
+    (assert (= (:actor (clone (unwrap (first (entry-actions entry)))))
+               actor/agent))))
+
+(deftest an-item-that-raised-a-rejected-decision-replans
+  (let (item (claimed (work-item "rm-0001" kind/design status/reported))
+        decision (assoc (sample-decision decision-status/rejected)
+                        :item (some (clone (:id item))))
+        listed (next-of (ref (snapshot-of (vec item) (vec)))
+                        (ref (vec (road)))
+                        (ref (reports-only (vec)))
+                        (ref (vec decision)))
+        entry (item-entry-for listed "rm-0001"))
+    (assert (= (:action (clone (unwrap (first (entry-actions entry)))))
+               action/replan))))
+
+(deftest a-dispatched-build-keeps-working-and-replans-a-rejection
+  (let (item (claimed (work-item "rm-0001" kind/build status/dispatched))
+        proposed (assoc (sample-decision decision-status/proposed)
+                        :item (some (clone (:id item))))
+        rejected (assoc (sample-decision decision-status/rejected)
+                        :id (->decision-id :value (str "rm-d2"))
+                        :item (some (clone (:id item))))
+        entry-with-proposed (item-entry-for
+                              (next-of (ref (snapshot-of (vec item) (vec)))
+                                       (ref (vec (road)))
+                                       (ref (reports-only (vec)))
+                                       (ref (vec proposed)))
+                              "rm-0001")
+        item-with-rejected (claimed
+                             (work-item "rm-0001" kind/build status/dispatched))
+        entry-with-rejected (item-entry-for (next-of (ref (snapshot-of (vec item-with-rejected)
+                                                                       (vec)))
+                                                     (ref (vec (road)))
+                                                     (ref (reports-only (vec)))
+                                                     (ref (vec rejected)))
+                                            "rm-0001"))
+    (assert (= (collect (map (iter (entry-actions entry-with-proposed))
+                          (fn (planned) (:action planned))))
+               (vec action/work)))
+    (assert (= (collect (map (iter (entry-actions entry-with-rejected))
+                          (fn (planned) (:action planned))))
+               (vec action/work action/replan)))))
+
+(deftest a-merging-build-waits-on-a-proposed-decision-it-raised
+  (let (item (claimed (work-item "rm-0001" kind/build status/merging))
+        decision (assoc (sample-decision decision-status/proposed)
+                        :item (some (clone (:id item))))
+        entry (item-entry-for (next-of (ref (snapshot-of (vec item) (vec)))
+                                       (ref (vec (road)))
+                                       (ref (approved-deliveries))
+                                       (ref (vec decision)))
+                              "rm-0001"))
+    (assert (= (:action (clone (unwrap (first (entry-actions entry)))))
+               action/wait))))
+
+(deftest a-merging-build-replans-a-rejected-decision-it-raised
+  (let (item (claimed (work-item "rm-0001" kind/build status/merging))
+        decision (assoc (sample-decision decision-status/rejected)
+                        :item (some (clone (:id item))))
+        entry (item-entry-for (next-of (ref (snapshot-of (vec item) (vec)))
+                                       (ref (vec (road)))
+                                       (ref (approved-deliveries))
+                                       (ref (vec decision)))
+                              "rm-0001"))
+    (assert (= (:action (clone (unwrap (first (entry-actions entry)))))
+               action/replan))))

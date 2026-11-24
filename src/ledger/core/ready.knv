@@ -1,8 +1,8 @@
 (module
   "Computes which items can start and what blocks the others.")
 
-(use ledger/model ->blockage blockage claim item kind
-                  roadmap-pause roadmap-status snapshot
+(use ledger/model ->blockage blockage claim item item-id
+                  kind roadmap-pause roadmap-status snapshot
                   status)
 
 (use ledger/core/index delivered-id? index-of indexed-status
@@ -12,8 +12,9 @@
 (use ledger/core/decision-blocks blocking-decisions)
 (use ledger/core/order ordered)
 
-(export ->blocked-item ->readiness blockage-of blocked-item
-        readiness readiness-of unblocked?)
+(export ->blocked-item ->readiness blockage-in blockage-of
+        blocked-item readiness readiness-of ready-in?
+        unblocked?)
 
 (defstruct readiness
   :ready (vec item)
@@ -36,6 +37,25 @@
                                                                      item))))))
     (->readiness :ready (ordered (startable-items (ref assessed)))
                  :blocked (waiting-items assessed))))
+
+(type ready-in?
+  (fn ((ref readiness) (ref item-id))
+    bool))
+
+(defn ready-in? (readiness id)
+  (any? (iter (:ready readiness))
+    (fn (ready) (= (ref (:id ready)) id))))
+
+(type blockage-in
+  (fn ((ref readiness) (ref item-id))
+    (option blockage)))
+
+(defn blockage-in (readiness id)
+  (-> (:blocked readiness)
+      iter
+      (find (fn (held)
+              (= (ref (:id (:item held))) id)))
+      (map-some (fn (held) (clone (:blockage held))))))
 
 (defn unblocked? (blockage)
   (and (= (:pause blockage) roadmap-pause/not-paused)

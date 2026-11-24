@@ -17,6 +17,9 @@
 (defenum action
   dispatch
   wait
+  ask
+  await-decision
+  replan
   work
   accept-report
   review
@@ -44,6 +47,9 @@
   (match action
     (dispatch actor/controller)
     (wait actor/controller)
+    (ask actor/agent)
+    (await-decision actor/user)
+    (replan actor/agent)
     (work actor/worker)
     (accept-report actor/agent)
     (review actor/agent)

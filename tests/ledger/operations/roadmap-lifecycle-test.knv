@@ -2,9 +2,9 @@
 
 (use ledger/api ->claim-request action claim-item event
                 event-type failure list-roadmaps
-                next-actions pause-roadmap ready-items
-                refusal resume-roadmap roadmap-pause
-                roadmap-status)
+                next-actions next-entry pause-roadmap
+                ready-items refusal resume-roadmap
+                roadmap-pause roadmap-status)
 
 (use support/ledger all-events refusal-code-of research
                     roadmap-name scratch-ledger
@@ -39,8 +39,20 @@
       unwrap json->text unwrap))
 
 (defn entry-for (settings id)
-  (clone (unwrap (find (iter (unwrap-ok (next-actions settings none none)))
-                   (fn (entry) (= (:id (:item entry)) id))))))
+  (-> (unwrap-ok (next-actions settings none none))
+      iter
+      (find (fn (entry) (item-entry? entry id)))
+      (then-some (fn (entry) (item-of-entry entry)))))
+
+(defn item-of-entry (entry)
+  (match entry
+    ((next-entry/listed-item item) (some (clone item)))
+    ((next-entry/listed-decision _) none)))
+
+(defn item-entry? (entry id)
+  (match entry
+    ((next-entry/listed-item item) (= (:id (:item item)) id))
+    ((next-entry/listed-decision _) false)))
 
 (deftest pausing-and-resuming-a-roadmap-changes-its-status
   (let (settings (scratch-ledger "pause-status"))
@@ -116,6 +128,7 @@
                            (clone item)
                            (worker-claim)))
     (unwrap-ok (pause-roadmap (ref settings) (str roadmap-name)))
-    (assert (= (:action (unwrap (first (:actions (entry-for (ref settings)
-                                                            item)))))
+    (assert (= (:action (unwrap (first (:actions (unwrap (entry-for (ref
+                                                                      settings)
+                                                                    item))))))
                action/work))))
