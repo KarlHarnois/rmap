@@ -16,6 +16,8 @@
   invalid-head
   head-not-current
   head-unchanged
+  reviewer-is-worker
+  reviewer-not-fresh
   not-approved)
 
 (defn pull-request-code-of (refused)
@@ -34,6 +36,10 @@
      pull-request-refusal-code/head-not-current)
     ((pull-request-refusal/head-unchanged _)
      pull-request-refusal-code/head-unchanged)
+    ((pull-request-refusal/reviewer-is-worker _)
+     pull-request-refusal-code/reviewer-is-worker)
+    ((pull-request-refusal/reviewer-not-fresh _ _ _)
+     pull-request-refusal-code/reviewer-not-fresh)
     ((pull-request-refusal/not-approved _)
      pull-request-refusal-code/not-approved)))
 
@@ -46,6 +52,8 @@
                            pull-request-refusal-code/invalid-head
                            pull-request-refusal-code/head-not-current
                            pull-request-refusal-code/head-unchanged
+                           pull-request-refusal-code/reviewer-is-worker
+                           pull-request-refusal-code/reviewer-not-fresh
                            pull-request-refusal-code/not-approved))
                 (fn (code)
                   (pull-request-description (deref code))))))
@@ -68,5 +76,9 @@
     (head-unchanged (described
                       "head-unchanged"
                       "pr head names the head the pull request is already at."))
+    (reviewer-is-worker (described "reviewer-is-worker"
+                                   "The reviewer is the item's own worker session, which claimed the item."))
+    (reviewer-not-fresh (described "reviewer-not-fresh"
+                                   "The reviewer already reviewed another head of the same pull request. A new head needs a new reviewer. The error names the reviewer, the head it reviewed and the head it tried."))
     (not-approved (described "not-approved"
                              "Among each reviewer's latest verdict on the pull request's head, none approves or one asks for changes. The error lists the head, approved_by, changes_requested and stale_heads."))))

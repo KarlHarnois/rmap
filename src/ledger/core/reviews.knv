@@ -1,8 +1,8 @@
 (module
   "Decides whether a reviewer session may record a review of a build's pull request, and the review and the finished review session it records.")
 
-(use ledger/model ->work-session item runtime session-kind
-                  timestamp)
+(use ledger/model ->work-session item runtime session
+                  session-kind timestamp)
 
 (use ledger/model/sessions ->finished-session ->session-end
                            end-reason finished-session
@@ -12,7 +12,7 @@
                                 review review-id
                                 review-request)
 
-(use ledger/refusal refusal)
+(use ledger/refusal pull-request-refusal refusal)
 (use ledger/core/heads current-head)
 (use ledger/core/pull-requests present-pull-request)
 (use ledger/core/phases finished?)
@@ -28,14 +28,20 @@
 (type approved-head
   (fn ((ref item)
        (ref (option pull-request))
-       (ref review-request))
+       (ref review-request)
+       (ref (vec session)))
     (result head refusal)))
 
-(defn approved-head (item pull-request request)
+(defn approved-head (item pull-request request worker-sessions)
   (let-try (_ (check-unfinished item)
-            present (present-pull-request item pull-request))
-    (current-head (ref present)
-                  (ref (:head request)))))
+            present (present-pull-request item pull-request)
+            _ (check-worker worker-sessions (ref (:reviewer request)))
+            head (current-head (ref present)
+                               (ref (:head request)))
+            _ (check-fresh (ref present)
+                           (ref (:reviewer request))
+                           (ref head)))
+    (ok head)))
 
 (type stamped-review
   (fn ((ref review-request) head review-stamp) review))
@@ -73,3 +79,42 @@
   (if (finished? (:status item))
     (err (refusal/item-closed (clone (:id item))))
     (ok (do))))
+
+(type check-worker
+  (fn ((ref (vec session)) (ref session))
+    (result unit refusal)))
+
+(defn check-worker (worker-sessions reviewer)
+  (if (any? (iter worker-sessions)
+        (fn (worker) (= worker reviewer)))
+    (err (refusal/pull-request (pull-request-refusal/reviewer-is-worker (clone reviewer))))
+    (ok (do))))
+
+(defn check-fresh (pull-request reviewer head)
+  (match (stale-review (:reviews pull-request) reviewer head)
+    ((some review) (not-fresh reviewer (ref review) head))
+    (none (ok (do)))))
+
+(type stale-review
+  (fn ((ref (vec review))
+       (ref session)
+       (ref head))
+    (option review)))
+
+(defn stale-review (reviews reviewer head)
+  (map-some (first (collect (map (filter (iter reviews)
+                                   (fn (review)
+                                     (and (= (ref (:reviewer review)) reviewer)
+                                          (not= (ref (:head review)) head))))
+                                 clone)))
+            clone))
+
+(type not-fresh
+  (fn ((ref session) (ref review) (ref head))
+    (result unit refusal)))
+
+(defn not-fresh (reviewer review head)
+  (err (refusal/pull-request (pull-request-refusal/reviewer-not-fresh (clone reviewer)
+                                                                      (clone (:head
+                                                                               review))
+                                                                      (clone head)))))

@@ -66,6 +66,12 @@
                                (->head :sha (str "def"))))
        (refusal/pull-request (pull-request-refusal/head-unchanged (->head
                                                                     :sha (str "abc"))))
+       (refusal/pull-request (pull-request-refusal/reviewer-is-worker
+                               (->session :name (str "w1"))))
+       (refusal/pull-request (pull-request-refusal/reviewer-not-fresh
+                               (->session :name (str "r1"))
+                               (->head :sha (str "abc"))
+                               (->head :sha (str "def"))))
        (refusal/pull-request (pull-request-refusal/not-approved (sample-approval)))))
 
 (defn sample-approval ()

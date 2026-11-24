@@ -15,6 +15,8 @@
   (invalid-head string)
   (head-not-current head head)
   (head-unchanged head)
+  (reviewer-is-worker session)
+  (reviewer-not-fresh session head head)
   (not-approved approval))
 
 (defn pull-request-refusal->message (refused)
@@ -38,6 +40,17 @@
     ((head-unchanged current)
      (str "the pull request is already at the head "
           (:sha current)))
+    ((reviewer-is-worker reviewer)
+     (str "the reviewer "
+          (:name reviewer)
+          " is the item's own worker session"))
+    ((reviewer-not-fresh reviewer reviewed tried)
+     (str "the reviewer "
+          (:name reviewer)
+          " already reviewed the head "
+          (:sha reviewed)
+          " of this pull request, so it cannot review the head "
+          (:sha tried)))
     ((not-approved approval) (not-approved-message approval))))
 
 (type not-approved-message

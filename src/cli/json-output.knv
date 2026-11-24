@@ -9,7 +9,7 @@
 (use cli/help command-help-document help-document)
 (use cli/envelopes reply-envelope)
 (use cli/schema-envelope error-envelope)
-(use json/value int->json)
+(use json/value int->json text->json)
 (use cli/blockage-json blockage-fields)
 (use cli/pr-json approval-fields)
 
@@ -54,6 +54,17 @@
 (defn refusal-fields (refusal)
   (match refusal
     ((refusal/not-ready blockage) (blockage-fields blockage))
+    ((refusal/pull-request (pull-request-refusal/reviewer-is-worker reviewer))
+     (vec (pair (str "reviewer")
+                (text->json (as-str (:name reviewer))))))
+    ((refusal/pull-request (pull-request-refusal/reviewer-not-fresh
+                             reviewer reviewed tried))
+     (vec (pair (str "reviewer")
+                (text->json (as-str (:name reviewer))))
+          (pair (str "reviewed_head")
+                (text->json (as-str (:sha reviewed))))
+          (pair (str "tried_head")
+                (text->json (as-str (:sha tried))))))
     ((refusal/pull-request (pull-request-refusal/not-approved approval))
      (approval-fields approval))
     (_ (vec))))

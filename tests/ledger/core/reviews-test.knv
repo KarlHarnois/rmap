@@ -4,9 +4,9 @@
 (use ledger/model/sessions ->session-id end-reason)
 
 (use ledger/model/pull-requests ->head ->pr-number
-                                ->pull-request ->review-id
-                                ->review-request review-kind
-                                verdict)
+                                ->pull-request ->review
+                                ->review-id ->review-request
+                                review-kind verdict)
 
 (use ledger/refusal refusal)
 (use ledger/pull-request-refusals pull-request-refusal)
@@ -18,19 +18,39 @@
 
 (def sha "1111111111111111111111111111111111111111")
 
-(defn request (head)
+(def second-sha "2222222222222222222222222222222222222222")
+
+(defn worker-named (name)
+  (->session :name (str name)))
+
+(defn request (head) (request-from "reviewer" head))
+
+(defn request-from (reviewer head)
   (->review-request :item (->item-id :value (str "rm-0001"))
-                    :reviewer (->session :name (str "reviewer"))
+                    :reviewer (->session :name (str reviewer))
                     :kind review-kind/design
                     :head (str head)
                     :verdict verdict/changes))
 
 (defn opened ()
-  (some (->pull-request :item (->item-id :value (str "rm-0001"))
-                        :pr-number (->pr-number :value 12)
-                        :head (->head :sha (str sha))
-                        :opened-at (->timestamp :value (str "2026-01-02T00:00:00Z"))
-                        :reviews (vec))))
+  (some (opened-at sha (vec))))
+
+(defn opened-at (head reviews)
+  (->pull-request :item (->item-id :value (str "rm-0001"))
+                  :pr-number (->pr-number :value 12)
+                  :head (->head :sha (str head))
+                  :opened-at (->timestamp :value (str "2026-01-02T00:00:00Z"))
+                  :reviews reviews))
+
+(defn review-at (id reviewer head verdict)
+  (->review :id (->review-id :value id)
+            :item (->item-id :value (str "rm-0001"))
+            :session-id (->session-id :value id)
+            :reviewer (->session :name (str reviewer))
+            :kind review-kind/behavior
+            :head (->head :sha (str head))
+            :verdict verdict
+            :created-at (->timestamp :value (str "2026-01-03T00:00:00Z"))))
 
 (defn build (status)
   (claimed (work-item "rm-0001" kind/build status)))
@@ -44,26 +64,30 @@
 (deftest a-review-of-an-open-pull-request-is-approved
   (assert (= (approved-head (ref (build status/in-review))
                             (ref (opened))
-                            (ref (request sha)))
+                            (ref (request sha))
+                            (ref (vec)))
              (ok (->head :sha (str sha))))))
 
 (deftest a-review-of-a-build-without-a-pull-request-is-refused
   (assert (= (approved-head (ref (build status/in-review))
                             (ref none)
-                            (ref (request sha)))
+                            (ref (request sha))
+                            (ref (vec)))
              (err (refusal/pull-request
                     (pull-request-refusal/pr-not-found (->item-id :value (str "rm-0001"))))))))
 
 (deftest a-review-of-a-merged-build-is-refused
   (assert (= (approved-head (ref (build status/merged))
                             (ref (opened))
-                            (ref (request sha)))
+                            (ref (request sha))
+                            (ref (vec)))
              (err (refusal/item-closed (->item-id :value (str "rm-0001")))))))
 
 (deftest a-review-at-an-abbreviated-head-is-refused
   (assert (= (approved-head (ref (build status/in-review))
                             (ref (opened))
-                            (ref (request "1111111")))
+                            (ref (request "1111111"))
+                            (ref (vec)))
              (err (refusal/pull-request (pull-request-refusal/invalid-head (str "1111111")))))))
 
 (deftest a-stamped-review-keeps-the-request-and-the-stamp
@@ -92,8 +116,60 @@
 (deftest a-review-at-another-head-is-refused
   (assert (= (approved-head (ref (build status/in-review))
                             (ref (opened))
-                            (ref (request
-                                   "2222222222222222222222222222222222222222")))
+                            (ref (request second-sha))
+                            (ref (vec)))
              (err (refusal/pull-request (pull-request-refusal/head-not-current
-                                          (->head :sha (str "2222222222222222222222222222222222222222"))
+                                          (->head :sha (str second-sha))
                                           (->head :sha (str sha))))))))
+
+(deftest a-review-by-the-items-own-worker-is-refused
+  (assert (= (approved-head (ref (build status/in-review))
+                            (ref (opened))
+                            (ref (request-from "worker" sha))
+                            (ref (vec (worker-named "worker"))))
+             (err (refusal/pull-request (pull-request-refusal/reviewer-is-worker
+                                          (->session :name (str "worker"))))))))
+
+(deftest a-session-that-worked-on-another-item-may-review
+  (assert (= (approved-head (ref (build status/in-review))
+                            (ref (opened))
+                            (ref (request-from "other-item-worker" sha))
+                            (ref (vec (worker-named "worker"))))
+             (ok (->head :sha (str sha))))))
+
+(deftest a-reviewer-of-another-head-cannot-review-the-new-head
+  (let (pull-request (some (opened-at
+                             second-sha
+                             (vec
+                               (review-at 1 "reviewer" sha verdict/changes)))))
+    (assert (= (approved-head (ref (build status/in-review))
+                              (ref pull-request)
+                              (ref (request-from "reviewer" second-sha))
+                              (ref (vec)))
+               (err (refusal/pull-request (pull-request-refusal/reviewer-not-fresh
+                                            (->session :name (str "reviewer"))
+                                            (->head :sha (str sha))
+                                            (->head :sha (str
+                                                           second-sha)))))))))
+
+(deftest a-reviewer-can-record-a-second-verdict-on-the-same-head
+  (let (pull-request (some (opened-at
+                             sha
+                             (vec
+                               (review-at 1 "reviewer" sha verdict/changes)))))
+    (assert (= (approved-head (ref (build status/in-review))
+                              (ref pull-request)
+                              (ref (request-from "reviewer" sha))
+                              (ref (vec)))
+               (ok (->head :sha (str sha)))))))
+
+(deftest a-different-reviewer-can-review-the-new-head
+  (let (pull-request (some (opened-at
+                             second-sha
+                             (vec
+                               (review-at 1 "reviewer" sha verdict/changes)))))
+    (assert (= (approved-head (ref (build status/in-review))
+                              (ref pull-request)
+                              (ref (request-from "other" second-sha))
+                              (ref (vec)))
+               (ok (->head :sha (str second-sha)))))))
