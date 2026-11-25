@@ -16,8 +16,8 @@
 (use ledger/json-values optional-text->json
                         optional-timestamp->json)
 
-(export ended-session-columns session-changes
-        started-session-columns)
+(export ended-session-columns optional-ended-session-columns
+        session-changes started-session-columns)
 
 (defn session-changes (before change)
   (match change
@@ -43,6 +43,11 @@
        (inserted "started_at"
                  (optional-timestamp->json (ref (some (clone (:started-at
                                                                session))))))))
+
+(defn optional-ended-session-columns (end)
+  (match end
+    ((some present) (ended-session-columns present))
+    (none (vec))))
 
 (type ended-session-columns
   (fn ((ref session-end))

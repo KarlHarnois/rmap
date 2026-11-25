@@ -16,8 +16,8 @@
                                review-start-session)
 
 (use ledger/core/reviews ->review-stamp approved-head
-                         check-live-review review-end
-                         stamped-review)
+                         check-live-review check-reviewer
+                         review-end stamped-review)
 
 (use support/items claimed work-item)
 
@@ -128,10 +128,18 @@
 
 (deftest a-review-may-start-while-the-build-is-in-review
   (assert (ok? (approved-review-start (ref (build status/in-review))
+                                      (ref none)
+                                      (ref (vec))
+                                      (ref (worker-named "reviewer"))
+                                      (ref none)
                                       (ref none)))))
 
 (deftest a-review-may-not-start-before-the-build-is-in-review
   (assert (= (refusal-of (approved-review-start (ref (build status/dispatched))
+                                                (ref none)
+                                                (ref (vec))
+                                                (ref (worker-named "reviewer"))
+                                                (ref none)
                                                 (ref none)))
              (some (refusal/pull-request (pull-request-refusal/review-not-in-review
                                            (->item-id :value (str "rm-0001"))
@@ -139,8 +147,11 @@
 
 (deftest a-second-live-review-session-on-one-item-is-refused
   (assert (= (refusal-of (approved-review-start (ref (build status/in-review))
-                                                (ref (some (live-review
-                                                             "r1")))))
+                                                (ref (some (live-review "r1")))
+                                                (ref (vec))
+                                                (ref (worker-named "reviewer"))
+                                                (ref none)
+                                                (ref none)))
              (some (refusal/pull-request (pull-request-refusal/review-already-live
                                            (->session :name (str "r1"))))))))
 
@@ -219,3 +230,32 @@
                               (ref (request-from "other" second-sha))
                               (ref (vec)))
                (ok (->head :sha (str second-sha)))))))
+
+(deftest a-fresh-reviewer-may-review-the-current-head
+  (assert (ok? (check-reviewer (ref (vec))
+                               (ref (worker-named "reviewer"))
+                               (ref (opened))
+                               (ref (some (->head :sha (str sha))))))))
+
+(deftest a-worker-session-of-the-item-may-not-review
+  (assert (= (refusal-of (check-reviewer (ref (vec (worker-named "worker")))
+                                         (ref (worker-named "worker"))
+                                         (ref (opened))
+                                         (ref (some (->head :sha (str sha))))))
+             (some (refusal/pull-request (pull-request-refusal/reviewer-is-worker
+                                           (worker-named "worker")))))))
+
+(deftest a-reviewer-of-another-head-may-not-review
+  (let (pull-request (some (opened-at
+                             second-sha
+                             (vec
+                               (review-at 1 "reviewer" sha verdict/changes)))))
+    (assert (= (refusal-of (check-reviewer (ref (vec))
+                                           (ref (worker-named "reviewer"))
+                                           (ref pull-request)
+                                           (ref (some (->head :sha (str second-sha))))))
+               (some (refusal/pull-request (pull-request-refusal/reviewer-not-fresh
+                                             (worker-named "reviewer")
+                                             (->head :sha (str sha))
+                                             (->head :sha (str
+                                                            second-sha)))))))))

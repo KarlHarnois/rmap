@@ -140,14 +140,14 @@
                    (unclaimed (str "")))
                  (str "worker-" (:value id)))))))
 
-(deftest a-review-start-under-a-live-session-name-is-refused
-  (let (settings (scratch-ledger "review-start-busy")
+(deftest a-review-start-by-the-items-live-worker-is-refused
+  (let (settings (scratch-ledger "review-start-worker")
         id (build-in-review (ref settings)))
     (assert (= (refusal-code-of (start-review-result (ref settings)
                                                      (ref id)
                                                      (str "worker-"
                                                           (:value id))))
-               (some (str "session-busy"))))))
+               (some (str "reviewer-is-worker"))))))
 
 (deftest a-review-without-a-live-review-session-is-refused
   (let (settings (scratch-ledger "review-needs-session")
@@ -210,7 +210,7 @@
                                                           first-head)))
                (some (str "item-not-found"))))))
 
-(deftest a-finished-worker-session-of-the-item-cannot-review
+(deftest a-review-start-by-a-finished-worker-session-is-refused
   (let (settings (scratch-ledger "review-finished-worker")
         id (added-id (ref settings) (item-draft kind/build)))
     (unwrap-ok (claim-item (ref settings)
@@ -219,13 +219,23 @@
     (advanced (ref settings) (clone id) status/open)
     (claimed (ref settings) (clone id))
     (in-review-build (ref settings) (ref id) 12)
-    (review-start-as (ref settings) (ref id) "old-worker")
-    (assert (= (refusal-code-of (record-review (ref settings)
-                                               (review-as (ref id)
-                                                          "old-worker"
-                                                          verdict/approve
-                                                          first-head)))
+    (assert (= (refusal-code-of
+                 (start-review-result (ref settings) (ref id) "old-worker"))
                (some (str "reviewer-is-worker"))))))
+
+(deftest a-review-start-by-a-reviewer-of-another-head-is-refused
+  (let (settings (scratch-ledger "review-start-stale")
+        id (build-in-review (ref settings)))
+    (review-start-as (ref settings) (ref id) "r1")
+    (unwrap-ok (record-review
+                 (ref settings)
+                 (review-as (ref id) "r1" verdict/approve first-head)))
+    (unwrap-ok (record-head (ref settings)
+                            (clone id)
+                            (str second-head)))
+    (assert (= (refusal-code-of
+                 (start-review-result (ref settings) (ref id) "r1"))
+               (some (str "reviewer-not-fresh"))))))
 
 (deftest a-worker-session-of-another-item-can-review
   (let (settings (scratch-ledger "review-other-item-worker")

@@ -6,6 +6,7 @@
 
 (use ledger/model/sessions live-session)
 (use ledger/refusal pull-request-refusal refusal)
+(use ledger/core/reviews check-reviewer)
 
 (export approved-review-start review-start-session)
 
@@ -17,9 +18,10 @@
                   :base none
                   :started-at (clone now)))
 
-(defn approved-review-start (item live)
+(defn approved-review-start (item live workers reviewer pull-request head)
   (let-try (_ (check-in-review item)
-            _ (check-no-live-review live))
+            _ (check-no-live-review live)
+            _ (check-reviewer workers reviewer pull-request head))
     (ok (do))))
 
 (type check-in-review

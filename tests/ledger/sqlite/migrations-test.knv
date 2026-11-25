@@ -74,7 +74,7 @@ INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('s1', 'rm-0002', 
 INSERT INTO items (id, roadmap_id, title, kind, status, created_at) VALUES
   ('rm-0002', 'rm-0001', 'build', 'build', 'in_review', '2026-01-02T00:00:00Z');
 INSERT INTO sessions (id, name, item_id, kind, started_at) VALUES (1, 's1', 'rm-0002', 'work', '2026-01-03T00:00:00Z');
-INSERT INTO sessions (id, name, item_id, kind, started_at, ended_at, end_reason) VALUES (2, 'r1', 'rm-0002', 'review', '2026-01-05T00:00:00Z', '2026-01-05T00:00:00Z', 'finished');
+INSERT INTO sessions (id, name, item_id, kind, started_at, ended_at, end_reason) VALUES (2, 'r1', 'rm-0002', 'work', '2026-01-05T00:00:00Z', '2026-01-06T00:00:00Z', 'replaced');
 INSERT INTO pull_requests (item_id, number, head_sha, opened_at) VALUES ('rm-0002', 12, 'abc', '2026-01-04T00:00:00Z');
 INSERT INTO reviews (id, item_id, session_id, kind, head_sha, verdict, created_at) VALUES (1, 'rm-0002', 2, 'behavior', 'abc', 'approve', '2026-01-05T00:00:00Z');
 INSERT INTO reports (item_id, session_id, kind, body, created_at) VALUES ('rm-0002', 1, 'question', 'why?', '2026-01-06T00:00:00Z');")

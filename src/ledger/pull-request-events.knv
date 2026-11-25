@@ -15,7 +15,7 @@
 (use ledger/changes column-change copy-change inserted
                     payload-with-changes updated)
 
-(use ledger/session-columns ended-session-columns)
+(use ledger/session-columns optional-ended-session-columns)
 (use ledger/json-values head->json pr-number->json)
 
 (export head-recorded pr-change-columns)
@@ -44,7 +44,7 @@
     (for-each pr-changes
       (fn (change)
         (push! changes (copy-change change))))
-    (for-each (optional-session-changes review-end)
+    (for-each (optional-ended-session-columns review-end)
       (fn (change)
         (push! changes (copy-change change))))
     (->event-draft :roadmap-id (some (clone (:roadmap-id (:after applied))))
@@ -62,11 +62,6 @@
 (defn pr-number-context (pull-request)
   (vec (pair (str "pr_number")
              (pr-number->json (:pr-number pull-request)))))
-
-(defn optional-session-changes (end)
-  (match end
-    ((some present) (ended-session-columns present))
-    (none (vec))))
 
 (type previous-head->json
   (fn ((ref (option pull-request))) json))

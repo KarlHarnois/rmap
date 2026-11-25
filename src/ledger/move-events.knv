@@ -6,7 +6,10 @@
 (use ledger/model/events ->event-draft event-type)
 (use ledger/core/move move)
 (use ledger/core/session-changes session-change)
-(use ledger/session-columns session-changes)
+
+(use ledger/session-columns optional-ended-session-columns
+                            session-changes)
+
 (use ledger/json-values item->columns)
 
 (use ledger/changes copy-change only-changed
@@ -20,13 +23,17 @@
   :move move
   :session-change session-change)
 
-(defn item-moved (applied)
-  (->event-draft :roadmap-id (some (clone (:roadmap-id (:after applied))))
-                 :item-id (some (clone (:id (:after applied))))
-                 :decision-id none
-                 :type (event-type-of (ref (:move applied)))
-                 :payload (payload-with-changes (ref (move-changes applied))
-                                                (move-context (ref (:move applied))))))
+(defn item-moved (applied review-end)
+  (let (changes (move-changes applied))
+    (for-each (optional-ended-session-columns review-end)
+      (fn (change)
+        (push! changes (copy-change change))))
+    (->event-draft :roadmap-id (some (clone (:roadmap-id (:after applied))))
+                   :item-id (some (clone (:id (:after applied))))
+                   :decision-id none
+                   :type (event-type-of (ref (:move applied)))
+                   :payload (payload-with-changes (ref changes)
+                                                  (move-context (ref (:move applied)))))))
 
 (defn move-changes (applied)
   (let (changes (only-changed (updated-columns (ref (item->columns (ref (:before

@@ -20,7 +20,8 @@
   (let (draft (item-moved (ref (->applied-move :before before
                                                :after after
                                                :move move
-                                               :session-change change))))
+                                               :session-change change))
+                          (ref none)))
     (copy-of (ref (:payload draft)))))
 
 (defn ended (reason)

@@ -15,6 +15,10 @@
 (use ledger/core/transitions approved-move)
 (use ledger/core/requirements check-requirements)
 (use ledger/operations/pull-requests pull-request-for)
+
+(use ledger/operations/review-sessions end-live-review-session
+                                       superseded-review-end)
+
 (use ledger/sqlite/items update-item)
 (use ledger/sqlite/sessions end-session start-session)
 (use ledger/core/session-changes session-change)
@@ -121,6 +125,21 @@
     (result item failure)))
 
 (defn store-move (transaction applied)
-  (let-try (_ (write-move transaction (ref applied))
-            _ (record transaction (item-moved (ref applied))))
-    (ok (clone (:after applied)))))
+  (let (connection (ref (:connection transaction)))
+    (let-try (review-end (end-review-for-move connection
+                                              (ref (:id (:after applied)))
+                                              (:move applied)
+                                              (now transaction))
+              _ (write-move transaction (ref applied))
+              _ (record transaction
+                        (item-moved (ref applied) (ref review-end))))
+      (ok (clone (:after applied))))))
+
+(defn end-review-for-move (connection item move now)
+  (match move
+    (close (end-live-review-session connection item
+                                    (superseded-review-end now)))
+    ((drop _)
+     (end-live-review-session connection item
+                              (superseded-review-end now)))
+    (_ (ok none))))
