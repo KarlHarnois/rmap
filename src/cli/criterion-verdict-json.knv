@@ -1,0 +1,110 @@
+(module
+  "Turns acceptance criterion verdicts and their statuses into the JSON objects the CLI prints.")
+
+(use json/value array int->json json object text->json)
+
+(use ledger/api case-name criterion-result-names
+                criterion-status criterion-verdict)
+
+(export criterion-status->json criterion-statuses-json
+        criterion-verdict->json)
+
+(defn criterion-statuses-json (statuses)
+  (array (collect (map (iter statuses) criterion-status->json))))
+
+(type criterion-status->json
+  (fn ((ref criterion-status)) json))
+
+(defn criterion-status->json (status)
+  (object (vec (pair (str "position")
+                     (int->json (:position status)))
+               (pair (str "text")
+                     (text->json (as-str (:text status))))
+               (pair (str "verdict")
+                     (result-json (ref (:verdict status))))
+               (pair (str "reviewer")
+                     (reviewer-json (ref (:verdict status))))
+               (pair (str "head")
+                     (head-json (ref (:verdict status))))
+               (pair (str "note")
+                     (note-json (ref (:verdict status))))
+               (pair (str "created_at")
+                     (created-json (ref (:verdict status)))))))
+
+(type criterion-verdict->json
+  (fn ((ref criterion-verdict)) json))
+
+(defn criterion-verdict->json (verdict)
+  (object (vec (pair (str "item")
+                     (text->json (as-str (:value (:item verdict)))))
+               (pair (str "position")
+                     (int->json (:position verdict)))
+               (pair (str "verdict")
+                     (text->json (case-name criterion-result-names
+                                            (:verdict verdict))))
+               (pair (str "reviewer")
+                     (text->json (as-str (:name (:reviewer verdict)))))
+               (pair (str "head")
+                     (head-text-json (ref (:head verdict))))
+               (pair (str "note")
+                     (note-value-json (ref (:note verdict))))
+               (pair (str "created_at")
+                     (text->json (as-str (:value (:created-at verdict))))))))
+
+(type result-json
+  (fn ((ref (option criterion-verdict)))
+    json))
+
+(defn result-json (verdict)
+  (match verdict
+    ((some present)
+     (text->json (case-name criterion-result-names (:verdict present))))
+    (none json/null)))
+
+(type reviewer-json
+  (fn ((ref (option criterion-verdict)))
+    json))
+
+(defn reviewer-json (verdict)
+  (match verdict
+    ((some present)
+     (text->json (as-str (:name (:reviewer present)))))
+    (none json/null)))
+
+(type head-json
+  (fn ((ref (option criterion-verdict)))
+    json))
+
+(defn head-json (verdict)
+  (match verdict
+    ((some present) (head-text-json (ref (:head present))))
+    (none json/null)))
+
+(type note-json
+  (fn ((ref (option criterion-verdict)))
+    json))
+
+(defn note-json (verdict)
+  (match verdict
+    ((some present) (note-value-json (ref (:note present))))
+    (none json/null)))
+
+(type created-json
+  (fn ((ref (option criterion-verdict)))
+    json))
+
+(defn created-json (verdict)
+  (match verdict
+    ((some present)
+     (text->json (as-str (:value (:created-at present)))))
+    (none json/null)))
+
+(defn head-text-json (head)
+  (match head
+    ((some present) (text->json (as-str (:sha present))))
+    (none json/null)))
+
+(defn note-value-json (note)
+  (match note
+    ((some present) (text->json (as-str present)))
+    (none json/null)))

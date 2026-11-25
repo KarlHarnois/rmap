@@ -3,12 +3,14 @@
 
 (use ledger/api ->advancement ->claim-request
                 ->graph-request ->item-id ->log-query
-                ->session advancement batch-size
-                batch-size-of case-named claim-request
-                end-reason graph-format graph-format-names
-                graph-level graph-level-names graph-request
-                history item-edit item-id kind-change
-                log-query new-item session status-names)
+                ->session ->verify-request advancement
+                batch-size batch-size-of case-named
+                claim-request end-reason graph-format
+                graph-format-names graph-level
+                graph-level-names graph-request history
+                item-edit item-id kind-change log-query
+                new-item session status-names
+                verify-request)
 
 (use cli/item-flags item-edit-of new-item-of)
 (use cli/report-requests report-operation)
@@ -42,6 +44,7 @@
   (claim item-id claim-request)
   (advance item-id advancement)
   (close item-id)
+  (verify verify-request)
   (drop item-id string)
   (add-dep item-id item-id)
   (remove-dep item-id item-id)

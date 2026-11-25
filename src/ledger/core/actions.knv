@@ -23,6 +23,7 @@
   work
   accept-report
   review
+  verify
   fix
   merge
   answer)
@@ -31,6 +32,7 @@
   controller
   agent
   worker
+  manager
   user)
 
 (defn planned-for-report (action session report)
@@ -53,6 +55,7 @@
     (work actor/worker)
     (accept-report actor/agent)
     (review actor/agent)
+    (verify actor/manager)
     (fix actor/worker)
     (merge actor/controller)
     (answer actor/agent)))

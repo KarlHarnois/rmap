@@ -1,0 +1,35 @@
+(use ledger/model ->item-id ->session ->timestamp kind
+                  status)
+
+(use ledger/model/criteria ->criterion-verdict
+                           ->criterion-verdict-id
+                           criterion-result)
+
+(use ledger/model/pull-requests ->head)
+(use ledger/core/criterion-statuses criterion-statuses)
+(use support/items work-item)
+
+(def first-sha "1111111111111111111111111111111111111111")
+
+(defn build-with (criteria)
+  (assoc (work-item "rm-0001" kind/build status/in-review)
+         :criteria criteria))
+
+(defn verdict (id position result sha)
+  (->criterion-verdict :id (->criterion-verdict-id :value id)
+                       :item (->item-id :value (str "rm-0001"))
+                       :position position
+                       :verdict result
+                       :note none
+                       :reviewer (->session :name (str "r1"))
+                       :head (some (->head :sha (str sha)))
+                       :created-at (->timestamp :value (str "2026-01-02T00:00:00Z"))))
+
+(deftest the-latest-verdict-per-criterion-counts
+  (let (statuses (criterion-statuses
+                   (ref (build-with (vec (str "one"))))
+                   (ref (vec (verdict 1 1 criterion-result/failed first-sha)
+                             (verdict 2 1 criterion-result/met first-sha)))))
+    (assert (= (len statuses) 1))
+    (assert (= (:verdict (unwrap (clone (:verdict (at statuses 0)))))
+               criterion-result/met))))

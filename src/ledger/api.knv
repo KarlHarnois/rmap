@@ -1,12 +1,6 @@
 (module
   "The ledger's public functions. Code outside `src/ledger/` calls only these.")
 
-(use ledger/model ->item-id ->session blockage claim dep
-                  dep-type graph-format history item item-id
-                  kind origin roadmap roadmap-id
-                  roadmap-pause roadmap-status session
-                  status timestamp work-session)
-
 (use ledger/model/events event event-type)
 (use ledger/model/sessions ->claim-request claim-request)
 
@@ -19,14 +13,12 @@
                          report-reading report-request
                          show-report)
 
-(use ledger/session-api abandoned end-reason end-session
-                        ended-session)
-
 (use ledger/review-api ->review-request
                        ->review-start-request approval
-                       approval-of approved? pull-request
-                       record-head record-review
-                       recorded-head recorded-review review
+                       approval-of approved? head
+                       pull-request record-head
+                       record-review recorded-head
+                       recorded-review review
                        review-kind-names review-request
                        review-start-request
                        show-pull-request start-review
@@ -52,21 +44,34 @@
                          revise-decision show-decision
                          supersedes-change)
 
-(use ledger/names case-name case-named dep-type-names
-                  event-type-names graph-format-names
-                  kind-names origin-names
-                  roadmap-status-names runtime-names
-                  session-kind-names status-names)
+(use ledger/values-api ->item-id ->session abandoned
+                       action-names actor-names blockage
+                       case-name case-named claim
+                       criterion-result-names dep dep-type
+                       dep-type-names end-reason end-session
+                       ended-session event-type-names
+                       graph-format graph-format-names
+                       history ids->json item item-id kind
+                       kind-names optional-id->json
+                       optional-text->json
+                       optional-timestamp->json origin
+                       origin-names roadmap roadmap-id
+                       roadmap-pause roadmap-status
+                       roadmap-status-names runtime-names
+                       session session-kind-names status
+                       status-names timestamp work-session)
 
-(use ledger/action-names action-names actor-names)
-
-(use ledger/item-api ->advancement ->graph-request
-                     ->graph-source ->item-edit ->log-query
-                     ->new-item action actor add-dep
+(use ledger/item-api ->advancement ->criterion-gap
+                     ->criterion-status ->criterion-verdict
+                     ->graph-request ->graph-source
+                     ->item-edit ->log-query ->new-item
+                     ->verify-request action actor add-dep
                      add-item advance-item advancement batch
                      batch-size batch-size-of blockage
                      blocked-item claim-item close-item
-                     criteria-input decision-next
+                     criteria-input criterion-gap
+                     criterion-result criterion-status
+                     criterion-verdict decision-next
                      description-input draw-graph drop-item
                      edit-item graph-level graph-level-names
                      graph-request graph-source item-detail
@@ -74,7 +79,8 @@
                      log-query new-item next-action
                      next-actions next-entry next-item
                      read-log readiness ready-batch
-                     ready-items remove-dep show-item)
+                     ready-items remove-dep show-item
+                     verify-criterion verify-request)
 
 (use ledger/failure-api database-problem failure
                         failure-code failure-message
@@ -88,10 +94,6 @@
                        pause-roadmap resume-roadmap
                        settings)
 
-(use ledger/json-values ids->json optional-id->json
-                        optional-text->json
-                        optional-timestamp->json)
-
 (export ->acceptance ->advancement ->claim-request
         ->decision-id ->decision-query ->decision-revision
         ->graph-request ->item-edit ->item-id ->log-query
@@ -99,14 +101,17 @@
         ->recommendation ->report-id ->report-query
         ->report-request ->review-request
         ->review-start-request ->session ->settings
-        abandoned accept-decision acceptance action
-        action-names actor actor-names add-decision-block
-        add-dep add-item advance-item advancement approval
-        approval-of approved? ask-decision batch batch-size
-        batch-size-of blockage blocked-item body-source
-        case-name case-named claim claim-item claim-request
-        clock close-item criteria-input database-problem
-        decision decision-id decision-next decision-option
+        ->verify-request abandoned accept-decision
+        acceptance action action-names actor actor-names
+        add-decision-block add-dep add-item advance-item
+        advancement approval approval-of approved?
+        ask-decision batch batch-size batch-size-of blockage
+        blocked-item body-source case-name case-named claim
+        claim-item claim-request clock close-item
+        criteria-input criterion-gap criterion-result
+        criterion-result-names criterion-status
+        criterion-verdict database-problem decision
+        decision-id decision-next decision-option
         decision-query decision-revision decision-status
         decision-status-names default-database-path dep
         dep-type dep-type-names deprecate-decision
@@ -115,7 +120,7 @@
         event-type event-type-names failure failure-code
         failure-message graph-format graph-format-names
         graph-level graph-level-names graph-request
-        graph-source history ids->json init-ledger
+        graph-source head history ids->json init-ledger
         init-outcome init-outcome-names init-report item
         item-detail item-edit item-id kind kind-change
         kind-names list-decisions list-items list-reports
@@ -141,4 +146,5 @@
         session-kind-names settings show-decision show-item
         show-pull-request show-report start-review status
         status-names supersedes-change timestamp
-        verdict-names work-session)
+        verdict-names verify-criterion verify-request
+        work-session)

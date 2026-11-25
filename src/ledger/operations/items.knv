@@ -2,6 +2,7 @@
   "Lists items and shows one item with its dependencies and children.")
 
 (use ledger/model dep item item-id snapshot)
+(use ledger/model/criteria criterion-status)
 
 (use ledger/core/index index-of ledger-index
                        with-shown-status)
@@ -9,6 +10,8 @@
 (use ledger/core/snapshot deps-of existing in-scope?)
 (use ledger/sqlite/events ->event-filter)
 (use ledger/sqlite/snapshot load-snapshot)
+(use ledger/sqlite/criterion-verdicts criterion-verdicts-for)
+(use ledger/core/criterion-statuses criterion-statuses)
 
 (use ledger/operations/transaction in-read-transaction
                                    settings)
@@ -25,6 +28,7 @@
   :item item
   :deps (vec dep)
   :children (vec item)
+  :criterion-statuses (vec criterion-status)
   :pull-request (option pull-request))
 
 (type list-items
@@ -66,11 +70,14 @@
 (defn detail-within (connection id)
   (let-try (snapshot (load-snapshot connection)
             item (existing (ref snapshot) id)
-            pull-request (pull-request-for connection id))
-    (let (index (index-of (ref snapshot)))
+            pull-request (pull-request-for connection id)
+            verdicts (criterion-verdicts-for connection id))
+    (let (index (index-of (ref snapshot))
+          statuses (criterion-statuses (ref item) (ref verdicts)))
       (ok (->item-detail :item (with-shown-status (ref index) (ref item))
                          :deps (deps-of (ref snapshot) id)
                          :children (children-of (ref snapshot) (ref index) id)
+                         :criterion-statuses statuses
                          :pull-request pull-request)))))
 
 (type children-of

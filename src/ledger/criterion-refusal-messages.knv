@@ -1,0 +1,59 @@
+(module
+  "Gives each criterion verdict refusal its sentence for the user.")
+
+(use ledger/refusal refusal)
+(use ledger/model/criteria criterion-gap)
+
+(export criterion-refusal->message)
+
+(type criterion-refusal->message
+  (fn ((ref refusal)) string))
+
+(defn criterion-refusal->message (refused)
+  (match refused
+    ((criteria-unmet gaps) (criteria-unmet-message gaps))
+    ((verifier-not-reviewer reviewer)
+     (str "the verifier "
+          (:name reviewer)
+          " has no live review session for this item"))
+    ((verifier-is-worker reviewer)
+     (str "the verifier "
+          (:name reviewer)
+          " is a work or fix session of the item, live or ended"))
+    ((verifier-is-manager reviewer)
+     (str "the verifier "
+          (:name reviewer)
+          " is the roadmap's manager session"))
+    ((criterion-not-found id position)
+     (str "the item "
+          (:value id)
+          " has no acceptance criterion at position "
+          position))
+    (verdict-head-required (str "a criterion verdict on a build needs --head"))
+    ((verdict-head-not-current current named)
+     (str "a criterion verdict must be on the pull request's current head "
+          (:sha current)
+          ", got "
+          (:sha named)))
+    (_ (str ""))))
+
+(defn criteria-unmet-message (gaps)
+  (str "a build needs a met verdict on its current head for every acceptance criterion: "
+       (join (collect (map (iter gaps) gap-sentence))
+             "; ")))
+
+(type gap-sentence
+  (fn ((ref criterion-gap)) string))
+
+(defn gap-sentence (gap)
+  (str "criterion "
+       (:position gap)
+       " \""
+       (:text gap)
+       "\" "
+       (gap-state (:verdict gap))))
+
+(defn gap-state (verdict)
+  (match verdict
+    ((some _) (str "failed"))
+    (none (str "has no verdict on the current head"))))

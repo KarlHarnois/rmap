@@ -1,0 +1,33 @@
+(module
+  "Builds the item verify request from the command line.")
+
+(use ledger/api ->session ->verify-request criterion-result)
+
+(use cli/flags optional-text required-text switch-on?
+               text->number)
+
+(use cli/requests request text->id)
+
+(export verify-request-of)
+
+(defn verify-request-of (arguments id position-text)
+  (let-try (position (text->number (as-str position-text) "position")
+            verdict (verdict-of arguments)
+            reviewer (required-text arguments "reviewer"))
+    (ok (request/verify (->verify-request :item (text->id id)
+                                          :position position
+                                          :verdict verdict
+                                          :reviewer (->session :name reviewer)
+                                          :head (optional-text arguments "head")
+                                          :note (optional-text arguments
+                                                               "note"))))))
+
+(defn verdict-of (arguments)
+  (cond
+    ((and (switch-on? arguments "met")
+          (switch-on? arguments "failed"))
+     (err (str "--met and --failed cannot both be given")))
+    ((switch-on? arguments "met") (ok criterion-result/met))
+    ((switch-on? arguments "failed")
+     (ok criterion-result/failed))
+    (else (err (str "item verify needs exactly one of --met and --failed")))))

@@ -51,6 +51,7 @@
   item-reported
   report-read
   item-reviewed
+  criterion-verified
   head-recorded
   review-started
   session-ended)

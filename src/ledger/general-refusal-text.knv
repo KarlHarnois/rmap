@@ -1,0 +1,131 @@
+(module
+  "Holds the catalog of refusals outside criterion and pull-request refusals, and gives each code its sentence.")
+
+(use ledger/refusal-codes refusal-code)
+(use ledger/refusal-description described)
+(use ledger/pull-request-refusal-codes pull-request-description)
+(use ledger/criterion-refusal-text criterion-refusal-description)
+
+(export general-refusal-catalog general-refusal-description)
+
+(defn general-refusal-catalog ()
+  (collect (map (iter (vec refusal-code/roadmap-not-found
+                           refusal-code/roadmap-exists
+                           refusal-code/roadmap-already-paused
+                           refusal-code/roadmap-not-paused
+                           refusal-code/item-not-found
+                           refusal-code/item-closed
+                           refusal-code/description-required
+                           refusal-code/criteria-required
+                           refusal-code/blank-criterion
+                           refusal-code/parent-not-epic
+                           refusal-code/parent-in-other-roadmap
+                           refusal-code/epic-has-parent
+                           refusal-code/priority-out-of-range
+                           refusal-code/epic-status-computed
+                           refusal-code/invalid-kind-change
+                           refusal-code/invalid-transition
+                           refusal-code/not-ready
+                           refusal-code/cycle
+                           refusal-code/dep-exists
+                           refusal-code/dep-not-found
+                           refusal-code/decision-not-found
+                           refusal-code/decision-frozen
+                           refusal-code/decision-incomplete
+                           refusal-code/invalid-decision-transition
+                           refusal-code/option-not-found
+                           refusal-code/already-asked
+                           refusal-code/not-blockable
+                           refusal-code/decision-in-other-roadmap
+                           refusal-code/decision-block-exists
+                           refusal-code/decision-block-not-found
+                           refusal-code/supersede-target-not-accepted
+                           refusal-code/session-busy
+                           refusal-code/session-not-live
+                           refusal-code/session-not-claimant
+                           refusal-code/report-empty
+                           refusal-code/report-not-found
+                           refusal-code/report-already-read))
+                (fn (code)
+                  (general-refusal-description (deref code))))))
+
+(defn general-refusal-description (code)
+  (match code
+    (roadmap-not-found (described "roadmap-not-found"
+                                  "No roadmap has that name."))
+    (roadmap-exists (described "roadmap-exists"
+                               "A roadmap already has that name."))
+    (roadmap-already-paused (described "roadmap-already-paused"
+                                       "A pause changes nothing: the roadmap is already paused."))
+    (roadmap-not-paused (described "roadmap-not-paused"
+                                   "A resume changes nothing: the roadmap is not paused."))
+    (item-not-found (described "item-not-found" "No item has that id."))
+    (item-closed (described "item-closed"
+                            "A merged, accepted or dropped item is closed."))
+    (description-required (described "description-required"
+                                     "An item needs a description."))
+    (criteria-required (described
+                         "criteria-required"
+                         "An item needs at least one acceptance criterion."))
+    (blank-criterion (described "blank-criterion"
+                                "An acceptance criterion cannot be blank."))
+    (parent-not-epic (described "parent-not-epic" "The parent is not an epic."))
+    (parent-in-other-roadmap (described
+                               "parent-in-other-roadmap"
+                               "The parent belongs to another roadmap."))
+    (epic-has-parent (described "epic-has-parent"
+                                "An epic cannot have a parent."))
+    (priority-out-of-range (described "priority-out-of-range"
+                                      "A priority must be from 0 (highest) to 4 (lowest)."))
+    (epic-status-computed (described "epic-status-computed"
+                                     "An epic's status comes from its children, so no command moves it."))
+    (invalid-kind-change (described "invalid-kind-change"
+                                    "Only an advance to dispatched can turn an item into a build."))
+    (invalid-transition (described "invalid-transition"
+                                   "The transition table has no such move for this item."))
+    (not-ready (described "not-ready"
+                          "The item is blocked. The error lists whether the roadmap is paused, its blockers, its dropped_blockers and its blocking_decisions."))
+    (cycle (described
+             "cycle"
+             "The dependency would close a cycle of blocks dependencies."))
+    (dep-exists (described "dep-exists"
+                           "The blocks dependency already exists."))
+    (dep-not-found (described "dep-not-found"
+                              "No such blocks dependency exists."))
+    (decision-not-found (described "decision-not-found"
+                                   "No decision has that id."))
+    (decision-frozen (described "decision-frozen"
+                                "Only a proposed decision can change."))
+    (decision-incomplete (described "decision-incomplete"
+                                    "A proposal needs a title, a context, at least 2 options with titles, and a recommendation that names one of them with a reason."))
+    (invalid-decision-transition (described "invalid-decision-transition"
+                                            "The transition table has no such move for this decision."))
+    (option-not-found (described
+                        "option-not-found"
+                        "The decision has no option with that number."))
+    (already-asked (described "already-asked"
+                              "The decision was already put to the owner."))
+    (not-blockable (described "not-blockable"
+                              "Only an open item or an unfinished epic can wait on a decision."))
+    (decision-in-other-roadmap (described "decision-in-other-roadmap"
+                                          "The item belongs to another roadmap than the decision."))
+    (decision-block-exists (described "decision-block-exists"
+                                      "The decision already blocks that item."))
+    (decision-block-not-found (described
+                                "decision-block-not-found"
+                                "The decision does not block that item."))
+    (supersede-target-not-accepted (described "supersede-target-not-accepted"
+                                              "Only a decision that is accepted, or rejected in the same roadmap, can be superseded."))
+    (session-busy (described "session-busy"
+                             "A live session already has that name."))
+    (session-not-live (described "session-not-live"
+                                 "No live session has that name."))
+    (session-not-claimant (described
+                            "session-not-claimant"
+                            "The session is not the item's live session."))
+    (report-empty (described "report-empty" "A report needs a body."))
+    (report-not-found (described "report-not-found" "No report has that id."))
+    (report-already-read (described "report-already-read"
+                                    "The report was already read."))
+    ((pull-request code) (pull-request-description code))
+    (_ (criterion-refusal-description code))))

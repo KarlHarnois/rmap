@@ -1,9 +1,10 @@
 (module
   "Names each result a ledger call hands back to the CLI.")
 
-(use ledger/api batch decision dep ended-session event
-                graph-source init-report item item-detail
-                next-entry readiness roadmap)
+(use ledger/api batch criterion-verdict decision dep
+                ended-session event graph-source init-report
+                item item-detail next-entry readiness
+                roadmap)
 
 (use cli/report-replies report-reply)
 (use cli/pr-replies pr-reply)
@@ -22,6 +23,7 @@
   (item-added item)
   (item-edited item)
   (item-moved item)
+  (criterion-verified criterion-verdict)
   (items-listed (vec item))
   (item-shown item-detail)
   (dep-added dep)

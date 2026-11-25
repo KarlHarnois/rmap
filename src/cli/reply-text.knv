@@ -2,16 +2,19 @@
   "Describes each ledger result in plain text.")
 
 (use ledger/api case-name dep ended-session init-outcome
-                init-report roadmap roadmap-status
-                roadmap-status-names session-kind-names)
+                init-report session-kind-names)
 
 (use cli/replies reply)
-(use cli/tables headed table)
 
 (use cli/item-text item-added-text item-edited-text
                    item-moved-text items-text)
 
 (use cli/item-detail-text item-detail-text)
+(use cli/criterion-verdict-text criterion-verified-text)
+
+(use cli/roadmap-text roadmap-created-text
+                      roadmap-status-text roadmaps-text)
+
 (use cli/readiness-text readiness-text)
 (use cli/next-text next-text)
 (use cli/batch-text batch-text)
@@ -46,6 +49,8 @@
     ((reply/item-added item) (item-added-text item))
     ((reply/item-edited item) (item-edited-text item))
     ((reply/item-moved item) (item-moved-text item))
+    ((reply/criterion-verified verdict)
+     (criterion-verified-text verdict))
     ((reply/items-listed items) (items-text (ref items)))
     ((reply/item-shown detail) (item-detail-text detail))
     ((reply/dep-added dep) (dep-text dep "now comes after"))
@@ -95,50 +100,6 @@
     (match (:outcome report)
       (init-outcome/created (str "Created ledger " path "."))
       (init-outcome/existing (str "Ledger already exists at " path ".")))))
-
-(type roadmap-created-text
-  (fn ((ref roadmap)) string))
-
-(defn roadmap-created-text (roadmap)
-  (str "Created roadmap "
-       (:name roadmap)
-       ", managed by "
-       (:name (:manager roadmap))
-       "."))
-
-(type roadmap-status-text
-  (fn ((ref roadmap)) string))
-
-(defn roadmap-status-text (roadmap)
-  (match (:status roadmap)
-    (roadmap-status/paused (str "Paused roadmap " (:name roadmap) "."))
-    (roadmap-status/active (str "Resumed roadmap " (:name roadmap) "."))
-    (roadmap-status/done (str "Marked roadmap " (:name roadmap) " done."))))
-
-(defn roadmaps-text (roadmaps)
-  (if (empty? roadmaps)
-    (str "No roadmaps.")
-    (roadmap-table roadmaps)))
-
-(type roadmap-table
-  (fn ((ref (vec roadmap))) string))
-
-(defn roadmap-table (roadmaps)
-  (let (rows (headed (vec "ID" "NAME" "STATUS" "MANAGER" "CREATED")))
-    (for-each roadmaps
-      (fn (roadmap)
-        (push! rows (roadmap-cells roadmap))))
-    (table rows)))
-
-(type roadmap-cells
-  (fn ((ref roadmap)) (vec string)))
-
-(defn roadmap-cells (roadmap)
-  (vec (clone (:value (:id roadmap)))
-       (clone (:name roadmap))
-       (str (case-name roadmap-status-names (:status roadmap)))
-       (clone (:name (:manager roadmap)))
-       (clone (:value (:created-at roadmap)))))
 
 (type dep-text
   (fn ((ref dep) (ref str)) string))

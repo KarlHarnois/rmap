@@ -1,0 +1,94 @@
+(module
+  "Decides which acceptance criteria a build still needs before it can move to merging.")
+
+(use ledger/model item kind)
+
+(use ledger/model/criteria ->criterion-gap criterion-gap
+                           criterion-result criterion-status
+                           criterion-verdict)
+
+(use ledger/model/pull-requests head)
+(use ledger/refusal refusal)
+(use ledger/core/criterion-statuses criterion-statuses)
+
+(export check-criteria-met criteria-met? criterion-gaps)
+
+(defn check-criteria-met (item verdicts current-head)
+  (let (gaps (criterion-gaps item verdicts current-head))
+    (if (empty? gaps)
+      (ok (do))
+      (err (refusal/criteria-unmet gaps)))))
+
+(defn criteria-met? (item verdicts current-head)
+  (empty? (criterion-gaps item verdicts current-head)))
+
+(type criterion-gaps
+  (fn ((ref item)
+       (ref (vec criterion-verdict))
+       (ref (option head)))
+    (vec criterion-gap)))
+
+(defn criterion-gaps (item verdicts current-head)
+  (match (:kind item)
+    (build (collect (map (filter (iter (criterion-statuses item verdicts))
+                           (fn (status) (gap? status current-head)))
+                         (fn (status) (status->gap status current-head)))))
+    (_ (vec))))
+
+(type gap?
+  (fn ((ref criterion-status)
+       (ref (option head)))
+    bool))
+
+(defn gap? (status current-head)
+  (match (:verdict status)
+    ((some verdict) (not (met-at? verdict current-head)))
+    (none true)))
+
+(type status->gap
+  (fn ((ref criterion-status)
+       (ref (option head)))
+    criterion-gap))
+
+(defn status->gap (status current-head)
+  (->criterion-gap :position (:position status)
+                   :text (clone (:text status))
+                   :verdict (gap-verdict (ref (:verdict status)) current-head)))
+
+(defn gap-verdict (verdict current-head)
+  (match verdict
+    ((some present) (on-head-result present current-head))
+    (none none)))
+
+(type on-head-result
+  (fn ((ref criterion-verdict)
+       (ref (option head)))
+    (option criterion-result)))
+
+(defn on-head-result (present current-head)
+  (if (head-matches? (ref (:head present)) current-head)
+    (some (clone (:verdict present)))
+    none))
+
+(type met-at?
+  (fn ((ref criterion-verdict)
+       (ref (option head)))
+    bool))
+
+(defn met-at? (verdict current-head)
+  (and (= (:verdict verdict) criterion-result/met)
+       (head-matches? (ref (:head verdict)) current-head)))
+
+(defn head-matches? (verdict-head current-head)
+  (match verdict-head
+    ((some recorded) (current-matches? recorded current-head))
+    (none false)))
+
+(type current-matches?
+  (fn ((ref head) (ref (option head)))
+    bool))
+
+(defn current-matches? (recorded current-head)
+  (match current-head
+    ((some current) (= recorded current))
+    (none false)))

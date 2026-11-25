@@ -28,6 +28,7 @@
   item-list
   item-show
   item-edit
+  item-verify
   item-claim
   item-advance
   item-close

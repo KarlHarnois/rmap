@@ -2,6 +2,10 @@
                   ->session ->timestamp decision-status item
                   kind roadmap-pause status)
 
+(use ledger/model/criteria ->criterion-verdict
+                           ->criterion-verdict-id
+                           criterion-result)
+
 (use ledger/core/actions action actor actor-of)
 (use ledger/core/next ->deliveries next-entry next-of)
 (use ledger/model/sessions ->session-id)
@@ -70,7 +74,9 @@
 (defn road () (roadmap-of "rm-road" "manager"))
 
 (defn reports-only (reports)
-  (->deliveries :reports reports :pull-requests (vec)))
+  (->deliveries :reports reports
+                :pull-requests (vec)
+                :criterion-verdicts (vec)))
 
 (defn ids-of (listed)
   (collect (map (filter (iter listed) item-listed?)
@@ -164,13 +170,15 @@
                         (ref (vec (road)))
                         (ref (->deliveries :reports (vec)
                                            :pull-requests (vec (pull-request-with
-                                                                 verdict))))
+                                                                 verdict))
+                                           :criterion-verdicts (vec)))
                         (ref (vec))))
     (clone (at (entry-actions (at listed 0)) 0))))
 
 (defn approved-deliveries ()
   (->deliveries :reports (vec)
-                :pull-requests (vec (pull-request-with verdict/approve))))
+                :pull-requests (vec (pull-request-with verdict/approve))
+                :criterion-verdicts (vec)))
 
 (defn pull-request-with (verdict)
   (->pull-request :item (->item-id :value (str "rm-0001"))
@@ -228,6 +236,33 @@
              (ref (vec (road)))
              (ref (reports-only (vec)))
              (ref (vec decision)))))
+
+(defn approved-action (verdicts)
+  (clone (at (entry-actions (at (approved-with-verdicts verdicts) 0))
+             0)))
+
+(defn approved-with-verdicts (verdicts)
+  (next-of (ref (alone (criterion-build)))
+           (ref (vec (road)))
+           (ref (->deliveries :reports (vec)
+                              :pull-requests (vec (pull-request-with
+                                                    verdict/approve))
+                              :criterion-verdicts verdicts))
+           (ref (vec))))
+
+(defn criterion-verdict-on (position result sha)
+  (->criterion-verdict :id (->criterion-verdict-id :value 1)
+                       :item (->item-id :value (str "rm-0001"))
+                       :position position
+                       :verdict result
+                       :note none
+                       :reviewer (->session :name (str "r1"))
+                       :head (some (->head :sha (str sha)))
+                       :created-at (->timestamp :value (str "2026-01-03T00:00:00Z"))))
+
+(defn criterion-build ()
+  (assoc (claimed (work-item "rm-0001" kind/build status/in-review))
+         :criteria (vec (str "a criterion"))))
 
 (deftest an-open-ready-item-is-dispatched-by-the-controller
   (assert (= (taken-by (sole-action
@@ -598,3 +633,21 @@
     (assert (= (collect (map (iter (:blockers reasons))
                           (fn (id) (clone (:value id)))))
                (vec (str "rm-0002"))))))
+
+(deftest an-approved-build-without-verdicts-is-verified-by-the-manager
+  (let (planned (approved-action (vec)))
+    (assert (= (:action planned) action/verify))
+    (assert (= (:actor planned) actor/manager))))
+
+(deftest an-approved-build-with-met-verdicts-merges
+  (assert (= (:action (approved-action
+                        (vec
+                          (criterion-verdict-on 1 criterion-result/met sha))))
+             action/merge)))
+
+(deftest an-approved-build-with-a-verdict-on-an-old-head-is-verified
+  (assert (= (:action (approved-action (vec (criterion-verdict-on
+                                              1
+                                              criterion-result/met
+                                              "2222222222222222222222222222222222222222"))))
+             action/verify)))

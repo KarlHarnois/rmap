@@ -4,7 +4,9 @@
 (use ledger/model blockage decision-id decision-status
                   item-id session status)
 
+(use ledger/model/pull-requests head)
 (use ledger/model/reports report-id)
+(use ledger/model/criteria criterion-gap)
 (use ledger/pull-request-refusals pull-request-refusal)
 
 (export pull-request-refusal refusal)
@@ -48,4 +50,11 @@
   report-empty
   (report-not-found report-id)
   (report-already-read report-id)
+  (criteria-unmet (vec criterion-gap))
+  (verifier-not-reviewer session)
+  (verifier-is-worker session)
+  (verifier-is-manager session)
+  (criterion-not-found item-id int)
+  verdict-head-required
+  (verdict-head-not-current head head)
   (pull-request pull-request-refusal))

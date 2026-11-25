@@ -1,15 +1,16 @@
 (module
   "Renders a response as the JSON object the CLI prints.")
 
-(use ledger/api database-problem failure failure-code
-                failure-message pull-request-refusal
-                refusal)
+(use ledger/api case-name criterion-gap criterion-result
+                criterion-result-names database-problem
+                failure failure-code failure-message
+                pull-request-refusal refusal session)
 
 (use cli/responses response)
 (use cli/help command-help-document help-document)
 (use cli/envelopes reply-envelope)
 (use cli/schema-envelope error-envelope)
-(use json/value int->json text->json)
+(use json/value array int->json json object text->json)
 (use cli/blockage-json blockage-fields)
 (use cli/pr-json approval-fields)
 
@@ -67,4 +68,53 @@
                 (text->json (as-str (:sha tried))))))
     ((refusal/pull-request (pull-request-refusal/not-approved approval))
      (approval-fields approval))
+    ((refusal/criteria-unmet gaps) (criterion-gap-fields gaps))
+    ((refusal/verifier-not-reviewer reviewer)
+     (verifier-fields reviewer))
+    ((refusal/verifier-is-worker reviewer)
+     (verifier-fields reviewer))
+    ((refusal/verifier-is-manager reviewer)
+     (verifier-fields reviewer))
+    ((refusal/criterion-not-found id position)
+     (vec (pair (str "item")
+                (text->json (as-str (:value id))))
+          (pair (str "position") (int->json position))))
+    ((refusal/verdict-head-not-current current named)
+     (vec (pair (str "current_head")
+                (text->json (as-str (:sha current))))
+          (pair (str "head")
+                (text->json (as-str (:sha named))))))
     (_ (vec))))
+
+(type verifier-fields
+  (fn ((ref session))
+    (vec (pair string json))))
+
+(defn verifier-fields (reviewer)
+  (vec (pair (str "verifier")
+             (text->json (as-str (:name reviewer))))))
+
+(defn criterion-gap-fields (gaps)
+  (vec (pair (str "criteria")
+             (array (collect (map (iter gaps) criterion-gap->json))))))
+
+(type criterion-gap->json
+  (fn ((ref criterion-gap)) json))
+
+(defn criterion-gap->json (gap)
+  (object (vec (pair (str "position")
+                     (int->json (:position gap)))
+               (pair (str "text")
+                     (text->json (as-str (:text gap))))
+               (pair (str "verdict")
+                     (criterion-result-json (ref (:verdict gap)))))))
+
+(type criterion-result-json
+  (fn ((ref (option criterion-result)))
+    json))
+
+(defn criterion-result-json (verdict)
+  (match verdict
+    ((some present)
+     (text->json (case-name criterion-result-names present)))
+    (none json/null)))

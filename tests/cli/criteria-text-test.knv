@@ -1,9 +1,15 @@
+(use ledger/model/criteria ->criterion-status)
 (use cli/criteria-text criteria-text)
+
+(defn status (position text)
+  (->criterion-status :position position
+                      :text (str text)
+                      :verdict none))
 
 (deftest an-item-without-criteria-shows-a-dash
   (assert (= (criteria-text (ref (vec)))
              (str "\n\nAcceptance criteria: -"))))
 
 (deftest criteria-are-numbered-in-order
-  (assert (= (criteria-text (ref (vec (str "first") (str "second"))))
+  (assert (= (criteria-text (ref (vec (status 1 "first") (status 2 "second"))))
              (str "\n\nAcceptance criteria:\n  1. first\n  2. second"))))

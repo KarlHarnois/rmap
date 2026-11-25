@@ -3,7 +3,7 @@
 
 (use ledger/model/pull-requests ->review-request
                                 ->review-start-request
-                                approval pull-request
+                                approval head pull-request
                                 recorded-head
                                 recorded-review review
                                 review-request
@@ -17,7 +17,7 @@
 (use ledger/names review-kind-names verdict-names)
 
 (export ->review-request ->review-start-request approval
-        approval-of approved? pull-request record-head
+        approval-of approved? head pull-request record-head
         record-review recorded-head recorded-review review
         review-kind-names review-request
         review-start-request show-pull-request start-review

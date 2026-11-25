@@ -1,6 +1,7 @@
 (module
   "Pairs each ledger enum case with the text that names it in the database and on the command line.")
 
+(use ledger/model/criteria criterion-result)
 (use ledger/model/events event-type)
 (use ledger/model/sessions end-reason)
 (use ledger/model/reports report-kind)
@@ -10,11 +11,11 @@
                   origin roadmap-status runtime session-kind
                   status)
 
-(export case-name case-named decision-status-names
-        dep-type-names end-reason-names event-type-names
-        graph-format-names kind-names origin-names
-        report-kind-names review-kind-names
-        roadmap-status-names runtime-names
+(export case-name case-named criterion-result-names
+        decision-status-names dep-type-names
+        end-reason-names event-type-names graph-format-names
+        kind-names origin-names report-kind-names
+        review-kind-names roadmap-status-names runtime-names
         session-kind-names status-names verdict-names)
 
 (def roadmap-status-names
@@ -88,6 +89,7 @@
        (pair event-type/item-reported "item-reported")
        (pair event-type/report-read "report-read")
        (pair event-type/item-reviewed "item-reviewed")
+       (pair event-type/criterion-verified "criterion-verified")
        (pair event-type/head-recorded "head-recorded")
        (pair event-type/review-started "review-started")
        (pair event-type/session-ended "session-ended")))
@@ -104,6 +106,10 @@
 (def verdict-names
   (vec (pair verdict/changes "changes")
        (pair verdict/approve "approve")))
+
+(def criterion-result-names
+  (vec (pair criterion-result/met "met")
+       (pair criterion-result/failed "failed")))
 
 (def decision-status-names
   (vec (pair decision-status/proposed "proposed")

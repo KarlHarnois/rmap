@@ -1,9 +1,8 @@
 (module
   "Reads and writes the `item_criteria` table.")
 
-(use ledger/model ->criterion ->item-id criterion item
-                  item-id)
-
+(use ledger/model ->item-id item item-id)
+(use ledger/model/criteria ->criterion criterion)
 (use ledger/sqlite/values int->sql text->sql)
 
 (use ledger/sqlite/connection connection database-error

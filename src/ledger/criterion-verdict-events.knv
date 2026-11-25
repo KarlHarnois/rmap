@@ -1,0 +1,60 @@
+(module
+  "Describes what a reviewer session adds to an event when it records a criterion verdict.")
+
+(use json/value int->json json text->json)
+(use ledger/model item)
+(use ledger/model/criteria criterion-verdict)
+
+(use ledger/model/events ->event-draft event-draft
+                         event-type)
+
+(use ledger/model/sessions session-id)
+(use ledger/names case-name criterion-result-names)
+
+(use ledger/changes column-change inserted
+                    payload-with-changes)
+
+(use ledger/json-values head->json id->json
+                        optional-text->json)
+
+(export criterion-verified)
+
+(type criterion-verified
+  (fn ((ref item)
+       (ref criterion-verdict)
+       (ref session-id))
+    event-draft))
+
+(defn criterion-verified (item verdict reviewer)
+  (->event-draft :roadmap-id (some (clone (:roadmap-id item)))
+                 :item-id (some (clone (:id item)))
+                 :decision-id none
+                 :type event-type/criterion-verified
+                 :payload (payload-with-changes (ref (verdict-columns verdict
+                                                                      reviewer))
+                                                (vec))))
+
+(type verdict-columns
+  (fn ((ref criterion-verdict) (ref session-id))
+    (vec column-change)))
+
+(defn verdict-columns (verdict reviewer)
+  (vec (inserted "item_id"
+                 (id->json (ref (:item verdict))))
+       (inserted "position" (int->json (:position verdict)))
+       (inserted "verdict"
+                 (text->json (case-name criterion-result-names
+                                        (:verdict verdict))))
+       (inserted "note"
+                 (optional-text->json (ref (:note verdict))))
+       (inserted "reviewer_session_id"
+                 (int->json (:value reviewer)))
+       (inserted "head"
+                 (optional-head->json (ref (:head verdict))))
+       (inserted "created_at"
+                 (text->json (as-str (:value (:created-at verdict)))))))
+
+(defn optional-head->json (head)
+  (match head
+    ((some present) (head->json (clone present)))
+    (none json/null)))

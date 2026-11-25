@@ -1,0 +1,27 @@
+(module
+  "Describes a recorded criterion verdict in plain text.")
+
+(use ledger/api case-name criterion-result-names
+                criterion-verdict)
+
+(export criterion-verified-text)
+
+(type criterion-verified-text
+  (fn ((ref criterion-verdict)) string))
+
+(defn criterion-verified-text (verdict)
+  (str "Recorded criterion "
+       (:position verdict)
+       " of "
+       (:value (:item verdict))
+       " as "
+       (case-name criterion-result-names (:verdict verdict))
+       " by "
+       (:name (:reviewer verdict))
+       (head-text (ref (:head verdict)))
+       "."))
+
+(defn head-text (head)
+  (match head
+    ((some present) (str " on " (:sha present)))
+    (none (str ""))))

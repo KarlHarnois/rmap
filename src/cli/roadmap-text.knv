@@ -1,0 +1,54 @@
+(module
+  "Describes roadmaps in plain text: a sentence about one change and a table of roadmaps.")
+
+(use ledger/api case-name roadmap roadmap-status
+                roadmap-status-names)
+
+(use cli/tables headed table)
+
+(export roadmap-created-text roadmap-status-text
+        roadmaps-text)
+
+(type roadmap-created-text
+  (fn ((ref roadmap)) string))
+
+(defn roadmap-created-text (roadmap)
+  (str "Created roadmap "
+       (:name roadmap)
+       ", managed by "
+       (:name (:manager roadmap))
+       "."))
+
+(type roadmap-status-text
+  (fn ((ref roadmap)) string))
+
+(defn roadmap-status-text (roadmap)
+  (match (:status roadmap)
+    (roadmap-status/paused (str "Paused roadmap " (:name roadmap) "."))
+    (roadmap-status/active (str "Resumed roadmap " (:name roadmap) "."))
+    (roadmap-status/done (str "Marked roadmap " (:name roadmap) " done."))))
+
+(defn roadmaps-text (roadmaps)
+  (if (empty? roadmaps)
+    (str "No roadmaps.")
+    (roadmap-table roadmaps)))
+
+(type roadmap-table
+  (fn ((ref (vec roadmap))) string))
+
+(defn roadmap-table (roadmaps)
+  (let (rows (headed (vec "ID" "NAME" "STATUS" "MANAGER" "CREATED")))
+    (for-each roadmaps
+      (fn (roadmap)
+        (push! rows (roadmap-cells roadmap))))
+    (table rows)))
+
+(type roadmap-cells
+  (fn ((ref roadmap)) (vec string)))
+
+(defn roadmap-cells (roadmap)
+  (vec (clone (:value (:id roadmap)))
+       (clone (:name roadmap))
+       (str (case-name roadmap-status-names (:status roadmap)))
+       (clone (:name (:manager roadmap)))
+       (clone (:value (:created-at roadmap)))))

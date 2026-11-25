@@ -5,6 +5,7 @@
 (use ledger/api item-detail)
 (use cli/ledger-json dep->json item->json)
 (use cli/pr-json optional-pull-request->json)
+(use cli/criterion-verdict-json criterion-statuses-json)
 (use cli/schema-envelope envelope)
 
 (export detail-envelope)
@@ -19,5 +20,7 @@
                (array (collect (map (iter (:deps detail)) dep->json))))
          (pair (str "children")
                (array (collect (map (iter (:children detail)) item->json))))
+         (pair (str "criterion_verdicts")
+               (criterion-statuses-json (ref (:criterion-statuses detail))))
          (pair (str "pull_request")
                (optional-pull-request->json (ref (:pull-request detail)))))))

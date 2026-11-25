@@ -1,0 +1,126 @@
+(module
+  "Decides whether a reviewer session may record a criterion verdict and what verdict it records.")
+
+(use ledger/model item kind session timestamp)
+
+(use ledger/model/criteria ->criterion-verdict
+                           ->criterion-verdict-id
+                           criterion-verdict
+                           criterion-verdict-id
+                           verify-request)
+
+(use ledger/model/pull-requests head pull-request)
+(use ledger/model/sessions session-id)
+(use ledger/refusal refusal)
+(use ledger/core/heads head-of)
+(use ledger/core/phases finished?)
+(use ledger/core/pull-requests present-pull-request)
+
+(export approved-verdict check-position check-verifiable
+        check-verifier verdict-head)
+
+(type check-verifiable
+  (fn ((ref item)) (result unit refusal)))
+
+(defn check-verifiable (item)
+  (if (finished? (:status item))
+    (err (refusal/item-closed (clone (:id item))))
+    (ok (do))))
+
+(defn check-position (item position)
+  (if (within-criteria? item position)
+    (ok (do))
+    (err (refusal/criterion-not-found (clone (:id item)) position))))
+
+(type check-verifier
+  (fn ((ref session)
+       (ref (option session-id))
+       (ref (vec session))
+       (ref session))
+    (result session-id refusal)))
+
+(defn check-verifier (reviewer live workers manager)
+  (let-try (_ (check-not-worker reviewer workers)
+            _ (check-not-manager reviewer manager))
+    (check-live-reviewer reviewer live)))
+
+(type verdict-head
+  (fn ((ref item)
+       (ref (option pull-request))
+       (ref (option string)))
+    (result (option head) refusal)))
+
+(defn verdict-head (item pull-request requested)
+  (match (:kind item)
+    (build (build-verdict-head item pull-request requested))
+    (_ (ok none))))
+
+(type approved-verdict
+  (fn ((ref item)
+       (ref session)
+       (ref verify-request)
+       (ref criterion-verdict-id)
+       (option head)
+       timestamp)
+    criterion-verdict))
+
+(defn approved-verdict (item reviewer request id head now)
+  (->criterion-verdict :id (clone id)
+                       :item (clone (:id item))
+                       :position (:position request)
+                       :verdict (:verdict request)
+                       :note (clone (:note request))
+                       :reviewer (clone reviewer)
+                       :head head
+                       :created-at (clone now)))
+
+(type within-criteria?
+  (fn ((ref item) int) bool))
+
+(defn within-criteria? (item position)
+  (and (>= position 1)
+       (<= position (len (:criteria item)))))
+
+(type check-not-worker
+  (fn ((ref session) (ref (vec session)))
+    (result unit refusal)))
+
+(defn check-not-worker (reviewer workers)
+  (if (any? (iter workers)
+        (fn (worker) (= worker reviewer)))
+    (err (refusal/verifier-is-worker (clone reviewer)))
+    (ok (do))))
+
+(type check-not-manager
+  (fn ((ref session) (ref session))
+    (result unit refusal)))
+
+(defn check-not-manager (reviewer manager)
+  (if (= reviewer manager)
+    (err (refusal/verifier-is-manager (clone reviewer)))
+    (ok (do))))
+
+(defn check-live-reviewer (reviewer live)
+  (match live
+    ((some id) (ok (clone id)))
+    (none (err (refusal/verifier-not-reviewer (clone reviewer))))))
+
+(defn build-verdict-head (item pull-request requested)
+  (match requested
+    ((some text) (recorded-head item pull-request text))
+    (none (err refusal/verdict-head-required))))
+
+(defn recorded-head (item pull-request text)
+  (let-try (present (present-pull-request item pull-request)
+            named (head-of text))
+    (check-at-present present named)))
+
+(type check-at-present
+  (fn ((ref pull-request) (ref head))
+    (result (option head) refusal)))
+
+(defn check-at-present (present named)
+  (if (= (ref named) (ref (:head present)))
+    (ok (some (clone named)))
+    (err (refusal/verdict-head-not-current (clone (:head present))
+                                           (clone named)))))

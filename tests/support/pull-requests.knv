@@ -1,6 +1,7 @@
 (use ledger/api ->review-request ->review-start-request
-                ->session record-report record-review
-                report-kind start-review)
+                ->session ->verify-request criterion-result
+                record-report record-review report-kind
+                start-review verify-criterion)
 
 (use ledger/model/pull-requests review-kind verdict)
 (use support/report-requests report-as worker-of)
@@ -28,6 +29,7 @@
 
 (defn reviewed (settings id reviewer verdict head)
   (review-start-as settings id reviewer)
+  (verify-met settings id reviewer head)
   (assert (ok? (record-review settings
                               (review-as id reviewer verdict head))))
   (clone id))
@@ -50,6 +52,15 @@
                     :kind review-kind/behavior
                     :head (str head)
                     :verdict verdict))
+
+(defn verify-met (settings id reviewer head)
+  (let (verdict (->verify-request :item (clone id)
+                                  :position 1
+                                  :verdict criterion-result/met
+                                  :reviewer (->session :name (str reviewer))
+                                  :head (some (str head))
+                                  :note none))
+    (assert (ok? (verify-criterion settings verdict)))))
 
 (defn review-start-request (id reviewer)
   (->review-start-request :item (clone id)

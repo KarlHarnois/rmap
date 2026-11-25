@@ -1,0 +1,50 @@
+(module
+  "Holds an item's acceptance criteria, a reviewer session's verdict on one, and what a build still waits on.")
+
+(use ledger/model item-id session timestamp)
+(use ledger/model/pull-requests head)
+
+(export ->criterion ->criterion-gap ->criterion-status
+        ->criterion-verdict ->criterion-verdict-id
+        ->verify-request criterion criterion-gap
+        criterion-result criterion-status criterion-verdict
+        criterion-verdict-id verify-request)
+
+(defstruct criterion
+  :item item-id
+  :text string)
+
+(defstruct criterion-status
+  :position int
+  :text string
+  :verdict (option criterion-verdict))
+
+(defstruct verify-request
+  :item item-id
+  :position int
+  :verdict criterion-result
+  :reviewer session
+  :head (option string)
+  :note (option string))
+
+(defstruct criterion-verdict
+  :id criterion-verdict-id
+  :item item-id
+  :position int
+  :verdict criterion-result
+  :note (option string)
+  :reviewer session
+  :head (option head)
+  :created-at timestamp)
+
+(defstruct criterion-gap
+  :position int
+  :text string
+  :verdict (option criterion-result))
+
+(defstruct criterion-verdict-id
+  :value int)
+
+(defenum criterion-result
+  met
+  failed)
