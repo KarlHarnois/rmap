@@ -218,3 +218,29 @@
                  (some (str first-sha))))
       (assert (contains? (:stdout output)
                          (as-str (str "[met by r1 on " first-sha "]")))))))
+
+(deftest a-criteria-edit-while-merging-blocks-the-close
+  (let (database (database-with-roadmap "verdict-edit-merging")
+        id (reported-build (ref database)
+                           (build-id (ref database))))
+    (assert (= (:exit-code (verify-and-review-build
+                             (ref database)
+                             (ref id)
+                             "r1" "approve" first-sha))
+               0))
+    (assert (= (:exit-code (advance (ref database) (ref id) "merging"))
+               0))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "item" "edit"
+                                          (as-str id)
+                                          "--criterion"
+                                          "a new criterion")))
+               0))
+    (let (reply (run-rmap (clone database)
+                          (vec "item" "close" (as-str id)))
+          gaps (error-criteria (ref reply)))
+      (assert (= (error-code (ref reply))
+                 (str "criteria-unmet")))
+      (assert (= (len gaps) 1))
+      (assert (= (criterion-field (at gaps 0) "text")
+                 (some (str "a new criterion")))))))

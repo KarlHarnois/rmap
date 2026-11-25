@@ -1,5 +1,5 @@
 (module
-  "Decides the requirements a move must meet beyond the transition table: a build moves to merging only when the reviews on its pull request's head approve it and every acceptance criterion has a met verdict on that head, and it moves from merging to merged only when the reviews still approve it.")
+  "Decides the requirements a move must meet beyond the transition table: a build moves to merging only when the reviews on its pull request's head approve it and every acceptance criterion has a met verdict on that head, and it moves from merging to merged only when the reviews still approve it and every criterion still has a met verdict on that head.")
 
 (use ledger/model session status)
 
@@ -15,7 +15,7 @@
 
 (def requirements
   (vec (->requirement :to status/merging :rule rule/merge-ready)
-       (->requirement :to status/merged :rule rule/approved-head)))
+       (->requirement :to status/merged :rule rule/merge-ready)))
 
 (defstruct requirement
   :to status

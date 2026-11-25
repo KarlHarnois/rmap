@@ -36,8 +36,21 @@
                  (vec (review-by 1 "r1" verdict/approve first-sha)))))
     (ref verdicts)))
 
+(defn closing-with (verdicts)
+  (check-requirements
+    (ref (merging-build))
+    (ref move/close)
+    (ref (some (pull-request-at
+                 first-sha
+                 (vec (review-by 1 "r1" verdict/approve first-sha)))))
+    (ref verdicts)))
+
 (defn in-review-with-criterion ()
   (assoc (in-review)
+         :criteria (vec (str "a criterion"))))
+
+(defn merging-build ()
+  (assoc (claimed (work-item "rm-0001" kind/build status/merging))
          :criteria (vec (str "a criterion"))))
 
 (defn verdict-on (position result sha)
@@ -109,6 +122,14 @@
                                                            criterion-result/met
                                                            second-sha)))))
     (assert (= (refusal-code-text failure) (str "criteria-unmet")))))
+
+(deftest an-approved-merging-build-without-criterion-verdicts-cannot-close
+  (let (failure (unwrap-err (closing-with (vec))))
+    (assert (= (refusal-code-text failure) (str "criteria-unmet")))))
+
+(deftest an-approved-merging-build-with-a-met-verdict-on-the-head-can-close
+  (assert (ok? (closing-with
+                 (vec (verdict-on 1 criterion-result/met first-sha))))))
 
 (deftest one-approval-on-the-head-approves-it
   (assert (approved? (ref (approval-at

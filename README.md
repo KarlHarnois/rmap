@@ -58,9 +58,9 @@ Commands:
   item claim <id> --session <name> [--branch <name>] [--base <branch>]
     Gives a ready item with at least one acceptance criterion to a new session and marks it dispatched. The branch defaults to the session name and the base to the repository's default branch.
   item advance <id> <open|dispatched|reported|in_review|fixing|merging|merged|accepted|dropped> [--kind build]
-    Moves an item to another status. A research or design item reaches reported only through a done report, and a build reaches in_review only through a done or fixed report or pr head. A build moves to merging only when, among each reviewer's latest verdict on its pull request's head, one approves and none asks for changes, and every acceptance criterion has a met verdict on that head. It closes as merged only when those reviews still approve.
+    Moves an item to another status. A research or design item reaches reported only through a done report, and a build reaches in_review only through a done or fixed report or pr head. A build moves to merging only when, among each reviewer's latest verdict on its pull request's head, one approves and none asks for changes, and every acceptance criterion has a met verdict on that head. It closes as merged only when those reviews still approve and every acceptance criterion still has a met verdict on that head.
   item close <id>
-    Marks a merging build merged, once the reviews on its pull request's head still approve it, or a reported research or design item accepted.
+    Marks a merging build merged once the reviews on its pull request's head still approve it and every acceptance criterion still has a met verdict on that head, or a reported research or design item accepted.
   item drop <id> --reason <text>
     Drops an item and records the reason.
   dep add <item> <on>
