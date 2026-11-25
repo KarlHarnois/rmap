@@ -21,9 +21,7 @@
   :to status
   :rule rule)
 
-(defenum rule
-  approved-head
-  merge-ready)
+(defenum rule merge-ready)
 
 (defn check-requirements (item move pull-request verdicts)
   (let (target (target-status item move))
@@ -48,16 +46,15 @@
 
 (defn check-rule (rule item pull-request verdicts)
   (match rule
-    (approved-head (check-merge-requirement item pull-request))
     (merge-ready (check-merge-ready item pull-request verdicts))))
-
-(defn check-merge-requirement (item pull-request)
-  (let-try (present (present-pull-request item pull-request))
-    (check-approved (ref present))))
 
 (defn check-merge-ready (item pull-request verdicts)
   (let-try (_ (check-merge-requirement item pull-request))
     (check-criterion-requirement item verdicts pull-request)))
+
+(defn check-merge-requirement (item pull-request)
+  (let-try (present (present-pull-request item pull-request))
+    (check-approved (ref present))))
 
 (defn check-criterion-requirement (item verdicts pull-request)
   (check-criteria-met item verdicts

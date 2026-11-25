@@ -16,7 +16,11 @@
     (vec criterion-status)))
 
 (defn criterion-statuses (item verdicts)
-  (let (latest (latest-per-position (clone verdicts)))
+  (let (own (collect (map (filter (iter verdicts)
+                            (fn (verdict)
+                              (= (ref (:item verdict)) (:id item))))
+                          clone))
+        latest (latest-per-position (ref own)))
     (collect (map (range 0 (len (:criteria item)))
                (fn (index)
                  (->criterion-status :position (inc index)

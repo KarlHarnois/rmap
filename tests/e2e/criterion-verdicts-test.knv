@@ -1,11 +1,13 @@
 (use json/value copy-of field json->int json->items
                 json->text null?)
 
+(use ledger/model/criteria criterion-result)
+
 (use support/rmap database-with-roadmap error-code run-rmap
-                  run-rmap-text)
+                  run-rmap-text text-at)
 
 (use support/pr-commands build-id first-sha report-build
-                         review-build
+                         report-build-as review-build
                          review-existing-session
                          review-start second-sha
                          verify-and-review-build
@@ -16,16 +18,6 @@
                                        (vec "--pr" "1" "--head" first-sha)))
              0))
   id)
-
-(defn verify-failed (database id reviewer position head)
-  (run-rmap (clone database)
-            (vec "item" "verify"
-                 (as-str id)
-                 (as-str (position-text position))
-                 "--failed" "--reviewer" reviewer "--head"
-                 head)))
-
-(defn position-text (position) (str position))
 
 (defn advance (database id status)
   (run-rmap (clone database)
@@ -48,6 +40,86 @@
                         (vec "item" "show" (as-str id))))
     (unwrap (json->items (unwrap (field (ref (:json reply))
                                         "criterion_verdicts"))))))
+
+(defn two-verdict-builds (database first-result second-result)
+  (let (first (reported-with-pr (ref database)
+                                (build-claimed-by (ref database) "s1")
+                                "s1" "1")
+        second (reported-with-pr (ref database)
+                                 (build-claimed-by (ref database) "s2")
+                                 "s2" "2"))
+    (assert (= (:exit-code
+                 (approved-with (ref database) first "r1" first-result))
+               0))
+    (assert (= (:exit-code
+                 (approved-with (ref database) second "r3" second-result))
+               0))
+    (vec first second)))
+
+(defn approved-with (database id reviewer result)
+  (match result
+    (met (verify-and-review-build database id reviewer
+                                  "approve" first-sha))
+    (failed (failed-and-reviewed database id reviewer))))
+
+(defn failed-and-reviewed (database id reviewer)
+  (assert (= (:exit-code (review-start (clone database) id reviewer))
+             0))
+  (assert (= (:exit-code
+               (verify-failed (ref database) (ref id) reviewer 1 first-sha))
+             0))
+  (let (reply (review-existing-session (clone database)
+                                       id reviewer "approve"
+                                       first-sha))
+    (assert (= (:exit-code reply) 0))
+    reply))
+
+(defn verify-failed (database id reviewer position head)
+  (run-rmap (clone database)
+            (vec "item" "verify"
+                 (as-str id)
+                 (as-str (position-text position))
+                 "--failed" "--reviewer" reviewer "--head"
+                 head)))
+
+(defn position-text (position) (str position))
+
+(defn build-claimed-by (database session)
+  (let (added (run-rmap (clone database)
+                        (vec "item" "add" "--roadmap" "road"
+                             "--title" "b" "--kind" "build"
+                             "--description" "a spec"
+                             "--criterion" "a criterion")))
+    (assert (= (:exit-code added) 0))
+    (let (id (text-at (ref added) "item" "id"))
+      (assert (= (:exit-code
+                   (run-rmap
+                     (clone database)
+                     (vec "item" "claim" (as-str id) "--session" session)))
+                 0))
+      id)))
+
+(defn reported-with-pr (database id session pr)
+  (assert (= (:exit-code (report-build-as database id
+                                          session "done"
+                                          (vec "--pr" pr "--head" first-sha)))
+             0))
+  id)
+
+(defn next-action-for (database id)
+  (let (entry (next-entry-for database id)
+        actions (unwrap (json->items (unwrap (field entry "actions"))))
+        action (unwrap (first actions)))
+    (json->text (unwrap (field (copy-of action) "action")))))
+
+(defn next-entry-for (database id)
+  (let (reply (run-rmap (clone database) (vec "next"))
+        entries (unwrap (json->items (unwrap (field (ref (:json reply))
+                                                    "next")))))
+    (copy-of (unwrap (find (iter entries)
+                       (fn (entry)
+                         (= (json->text (unwrap (field (copy-of entry) "item")))
+                            (some (str id)))))))))
 
 (deftest merging-without-a-criterion-verdict-is-refused-naming-it
   (let (database (database-with-roadmap "verdict-gate")
@@ -244,3 +316,27 @@
       (assert (= (len gaps) 1))
       (assert (= (criterion-field (at gaps 0) "text")
                  (some (str "a new criterion")))))))
+
+(deftest next-keeps-a-met-verdict-from-covering-another-items-failed-verdict
+  (let (database (database-with-roadmap "verdict-next-a-met")
+        builds (two-verdict-builds (ref database)
+                                   criterion-result/met
+                                   criterion-result/failed)
+        first (at builds 0)
+        second (at builds 1))
+    (assert (= (next-action-for (ref database) first)
+               (some (str "merge"))))
+    (assert (= (next-action-for (ref database) second)
+               (some (str "verify"))))))
+
+(deftest next-keeps-a-failed-verdict-from-blocking-another-items-met-verdict
+  (let (database (database-with-roadmap "verdict-next-a-failed")
+        builds (two-verdict-builds (ref database)
+                                   criterion-result/failed
+                                   criterion-result/met)
+        first (at builds 0)
+        second (at builds 1))
+    (assert (= (next-action-for (ref database) first)
+               (some (str "verify"))))
+    (assert (= (next-action-for (ref database) second)
+               (some (str "merge"))))))
