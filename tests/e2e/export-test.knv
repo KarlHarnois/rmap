@@ -238,3 +238,10 @@
               (fn (item)
                 (and (none? (field item "session"))
                      (some? (field item "claimed_by"))))))))
+
+(deftest the-export-lists-a-review-session
+  (let (document (:json (export-reply (export-database
+                                        "e2e-export-review-session")))
+        kinds (text-values (listed (copy-of document) "sessions") "kind"))
+    (assert (any? kinds
+              (fn (kind) (= kind (str "review")))))))

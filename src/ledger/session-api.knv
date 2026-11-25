@@ -7,8 +7,6 @@
                         optional-text->json
                         optional-timestamp->json)
 
-(use ledger/model runtime session-kind)
-
 (use ledger/model/sessions ->session-record end-reason
                            ended-session session-record)
 

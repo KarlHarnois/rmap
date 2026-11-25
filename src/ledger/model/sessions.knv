@@ -6,9 +6,9 @@
 
 (export ->claim-request ->ended-session ->live-session
         ->session-end ->session-id ->session-record
-        ->session-start claim-request end-reason ended-session
-        live-session session-end session-id session-record
-        session-start)
+        ->session-start claim-request end-reason
+        ended-session live-session session-end session-id
+        session-record session-start)
 
 (defstruct claim-request
   :session session

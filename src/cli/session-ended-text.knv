@@ -1,0 +1,20 @@
+(module
+  "Describes an ended session in plain text.")
+
+(use ledger/api case-name ended-session session-kind-names)
+
+(export session-ended-text)
+
+(type session-ended-text
+  (fn ((ref ended-session)) string))
+
+(defn session-ended-text (ended)
+  (str "Ended "
+       (:name (:session ended))
+       " ("
+       (case-name session-kind-names (:kind ended))
+       ") on "
+       (:value (:id (:item ended)))
+       " as "
+       (:reason ended)
+       "."))

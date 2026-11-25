@@ -80,9 +80,8 @@
     ((graph graph)
      (map-ok (draw-graph settings graph)
        (fn (source) (reply/graph-drawn source))))
-    (export
-     (map-ok (export-ledger settings)
-       (fn (document) (reply/exported document))))
+    (export (map-ok (export-ledger settings)
+              (fn (document) (reply/exported document))))
     ((decision request) (perform-decision settings request))
     ((report operation) (perform-report settings operation))
     ((pull-request operation)
