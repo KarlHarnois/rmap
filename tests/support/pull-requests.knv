@@ -1,11 +1,13 @@
-(use ledger/api ->review-request ->session record-report
-                record-review report-kind)
+(use ledger/api ->review-request ->review-start-request
+                ->session record-report record-review
+                report-kind start-review)
 
 (use ledger/model/pull-requests review-kind verdict)
 (use support/report-requests report-as worker-of)
 
 (export approved-build first-head in-review-build
-        pr-report-as review-as reviewed second-head)
+        pr-report-as review-as review-start-as reviewed
+        second-head start-review-result)
 
 (def first-head "1111111111111111111111111111111111111111")
 
@@ -25,9 +27,17 @@
   (clone id))
 
 (defn reviewed (settings id reviewer verdict head)
+  (review-start-as settings id reviewer)
   (assert (ok? (record-review settings
                               (review-as id reviewer verdict head))))
   (clone id))
+
+(defn review-start-as (settings id reviewer)
+  (assert (ok? (start-review-result settings id reviewer)))
+  (clone id))
+
+(defn start-review-result (settings id reviewer)
+  (start-review settings (review-start-request id reviewer)))
 
 (defn pr-report-as (id kind number head)
   (assoc (report-as id (as-str (worker-of id)) kind "built it")
@@ -40,3 +50,7 @@
                     :kind review-kind/behavior
                     :head (str head)
                     :verdict verdict))
+
+(defn review-start-request (id reviewer)
+  (->review-start-request :item (clone id)
+                          :reviewer (->session :name (str reviewer))))

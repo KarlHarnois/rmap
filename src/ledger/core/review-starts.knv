@@ -1,0 +1,46 @@
+(module
+  "Decides whether a reviewer session may start a live review session on a build, and the live review session a start records.")
+
+(use ledger/model ->work-session item runtime session-kind
+                  status)
+
+(use ledger/model/sessions live-session)
+(use ledger/refusal pull-request-refusal refusal)
+(use ledger/core/reviews check-reviewer)
+
+(export approved-review-start review-start-session)
+
+(defn review-start-session (reviewer now)
+  (->work-session :session (clone reviewer)
+                  :kind session-kind/review
+                  :runtime runtime/ringleader
+                  :branch none
+                  :base none
+                  :started-at (clone now)))
+
+(defn approved-review-start (item live workers reviewer pull-request head)
+  (let-try (_ (check-in-review item)
+            _ (check-no-live-review live)
+            _ (check-reviewer workers reviewer pull-request head))
+    (ok (do))))
+
+(type check-in-review
+  (fn ((ref item)) (result unit refusal)))
+
+(defn check-in-review (item)
+  (if (= (:status item) status/in-review)
+    (ok (do))
+    (err (refusal/pull-request (pull-request-refusal/review-not-in-review
+                                 (clone (:id item))
+                                 (:status item))))))
+
+(type check-no-live-review
+  (fn ((ref (option live-session)))
+    (result unit refusal)))
+
+(defn check-no-live-review (live)
+  (match live
+    ((some present)
+     (err (refusal/pull-request (pull-request-refusal/review-already-live
+                                  (clone (:session present))))))
+    (none (ok (do)))))

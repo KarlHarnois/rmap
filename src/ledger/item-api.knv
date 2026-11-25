@@ -1,5 +1,5 @@
 (module
-  "Holds the items part of the ledger's public surface: adding, editing, showing and moving items, and the deps between them.")
+  "Holds the items part of the ledger's public surface: adding, editing, showing and moving items, the deps between them, and the views over them: readiness, next actions, the log and the graph.")
 
 (use ledger/core/new-items ->new-item description-input
                            new-item)
@@ -17,9 +17,29 @@
 
 (use ledger/core/move ->advancement advancement kind-change)
 (use ledger/operations/deps add-dep remove-dep)
+(use ledger/model blockage)
+(use ledger/core/ready blocked-item readiness)
+(use ledger/core/batch batch batch-size batch-size-of)
+(use ledger/operations/readiness ready-batch ready-items)
+(use ledger/operations/next next-actions)
+(use ledger/core/actions action actor next-action)
+(use ledger/core/next next-entry next-item)
+(use ledger/core/decision-next decision-next)
+(use ledger/operations/log ->log-query log-query read-log)
+(use ledger/core/graph/levels graph-level graph-level-names)
 
-(export ->advancement ->item-edit ->new-item add-dep
-        add-item advance-item advancement claim-item
-        close-item description-input drop-item edit-item
-        item-detail item-edit kind-change list-items
-        new-item remove-dep show-item)
+(use ledger/operations/graph ->graph-request ->graph-source
+                             draw-graph graph-request
+                             graph-source)
+
+(export ->advancement ->graph-request ->graph-source
+        ->item-edit ->log-query ->new-item action actor
+        add-dep add-item advance-item advancement batch
+        batch-size batch-size-of blockage blocked-item
+        claim-item close-item decision-next
+        description-input draw-graph drop-item edit-item
+        graph-level graph-level-names graph-request
+        graph-source item-detail item-edit kind-change
+        list-items log-query new-item next-action
+        next-actions next-entry next-item read-log readiness
+        ready-batch ready-items remove-dep show-item)

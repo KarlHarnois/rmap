@@ -1,7 +1,9 @@
 (module
   "Calls the ledger for each pull request request and names the reply it gives.")
 
-(use ledger/api record-head record-review show-pull-request)
+(use ledger/api record-head record-review show-pull-request
+                start-review)
+
 (use cli/pr-requests pr-operation)
 (use cli/pr-replies pr-reply)
 (use cli/replies reply)
@@ -14,6 +16,11 @@
 
 (defn pr-result (settings operation)
   (match operation
+    ((pr-operation/start-review request)
+     (map-ok (start-review settings request)
+       (fn (started)
+         (pr-reply/started (clone (:item started))
+                           (clone (:session started))))))
     ((pr-operation/review request)
      (map-ok (record-review settings request)
        (fn (recorded) (pr-reply/reviewed recorded))))

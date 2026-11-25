@@ -2,7 +2,7 @@
 (use ledger/refusal-messages refusal->message)
 
 (use ledger/model ->blockage ->decision-id ->item-id
-                  decision-status roadmap-pause)
+                  ->session decision-status roadmap-pause)
 
 (deftest a-priority-below-zero-message-names-the-range-and-the-value
   (assert (= (refusal->message (refusal/priority-out-of-range -1))
@@ -65,3 +65,7 @@
                                  (->decision-id :value (str "rm-d1"))
                                  (->item-id :value (str "rm-0001"))))
              (str "the decision rm-d1 does not block rm-0001"))))
+
+(deftest a-session-not-live-message-names-the-session
+  (assert (= (refusal->message (refusal/session-not-live (->session :name (str "r1"))))
+             (str "the session r1 is not live"))))

@@ -38,6 +38,7 @@
   decision-block-not-found
   supersede-target-not-accepted
   session-busy
+  session-not-live
   session-not-claimant
   report-empty
   report-not-found
@@ -89,6 +90,7 @@
     ((refusal/supersede-target-not-accepted _)
      refusal-code/supersede-target-not-accepted)
     ((refusal/session-busy _) refusal-code/session-busy)
+    ((refusal/session-not-live _) refusal-code/session-not-live)
     ((refusal/session-not-claimant _ _)
      refusal-code/session-not-claimant)
     (refusal/report-empty refusal-code/report-empty)

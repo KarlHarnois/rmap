@@ -1,11 +1,9 @@
 (module
-  "Decides whether a reviewer session may record a review of a build's pull request, and the review and the finished review session it records.")
+  "Decides whether a reviewer session may start a review or record its verdict, the review row and the session it ends, and the live review session a start records.")
 
-(use ledger/model ->work-session item runtime session
-                  session-kind timestamp)
+(use ledger/model item session timestamp)
 
-(use ledger/model/sessions ->finished-session ->session-end
-                           end-reason finished-session
+(use ledger/model/sessions ->session-end end-reason
                            session-id)
 
 (use ledger/model/pull-requests ->review head pull-request
@@ -17,13 +15,27 @@
 (use ledger/core/pull-requests present-pull-request)
 (use ledger/core/phases finished?)
 
-(export ->review-stamp approved-head review-session
-        review-stamp stamped-review)
+(export ->review-stamp approved-head check-live-review
+        check-reviewer review-end review-stamp
+        stamped-review)
 
 (defstruct review-stamp
   :id review-id
   :session-id session-id
   :created-at timestamp)
+
+(type check-live-review
+  (fn ((ref (option session-id))
+       (ref session))
+    (result session-id refusal)))
+
+(defn check-live-review (live reviewer)
+  (ok-or (clone live)
+         (refusal/pull-request (pull-request-refusal/review-session-required (clone
+                                                                               reviewer)))))
+
+(defn review-end (now)
+  (->session-end :reason end-reason/finished :at (clone now)))
 
 (type approved-head
   (fn ((ref item)
@@ -35,12 +47,12 @@
 (defn approved-head (item pull-request request worker-sessions)
   (let-try (_ (check-unfinished item)
             present (present-pull-request item pull-request)
-            _ (check-worker worker-sessions (ref (:reviewer request)))
             head (current-head (ref present)
                                (ref (:head request)))
-            _ (check-fresh (ref present)
-                           (ref (:reviewer request))
-                           (ref head)))
+            _ (check-reviewer worker-sessions
+                              (ref (:reviewer request))
+                              (ref (some (clone present)))
+                              (ref (some (clone head)))))
     (ok head)))
 
 (type stamped-review
@@ -56,21 +68,9 @@
             :verdict (:verdict request)
             :created-at (clone (:created-at stamp))))
 
-(type review-session
-  (fn ((ref review) (ref review-stamp))
-    finished-session))
-
-(defn review-session (review stamp)
-  (->finished-session :id (:session-id stamp)
-                      :session (->work-session
-                                 :session (clone (:reviewer review))
-                                 :kind session-kind/review
-                                 :runtime runtime/ringleader
-                                 :branch none
-                                 :base none
-                                 :started-at (clone (:created-at stamp)))
-                      :end (->session-end :reason end-reason/finished
-                                          :at (clone (:created-at stamp)))))
+(defn check-reviewer (worker-sessions reviewer pull-request head)
+  (let-try (_ (check-worker worker-sessions reviewer))
+    (check-fresh-review pull-request reviewer head)))
 
 (type check-unfinished
   (fn ((ref item)) (result unit refusal)))
@@ -79,6 +79,16 @@
   (if (finished? (:status item))
     (err (refusal/item-closed (clone (:id item))))
     (ok (do))))
+
+(defn check-fresh-review (pull-request reviewer head)
+  (match pull-request
+    ((some present) (check-fresh-at present reviewer head))
+    (none (ok (do)))))
+
+(defn check-fresh-at (pull-request reviewer head)
+  (match head
+    ((some current) (check-fresh pull-request reviewer current))
+    (none (ok (do)))))
 
 (type check-worker
   (fn ((ref (vec session)) (ref session))

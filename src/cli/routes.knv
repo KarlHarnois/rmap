@@ -4,7 +4,8 @@
 (use cli/flag-specs flag-spec)
 
 (export ->route operands pr-command report-command route
-        route-name subcommand word-count words)
+        route-name session-command subcommand word-count
+        words)
 
 (defstruct route
   :subcommand subcommand
@@ -34,6 +35,8 @@
   dep-add
   dep-rm
   graph
+  review-start
+  (session session-command)
   decision-propose
   decision-revise
   decision-show
@@ -57,6 +60,8 @@
   review
   head
   show)
+
+(defenum session-command end)
 
 (type word-count (fn ((ref route)) int))
 

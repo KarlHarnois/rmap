@@ -49,6 +49,7 @@
                                          (sample-id))
        (refusal/supersede-target-not-accepted (sample-decision-id))
        (refusal/session-busy (->session :name (str "s1")))
+       (refusal/session-not-live (->session :name (str "s1")))
        (refusal/session-not-claimant (->session :name (str "s1"))
                                      (sample-id))
        refusal/report-empty
@@ -72,6 +73,13 @@
                                (->session :name (str "r1"))
                                (->head :sha (str "abc"))
                                (->head :sha (str "def"))))
+       (refusal/pull-request (pull-request-refusal/review-not-in-review
+                               (sample-id)
+                               status/merging))
+       (refusal/pull-request (pull-request-refusal/review-already-live
+                               (->session :name (str "r1"))))
+       (refusal/pull-request (pull-request-refusal/review-session-required
+                               (->session :name (str "r1"))))
        (refusal/pull-request (pull-request-refusal/not-approved (sample-approval)))))
 
 (defn sample-approval ()

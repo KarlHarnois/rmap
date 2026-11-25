@@ -1,0 +1,16 @@
+(module
+  "Lists the commands that end a live session.")
+
+(use cli/flag-specs required)
+
+(use cli/routes ->route operands session-command subcommand
+                words)
+
+(export session-routes)
+
+(defn session-routes ()
+  (vec (->route :subcommand (subcommand/session session-command/end)
+                :words (words "session end")
+                :summary (str "Ends a live session by name. The only reason it records today is abandoned.")
+                :operands (operands (vec "name"))
+                :flags (vec (required "reason" "abandoned")))))

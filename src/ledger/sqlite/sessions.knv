@@ -7,8 +7,8 @@
 (use ledger/model ->session ->timestamp ->work-session claim
                   item-id session work-session)
 
-(use ledger/model/sessions finished-session session-end)
-(use ledger/model/sessions ->session-id session-id)
+(use ledger/model/sessions ->session-id session-end
+                           session-id)
 
 (use ledger/names case-name end-reason-names runtime-names
                   session-kind-names)
@@ -18,18 +18,18 @@
 
 (use ledger/sqlite/rows int-cell named-cell
                         optional-text-cell rows->values
-                        single-row text-cell)
+                        text-cell)
 
-(export end-session insert-finished-session
+(export end-session end-session-id end-session-named
         item-worker-sessions live-session-columns
-        live-session-id live-session-join next-session-id
-        row->claim start-session)
+        live-session-id live-session-join
+        live-session-named? row->claim start-session)
 
 (def live-session-columns
   "sessions.name, sessions.kind, sessions.runtime, sessions.branch, sessions.base, sessions.started_at")
 
 (def live-session-join
-  " LEFT JOIN sessions ON sessions.item_id = items.id AND sessions.ended_at IS NULL")
+  " LEFT JOIN sessions ON sessions.item_id = items.id AND sessions.kind IN ('work', 'fix') AND sessions.ended_at IS NULL")
 
 (type item-worker-sessions
   (fn ((ref connection) (ref item-id))
@@ -62,35 +62,6 @@
                      (optional-text->sql (ref (:base session)))
                      (text->sql (as-str (:value (:started-at session))))))))
 
-(defn next-session-id (connection)
-  (let-try (rows (query connection
-                        "SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'sessions'), 0) + 1"
-                        (ref (vec)))
-            row (single-row (ref rows))
-            id (int-cell row 0))
-    (ok (->session-id :value id))))
-
-(type insert-finished-session
-  (fn ((ref connection)
-       (ref item-id)
-       (ref finished-session))
-    (result int database-error)))
-
-(defn insert-finished-session (connection item finished)
-  (let (session (ref (:session finished)))
-    (execute connection
-             "INSERT INTO sessions (id, name, item_id, kind, runtime, started_at, ended_at, end_reason) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
-             (ref (vec (int->sql (:value (:id finished)))
-                       (text->sql (as-str (:name (:session session))))
-                       (text->sql (as-str (:value item)))
-                       (text->sql (case-name session-kind-names
-                                             (:kind session)))
-                       (text->sql (case-name runtime-names (:runtime session)))
-                       (text->sql (as-str (:value (:started-at session))))
-                       (text->sql (as-str (:value (:at (:end finished)))))
-                       (text->sql (case-name end-reason-names
-                                             (:reason (:end finished)))))))))
-
 (type end-session
   (fn ((ref connection)
        (ref item-id)
@@ -104,13 +75,49 @@
                      (text->sql (as-str (:value (:at end))))
                      (text->sql (case-name end-reason-names (:reason end)))))))
 
+(type end-session-id
+  (fn ((ref connection)
+       (ref session-id)
+       (ref session-end))
+    (result int database-error)))
+
+(defn end-session-id (connection id end)
+  (execute connection
+           "UPDATE sessions SET ended_at = ?2, end_reason = ?3 WHERE id = ?1 AND ended_at IS NULL"
+           (ref (vec (int->sql (:value id))
+                     (text->sql (as-str (:value (:at end))))
+                     (text->sql (case-name end-reason-names (:reason end)))))))
+
+(type end-session-named
+  (fn ((ref connection)
+       (ref session)
+       (ref session-end))
+    (result int database-error)))
+
+(defn end-session-named (connection session end)
+  (execute connection
+           "UPDATE sessions SET ended_at = ?2, end_reason = ?3 WHERE name = ?1 AND ended_at IS NULL"
+           (ref (vec (text->sql (as-str (:name session)))
+                     (text->sql (as-str (:value (:at end))))
+                     (text->sql (case-name end-reason-names (:reason end)))))))
+
+(type live-session-named?
+  (fn ((ref connection) (ref session))
+    (result bool database-error)))
+
+(defn live-session-named? (connection session)
+  (let-try (rows (query connection
+                        "SELECT id FROM sessions WHERE name = ?1 AND ended_at IS NULL"
+                        (ref (vec (text->sql (as-str (:name session)))))))
+    (ok (not (empty? rows)))))
+
 (type live-session-id
   (fn ((ref connection) (ref item-id))
     (result (option session-id) database-error)))
 
 (defn live-session-id (connection item)
   (let-try (rows (query connection
-                        "SELECT id FROM sessions WHERE item_id = ?1 AND ended_at IS NULL"
+                        "SELECT id FROM sessions WHERE item_id = ?1 AND kind IN ('work', 'fix') AND ended_at IS NULL"
                         (ref (vec (text->sql (as-str (:value item))))))
             ids (rows->values (ref rows)
                   (fn (row) (int-cell row 0))))

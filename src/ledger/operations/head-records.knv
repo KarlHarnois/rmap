@@ -18,6 +18,9 @@
                                      pull-request-update-columns
                                      write-pull-request-update)
 
+(use ledger/operations/review-sessions end-live-review-session
+                                       superseded-review-end)
+
 (use ledger/operations/transaction in-transaction now record
                                    settings transaction)
 
@@ -56,6 +59,10 @@
             applied (applied (ref item) move (now transaction)))
         (let-try (_ (write-move transaction (ref applied))
                   _ (write-pull-request-update connection (ref update))
+                  review-end (end-live-review-session connection
+                                                      (ref (:id item))
+                                                      (superseded-review-end (now
+                                                                               transaction)))
                   after (pull-request-for connection (ref (:id item)))
                   pull-request (ok-or after
                                       (failure/database (database-failure (str "the pull request is gone"))))
@@ -63,6 +70,7 @@
                             (head-recorded (ref applied)
                                            (ref (pull-request-update-columns (ref
                                                                                update)))
+                                           (ref review-end)
                                            (ref pull-request))))
           (ok (->recorded-head :item (clone (:after applied))
                                :pull-request pull-request)))))))

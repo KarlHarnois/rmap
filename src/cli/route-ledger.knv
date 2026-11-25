@@ -1,0 +1,32 @@
+(module
+  "Wraps a request in the ledger invocation, and reads a decision document before building one.")
+
+(use cli/arguments arguments)
+
+(use cli/decision-requests document-source-of
+                           pending-decision)
+
+(use cli/invocation invocation)
+(use cli/ledger-calls document-call-of ledger-call-of)
+(use cli/requests request)
+
+(export decision-ledger-invocation on-document on-ledger)
+
+(defn decision-ledger-invocation (arguments requested)
+  (on-ledger arguments
+             (map-ok requested
+               (fn (request) (request/decision request)))))
+
+(defn on-ledger (arguments requested)
+  (map-ok requested
+    (fn (request)
+      (invocation/on-ledger (ledger-call-of arguments request)))))
+
+(type on-document
+  (fn ((ref arguments) (result pending-decision string))
+    (result invocation string)))
+
+(defn on-document (arguments pending)
+  (let-try (source (document-source-of arguments)
+            pending pending)
+    (ok (invocation/on-document (document-call-of arguments source pending)))))

@@ -1,17 +1,20 @@
 (module
   "Names each pull request request the CLI can make and builds it from the command line.")
 
-(use ledger/api ->item-id ->review-request ->session item-id
+(use ledger/api ->item-id ->review-request
+                ->review-start-request ->session item-id
                 review-kind-names review-request
-                verdict-names)
+                review-start-request verdict-names)
 
 (use cli/arguments operand)
 (use cli/routes pr-command)
 (use cli/flags required-choice required-text)
 
-(export pr-operation pr-operation-of)
+(export pr-operation pr-operation-of
+        start-review-operation-of)
 
 (defenum pr-operation
+  (start-review review-start-request)
   (review review-request)
   (record-head item-id string)
   (show item-id))
@@ -22,6 +25,16 @@
       (review (review-request arguments item))
       (head (ok (pr-operation/record-head item (operand arguments route 1))))
       (show (ok (pr-operation/show item))))))
+
+(defn start-review-operation-of (arguments route)
+  (start-review-request arguments
+                        (->item-id :value (operand arguments route 0))))
+
+(defn start-review-request (arguments item)
+  (let-try (reviewer (required-text arguments "session"))
+    (ok (pr-operation/start-review (->review-start-request :item item
+                                                           :reviewer (->session
+                                                                       :name reviewer))))))
 
 (defn review-request (arguments item)
   (let-try (verdict (required-choice arguments "verdict" verdict-names)

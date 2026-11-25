@@ -141,12 +141,16 @@ Commands:
     Marks a report read. Reading the done report of a research or design item ends the session that sent it, if it is still live.
   report <item> --session <name> --kind done|fixed|question [--text <text>] [--file <path|->] [--pr <number>] [--head <commit sha>]
     Records a report from the item's live session, with its body in --text, or in --file (- reads stdin). done moves a dispatched research or design item to reported, and a dispatched build to in_review with its pull request in --pr and its head in --head. fixed moves a fixing build to in_review with the head it pushed in --head, and a build with no pull request yet attaches one there with --pr. question leaves the status as it is.
+  review start <item> --session <name>
+    Starts a live review session on a build that is in_review, so the reviewer can record its verdict with pr review. A live work or fix session and one live review session may run together.
   pr review <item> --verdict changes|approve --kind behavior|design --head <commit sha> --reviewer <session>
-    Records a review of the build's pull request at --head, which must be the pull request's current head in the ledger, by the reviewer session, as a finished review session. It never moves the item. The build moves to merging, and closes as merged, only when, among each reviewer's latest verdict on the pull request's head, one approves and none asks for changes.
+    Records a review of the build's pull request at --head, which must be the pull request's current head in the ledger, by the reviewer session's live review session, and ends that session. It never moves the item. The build moves to merging, and closes as merged, only when, among each reviewer's latest verdict on the pull request's head, one approves and none asks for changes.
   pr head <item> <commit sha>
-    Records a new head for the build's pull request when its branch moved without a fixed report, and moves an in_review or merging build back to in_review. Reviews on older heads stop counting toward its approval.
+    Records a new head for the build's pull request when its branch moved without a fixed report, and moves an in_review or merging build back to in_review. Any live review session ends as superseded, and reviews on older heads stop counting toward its approval.
   pr show <item>
     Shows the build's pull request with its reviews and whether they approve its head.
+  session end <name> --reason abandoned
+    Ends a live session by name. The only reason it records today is abandoned.
 
 Environment:
   RMAP_JSON   Set to 1 to print JSON, as --json does.
@@ -189,6 +193,7 @@ Refusal codes:
   decision-block-not-found       The decision does not block that item.
   supersede-target-not-accepted  Only a decision that is accepted, or rejected in the same roadmap, can be superseded.
   session-busy                   A live session already has that name.
+  session-not-live               No live session has that name.
   session-not-claimant           The session is not the item's live session.
   report-empty                   A report needs a body.
   report-not-found               No report has that id.
@@ -201,7 +206,10 @@ Refusal codes:
   invalid-head                   A head is a full 40-character commit SHA in lowercase hex.
   head-not-current               A review names a head other than the pull request's current head in the ledger.
   head-unchanged                 pr head names the head the pull request is already at.
-  reviewer-is-worker             The reviewer is the item's own worker session, which claimed the item.
+  reviewer-is-worker             The reviewer is a work or fix session of the item, live or ended.
   reviewer-not-fresh             The reviewer already reviewed another head of the same pull request. A new head needs a new reviewer. The error names the reviewer, the head it reviewed and the head it tried.
+  review-not-in-review           A review can start only while the item is in_review.
+  review-already-live            The item already has a live review session.
+  review-session-required        The reviewer has no live review session for this item. Start one with review start.
   not-approved                   Among each reviewer's latest verdict on the pull request's head, none approves or one asks for changes. The error lists the head, approved_by, changes_requested and stale_heads.
 ```

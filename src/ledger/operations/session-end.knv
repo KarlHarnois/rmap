@@ -1,0 +1,52 @@
+(module
+  "Ends a live session by name with a reason, in one transaction with its event. It never moves the item.")
+
+(use ledger/model session)
+
+(use ledger/model/sessions ->ended-session ->session-end
+                           end-reason ended-session)
+
+(use ledger/core/session-ends approved-session-end)
+(use ledger/core/snapshot existing)
+(use ledger/names case-name end-reason-names)
+(use ledger/session-events session-ended)
+
+(use ledger/operations/transaction in-transaction now record
+                                   transaction)
+
+(use ledger/sqlite/live-sessions live-session-named)
+(use ledger/sqlite/sessions end-session-named)
+(use ledger/sqlite/snapshot load-snapshot)
+(use ledger/sqlite/connection database-failure)
+(use ledger/failure failure)
+
+(export end-session)
+
+(defn end-session (settings name reason)
+  (in-transaction settings
+    (fn (transaction) (store-end transaction name reason))))
+
+(type store-end
+  (fn ((ref transaction) (ref session) end-reason)
+    (result ended-session failure)))
+
+(defn store-end (transaction name reason)
+  (let (connection (ref (:connection transaction)))
+    (let-try (snapshot (load-snapshot connection)
+              live (live-session-named connection name)
+              _ (approved-session-end name (ref live))
+              present (ok-or (clone live)
+                             (failure/database (database-failure (str "the live session is gone"))))
+              item (existing (ref snapshot)
+                             (ref (:item present))))
+      (let (end (->session-end :reason reason :at (now transaction)))
+        (let-try (_ (end-session-named connection name (ref end))
+                  _ (record transaction
+                            (session-ended (ref item)
+                                           (ref present)
+                                           (ref end))))
+          (ok (->ended-session :item item
+                               :session (clone (:session present))
+                               :kind (:kind present)
+                               :reason (str (case-name end-reason-names reason))
+                               :end end)))))))

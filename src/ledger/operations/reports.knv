@@ -21,6 +21,7 @@
                              write-session-change)
 
 (use ledger/operations/report-bodies resolve-body)
+(use ledger/operations/review-sessions review-end-for-report)
 
 (use ledger/operations/pull-requests pull-request-update
                                      pull-request-update-columns
@@ -74,6 +75,10 @@
                                           (ref item)
                                           request
                                           (ref (now transaction)))
+              review-end (review-end-for-report connection
+                                                (ref item)
+                                                (ref update)
+                                                (now transaction))
               session-id (claimant-id connection (ref item))
               id (next-report-id connection))
       (let (applied (applied (ref item) move (now transaction))
@@ -91,6 +96,7 @@
                   _ (record transaction
                             (item-reported (ref applied)
                                            (ref report)
+                                           (ref review-end)
                                            (ref (pull-request-update-columns (ref
                                                                                update))))))
           (ok (->recorded-report :report report

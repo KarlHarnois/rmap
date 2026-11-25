@@ -69,6 +69,16 @@ INSERT INTO items (id, roadmap_id, title, kind, status, created_at) VALUES
   ('rm-0002', 'rm-0001', 'study', 'research', 'dispatched', '2026-01-02T00:00:00Z');
 INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('s1', 'rm-0002', 'work', '2026-01-03T00:00:00Z');")
 
+(def version-nine-rows
+  "INSERT INTO roadmaps (id, name, manager_session, created_at) VALUES ('rm-0001', 'road', 'm1', '2026-01-01T00:00:00Z');
+INSERT INTO items (id, roadmap_id, title, kind, status, created_at) VALUES
+  ('rm-0002', 'rm-0001', 'build', 'build', 'in_review', '2026-01-02T00:00:00Z');
+INSERT INTO sessions (id, name, item_id, kind, started_at) VALUES (1, 's1', 'rm-0002', 'work', '2026-01-03T00:00:00Z');
+INSERT INTO sessions (id, name, item_id, kind, started_at, ended_at, end_reason) VALUES (2, 'r1', 'rm-0002', 'work', '2026-01-05T00:00:00Z', '2026-01-06T00:00:00Z', 'replaced');
+INSERT INTO pull_requests (item_id, number, head_sha, opened_at) VALUES ('rm-0002', 12, 'abc', '2026-01-04T00:00:00Z');
+INSERT INTO reviews (id, item_id, session_id, kind, head_sha, verdict, created_at) VALUES (1, 'rm-0002', 2, 'behavior', 'abc', 'approve', '2026-01-05T00:00:00Z');
+INSERT INTO reports (item_id, session_id, kind, body, created_at) VALUES ('rm-0002', 1, 'question', 'why?', '2026-01-06T00:00:00Z');")
+
 (def version-eight-rows
   "INSERT INTO roadmaps (id, name, manager_session, created_at) VALUES ('rm-0001', 'road', 'm1', '2026-01-01T00:00:00Z');
 INSERT INTO items (id, roadmap_id, title, kind, status, created_at) VALUES
@@ -193,6 +203,13 @@ INSERT INTO reports (item_id, session_id, kind, body, created_at) VALUES ('rm-00
   (let (connection (opened name))
     (unwrap-ok (migrate (ref connection) (migrations-through 7)))
     (unwrap-ok (run-batch (ref connection) version-seven-rows))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    connection))
+
+(defn upgraded-from-version-nine (name)
+  (let (connection (opened name))
+    (unwrap-ok (migrate (ref connection) (migrations-through 9)))
+    (unwrap-ok (run-batch (ref connection) version-nine-rows))
     (unwrap-ok (migrate (ref connection) (migration-sources)))
     connection))
 
@@ -495,3 +512,31 @@ INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('s2', 'rm-0002', 
                              "INSERT INTO reviews (item_id, session_id, kind, head_sha, verdict, created_at) VALUES ('rm-0002', 2, 'behavior', 'abc', 'maybe', 't');")))
     (assert (err? (run-batch (ref connection)
                              "INSERT INTO reviews (item_id, session_id, kind, head_sha, verdict, created_at) VALUES ('rm-9999', 2, 'behavior', 'abc', 'approve', 't');")))))
+
+(deftest the-review-sessions-migration-times-each-review-session-to-its-review
+  (let (connection (upgraded-from-version-nine "review-sessions-times"))
+    (assert (= (row-count (ref connection) "sessions") 2))
+    (assert (= (row-count (ref connection) "reviews") 1))
+    (assert (= (row-count (ref connection) "reports") 1))
+    (assert (= (row-count (ref connection)
+                          "sessions WHERE id = 2 AND kind = 'review' AND started_at = '2026-01-05T00:00:00Z' AND ended_at = '2026-01-05T00:00:00Z' AND end_reason = 'finished'")
+               1))))
+
+(deftest a-live-review-session-may-run-beside-a-live-work-session
+  (let (connection (upgraded-from-version-nine "review-sessions-coexist"))
+    (assert (ok? (run-batch (ref connection)
+                            "INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('r2', 'rm-0002', 'review', 't');")))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('r3', 'rm-0002', 'review', 't');")))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('s2', 'rm-0002', 'work', 't');")))))
+
+(deftest a-review-session-ends-as-superseded
+  (let (connection (upgraded-from-version-nine "review-sessions-superseded"))
+    (assert (ok? (run-batch (ref connection)
+                            "UPDATE sessions SET ended_at = 't', end_reason = 'superseded' WHERE id = 1;")))))
+
+(deftest a-session-ends-as-abandoned
+  (let (connection (upgraded-from-version-nine "review-sessions-abandoned"))
+    (assert (ok? (run-batch (ref connection)
+                            "UPDATE sessions SET ended_at = 't', end_reason = 'abandoned' WHERE id = 1;")))))

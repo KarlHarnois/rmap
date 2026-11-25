@@ -4,8 +4,8 @@
                   ->work-session kind runtime session-kind
                   status)
 
-(use ledger/model/sessions ->finished-session ->session-end
-                           ->session-id end-reason)
+(use ledger/model/sessions ->session-end ->session-id
+                           end-reason)
 
 (use ledger/model/pull-requests ->head ->pr-number
                                 ->pull-request ->review
@@ -14,9 +14,10 @@
 
 (use ledger/core/pull-requests pr-change)
 
-(use ledger/pull-request-events head-recorded item-reviewed
+(use ledger/pull-request-events head-recorded
                                 pr-change-columns)
 
+(use ledger/review-events item-reviewed review-started)
 (use ledger/core/move move)
 (use ledger/core/session-changes session-change)
 (use ledger/move-events ->applied-move)
@@ -60,15 +61,15 @@
             :created-at (at)))
 
 (defn finished ()
-  (->finished-session :id (->session-id :value 6)
-                      :session (->work-session :session (->session :name (str "r1"))
-                                               :kind session-kind/review
-                                               :runtime runtime/ringleader
-                                               :branch none
-                                               :base none
-                                               :started-at (at))
-                      :end (->session-end :reason end-reason/finished
-                                          :at (at))))
+  (->session-end :reason end-reason/finished :at (at)))
+
+(defn review-session ()
+  (->work-session :session (->session :name (str "r1"))
+                  :kind session-kind/review
+                  :runtime runtime/ringleader
+                  :branch none
+                  :base none
+                  :started-at (at)))
 
 (defn at ()
   (->timestamp :value (str "2026-01-03T00:00:00Z")))
@@ -83,6 +84,7 @@
       (ref (pr-change-columns (ref (some (opened)))
                               (ref (pr-change/pushed (->head :sha (str second-sha))))
                               (ref (at))))
+      (ref none)
       (ref (opened)))))
 
 (deftest an-opened-pull-request-inserts-its-number-head-and-time
@@ -108,7 +110,7 @@
 (deftest an-unchanged-pull-request-adds-no-columns
   (assert (empty? (columns (payload-of none pr-change/unchanged)))))
 
-(deftest a-review-event-records-the-review-and-its-session
+(deftest a-review-event-records-the-review-and-the-session-it-ends
   (let (draft (reviewed-draft))
     (assert (= (case-name event-type-names (:type draft))
                "item-reviewed"))
@@ -119,12 +121,23 @@
                     (str "head_sha")
                     (str "item_id")
                     (str "review_kind")
+                    (str "session_id")
+                    (str "verdict"))))))
+
+(deftest a-review-started-event-records-the-live-review-session
+  (let (draft (review-started (ref (claimed (work-item "rm-0001"
+                                                       kind/build
+                                                       status/in-review)))
+                              (ref (review-session))))
+    (assert (= (case-name event-type-names (:type draft))
+               "review-started"))
+    (assert (= (columns (copy-of (ref (:payload draft))))
+               (vec (str "base")
+                    (str "branch")
                     (str "runtime")
                     (str "session")
-                    (str "session_id")
                     (str "session_kind")
-                    (str "started_at")
-                    (str "verdict"))))))
+                    (str "started_at"))))))
 
 (deftest a-review-event-names-the-review-and-the-pull-request
   (let (payload (copy-of (ref (:payload (reviewed-draft)))))
@@ -144,3 +157,20 @@
   (let (payload (copy-of (ref (:payload (head-recorded-draft)))))
     (assert (= (json->int (ref (unwrap (field (ref payload) "pr_number"))))
                (some 12)))))
+
+(deftest a-recorded-head-event-ends-a-live-review-session
+  (let (before (claimed (work-item "rm-0001" kind/build status/merging))
+        draft (head-recorded
+                (ref (->applied-move :before (clone before)
+                                     :after (assoc before
+                                                   :status status/in-review)
+                                     :move move/record-head
+                                     :session-change session-change/kept))
+                (ref (vec))
+                (ref (some (->session-end :reason end-reason/superseded
+                                          :at (at))))
+                (ref (opened))))
+    (assert (= (columns (copy-of (ref (:payload draft))))
+               (vec (str "end_reason")
+                    (str "ended_at")
+                    (str "status"))))))

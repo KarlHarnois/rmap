@@ -1,7 +1,8 @@
 (use ledger/api ->advancement ->claim-request ->session
                 advance-item claim claim-item close-item
                 drop-item failure kind kind-change
-                record-head refusal settings status)
+                record-head record-review refusal settings
+                status)
 
 (use ledger/model ->timestamp ->work-session runtime
                   session-kind)
@@ -12,7 +13,8 @@
 (use ledger/model/pull-requests verdict)
 
 (use support/pull-requests approved-build first-head
-                           in-review-build reviewed
+                           in-review-build review-as
+                           review-start-as reviewed
                            second-head)
 
 (use support/ledger added-id all-events blocked-research
@@ -44,6 +46,18 @@
   (let (connection (unwrap-ok (open (as-str (:database-path settings))))
         rows (unwrap-ok (query (ref connection)
                                "SELECT end_reason FROM sessions WHERE kind = 'work' ORDER BY id"
+                               (ref (vec)))))
+    (unwrap-ok (rows->values (ref rows)
+                 (fn (row) (optional-text-cell row 0))))))
+
+(type review-end-reasons
+  (fn ((ref settings))
+    (vec (option string))))
+
+(defn review-end-reasons (settings)
+  (let (connection (unwrap-ok (open (as-str (:database-path settings))))
+        rows (unwrap-ok (query (ref connection)
+                               "SELECT end_reason FROM sessions WHERE kind = 'review' ORDER BY id"
                                (ref (vec)))))
     (unwrap-ok (rows->values (ref rows)
                  (fn (row) (optional-text-cell row 0))))))
@@ -219,16 +233,13 @@
                            (ref (claimed (ref settings)
                                          (build (ref settings))))
                            12))
+    (review-start-as (ref settings) (ref id) "r2")
     (assert (ok? (advance (ref settings) (clone id) status/merging)))
-    (reviewed (ref settings)
-              (ref id)
-              "r2" verdict/changes first-head)
+    (assert (ok? (record-review
+                   (ref settings)
+                   (review-as (ref id) "r2" verdict/changes first-head))))
     (assert (= (refusal-code-of (close-item (ref settings) (clone id)))
-               (some (str "not-approved"))))
-    (reviewed (ref settings)
-              (ref id)
-              "r2" verdict/approve first-head)
-    (assert (ok? (close-item (ref settings) id)))))
+               (some (str "not-approved"))))))
 
 (deftest a-change-request-holds-the-build-in-review
   (let (settings (scratch-ledger "merge-held-by-changes")
@@ -281,3 +292,51 @@
                     (build (ref settings))))
     (assert (= (refusal-code-of (advance (ref settings) id status/in-review))
                (some (str "invalid-transition"))))))
+
+(deftest moving-a-build-to-fixing-keeps-its-live-review-session
+  (let (settings (scratch-ledger "fixing-keeps-review")
+        id (in-review-build (ref settings)
+                            (ref (claimed (ref settings)
+                                          (build (ref settings))))
+                            12))
+    (review-start-as (ref settings) (ref id) "r1")
+    (assert (ok? (advance (ref settings) (clone id) status/fixing)))
+    (assert (= (review-end-reasons (ref settings))
+               (vec none)))))
+
+(deftest moving-a-build-to-merging-keeps-its-live-review-session
+  (let (settings (scratch-ledger "merging-keeps-review")
+        id (approved-build (ref settings)
+                           (ref (claimed (ref settings)
+                                         (build (ref settings))))
+                           12))
+    (review-start-as (ref settings) (ref id) "r2")
+    (assert (ok? (advance (ref settings) (clone id) status/merging)))
+    (assert (= (review-end-reasons (ref settings))
+               (vec (some (str "finished")) none)))))
+
+(deftest closing-a-build-ends-its-live-review-session-as-superseded
+  (let (settings (scratch-ledger "close-ends-review")
+        id (approved-build (ref settings)
+                           (ref (claimed (ref settings)
+                                         (build (ref settings))))
+                           12))
+    (review-start-as (ref settings) (ref id) "r2")
+    (assert (ok? (advance (ref settings) (clone id) status/merging)))
+    (assert (ok? (close-item (ref settings) (clone id))))
+    (assert (= (review-end-reasons (ref settings))
+               (vec (some (str "finished"))
+                    (some (str "superseded")))))))
+
+(deftest dropping-an-item-ends-its-live-review-session-as-superseded
+  (let (settings (scratch-ledger "drop-ends-review")
+        id (in-review-build (ref settings)
+                            (ref (claimed (ref settings)
+                                          (build (ref settings))))
+                            12))
+    (review-start-as (ref settings) (ref id) "r2")
+    (assert (ok? (drop-item (ref settings)
+                            (clone id)
+                            (str "obsolete"))))
+    (assert (= (review-end-reasons (ref settings))
+               (vec (some (str "superseded")))))))

@@ -1,0 +1,88 @@
+(module
+  "Starts a reviewer session's live review session on a build's pull request, in one transaction with its event. It never moves the item.")
+
+(use ledger/model session)
+
+(use ledger/model/pull-requests ->started-review head
+                                pull-request
+                                review-start-request
+                                started-review)
+
+(use ledger/core/review-starts approved-review-start
+                               review-start-session)
+
+(use ledger/core/snapshot existing)
+(use ledger/review-events review-started)
+(use ledger/operations/pull-requests pull-request-for)
+(use ledger/refusal refusal)
+
+(use ledger/operations/transaction in-transaction now record
+                                   settings transaction)
+
+(use ledger/sqlite/live-sessions live-review-session)
+
+(use ledger/sqlite/sessions item-worker-sessions
+                            live-session-named?
+                            start-session)
+
+(use ledger/sqlite/snapshot load-snapshot)
+(use ledger/sqlite/connection connection)
+(use ledger/failure failure)
+
+(export start-review)
+
+(type start-review
+  (fn ((ref settings) review-start-request)
+    (result started-review failure)))
+
+(defn start-review (settings request)
+  (in-transaction settings
+    (fn (transaction)
+      (store-review-start transaction (ref request)))))
+
+(type store-review-start
+  (fn ((ref transaction) (ref review-start-request))
+    (result started-review failure)))
+
+(defn store-review-start (transaction request)
+  (let (connection (ref (:connection transaction)))
+    (let-try (snapshot (load-snapshot connection)
+              item (existing (ref snapshot)
+                             (ref (:item request)))
+              live (live-review-session connection (ref (:id item)))
+              workers (item-worker-sessions connection (ref (:id item)))
+              pull-request (pull-request-for connection (ref (:id item)))
+              _ (approved-review-start (ref item)
+                                       (ref live)
+                                       (ref workers)
+                                       (ref (:reviewer request))
+                                       (ref pull-request)
+                                       (ref (pull-request-head pull-request)))
+              _ (check-name-free connection (ref (:reviewer request))))
+      (let (session (review-start-session (ref (:reviewer request))
+                                          (now transaction)))
+        (let-try (_ (start-session connection
+                                   (ref (:id item))
+                                   (ref session))
+                  _ (record transaction
+                            (review-started (ref item) (ref session))))
+          (ok (->started-review :item item :session session)))))))
+
+(type pull-request-head
+  (fn ((ref (option pull-request)))
+    (option head)))
+
+(defn pull-request-head (pull-request)
+  (match pull-request
+    ((some present) (some (clone (:head present))))
+    (none none)))
+
+(type check-name-free
+  (fn ((ref connection) (ref session))
+    (result unit failure)))
+
+(defn check-name-free (connection reviewer)
+  (let-try (busy (live-session-named? connection reviewer))
+    (if busy
+      (err (failure/refused (refusal/session-busy (clone reviewer))))
+      (ok (do)))))

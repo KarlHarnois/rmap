@@ -3,13 +3,24 @@
 
 (use json/value array int->json json text->json)
 (use ledger/model claim item item-id timestamp)
+(use ledger/model/pull-requests pr-number)
 
 (use ledger/names case-name kind-names origin-names
                   status-names)
 
-(export claim->json id->json ids->json item->columns
-        optional-id->json optional-ids->json
-        optional-text->json optional-timestamp->json)
+(export claim->json head->json id->json ids->json
+        item->columns optional-id->json optional-ids->json
+        optional-text->json optional-timestamp->json
+        pr-number->json)
+
+(defn head->json (head)
+  (text->json (as-str (:sha head))))
+
+(type pr-number->json
+  (fn ((ref pr-number)) json))
+
+(defn pr-number->json (number)
+  (int->json (:value number)))
 
 (defn ids->json (ids)
   (array (collect (map (iter ids) id->json))))

@@ -10,6 +10,7 @@
 (use cli/lifecycle-commands lifecycle-routes)
 (use cli/report-commands report-routes)
 (use cli/pr-commands pr-routes)
+(use cli/session-commands session-routes)
 
 (export routes)
 
@@ -18,7 +19,8 @@
     (for-each (vec (lifecycle-routes)
                    (decision-routes)
                    (report-routes)
-                   (pr-routes))
+                   (pr-routes)
+                   (session-routes))
               (fn (group)
                 (for-each group
                   (fn (route) (push! all (clone route))))))

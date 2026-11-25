@@ -10,7 +10,8 @@
 (use support/payloads columns side-int side-text)
 
 (use support/pull-requests first-head in-review-build
-                           pr-report-as second-head)
+                           pr-report-as review-start-as
+                           second-head)
 
 (use support/ledger added-id advanced all-events claimed
                     item-draft refusal-code-of research
@@ -30,6 +31,18 @@
   (let (connection (unwrap-ok (open (as-str (:database-path settings))))
         rows (unwrap-ok (query (ref connection)
                                "SELECT end_reason FROM sessions ORDER BY id"
+                               (ref (vec)))))
+    (unwrap-ok (rows->values (ref rows)
+                 (fn (row) (optional-text-cell row 0))))))
+
+(type review-end-reasons
+  (fn ((ref settings))
+    (vec (option string))))
+
+(defn review-end-reasons (settings)
+  (let (connection (unwrap-ok (open (as-str (:database-path settings))))
+        rows (unwrap-ok (query (ref connection)
+                               "SELECT end_reason FROM sessions WHERE kind = 'review' ORDER BY id"
                                (ref (vec)))))
     (unwrap-ok (rows->values (ref rows)
                  (fn (row) (optional-text-cell row 0))))))
@@ -281,3 +294,20 @@
                  (some (str first-head))))
       (assert (= (side-text payload "head_sha" "new")
                  (some (str second-head)))))))
+
+(deftest a-fixed-report-ends-the-live-review-session-as-superseded
+  (let (settings (scratch-ledger "report-fixed-supersedes-review")
+        id (in-review-build (ref settings)
+                            (ref (claimed (ref settings)
+                                          (added-id (ref settings)
+                                                    (item-draft kind/build))))
+                            12))
+    (review-start-as (ref settings) (ref id) "r1")
+    (advanced (ref settings) (clone id) status/fixing)
+    (unwrap-ok (record-report (ref settings)
+                              (pr-report-as (ref id)
+                                            report-kind/fixed
+                                            none
+                                            (some (str second-head)))))
+    (assert (= (review-end-reasons (ref settings))
+               (vec (some (str "superseded")))))))

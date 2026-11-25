@@ -1,0 +1,43 @@
+(module
+  "Ends an item's live review session as superseded when a new head, a close or a drop releases it.")
+
+(use ledger/model item timestamp)
+
+(use ledger/model/sessions ->session-end end-reason
+                           session-end)
+
+(use ledger/core/pull-requests pr-change)
+(use ledger/operations/pull-requests pull-request-update)
+(use ledger/sqlite/connection connection database-error)
+(use ledger/sqlite/live-sessions live-review-session)
+(use ledger/sqlite/sessions end-session-id)
+
+(export end-live-review-session review-end-for-report
+        superseded-review-end)
+
+(type review-end-for-report
+  (fn ((ref connection)
+       (ref item)
+       (ref pull-request-update)
+       (ref timestamp))
+    (result (option session-end) database-error)))
+
+(defn review-end-for-report (connection item update now)
+  (match (:change update)
+    ((pushed _)
+     (end-live-review-session connection
+                              (ref (:id item))
+                              (superseded-review-end now)))
+    (_ (ok none))))
+
+(defn superseded-review-end (now)
+  (->session-end :reason end-reason/superseded
+                 :at (clone now)))
+
+(defn end-live-review-session (connection item end)
+  (let-try (live (live-review-session connection item))
+    (match live
+      ((some present)
+       (map-ok (end-session-id connection (ref (:id present)) end)
+         (fn (_) (some (clone end)))))
+      (none (ok none)))))
