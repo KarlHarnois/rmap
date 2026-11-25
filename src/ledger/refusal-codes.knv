@@ -46,6 +46,13 @@
   report-empty
   report-not-found
   report-already-read
+  criteria-unmet
+  verifier-not-reviewer
+  verifier-is-worker
+  verifier-is-manager
+  criterion-not-found
+  verdict-head-required
+  verdict-head-not-current
   (pull-request pull-request-refusal-code))
 
 (defn code-of (refused)
@@ -103,5 +110,17 @@
     ((refusal/report-not-found _) refusal-code/report-not-found)
     ((refusal/report-already-read _)
      refusal-code/report-already-read)
+    ((refusal/criteria-unmet _) refusal-code/criteria-unmet)
+    ((refusal/verifier-not-reviewer _)
+     refusal-code/verifier-not-reviewer)
+    ((refusal/verifier-is-worker _)
+     refusal-code/verifier-is-worker)
+    ((refusal/verifier-is-manager _)
+     refusal-code/verifier-is-manager)
+    ((refusal/criterion-not-found _ _)
+     refusal-code/criterion-not-found)
+    (refusal/verdict-head-required refusal-code/verdict-head-required)
+    ((refusal/verdict-head-not-current _ _)
+     refusal-code/verdict-head-not-current)
     ((refusal/pull-request refused)
      (refusal-code/pull-request (pull-request-code-of refused)))))

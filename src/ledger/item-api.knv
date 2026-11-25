@@ -3,6 +3,15 @@
 
 (use ledger/core/criteria criteria-input)
 
+(use ledger/model/criteria ->criterion-gap
+                           ->criterion-status
+                           ->criterion-verdict
+                           ->verify-request criterion-gap
+                           criterion-result criterion-status
+                           criterion-verdict verify-request)
+
+(use ledger/operations/criterion-verdicts verify-criterion)
+
 (use ledger/core/new-items ->new-item description-input
                            new-item)
 
@@ -34,14 +43,18 @@
                              draw-graph graph-request
                              graph-source)
 
-(export ->advancement ->graph-request ->graph-source
-        ->item-edit ->log-query ->new-item action actor
-        add-dep add-item advance-item advancement batch
-        batch-size batch-size-of blockage blocked-item
-        claim-item close-item criteria-input decision-next
-        description-input draw-graph drop-item edit-item
-        graph-level graph-level-names graph-request
-        graph-source item-detail item-edit kind-change
-        list-items log-query new-item next-action
-        next-actions next-entry next-item read-log readiness
-        ready-batch ready-items remove-dep show-item)
+(export ->advancement ->criterion-gap ->criterion-status
+        ->criterion-verdict ->graph-request ->graph-source
+        ->item-edit ->log-query ->new-item ->verify-request
+        action actor add-dep add-item advance-item
+        advancement batch batch-size batch-size-of blockage
+        blocked-item claim-item close-item criteria-input
+        criterion-gap criterion-result criterion-status
+        criterion-verdict decision-next description-input
+        draw-graph drop-item edit-item graph-level
+        graph-level-names graph-request graph-source
+        item-detail item-edit kind-change list-items
+        log-query new-item next-action next-actions
+        next-entry next-item read-log readiness ready-batch
+        ready-items remove-dep show-item verify-criterion
+        verify-request)

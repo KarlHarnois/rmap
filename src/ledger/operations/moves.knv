@@ -19,6 +19,7 @@
 (use ledger/operations/review-sessions end-live-review-session
                                        superseded-review-end)
 
+(use ledger/sqlite/criterion-verdicts criterion-verdicts-for)
 (use ledger/sqlite/items update-item)
 (use ledger/sqlite/sessions end-session start-session)
 (use ledger/core/session-changes session-change)
@@ -114,9 +115,12 @@
             item (existing (ref snapshot) id)
             move (approved-move (ref snapshot) (ref item) requested)
             pull-request (pull-request-for (ref (:connection transaction)) id)
+            verdicts (criterion-verdicts-for (ref (:connection transaction))
+                                             (ref (:id item)))
             _ (check-requirements (ref item)
                                   (ref move)
-                                  (ref pull-request)))
+                                  (ref pull-request)
+                                  (ref verdicts)))
     (store-move transaction
                 (applied (ref item) move (now transaction)))))
 

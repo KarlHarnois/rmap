@@ -12,6 +12,12 @@
 (use ledger/pull-request-refusals pull-request-refusal)
 (use ledger/core/move move)
 
+(use ledger/model/criteria ->criterion-verdict
+                           ->criterion-verdict-id
+                           criterion-result)
+
+(use ledger/refusal-text refusal-code-text)
+
 (use ledger/core/requirements approval-of approved?
                               check-requirements)
 
@@ -20,6 +26,42 @@
 (def first-sha "1111111111111111111111111111111111111111")
 
 (def second-sha "2222222222222222222222222222222222222222")
+
+(defn merging-with (verdicts)
+  (check-requirements
+    (ref (in-review-with-criterion))
+    (ref (move/advance status/merging))
+    (ref (some (pull-request-at
+                 first-sha
+                 (vec (review-by 1 "r1" verdict/approve first-sha)))))
+    (ref verdicts)))
+
+(defn closing-with (verdicts)
+  (check-requirements
+    (ref (merging-build))
+    (ref move/close)
+    (ref (some (pull-request-at
+                 first-sha
+                 (vec (review-by 1 "r1" verdict/approve first-sha)))))
+    (ref verdicts)))
+
+(defn in-review-with-criterion ()
+  (assoc (in-review)
+         :criteria (vec (str "a criterion"))))
+
+(defn merging-build ()
+  (assoc (claimed (work-item "rm-0001" kind/build status/merging))
+         :criteria (vec (str "a criterion"))))
+
+(defn verdict-on (position result sha)
+  (->criterion-verdict :id (->criterion-verdict-id :value 1)
+                       :item (->item-id :value (str "rm-0001"))
+                       :position position
+                       :verdict result
+                       :note none
+                       :reviewer (->session :name (str "r1"))
+                       :head (some (->head :sha (str sha)))
+                       :created-at (->timestamp :value (str "2026-01-04T00:00:00Z"))))
 
 (defn review-by (id reviewer verdict sha)
   (->review :id (->review-id :value id)
@@ -48,16 +90,46 @@
 (defn to-merging (pull-request)
   (check-requirements (ref (in-review))
                       (ref (move/advance status/merging))
-                      (ref pull-request)))
+                      (ref pull-request)
+                      (ref (vec))))
 
 (defn to-merged (pull-request)
   (check-requirements (ref (claimed
                              (work-item "rm-0001" kind/build status/merging)))
                       (ref move/close)
-                      (ref pull-request)))
+                      (ref pull-request)
+                      (ref (vec))))
 
 (defn in-review ()
   (claimed (work-item "rm-0001" kind/build status/in-review)))
+
+(deftest an-approved-build-without-criterion-verdicts-cannot-merge
+  (let (failure (unwrap-err (merging-with (vec))))
+    (assert (= (refusal-code-text failure) (str "criteria-unmet")))))
+
+(deftest an-approved-build-with-a-met-verdict-on-the-head-can-merge
+  (assert (ok? (merging-with
+                 (vec (verdict-on 1 criterion-result/met first-sha))))))
+
+(deftest an-approved-build-with-a-failed-verdict-cannot-merge
+  (let (failure (unwrap-err
+                  (merging-with
+                    (vec (verdict-on 1 criterion-result/failed first-sha)))))
+    (assert (= (refusal-code-text failure) (str "criteria-unmet")))))
+
+(deftest an-approved-build-with-a-met-verdict-on-an-old-head-cannot-merge
+  (let (failure (unwrap-err (merging-with (vec (verdict-on 1
+                                                           criterion-result/met
+                                                           second-sha)))))
+    (assert (= (refusal-code-text failure) (str "criteria-unmet")))))
+
+(deftest an-approved-merging-build-without-criterion-verdicts-cannot-close
+  (let (failure (unwrap-err (closing-with (vec))))
+    (assert (= (refusal-code-text failure) (str "criteria-unmet")))))
+
+(deftest an-approved-merging-build-with-a-met-verdict-on-the-head-can-close
+  (assert (ok? (closing-with
+                 (vec (verdict-on 1 criterion-result/met first-sha))))))
 
 (deftest one-approval-on-the-head-approves-it
   (assert (approved? (ref (approval-at
@@ -111,7 +183,8 @@
 (deftest a-move-that-does-not-reach-merging-has-no-requirement
   (assert (ok? (check-requirements (ref (in-review))
                                    (ref (move/advance status/fixing))
-                                   (ref none)))))
+                                   (ref none)
+                                   (ref (vec))))))
 
 (deftest merging-without-a-pull-request-is-refused
   (assert (= (unwrap-err (to-merging none))
@@ -160,4 +233,5 @@
                                                             kind/research
                                                             status/reported)))
                                    (ref move/close)
-                                   (ref none)))))
+                                   (ref none)
+                                   (ref (vec))))))

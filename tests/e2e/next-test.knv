@@ -5,7 +5,7 @@
                   research-id run-rmap text-at)
 
 (use support/pr-commands build-id first-sha report-build
-                         review-build)
+                         verify-and-review-build)
 
 (use support/scratch scratch-database)
 
@@ -369,11 +369,11 @@
                                                         (str "--head")
                                                         (str first-sha))))
                          0))
-        _review (assert (= (:exit-code (review-build (ref database)
-                                                     build
-                                                     "r1"
-                                                     "approve"
-                                                     first-sha))
+        _review (assert (= (:exit-code (verify-and-review-build (ref database)
+                                                                build
+                                                                "r1"
+                                                                "approve"
+                                                                first-sha))
                            0))
         before (run-rmap (clone database) (vec "next"))
         before-action (action-of

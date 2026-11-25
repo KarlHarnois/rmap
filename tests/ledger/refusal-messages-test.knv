@@ -4,6 +4,8 @@
 (use ledger/model ->blockage ->decision-id ->item-id
                   ->session decision-status roadmap-pause)
 
+(use ledger/model/criteria ->criterion-gap criterion-result)
+
 (deftest a-priority-below-zero-message-names-the-range-and-the-value
   (assert (= (refusal->message (refusal/priority-out-of-range -1))
              (str
@@ -77,6 +79,18 @@
                                  (->decision-id :value (str "rm-d1"))
                                  (->item-id :value (str "rm-0001"))))
              (str "the decision rm-d1 does not block rm-0001"))))
+
+(deftest an-unmet-criteria-message-names-each-criterion
+  (assert (= (refusal->message (refusal/criteria-unmet
+                                 (vec (->criterion-gap :position 1
+                                                       :text (str "one")
+                                                       :verdict none)
+                                      (->criterion-gap :position 2
+                                                       :text (str "two")
+                                                       :verdict (some criterion-result/failed)))))
+             (str "a build needs a met verdict on its current head for every acceptance criterion: "
+                  "criterion 1 \"one\" has no verdict on the current head; "
+                  "criterion 2 \"two\" failed"))))
 
 (deftest a-session-not-live-message-names-the-session
   (assert (= (refusal->message (refusal/session-not-live (->session :name (str "r1"))))

@@ -17,6 +17,8 @@
                   next-request ready-request request
                   text->id)
 
+(use cli/verify-request verify-request-of)
+
 (use cli/decision-requests decision-accept-request
                            decision-ask-request
                            decision-block-request
@@ -65,6 +67,11 @@
     (subcommand/item-edit
       (on-ledger arguments
                  (edit-item-request arguments (operand arguments route 0))))
+    (subcommand/item-verify (on-ledger arguments
+                                       (verify-request-of
+                                         arguments
+                                         (operand arguments route 0)
+                                         (operand arguments route 1))))
     (subcommand/item-claim
       (on-ledger arguments
                  (claim-request arguments (operand arguments route 0))))

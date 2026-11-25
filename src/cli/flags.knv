@@ -6,7 +6,8 @@
 
 (export id-list optional-choice optional-number
         optional-text required-choice required-number
-        required-text switch-on? text-list text-values)
+        required-text switch-on? text->number text-list
+        text-values)
 
 (type switch-on?
   (fn ((ref arguments) (ref str)) bool))

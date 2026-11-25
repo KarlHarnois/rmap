@@ -1,0 +1,67 @@
+(use ledger/model ->item-id ->session kind status)
+(use ledger/model/sessions ->session-id)
+(use ledger/refusal refusal)
+
+(use ledger/core/criterion-verdicts check-position
+                                    check-verifiable
+                                    check-verifier)
+
+(use support/items work-item)
+
+(defn build-with (criteria)
+  (assoc (work-item "rm-0001" kind/build status/in-review)
+         :criteria criteria))
+
+(defn live-reviewer ()
+  (some (->session-id :value 7)))
+
+(defn worker ()
+  (->session :name (str "worker")))
+
+(defn manager ()
+  (->session :name (str "manager")))
+
+(deftest a-verdict-position-must-name-a-criterion
+  (let (item (build-with (vec (str "one") (str "two"))))
+    (assert (ok? (check-position (ref item) 1)))
+    (assert (ok? (check-position (ref item) 2)))
+    (assert (= (unwrap-err (check-position (ref item) 0))
+               (refusal/criterion-not-found (->item-id :value (str "rm-0001"))
+                                            0)))
+    (assert (= (unwrap-err (check-position (ref item) 3))
+               (refusal/criterion-not-found (->item-id :value (str "rm-0001"))
+                                            3)))))
+
+(deftest a-finished-item-takes-no-verdict
+  (assert (= (unwrap-err (check-verifiable (ref (work-item "rm-0001"
+                                                           kind/build
+                                                           status/merged))))
+             (refusal/item-closed (->item-id :value (str "rm-0001"))))))
+
+(deftest a-worker-cannot-verify
+  (assert (= (unwrap-err (check-verifier (worker)
+                                         (ref (live-reviewer))
+                                         (ref (vec (worker)))
+                                         (manager)))
+             (refusal/verifier-is-worker (worker)))))
+
+(deftest a-manager-cannot-verify
+  (assert (= (unwrap-err (check-verifier (manager)
+                                         (ref (live-reviewer))
+                                         (ref (vec))
+                                         (manager)))
+             (refusal/verifier-is-manager (manager)))))
+
+(deftest a-verifier-needs-a-live-review-session
+  (let (reviewer (->session :name (str "r1")))
+    (assert (= (unwrap-err (check-verifier reviewer
+                                           (ref none)
+                                           (ref (vec))
+                                           (manager)))
+               (refusal/verifier-not-reviewer reviewer)))))
+
+(deftest a-live-review-session-is-the-verifier
+  (assert (ok? (check-verifier (->session :name (str "r1"))
+                               (ref (live-reviewer))
+                               (ref (vec))
+                               (manager)))))

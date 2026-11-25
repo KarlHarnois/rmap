@@ -12,6 +12,8 @@
 
 (use ledger/core/new-items description-input)
 (use ledger/sqlite/criteria replace-criteria)
+(use ledger/sqlite/criterion-verdicts delete-criterion-verdicts)
+(use ledger/sqlite/connection connection)
 (use ledger/sqlite/items update-item)
 (use ledger/sqlite/snapshot load-snapshot)
 (use ledger/operations/criteria resolve-criteria)
@@ -88,11 +90,26 @@
 (defn store-edit (transaction before after)
   (let-try (_ (update-item (ref (:connection transaction))
                            (ref after))
-            _ (replace-criteria (ref (:connection transaction))
-                                (ref (:id after))
-                                (ref (:criteria after)))
+            _ (write-criteria (ref (:connection transaction))
+                              before
+                              (ref after))
             _ (record-edit transaction before (ref after)))
     (ok after)))
+
+(type write-criteria
+  (fn ((ref connection) (ref item) (ref item))
+    (result unit failure)))
+
+(defn write-criteria (connection before after)
+  (if (= (:criteria before) (:criteria after))
+    (ok (do))
+    (let-try (_ (map-err (delete-criterion-verdicts connection
+                                                    (ref (:id after)))
+                         (fn (cause) (failure/database cause))))
+      (map-err (replace-criteria connection
+                                 (ref (:id after))
+                                 (ref (:criteria after)))
+               (fn (cause) (failure/database cause))))))
 
 (defn record-edit (transaction before after)
   (let (changes (edit-changes before after))

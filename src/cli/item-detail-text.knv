@@ -24,7 +24,7 @@
          "\n"
          (indented (table (detail-rows detail)))
          (description-text (ref (:description item)))
-         (criteria-text (ref (:criteria item)))
+         (criteria-text (ref (:criterion-statuses detail)))
          (children-text (ref (:children detail)))
          (pull-request-section (ref (:pull-request detail))))))
 

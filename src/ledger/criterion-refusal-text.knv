@@ -1,0 +1,38 @@
+(module
+  "Describes each criterion verdict refusal code in a sentence and catalogs them.")
+
+(use ledger/refusal-codes refusal-code)
+(use ledger/refusal-description described)
+
+(export criterion-refusal-catalog
+        criterion-refusal-description)
+
+(defn criterion-refusal-catalog ()
+  (collect (map (iter (vec refusal-code/criteria-unmet
+                           refusal-code/verifier-not-reviewer
+                           refusal-code/verifier-is-worker
+                           refusal-code/verifier-is-manager
+                           refusal-code/criterion-not-found
+                           refusal-code/verdict-head-required
+                           refusal-code/verdict-head-not-current))
+                criterion-refusal-description)))
+
+(defn criterion-refusal-description (code)
+  (match code
+    (criteria-unmet (described "criteria-unmet"
+                               "A build needs a met verdict on the pull request's current head for every acceptance criterion before it can move to merging. The error lists each criterion without one or with failed."))
+    (verifier-not-reviewer (described "verifier-not-reviewer"
+                                      "The verifier has no live review session for this item. Start one with review start."))
+    (verifier-is-worker (described "verifier-is-worker"
+                                   "The verifier is a work or fix session of the item, live or ended."))
+    (verifier-is-manager (described
+                           "verifier-is-manager"
+                           "The verifier is the roadmap's manager session."))
+    (criterion-not-found (described "criterion-not-found"
+                                    "The item has no acceptance criterion at that position."))
+    (verdict-head-required (described
+                             "verdict-head-required"
+                             "A criterion verdict on a build needs --head."))
+    (verdict-head-not-current (described "verdict-head-not-current"
+                                         "The criterion verdict names a head other than the pull request's current head. The error names both heads."))
+    (_ (described "unknown" "No such criterion refusal."))))

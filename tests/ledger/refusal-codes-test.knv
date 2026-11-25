@@ -3,6 +3,7 @@
                   status)
 
 (use ledger/model/reports ->report-id)
+(use ledger/model/criteria ->criterion-gap criterion-result)
 (use ledger/refusal refusal)
 (use ledger/pull-request-refusals pull-request-refusal)
 
@@ -57,6 +58,16 @@
        refusal/report-empty
        (refusal/report-not-found (->report-id :value 3))
        (refusal/report-already-read (->report-id :value 3))
+       (refusal/criteria-unmet (vec (->criterion-gap :position 1
+                                                     :text (str "a criterion")
+                                                     :verdict (some criterion-result/failed))))
+       (refusal/verifier-not-reviewer (->session :name (str "r1")))
+       (refusal/verifier-is-worker (->session :name (str "w1")))
+       (refusal/verifier-is-manager (->session :name (str "m1")))
+       (refusal/criterion-not-found (sample-id) 2)
+       refusal/verdict-head-required
+       (refusal/verdict-head-not-current (->head :sha (str "abc"))
+                                         (->head :sha (str "def")))
        (refusal/pull-request pull-request-refusal/pr-required)
        (refusal/pull-request pull-request-refusal/head-required)
        (refusal/pull-request pull-request-refusal/pr-not-allowed)

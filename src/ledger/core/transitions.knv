@@ -110,9 +110,18 @@
 (defn check-ledger (snapshot item move)
   (match move
     ((move/claim start)
-     (let-try (_ (check-ready snapshot item))
+     (let-try (_ (check-has-criteria item)
+               _ (check-ready snapshot item))
        (check-session-free snapshot (ref (:session start)))))
     (_ (ok (do)))))
+
+(type check-has-criteria
+  (fn ((ref item)) (result unit refusal)))
+
+(defn check-has-criteria (item)
+  (if (empty? (:criteria item))
+    (err refusal/criteria-required)
+    (ok (do))))
 
 (defn check-ready (snapshot item)
   (let (blockage (blockage-of snapshot (ref (index-of snapshot)) item))

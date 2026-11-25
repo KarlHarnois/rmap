@@ -1,21 +1,48 @@
 (module
-  "Prints an item's acceptance criteria as a numbered section.")
+  "Prints an item's acceptance criteria as a numbered section, each with its latest verdict.")
+
+(use ledger/api case-name criterion-result-names
+                criterion-status criterion-verdict)
 
 (use cli/tables indented)
 
 (export criteria-text)
 
-(defn criteria-text (criteria)
-  (if (empty? criteria)
+(defn criteria-text (statuses)
+  (if (empty? statuses)
     (str "\n\nAcceptance criteria: -")
     (str "\n\nAcceptance criteria:\n"
-         (indented (numbered (ref criteria))))))
+         (indented (numbered (ref statuses))))))
 
-(type numbered
-  (fn ((ref (vec string))) string))
-
-(defn numbered (criteria)
-  (join (collect (map (range 0 (len criteria))
-                   (fn (index)
-                     (str (inc index) ". " (at criteria index)))))
+(defn numbered (statuses)
+  (join (collect (map (iter statuses) status-line))
         "\n"))
+
+(type status-line
+  (fn ((ref criterion-status)) string))
+
+(defn status-line (status)
+  (str (:position status)
+       ". "
+       (:text status)
+       (verdict-suffix (ref (:verdict status)))))
+
+(type verdict-suffix
+  (fn ((ref (option criterion-verdict)))
+    string))
+
+(defn verdict-suffix (verdict)
+  (match verdict
+    ((some present)
+     (str " ["
+          (case-name criterion-result-names (:verdict present))
+          " by "
+          (:name (:reviewer present))
+          (head-suffix (ref (:head present)))
+          "]"))
+    (none (str ""))))
+
+(defn head-suffix (head)
+  (match head
+    ((some present) (str " on " (:sha present)))
+    (none (str ""))))

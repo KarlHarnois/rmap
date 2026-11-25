@@ -1,5 +1,5 @@
 (module
-  "Decides the requirements a move must meet beyond the transition table: a build moves to merging, and from merging to merged, only when the reviews on its pull request's head approve it.")
+  "Decides the requirements a move must meet beyond the transition table: a build moves to merging only when the reviews on its pull request's head approve it and every acceptance criterion has a met verdict on that head, and it moves from merging to merged only when the reviews still approve it and every criterion still has a met verdict on that head.")
 
 (use ledger/model session status)
 
@@ -8,27 +8,28 @@
 
 (use ledger/refusal pull-request-refusal refusal)
 (use ledger/core/move target-status)
+(use ledger/core/criterion-merge check-criteria-met)
 (use ledger/core/pull-requests present-pull-request)
 
 (export approval-of approved? check-requirements)
 
 (def requirements
-  (vec (->requirement :to status/merging :rule rule/approved-head)
-       (->requirement :to status/merged :rule rule/approved-head)))
+  (vec (->requirement :to status/merging :rule rule/merge-ready)
+       (->requirement :to status/merged :rule rule/merge-ready)))
 
 (defstruct requirement
   :to status
   :rule rule)
 
-(defenum rule approved-head)
+(defenum rule merge-ready)
 
-(defn check-requirements (item move pull-request)
+(defn check-requirements (item move pull-request verdicts)
   (let (target (target-status item move))
     (match (find (iter requirements)
              (fn (requirement)
                (= (:to requirement) target)))
       ((some requirement)
-       (check-rule (:rule requirement) item pull-request))
+       (check-rule (:rule requirement) item pull-request verdicts))
       (none (ok (do))))))
 
 (defn approval-of (pull-request)
@@ -43,13 +44,30 @@
   (and (empty? (:changes-requested approval))
        (not (empty? (:approved-by approval)))))
 
-(defn check-rule (rule item pull-request)
+(defn check-rule (rule item pull-request verdicts)
   (match rule
-    (approved-head (check-merge-requirement item pull-request))))
+    (merge-ready (check-merge-ready item pull-request verdicts))))
+
+(defn check-merge-ready (item pull-request verdicts)
+  (let-try (_ (check-merge-requirement item pull-request))
+    (check-criterion-requirement item verdicts pull-request)))
 
 (defn check-merge-requirement (item pull-request)
   (let-try (present (present-pull-request item pull-request))
     (check-approved (ref present))))
+
+(defn check-criterion-requirement (item verdicts pull-request)
+  (check-criteria-met item verdicts
+                      (current-head-of pull-request)))
+
+(type current-head-of
+  (fn ((ref (option pull-request)))
+    (option head)))
+
+(defn current-head-of (pull-request)
+  (match pull-request
+    ((some present) (some (clone (:head present))))
+    (none none)))
 
 (defn check-approved (pull-request)
   (let (approval (approval-of pull-request))

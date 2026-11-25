@@ -1,0 +1,71 @@
+(use ledger/model ->item-id ->session ->timestamp kind
+                  status)
+
+(use ledger/model/criteria ->criterion-verdict
+                           ->criterion-verdict-id
+                           criterion-result)
+
+(use ledger/model/pull-requests ->head)
+
+(use ledger/core/criterion-merge criteria-met?
+                                 criterion-gaps)
+
+(use support/items work-item)
+
+(def first-sha "1111111111111111111111111111111111111111")
+
+(def second-sha "2222222222222222222222222222222222222222")
+
+(defn build-with (criteria)
+  (assoc (work-item "rm-0001" kind/build status/in-review)
+         :criteria criteria))
+
+(defn verdict (id position result sha)
+  (->criterion-verdict :id (->criterion-verdict-id :value id)
+                       :item (->item-id :value (str "rm-0001"))
+                       :position position
+                       :verdict result
+                       :note none
+                       :reviewer (->session :name (str "r1"))
+                       :head (some (->head :sha (str sha)))
+                       :created-at (->timestamp :value (str "2026-01-02T00:00:00Z"))))
+
+(defn head-option (sha)
+  (some (->head :sha (str sha))))
+
+(deftest a-build-without-verdicts-gaps-every-criterion
+  (let (gaps (criterion-gaps (ref (build-with (vec (str "one") (str "two"))))
+                             (ref (vec))
+                             (ref (head-option first-sha))))
+    (assert (= (len gaps) 2))
+    (assert (= (:position (at gaps 0)) 1))
+    (assert (= (:verdict (at gaps 0)) none))))
+
+(deftest a-met-verdict-on-the-head-leaves-no-gap
+  (assert (empty? (criterion-gaps
+                    (ref (build-with (vec (str "one"))))
+                    (ref (vec (verdict 1 1 criterion-result/met first-sha)))
+                    (ref (head-option first-sha))))))
+
+(deftest a-failed-verdict-on-the-head-leaves-a-gap
+  (let (gaps (criterion-gaps
+               (ref (build-with (vec (str "one"))))
+               (ref (vec (verdict 1 1 criterion-result/failed first-sha)))
+               (ref (head-option first-sha))))
+    (assert (= (:verdict (at gaps 0))
+               (some criterion-result/failed)))))
+
+(deftest a-met-verdict-on-an-old-head-leaves-a-gap
+  (let (gaps (criterion-gaps
+               (ref (build-with (vec (str "one"))))
+               (ref (vec (verdict 1 1 criterion-result/met first-sha)))
+               (ref (head-option second-sha))))
+    (assert (= (len gaps) 1))
+    (assert (= (:verdict (at gaps 0)) none))))
+
+(deftest research-criteria-are-out-of-scope
+  (let (item (assoc (work-item "rm-0001" kind/research status/reported)
+                    :criteria (vec (str "one"))))
+    (assert (criteria-met? (ref item)
+                           (ref (vec))
+                           (ref (head-option first-sha))))))

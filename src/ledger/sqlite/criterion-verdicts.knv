@@ -1,0 +1,106 @@
+(module
+  "Reads and writes the `criterion_verdicts` table, with the name of the reviewer session that gave each verdict.")
+
+(use ledger/model ->item-id ->session ->timestamp item-id)
+
+(use ledger/model/criteria ->criterion-verdict
+                           ->criterion-verdict-id
+                           criterion-verdict)
+
+(use ledger/model/pull-requests ->head)
+(use ledger/model/sessions ->session-id session-id)
+(use ledger/names case-name criterion-result-names)
+
+(use ledger/sqlite/values int->sql optional-text->sql
+                          sql-value text->sql)
+
+(use ledger/sqlite/connection connection database-error
+                              execute query)
+
+(use ledger/sqlite/rows int-cell named-cell
+                        optional-text-cell rows->values
+                        single-row text-cell)
+
+(export all-criterion-verdicts criterion-verdicts-for
+        delete-criterion-verdicts insert-criterion-verdict
+        next-criterion-verdict-id)
+
+(defn next-criterion-verdict-id (connection)
+  (let-try (rows (query connection
+                        "SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'criterion_verdicts'), 0) + 1"
+                        (ref (vec)))
+            row (single-row (ref rows))
+            id (int-cell row 0))
+    (ok (->criterion-verdict-id :value id))))
+
+(type insert-criterion-verdict
+  (fn ((ref connection)
+       (ref criterion-verdict)
+       (ref session-id))
+    (result int database-error)))
+
+(defn insert-criterion-verdict (connection verdict session-id)
+  (execute connection
+           "INSERT INTO criterion_verdicts (id, item_id, position, verdict, note, reviewer_session_id, head, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
+           (ref (vec (int->sql (:value (:id verdict)))
+                     (text->sql (as-str (:value (:item verdict))))
+                     (int->sql (:position verdict))
+                     (text->sql (case-name criterion-result-names
+                                           (:verdict verdict)))
+                     (optional-text->sql (ref (:note verdict)))
+                     (int->sql (:value session-id))
+                     (optional-head->sql (ref (:head verdict)))
+                     (text->sql (as-str (:value (:created-at verdict))))))))
+
+(defn all-criterion-verdicts (connection)
+  (let-try (rows (query connection
+                        (as-str (str "SELECT v.id, v.item_id, v.position, v.verdict, v.note, s.name, v.head, v.created_at"
+                                     " FROM criterion_verdicts v JOIN sessions s ON s.id = v.reviewer_session_id"
+                                     " ORDER BY v.id"))
+                        (ref (vec))))
+    (rows->values (ref rows) row->criterion-verdict)))
+
+(type criterion-verdicts-for
+  (fn ((ref connection) (ref item-id))
+    (result (vec criterion-verdict) database-error)))
+
+(defn criterion-verdicts-for (connection id)
+  (let-try (rows (query connection
+                        (as-str (str "SELECT v.id, v.item_id, v.position, v.verdict, v.note, s.name, v.head, v.created_at"
+                                     " FROM criterion_verdicts v JOIN sessions s ON s.id = v.reviewer_session_id"
+                                     " WHERE v.item_id = ?1 ORDER BY v.id"))
+                        (ref (vec (text->sql (as-str (:value id)))))))
+    (rows->values (ref rows) row->criterion-verdict)))
+
+(type delete-criterion-verdicts
+  (fn ((ref connection) (ref item-id))
+    (result int database-error)))
+
+(defn delete-criterion-verdicts (connection id)
+  (execute connection
+           "DELETE FROM criterion_verdicts WHERE item_id = ?1"
+           (ref (vec (text->sql (as-str (:value id)))))))
+
+(defn optional-head->sql (head)
+  (match head
+    ((some present) (text->sql (as-str (:sha present))))
+    (none sql-value/null)))
+
+(defn row->criterion-verdict (row)
+  (let-try (id (int-cell row 0)
+            item (text-cell row 1)
+            position (int-cell row 2)
+            verdict (named-cell row 3 criterion-result-names)
+            note (optional-text-cell row 4)
+            reviewer (text-cell row 5)
+            head (optional-text-cell row 6)
+            created-at (text-cell row 7))
+    (ok (->criterion-verdict :id (->criterion-verdict-id :value id)
+                             :item (->item-id :value item)
+                             :position position
+                             :verdict verdict
+                             :note note
+                             :reviewer (->session :name reviewer)
+                             :head (map-some head
+                                     (fn (sha) (->head :sha sha)))
+                             :created-at (->timestamp :value created-at)))))

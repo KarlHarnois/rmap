@@ -575,3 +575,37 @@ INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('s2', 'rm-0002', 
                             "INSERT INTO item_criteria (item_id, position, text) VALUES ('rm-0002', 1, 'x');")))
     (assert (err? (run-batch (ref connection)
                              "INSERT INTO item_criteria (item_id, position, text) VALUES ('rm-0002', 1, 'y');")))))
+
+(deftest the-verdicts-migration-adds-an-empty-criterion-verdicts-table
+  (let (connection (upgraded-from-version-ten "verdicts-table"))
+    (assert (= (row-count (ref connection) "criterion_verdicts") 0))
+    (assert (= (unwrap-ok (schema-version (ref connection)))
+               (newest-version)))))
+
+(deftest a-verdict-needs-an-item-a-criterion-and-a-reviewer-session
+  (let (connection (upgraded-from-version-ten "verdicts-foreign-keys"))
+    (unwrap-ok
+      (run-batch
+        (ref connection)
+        "INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('r1', 'rm-0002', 'review', 't');
+INSERT INTO item_criteria (item_id, position, text) VALUES ('rm-0002', 1, 'x');"))
+    (assert (ok? (run-batch (ref connection)
+                            "INSERT INTO criterion_verdicts (item_id, position, verdict, reviewer_session_id, created_at) VALUES ('rm-0002', 1, 'met', 1, 't');")))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO criterion_verdicts (item_id, position, verdict, reviewer_session_id, created_at) VALUES ('rm-ffff', 1, 'met', 1, 't');")))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO criterion_verdicts (item_id, position, verdict, reviewer_session_id, created_at) VALUES ('rm-0002', 2, 'met', 1, 't');")))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO criterion_verdicts (item_id, position, verdict, reviewer_session_id, created_at) VALUES ('rm-0002', 1, 'met', 9, 't');")))))
+
+(deftest a-verdict-is-met-or-failed
+  (let (connection (upgraded-from-version-ten "verdicts-check"))
+    (unwrap-ok
+      (run-batch
+        (ref connection)
+        "INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('r1', 'rm-0002', 'review', 't');
+INSERT INTO item_criteria (item_id, position, text) VALUES ('rm-0002', 1, 'x');"))
+    (assert (ok? (run-batch (ref connection)
+                            "INSERT INTO criterion_verdicts (item_id, position, verdict, reviewer_session_id, created_at) VALUES ('rm-0002', 1, 'failed', 1, 't');")))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO criterion_verdicts (item_id, position, verdict, reviewer_session_id, created_at) VALUES ('rm-0002', 1, 'maybe', 1, 't');")))))

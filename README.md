@@ -53,12 +53,14 @@ Commands:
     Shows one item with its dependencies.
   item edit <id> [--title <text>] [--priority <0 (highest) to 4 (lowest)>] [--description <text>] [--description-file <path|->] [--criterion <text>] [--criteria-file <path|->]
     Changes an item's title, priority, description or acceptance criteria. Give at least one of the flags. --criterion and --criteria-file replace the whole list. A finished item takes only a description or criteria change.
+  item verify <id> <position> [--met] [--failed] --reviewer <session> [--head <commit sha>] [--note <text>]
+    Records a reviewer session's verdict on one acceptance criterion: --met or --failed, by a live review session of the item that is not the item's work or fix session and not the roadmap's manager. A build needs --head, the pull request's current head. The latest verdict on each criterion counts, and a verdict on an older head stops counting when the head moves.
   item claim <id> --session <name> [--branch <name>] [--base <branch>]
-    Gives a ready item to a new session and marks it dispatched. The branch defaults to the session name and the base to the repository's default branch.
+    Gives a ready item with at least one acceptance criterion to a new session and marks it dispatched. The branch defaults to the session name and the base to the repository's default branch.
   item advance <id> <open|dispatched|reported|in_review|fixing|merging|merged|accepted|dropped> [--kind build]
-    Moves an item to another status. A research or design item reaches reported only through a done report, and a build reaches in_review only through a done or fixed report or pr head. A build moves to merging, and closes as merged, only when, among each reviewer's latest verdict on its pull request's head, one approves and none asks for changes.
+    Moves an item to another status. A research or design item reaches reported only through a done report, and a build reaches in_review only through a done or fixed report or pr head. A build moves to merging only when, among each reviewer's latest verdict on its pull request's head, one approves and none asks for changes, and every acceptance criterion has a met verdict on that head. It closes as merged only when those reviews still approve and every acceptance criterion still has a met verdict on that head.
   item close <id>
-    Marks a merging build merged, once the reviews on its pull request's head still approve it, or a reported research or design item accepted.
+    Marks a merging build merged once the reviews on its pull request's head still approve it and every acceptance criterion still has a met verdict on that head, or a reported research or design item accepted.
   item drop <id> --reason <text>
     Drops an item and records the reason.
   dep add <item> <on>
@@ -215,4 +217,11 @@ Refusal codes:
   review-already-live            The item already has a live review session.
   review-session-required        The reviewer has no live review session for this item. Start one with review start.
   not-approved                   Among each reviewer's latest verdict on the pull request's head, none approves or one asks for changes. The error lists the head, approved_by, changes_requested and stale_heads.
+  criteria-unmet                 A build needs a met verdict on the pull request's current head for every acceptance criterion before it can move to merging. The error lists each criterion without one or with failed.
+  verifier-not-reviewer          The verifier has no live review session for this item. Start one with review start.
+  verifier-is-worker             The verifier is a work or fix session of the item, live or ended.
+  verifier-is-manager            The verifier is the roadmap's manager session.
+  criterion-not-found            The item has no acceptance criterion at that position.
+  verdict-head-required          A criterion verdict on a build needs --head.
+  verdict-head-not-current       The criterion verdict names a head other than the pull request's current head. The error names both heads.
 ```

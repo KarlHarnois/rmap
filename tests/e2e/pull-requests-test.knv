@@ -7,7 +7,8 @@
 (use support/pr-commands approved-on-first-head build-id
                          first-sha report-build
                          report-build-as review-build
-                         review-start second-sha)
+                         review-start second-sha
+                         verify-and-review-build)
 
 (defn advance (database id status)
   (run-rmap (clone database)
@@ -83,9 +84,10 @@
                   (vec "--pr" "7" "--head" first-sha))
     (assert (= (first-action (ref database))
                (str "review")))
-    (let (reply (review-build (ref database)
-                              (ref id)
-                              "r1" "approve" first-sha))
+    (let (reply (verify-and-review-build (ref database)
+                                         (ref id)
+                                         "r1" "approve"
+                                         first-sha))
       (assert (= (:exit-code reply) 0))
       (assert (= (json->bool (ref (pull-request-field (ref reply) "approved")))
                  (some true))))
@@ -126,9 +128,9 @@
                0))
     (assert (= (error-code (ref (advance (ref database) (ref id) "merging")))
                (str "not-approved")))
-    (review-build (ref database)
-                  (ref id)
-                  "r2" "approve" second-sha)
+    (verify-and-review-build (ref database)
+                             (ref id)
+                             "r2" "approve" second-sha)
     (assert (= (:exit-code (advance (ref database) (ref id) "merging"))
                0))))
 

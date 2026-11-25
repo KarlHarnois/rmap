@@ -4,6 +4,7 @@
 (use ledger/model item roadmap snapshot)
 (use ledger/model/decisions decision)
 (use ledger/model/reports report)
+(use ledger/model/criteria criterion-verdict)
 (use ledger/model/pull-requests pull-request)
 (use ledger/core/actions next-action)
 (use ledger/core/report-actions with-reports)
@@ -31,7 +32,8 @@
 
 (defstruct deliveries
   :reports (vec report)
-  :pull-requests (vec pull-request))
+  :pull-requests (vec pull-request)
+  :criterion-verdicts (vec criterion-verdict))
 
 (type next-of
   (fn ((ref snapshot)
@@ -92,4 +94,5 @@
   (with-decision-actions readiness decisions item
                          (status-actions readiness snapshot
                                          (ref (:pull-requests deliveries))
+                                         (ref (:criterion-verdicts deliveries))
                                          item)))

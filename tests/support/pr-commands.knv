@@ -3,7 +3,8 @@
 
 (export approved-on-first-head build-id first-sha
         report-build report-build-as review-build
-        review-start second-sha)
+        review-existing-session review-start second-sha
+        verify-and-review-build verify-criterion)
 
 (def first-sha "1111111111111111111111111111111111111111")
 
@@ -30,7 +31,9 @@
   (assert (= (:exit-code (report-build database id "done"
                                        (vec "--pr" "1" "--head" first-sha)))
              0))
-  (assert (= (:exit-code (review-build database id "r1" "approve" first-sha))
+  (assert (= (:exit-code (verify-and-review-build
+                           database id "r1" "approve"
+                           first-sha))
              0)))
 
 (defn report-build (database id kind extra)
@@ -62,3 +65,37 @@
 (defn review-start (database id reviewer)
   (run-rmap (clone database)
             (vec "review" "start" (as-str id) "--session" reviewer)))
+
+(defn verify-criterion (database id reviewer position sha)
+  (run-rmap (clone database)
+            (vec "item" "verify"
+                 (as-str id)
+                 (as-str (position-text position))
+                 "--met" "--reviewer" reviewer "--head"
+                 sha)))
+
+(defn review-existing-session (database id reviewer verdict sha)
+  (run-rmap (clone database)
+            (vec "pr" "review"
+                 (as-str id)
+                 "--verdict" verdict "--kind" "behavior"
+                 "--head" sha "--reviewer" reviewer)))
+
+(defn verify-and-review-build (database id reviewer verdict sha)
+  (let (started (review-start (clone database) id reviewer))
+    (if (= (:exit-code started) 0)
+      (review-after-verify (clone database)
+                           id reviewer verdict sha)
+      started)))
+
+(defn position-text (position) (str position))
+
+(defn review-after-verify (database id reviewer verdict sha)
+  (let (verified (verify-criterion (clone database) id reviewer 1 sha))
+    (if (= (:exit-code verified) 0)
+      (run-rmap (clone database)
+                (vec "pr" "review"
+                     (as-str id)
+                     "--verdict" verdict "--kind" "behavior"
+                     "--head" sha "--reviewer" reviewer))
+      verified)))

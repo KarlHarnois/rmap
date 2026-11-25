@@ -1,0 +1,168 @@
+(use json/value copy-of)
+(use ledger/model ->item-id ->session kind)
+
+(use ledger/model/criteria ->verify-request
+                           criterion-result)
+
+(use ledger/api show-item status verify-criterion)
+
+(use support/ledger added-id all-events claimed item-draft
+                    refusal-code-of scratch-ledger)
+
+(use support/payloads side-int side-text)
+
+(use support/pull-requests first-head in-review-build
+                           review-start-as second-head)
+
+(defn build-in-review (settings)
+  (in-review-build settings
+                   (ref (claimed settings
+                                 (added-id settings (item-draft kind/build))))
+                   12))
+
+(defn verify-as (settings id position result reviewer head)
+  (verify-criterion settings
+                    (verify-request id position result reviewer head)))
+
+(defn verify-without-head (settings id position result reviewer)
+  (verify-criterion settings
+                    (verify-request-without-head id position result reviewer)))
+
+(defn verify-request (id position result reviewer head)
+  (->verify-request :item (clone id)
+                    :position position
+                    :verdict result
+                    :reviewer (->session :name (str reviewer))
+                    :head (some (clone head))
+                    :note none))
+
+(defn verify-request-without-head (id position result reviewer)
+  (->verify-request :item (clone id)
+                    :position position
+                    :verdict result
+                    :reviewer (->session :name (str reviewer))
+                    :head none
+                    :note none))
+
+(defn last-payload (settings)
+  (let (events (unwrap-ok (all-events settings)))
+    (copy-of (ref (:payload (unwrap (last events)))))))
+
+(defn first-status (settings id)
+  (let (detail (unwrap-ok (show-item settings (clone id))))
+    (clone (at (:criterion-statuses detail) 0))))
+
+(deftest a-verdict-is-recorded-without-moving-the-build
+  (let (settings (scratch-ledger "verdict-recorded")
+        id (build-in-review (ref settings))
+        _started (review-start-as (ref settings) (ref id) "r1")
+        verdict (unwrap-ok (verify-as (ref settings)
+                                      (ref id)
+                                      1 criterion-result/met
+                                      "r1"
+                                      (str first-head)))
+        status (first-status (ref settings) (ref id)))
+    (assert (= (:position verdict) 1))
+    (assert (= (:verdict verdict) criterion-result/met))
+    (assert (= (:verdict (unwrap (clone (:verdict status))))
+               criterion-result/met))
+    (assert (= (:status (:item (unwrap-ok (show-item (ref settings)
+                                                     (clone id)))))
+               status/in-review))))
+
+(deftest a-verdict-records-its-columns-in-an-event
+  (let (settings (scratch-ledger "verdict-event")
+        id (build-in-review (ref settings)))
+    (review-start-as (ref settings) (ref id) "r1")
+    (unwrap-ok (verify-as (ref settings)
+                          (ref id)
+                          1 criterion-result/met "r1"
+                          (str first-head)))
+    (let (payload (last-payload (ref settings)))
+      (assert (= (side-text (copy-of (ref payload)) "verdict" "new")
+                 (some (str "met"))))
+      (assert (= (side-int (copy-of (ref payload)) "position" "new")
+                 (some 1)))
+      (assert (= (side-text payload "head" "new")
+                 (some (str first-head)))))))
+
+(deftest the-items-work-session-cannot-record-a-verdict
+  (let (settings (scratch-ledger "verdict-worker")
+        id (build-in-review (ref settings)))
+    (assert (= (refusal-code-of (verify-as (ref settings)
+                                           (ref id)
+                                           1
+                                           criterion-result/met
+                                           (str "worker-" (:value id))
+                                           (str first-head)))
+               (some (str "verifier-is-worker"))))))
+
+(deftest the-roadmaps-manager-cannot-record-a-verdict
+  (let (settings (scratch-ledger "verdict-manager")
+        id (build-in-review (ref settings)))
+    (review-start-as (ref settings) (ref id) "manager")
+    (assert (= (refusal-code-of
+                 (verify-as (ref settings)
+                            (ref id)
+                            1 criterion-result/met "manager"
+                            (str first-head)))
+               (some (str "verifier-is-manager"))))))
+
+(deftest a-verdict-needs-a-live-review-session
+  (let (settings (scratch-ledger "verdict-no-session")
+        id (build-in-review (ref settings)))
+    (assert (= (refusal-code-of
+                 (verify-as (ref settings)
+                            (ref id)
+                            1 criterion-result/met "r1"
+                            (str first-head)))
+               (some (str "verifier-not-reviewer"))))))
+
+(deftest a-verdict-needs-a-head-on-a-build
+  (let (settings (scratch-ledger "verdict-no-head")
+        id (build-in-review (ref settings)))
+    (review-start-as (ref settings) (ref id) "r1")
+    (assert (= (refusal-code-of (verify-without-head (ref settings)
+                                                     (ref id)
+                                                     1
+                                                     criterion-result/met
+                                                     "r1"))
+               (some (str "verdict-head-required"))))))
+
+(deftest a-verdict-names-the-current-head
+  (let (settings (scratch-ledger "verdict-stale-head")
+        id (build-in-review (ref settings)))
+    (review-start-as (ref settings) (ref id) "r1")
+    (assert (= (refusal-code-of
+                 (verify-as (ref settings)
+                            (ref id)
+                            1 criterion-result/met "r1"
+                            (str second-head)))
+               (some (str "verdict-head-not-current"))))))
+
+(deftest a-verdict-names-an-existing-criterion
+  (let (settings (scratch-ledger "verdict-position")
+        id (build-in-review (ref settings)))
+    (review-start-as (ref settings) (ref id) "r1")
+    (assert (= (refusal-code-of
+                 (verify-as (ref settings)
+                            (ref id)
+                            2 criterion-result/met "r1"
+                            (str first-head)))
+               (some (str "criterion-not-found"))))))
+
+(deftest the-latest-verdict-on-a-criterion-counts
+  (let (settings (scratch-ledger "verdict-latest")
+        id (build-in-review (ref settings)))
+    (review-start-as (ref settings) (ref id) "r1")
+    (unwrap-ok (verify-as (ref settings)
+                          (ref id)
+                          1 criterion-result/failed "r1"
+                          (str first-head)))
+    (unwrap-ok (verify-as (ref settings)
+                          (ref id)
+                          1 criterion-result/met "r1"
+                          (str first-head)))
+    (assert (= (:verdict (unwrap (clone (:verdict (first-status (ref settings)
+                                                                (ref id))))))
+               criterion-result/met))))

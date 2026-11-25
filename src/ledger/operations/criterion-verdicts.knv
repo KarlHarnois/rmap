@@ -1,0 +1,87 @@
+(module
+  "Records a reviewer session's verdict on one acceptance criterion, in one transaction with its event. It never moves the item.")
+
+(use ledger/model item session snapshot)
+(use ledger/model/criteria criterion-verdict verify-request)
+
+(use ledger/core/criterion-verdicts approved-verdict
+                                    check-position
+                                    check-verifiable
+                                    check-verifier
+                                    verdict-head)
+
+(use ledger/core/snapshot existing)
+(use ledger/criterion-verdict-events criterion-verified)
+(use ledger/operations/pull-requests pull-request-for)
+
+(use ledger/operations/transaction in-transaction now record
+                                   settings transaction)
+
+(use ledger/sqlite/criterion-verdicts insert-criterion-verdict
+                                      next-criterion-verdict-id)
+
+(use ledger/sqlite/live-sessions live-review-session-id)
+(use ledger/sqlite/sessions item-worker-sessions)
+(use ledger/sqlite/snapshot load-snapshot)
+(use ledger/sqlite/connection database-failure)
+(use ledger/failure failure)
+
+(export verify-criterion)
+
+(type verify-criterion
+  (fn ((ref settings) verify-request)
+    (result criterion-verdict failure)))
+
+(defn verify-criterion (settings request)
+  (in-transaction settings
+    (fn (transaction)
+      (store-verdict transaction (ref request)))))
+
+(type store-verdict
+  (fn ((ref transaction) (ref verify-request))
+    (result criterion-verdict failure)))
+
+(defn store-verdict (transaction request)
+  (let (connection (ref (:connection transaction)))
+    (let-try (snapshot (load-snapshot connection)
+              item (existing (ref snapshot)
+                             (ref (:item request)))
+              _ (check-verifiable (ref item))
+              _ (check-position (ref item) (:position request))
+              manager (manager-of (ref snapshot) (ref item))
+              workers (item-worker-sessions connection (ref (:id item)))
+              live (live-review-session-id connection
+                                           (ref (:id item))
+                                           (ref (:reviewer request)))
+              reviewer (check-verifier (ref (:reviewer request))
+                                       (ref live)
+                                       (ref workers)
+                                       (ref manager))
+              pull-request (pull-request-for connection (ref (:id item)))
+              head (verdict-head (ref item)
+                                 (ref pull-request)
+                                 (ref (:head request)))
+              id (next-criterion-verdict-id connection))
+      (let (verdict (approved-verdict (ref item)
+                                      (ref (:reviewer request))
+                                      request id head
+                                      (now transaction)))
+        (let-try (_ (insert-criterion-verdict connection
+                                              (ref verdict)
+                                              (ref reviewer))
+                  _ (record transaction
+                            (criterion-verified (ref item)
+                                                (ref verdict)
+                                                (ref reviewer))))
+          (ok verdict))))))
+
+(type manager-of
+  (fn ((ref snapshot) (ref item))
+    (result session failure)))
+
+(defn manager-of (snapshot item)
+  (match (find (iter (:roadmaps snapshot))
+           (fn (roadmap)
+             (= (:id roadmap) (:roadmap-id item))))
+    ((some roadmap) (ok (clone (:manager roadmap))))
+    (none (err (failure/database (database-failure (str "the item's roadmap is gone")))))))

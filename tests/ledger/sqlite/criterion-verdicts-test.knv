@@ -1,0 +1,78 @@
+(use ledger/api criteria-input kind)
+(use ledger/model ->item-id ->session ->timestamp item-id)
+
+(use ledger/model/criteria ->criterion-verdict
+                           ->criterion-verdict-id
+                           criterion-result)
+
+(use ledger/model/pull-requests ->head)
+(use ledger/model/sessions ->session-id session-id)
+(use ledger/operations/transaction connect)
+(use ledger/sqlite/connection connection execute query)
+
+(use ledger/sqlite/criterion-verdicts all-criterion-verdicts
+                                      criterion-verdicts-for
+                                      delete-criterion-verdicts
+                                      insert-criterion-verdict)
+
+(use ledger/sqlite/rows int-cell single-row)
+(use ledger/sqlite/values text->sql)
+(use support/ledger added-id item-draft scratch-ledger)
+
+(defn added-with (settings)
+  (added-id settings
+            (assoc (item-draft kind/research)
+                   :criteria (criteria-input/values (vec (str "first")
+                                                         (str "second"))))))
+
+(type review-session
+  (fn ((ref connection) (ref item-id))
+    session-id))
+
+(defn review-session (connection id)
+  (unwrap-ok (execute connection
+                      "INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('r1', ?1, 'review', 't')"
+                      (ref (vec (text->sql (as-str (:value id)))))))
+  (let (rows (unwrap-ok (query connection
+                               "SELECT id FROM sessions WHERE name = 'r1'"
+                               (ref (vec))))
+        row (unwrap-ok (single-row (ref rows))))
+    (->session-id :value (unwrap-ok (int-cell row 0)))))
+
+(defn verdict (id position)
+  (->criterion-verdict :id (->criterion-verdict-id :value 1)
+                       :item (clone id)
+                       :position position
+                       :verdict criterion-result/met
+                       :note (some (str "checked"))
+                       :reviewer (->session :name (str "r1"))
+                       :head (some (->head :sha (str "1111111111111111111111111111111111111111")))
+                       :created-at (->timestamp :value (str "2026-01-02T00:00:00Z"))))
+
+(deftest a-verdict-is-read-back-with-its-reviewer
+  (let (settings (scratch-ledger "verdict-rows")
+        id (added-with (ref settings))
+        connection (unwrap-ok (connect (ref settings)))
+        session-id (review-session (ref connection) (ref id)))
+    (unwrap-ok (insert-criterion-verdict (ref connection)
+                                         (ref (verdict (clone id) 1))
+                                         (ref session-id)))
+    (let (verdicts (unwrap-ok (criterion-verdicts-for (ref connection)
+                                                      (ref id))))
+      (assert (= (len verdicts) 1))
+      (assert (= (:position (at verdicts 0)) 1))
+      (assert (= (:name (:reviewer (at verdicts 0)))
+                 (str "r1"))))))
+
+(deftest deleting-an-items-verdicts-removes-them
+  (let (settings (scratch-ledger "verdict-delete")
+        id (added-with (ref settings))
+        connection (unwrap-ok (connect (ref settings)))
+        session-id (review-session (ref connection) (ref id)))
+    (unwrap-ok (insert-criterion-verdict (ref connection)
+                                         (ref (verdict (clone id) 1))
+                                         (ref session-id)))
+    (unwrap-ok (delete-criterion-verdicts (ref connection) (ref id)))
+    (assert (empty? (unwrap-ok (criterion-verdicts-for (ref connection)
+                                                       (ref id)))))
+    (assert (empty? (unwrap-ok (all-criterion-verdicts (ref connection)))))))

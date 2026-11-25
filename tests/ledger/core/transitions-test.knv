@@ -19,7 +19,7 @@
   :target status)
 
 (defn grid-matches-spec? (kind from)
-  (let (item (work-item "rm-0001" kind from))
+  (let (item (with-criteria (work-item "rm-0001" kind from)))
     (every? (iter (attempts kind from))
       (fn (attempt)
         (= (verdict (ref item)
@@ -193,6 +193,13 @@
 (defn work-kinds ()
   (vec kind/research kind/design kind/build))
 
+(type with-criteria
+  (fn ((ref item)) item))
+
+(defn with-criteria (item)
+  (assoc (clone item)
+         :criteria (vec (str "a criterion"))))
+
 (defn verdict (item move)
   (refusal-of (approved-move (ref (snapshot-of (vec (clone item)) (vec)))
                              item
@@ -204,8 +211,9 @@
     ((err refused) (some refused))))
 
 (defn claim-beside-worker (name)
-  (let (item (work-item "rm-0001" kind/build status/open)
-        busy (claimed (work-item "rm-0002" kind/build status/dispatched)))
+  (let (item (with-criteria (work-item "rm-0001" kind/build status/open))
+        busy (claimed (with-criteria
+                        (work-item "rm-0002" kind/build status/dispatched))))
     (approved-move (ref (snapshot-of (vec (clone item) busy)
                                      (vec)))
                    (ref item)
@@ -245,3 +253,8 @@
 
 (deftest a-claim-under-a-free-name-is-approved
   (assert (ok? (claim-beside-worker "other"))))
+
+(deftest a-claim-without-criteria-is-refused
+  (assert (= (verdict (ref (work-item "rm-0001" kind/build status/open))
+                      (ref (move/claim (session-start-named "s1"))))
+             (some refusal/criteria-required))))
