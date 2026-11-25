@@ -66,7 +66,8 @@
 (defn added-id (database kind)
   (let (reply (run-rmap (clone database)
                         (vec "item" "add" "--roadmap" "road"
-                             "--title" "x" "--kind" kind)))
+                             "--title" "x" "--kind" kind
+                             "--description" "x")))
     (assert (= (:exit-code reply) 0))
     (text-at (ref reply) "item" "id")))
 
