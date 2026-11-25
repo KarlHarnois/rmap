@@ -76,8 +76,7 @@
   (let (fields (item-fields item))
     (push! fields
            (pair (str "criteria")
-                 (array (collect (map (iter (:criteria item))
-                                   text->json)))))
+                 (array (collect (map (iter (:criteria item)) text->json)))))
     (push! fields
            (pair (str "session")
                  (claim->session-json (ref (:claim item)))))
