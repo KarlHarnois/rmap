@@ -64,7 +64,9 @@
                (pair (str "pros")
                      (texts->json (ref (:pros option))))
                (pair (str "cons")
-                     (texts->json (ref (:cons option)))))))
+                     (texts->json (ref (:cons option))))
+               (pair (str "skips")
+                     (texts->json (ref (:skips option)))))))
 
 (defn column (name value)
   (pair (str name) value))

@@ -1,0 +1,28 @@
+(module
+  "Reads the decisions an item raised, through `decisions.item_id`.")
+
+(use ledger/sqlite/values text->sql)
+(use ledger/model item-id)
+(use ledger/model/decisions decision)
+
+(use ledger/sqlite/connection connection database-error
+                              query)
+
+(use ledger/sqlite/decision-rows row->decision
+                                 selected-columns)
+
+(use ledger/sqlite/rows rows->values)
+
+(export decisions-raised-by)
+
+(type decisions-raised-by
+  (fn ((ref connection) (ref item-id))
+    (result (vec decision) database-error)))
+
+(defn decisions-raised-by (connection item)
+  (let-try (rows (query connection
+                        (as-str (str selected-columns
+                                     " WHERE d.item_id = ?1 ORDER BY d.created_at, d.rowid"))
+                        (ref (vec (text->sql (as-str (:value item)))))))
+    (rows->values (ref rows)
+      (fn (row) (row->decision connection row)))))

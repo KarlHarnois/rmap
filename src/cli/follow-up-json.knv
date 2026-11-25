@@ -1,0 +1,67 @@
+(module
+  "Turns follow-up proposals into the JSON objects the CLI prints.")
+
+(use json/value array int->json json object text->json)
+(use cli/schema-envelope envelope)
+
+(use ledger/api case-name follow-up follow-up-decision
+                item-id kind-names)
+
+(export follow-up->json follow-ups->json proposals-envelope)
+
+(type proposals-envelope
+  (fn (item-id (ref (vec follow-up)))
+    json))
+
+(defn proposals-envelope (id follow-ups)
+  (envelope (vec (pair (str "source")
+                       (text->json (as-str (:value id))))
+                 (pair (str "proposals") (follow-ups->json follow-ups)))))
+
+(defn follow-ups->json (follow-ups)
+  (array (collect (map (iter follow-ups) follow-up->json))))
+
+(type follow-up->json
+  (fn ((ref follow-up)) json))
+
+(defn follow-up->json (follow-up)
+  (object
+    (vec (pair (str "id")
+               (text->json (as-str (:id follow-up))))
+         (pair (str "title")
+               (text->json (as-str (:title follow-up))))
+         (pair (str "kind")
+               (text->json (case-name kind-names (:kind follow-up))))
+         (pair (str "priority")
+               (int->json (:priority follow-up)))
+         (pair (str "description")
+               (text->json (as-str (:description follow-up))))
+         (pair (str "criteria")
+               (array (collect (map (iter (:criteria follow-up)) text->json))))
+         (pair (str "after")
+               (array (collect (map (iter (:after follow-up)) text->json))))
+         (pair (str "decision")
+               (decision->json (ref (:decision follow-up))))
+         (pair (str "created_item")
+               (created->json (ref (:created-item follow-up)))))))
+
+(type decision->json
+  (fn ((ref (option follow-up-decision)))
+    json))
+
+(defn decision->json (decision)
+  (match decision
+    ((some link)
+     (object (vec (pair (str "id")
+                        (text->json (as-str (:value (:decision link)))))
+                  (pair (str "option")
+                        (int->json (:option link))))))
+    (none json/null)))
+
+(type created->json
+  (fn ((ref (option item-id))) json))
+
+(defn created->json (created)
+  (match created
+    ((some id) (text->json (as-str (:value id))))
+    (none json/null)))

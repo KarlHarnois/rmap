@@ -46,7 +46,9 @@
                (pair (str "pros")
                      (array (vec (placeholder "<text>"))))
                (pair (str "cons")
-                     (array (vec (placeholder "<text>")))))))
+                     (array (vec (placeholder "<text>"))))
+               (pair (str "skips")
+                     (array (vec (placeholder "<proposal id>")))))))
 
 (defn placeholder (text) (text->json text))
 
@@ -82,11 +84,13 @@
                                                "description"
                                                (as-str owner))
               pros (texts-field value "pros" (as-str owner))
-              cons (texts-field value "cons" (as-str owner)))
+              cons (texts-field value "cons" (as-str owner))
+              skips (texts-field value "skips" (as-str owner)))
       (ok (->option-draft :title title
                           :description description
                           :pros pros
-                          :cons cons)))))
+                          :cons cons
+                          :skips skips)))))
 
 (defn optional-text-field (value key owner)
   (match (present-field value key)

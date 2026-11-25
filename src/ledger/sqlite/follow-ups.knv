@@ -1,0 +1,73 @@
+(module
+  "Reads a source item's proposals with their criteria, what they come after and the item each became.")
+
+(use ledger/sqlite/values sql-value text->sql)
+(use ledger/model ->decision-id ->item-id item-id)
+
+(use ledger/model/follow-ups ->follow-up
+                             ->follow-up-decision)
+
+(use ledger/names kind-names)
+
+(use ledger/sqlite/connection connection database-error
+                              query)
+
+(use ledger/sqlite/rows int-cell named-cell
+                        optional-int-cell optional-text-cell
+                        rows->values text-cell)
+
+(use ledger/sqlite/proposal-criteria criteria-of texts-for)
+(use ledger/sqlite/proposal-deps deps-of targets-for)
+
+(use ledger/sqlite/proposal-writes delete-follow-ups
+                                   insert-follow-ups
+                                   mark-created-item)
+
+(export delete-follow-ups follow-ups-of insert-follow-ups
+        mark-created-item)
+
+(defn follow-ups-of (connection source)
+  (let-try (proposal-rows (proposals-of connection source)
+            criteria (criteria-of connection source)
+            deps (deps-of connection source))
+    (rows->values (ref proposal-rows)
+      (fn (row)
+        (row->follow-up row (ref criteria) (ref deps))))))
+
+(type proposals-of
+  (fn ((ref connection) (ref item-id))
+    (result (vec (vec sql-value)) database-error)))
+
+(defn proposals-of (connection source)
+  (query connection
+         "SELECT proposal_id, title, kind, priority, description, decision_id, decision_option, created_item_id FROM item_proposals WHERE source_item_id = ?1 ORDER BY position"
+         (ref (vec (text->sql (as-str (:value source)))))))
+
+(defn row->follow-up (row criteria deps)
+  (let-try (id (text-cell row 0)
+            title (text-cell row 1)
+            kind (named-cell row 2 kind-names)
+            priority (int-cell row 3)
+            description (text-cell row 4)
+            decision (optional-text-cell row 5)
+            option (optional-int-cell row 6)
+            created (optional-text-cell row 7))
+    (ok (->follow-up :id (clone id)
+                     :title title
+                     :kind kind
+                     :priority priority
+                     :description description
+                     :criteria (texts-for criteria (ref id))
+                     :after (targets-for deps (ref id))
+                     :decision (decision-of (ref decision) option)
+                     :created-item (map-some created
+                                     (fn (value) (->item-id :value value)))))))
+
+(defn decision-of (id option)
+  (match id
+    ((some present)
+     (map-some (clone option)
+       (fn (number)
+         (->follow-up-decision :decision (->decision-id :value (clone present))
+                               :option number))))
+    (none none)))

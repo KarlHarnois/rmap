@@ -12,13 +12,14 @@
                      item->json roadmap->json)
 
 (use cli/next-json next-entry->json)
-(use cli/decision-json decision->json)
+(use cli/decision-json decision-envelope decisions-envelope)
 (use cli/report-json report-reply-fields)
 (use cli/pr-json pr-reply-fields)
 (use cli/criterion-verdict-json criterion-verdict->json)
 (use cli/export-json export->json)
 (use cli/session-ended-json session-ended-fields)
 (use cli/item-detail-json detail-envelope)
+(use cli/follow-up-json proposals-envelope)
 (use cli/schema-envelope envelope)
 
 (export reply-envelope)
@@ -49,6 +50,10 @@
     ((reply/dep-removed dep) (dep-envelope dep))
     ((reply/graph-drawn graph) (graph-envelope graph))
     ((reply/exported document) (export->json document))
+    ((reply/proposals-recorded id follow-ups)
+     (proposals-envelope id follow-ups))
+    ((reply/proposals-listed id follow-ups)
+     (proposals-envelope id follow-ups))
     ((reply/decision-proposed decision)
      (decision-envelope decision))
     ((reply/decision-revised decision)
@@ -71,15 +76,6 @@
      (envelope (pr-reply-fields answer)))
     ((reply/session-ended ended)
      (envelope (session-ended-fields ended)))))
-
-(defn decision-envelope (decision)
-  (envelope (vec (pair (str "decision")
-                       (decision->json (ref decision))))))
-
-(defn decisions-envelope (decisions)
-  (envelope (vec (pair (str "decisions")
-                       (array (collect (map (iter decisions)
-                                            decision->json)))))))
 
 (type graph-envelope (fn (graph-source) json))
 

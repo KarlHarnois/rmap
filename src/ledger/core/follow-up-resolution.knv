@@ -1,0 +1,145 @@
+(module
+  "Resolves what each proposal comes after into a proposal or an item, and refuses cycles between proposals.")
+
+(use ledger/model item)
+
+(use ledger/model/follow-ups ->follow-up follow-up
+                             follow-up-draft)
+
+(use ledger/refusal refusal)
+
+(export check-cycles resolve-drafts)
+
+(defn check-cycles (follow-ups)
+  (let (proposal-ids (ids-of follow-ups))
+    (loop (pending (clone follow-ups)
+           done (vec))
+      (match (first-ready pending (ref done) (ref proposal-ids))
+        ((some ready)
+         (recur (without pending ready) (appended done ready)))
+        (none (cycle-outcome (ref pending)))))))
+
+(defn resolve-drafts (drafts items)
+  (loop (index 0
+         resolved (vec))
+    (if (< index (len drafts))
+      (let-try (follow-up (resolve-draft (at drafts index) drafts items))
+        (recur (inc index) (appended resolved follow-up)))
+      (ok resolved))))
+
+(type resolve-draft
+  (fn ((ref follow-up-draft)
+       (ref (vec follow-up-draft))
+       (ref (vec item)))
+    (result follow-up refusal)))
+
+(defn resolve-draft (draft drafts items)
+  (loop (index 0
+         after (vec))
+    (if (< index (len (:after draft)))
+      (let-try (target (resolve-target (clone (at (:after draft) index))
+                                       drafts items))
+        (recur (inc index) (appended after target)))
+      (ok (follow-up-from draft after)))))
+
+(type resolve-target
+  (fn (string (ref (vec follow-up-draft))
+              (ref (vec item)))
+    (result string refusal)))
+
+(defn resolve-target (text drafts items)
+  (cond
+    ((draft-named? (ref text) drafts) (ok (str text)))
+    ((item-named? (ref text) items) (ok (str text)))
+    (else (err (refusal/proposal-target-not-found (str text))))))
+
+(type draft-named?
+  (fn ((ref string)
+       (ref (vec follow-up-draft)))
+    bool))
+
+(defn draft-named? (text drafts)
+  (any? (iter drafts)
+    (fn (draft) (= (ref (:id draft)) text))))
+
+(type item-named?
+  (fn ((ref string) (ref (vec item)))
+    bool))
+
+(defn item-named? (text items)
+  (any? (iter items)
+    (fn (item)
+      (= (ref (:value (:id item))) text))))
+
+(type follow-up-from
+  (fn ((ref follow-up-draft) (vec string))
+    follow-up))
+
+(defn follow-up-from (draft after)
+  (->follow-up :id (clone (:id draft))
+               :title (clone (:title draft))
+               :kind (:kind draft)
+               :priority (:priority draft)
+               :description (clone (:description draft))
+               :criteria (clone (:criteria draft))
+               :after after
+               :decision (clone (:decision draft))
+               :created-item none))
+
+(type cycle-outcome
+  (fn ((ref (vec follow-up)))
+    (result unit refusal)))
+
+(defn cycle-outcome (pending)
+  (if (empty? pending)
+    (ok (do))
+    (err (refusal/proposal-cycle (clone (:id (at pending 0)))))))
+
+(defn first-ready (pending done proposal-ids)
+  (loop (index 0)
+    (cond
+      ((>= index (len pending)) none)
+      ((ready? (at pending index) done proposal-ids)
+       (some (clone (:id (at pending index)))))
+      (else (recur (inc index))))))
+
+(type ready?
+  (fn ((ref follow-up)
+       (ref (vec string))
+       (ref (vec string)))
+    bool))
+
+(defn ready? (follow-up done proposal-ids)
+  (every? (iter (:after follow-up))
+    (fn (id) (target-ready? id done proposal-ids))))
+
+(type target-ready?
+  (fn ((ref string)
+       (ref (vec string))
+       (ref (vec string)))
+    bool))
+
+(defn target-ready? (id done proposal-ids)
+  (or (not (contains? proposal-ids (clone id)))
+      (contains? done (clone id))))
+
+(type without
+  (fn ((vec follow-up) (ref string))
+    (vec follow-up)))
+
+(defn without (follow-ups id)
+  (collect (map (filter (iter follow-ups)
+                  (fn (follow-up)
+                    (not= (ref (:id follow-up)) id)))
+                clone)))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))
+
+(type ids-of
+  (fn ((ref (vec follow-up)))
+    (vec string)))
+
+(defn ids-of (follow-ups)
+  (collect (map (iter follow-ups)
+             (fn (follow-up) (clone (:id follow-up))))))

@@ -1,5 +1,5 @@
 (module
-  "Reads and writes the options of a decision and their pros and cons, in `decision_options` and `decision_option_points`.")
+  "Reads and writes the options of a decision, their pros and cons, and the proposals each option skips.")
 
 (use ledger/sqlite/values int->sql text->sql)
 (use ledger/model decision-id)
@@ -7,41 +7,28 @@
 (use ledger/model/decisions ->decision-option
                             decision-option)
 
-(use ledger/names case-name)
-
 (use ledger/sqlite/connection connection database-error
                               execute query)
 
-(use ledger/sqlite/rows int-cell named-cell rows->values
-                        text-cell try-each)
+(use ledger/sqlite/rows int-cell rows->values text-cell
+                        try-each)
+
+(use ledger/sqlite/decision-points delete-points
+                                   insert-points point-texts
+                                   points-of side)
+
+(use ledger/sqlite/decision-skips delete-skips insert-skips
+                                  option-skip skips-of)
 
 (export delete-options insert-options options-of)
-
-(def side-names
-  (vec (pair side/pro "pro") (pair side/con "con")))
-
-(defstruct point
-  :option int
-  :side side
-  :text string)
-
-(defenum side
-  pro
-  con)
 
 (defn insert-options (connection decision options)
   (try-each options
     (fn (option) (insert-option connection decision option))))
 
-(type delete-options
-  (fn ((ref connection) (ref decision-id))
-    (result unit database-error)))
-
 (defn delete-options (connection decision)
-  (let-try (_ (execute
-                connection
-                "DELETE FROM decision_option_points WHERE decision_id = ?1"
-                (ref (vec (text->sql (as-str (:value decision))))))
+  (let-try (_ (delete-points connection decision)
+            _ (delete-skips connection decision)
             _ (execute connection
                        "DELETE FROM decision_options WHERE decision_id = ?1"
                        (ref (vec (text->sql (as-str (:value decision)))))))
@@ -56,14 +43,11 @@
                                "SELECT number, title, description FROM decision_options WHERE decision_id = ?1 ORDER BY number"
                                (ref (vec (text->sql (as-str (:value
                                                               decision))))))
-            point-rows (query connection
-                              "SELECT option_number, side, text FROM decision_option_points WHERE decision_id = ?1 ORDER BY option_number, side, position"
-                              (ref (vec (text->sql (as-str (:value
-                                                             decision))))))
-            points (rows->values (ref point-rows) row->point))
+            points (points-of connection decision)
+            skips (skips-of connection decision))
     (rows->values (ref option-rows)
       (fn (row)
-        (row->option row (ref points))))))
+        (row->option row (ref points) (ref skips))))))
 
 (type insert-option
   (fn ((ref connection)
@@ -80,41 +64,13 @@
                                  (text->sql (as-str (:description option))))))
             _ (insert-points connection decision option
                              side/pro
-                             (ref (:pros option))))
-    (insert-points connection decision option side/con
-                   (ref (:cons option)))))
+                             (ref (:pros option)))
+            _ (insert-points connection decision option
+                             side/con
+                             (ref (:cons option))))
+    (insert-skips connection decision option)))
 
-(defn insert-points (connection decision option side texts)
-  (loop (position 0)
-    (if (< position (len texts))
-      (let-try (_ (insert-point connection decision
-                                (->point :option (:number option)
-                                         :side side
-                                         :text (clone (at texts position)))
-                                position))
-        (recur (inc position)))
-      (ok (do)))))
-
-(type insert-point
-  (fn ((ref connection) (ref decision-id) point int)
-    (result int database-error)))
-
-(defn insert-point (connection decision point position)
-  (execute connection
-           "INSERT INTO decision_option_points (decision_id, option_number, side, position, text) VALUES (?1, ?2, ?3, ?4, ?5)"
-           (ref (vec (text->sql (as-str (:value decision)))
-                     (int->sql (:option point))
-                     (text->sql (case-name side-names (:side point)))
-                     (int->sql position)
-                     (text->sql (as-str (:text point)))))))
-
-(defn row->point (row)
-  (let-try (option (int-cell row 0)
-            side (named-cell row 1 side-names)
-            text (text-cell row 2))
-    (ok (->point :option option :side side :text text))))
-
-(defn row->option (row points)
+(defn row->option (row points skips)
   (let-try (number (int-cell row 0)
             title (text-cell row 1)
             description (text-cell row 2))
@@ -122,15 +78,14 @@
                            :title title
                            :description description
                            :pros (point-texts points number side/pro)
-                           :cons (point-texts points number side/con)))))
+                           :cons (point-texts points number side/con)
+                           :skips (skip-proposals skips number)))))
 
-(type point-texts
-  (fn ((ref (vec point)) int side)
+(type skip-proposals
+  (fn ((ref (vec option-skip)) int)
     (vec string)))
 
-(defn point-texts (points number wanted)
-  (collect (map (filter (iter points)
-                  (fn (point)
-                    (and (= (:option point) number)
-                         (= (:side point) wanted))))
-                (fn (point) (clone (:text point))))))
+(defn skip-proposals (skips number)
+  (collect (map (filter (iter skips)
+                  (fn (skip) (= (:option skip) number)))
+                (fn (skip) (clone (:proposal skip))))))

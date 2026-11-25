@@ -7,6 +7,7 @@
 (use cli/pr-json optional-pull-request->json)
 (use cli/criterion-verdict-json criterion-statuses-json)
 (use cli/schema-envelope envelope)
+(use cli/follow-up-json follow-ups->json)
 
 (export detail-envelope)
 
@@ -22,5 +23,7 @@
                (array (collect (map (iter (:children detail)) item->json))))
          (pair (str "criterion_verdicts")
                (criterion-statuses-json (ref (:criterion-statuses detail))))
+         (pair (str "proposals")
+               (follow-ups->json (ref (:proposals detail))))
          (pair (str "pull_request")
                (optional-pull-request->json (ref (:pull-request detail)))))))

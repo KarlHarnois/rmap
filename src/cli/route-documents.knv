@@ -1,0 +1,15 @@
+(module
+  "Names the JSON document each command that takes one prints in the help.")
+
+(use cli/proposal-document-json proposal-add-document-shape)
+(use cli/proposal-json proposal-document-shape)
+(use cli/routes subcommand)
+
+(export route-document)
+
+(defn route-document (route)
+  (match (:subcommand route)
+    (subcommand/decision-propose (some (proposal-document-shape)))
+    (subcommand/decision-revise (some (proposal-document-shape)))
+    (subcommand/proposal-add (some (proposal-add-document-shape)))
+    (_ none)))

@@ -1,0 +1,72 @@
+(module
+  "Reads and writes the proposals an option of a decision skips, in `decision_option_skips`.")
+
+(use ledger/model decision-id)
+(use ledger/model/decisions decision-option)
+(use ledger/sqlite/values int->sql text->sql)
+
+(use ledger/sqlite/connection connection database-error
+                              execute query)
+
+(use ledger/sqlite/rows int-cell rows->values text-cell)
+
+(export delete-skips insert-skips option-skip skips-of)
+
+(defstruct option-skip
+  :option int
+  :proposal string)
+
+(type insert-skips
+  (fn ((ref connection)
+       (ref decision-id)
+       (ref decision-option))
+    (result unit database-error)))
+
+(defn insert-skips (connection decision option)
+  (loop (position 0)
+    (if (< position (len (:skips option)))
+      (let-try (_ (insert-skip connection decision option
+                               (clone (at (:skips option) position))
+                               position))
+        (recur (inc position)))
+      (ok (do)))))
+
+(type delete-skips
+  (fn ((ref connection) (ref decision-id))
+    (result unit database-error)))
+
+(defn delete-skips (connection decision)
+  (map-ok (execute connection
+                   "DELETE FROM decision_option_skips WHERE decision_id = ?1"
+                   (ref (vec (text->sql (as-str (:value decision))))))
+          (fn (_) (do))))
+
+(type skips-of
+  (fn ((ref connection) (ref decision-id))
+    (result (vec option-skip) database-error)))
+
+(defn skips-of (connection decision)
+  (let-try (rows (query connection
+                        "SELECT option_number, proposal_id FROM decision_option_skips WHERE decision_id = ?1 ORDER BY option_number, position"
+                        (ref (vec (text->sql (as-str (:value decision)))))))
+    (rows->values (ref rows) row->skip)))
+
+(type insert-skip
+  (fn ((ref connection)
+       (ref decision-id)
+       (ref decision-option)
+       string int)
+    (result int database-error)))
+
+(defn insert-skip (connection decision option proposal position)
+  (execute connection
+           "INSERT INTO decision_option_skips (decision_id, option_number, position, proposal_id) VALUES (?1, ?2, ?3, ?4)"
+           (ref (vec (text->sql (as-str (:value decision)))
+                     (int->sql (:number option))
+                     (int->sql position)
+                     (text->sql (as-str proposal))))))
+
+(defn row->skip (row)
+  (let-try (option (int-cell row 0)
+            proposal (text-cell row 1))
+    (ok (->option-skip :option option :proposal proposal))))

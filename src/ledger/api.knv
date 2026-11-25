@@ -1,9 +1,6 @@
 (module
   "The ledger's public functions. Code outside `src/ledger/` calls only these.")
 
-(use ledger/model/events event)
-(use ledger/model/sessions ->claim-request claim-request)
-
 (use ledger/delivery-api ->report-id ->report-query
                          ->report-request body-source
                          list-reports read-report
@@ -42,60 +39,62 @@
                          revise-decision show-decision
                          supersedes-change)
 
-(use ledger/values-api ->item-id ->session abandoned
-                       action-names actor-names case-name
-                       case-named claim
+(use ledger/values-api ->claim-request ->item-id ->session
+                       ->settings abandoned action-names
+                       actor-names case-name case-named
+                       claim claim-request clock
                        criterion-result-names
-                       decision-option-record dep dep-type
+                       database-problem
+                       decision-option-record
+                       default-database-path dep
                        dep-type-names end-reason end-session
-                       ended-session event-type-names
-                       export-ledger graph-format
+                       ended-session event event-type-names
+                       export-ledger failure failure-code
+                       failure-message graph-format
                        graph-format-names history ids->json
-                       item item-id kind-names ledger-export
-                       optional-id->json optional-text->json
+                       init-ledger init-outcome-names
+                       init-report item item-id kind-names
+                       ledger-export list-roadmaps
+                       new-roadmap optional-id->json
+                       optional-text->json
                        optional-timestamp->json origin
-                       origin-names roadmap roadmap-id
+                       origin-names pause-roadmap
+                       pull-request-refusal refusal
+                       refusal-catalog refusal-description
+                       resume-roadmap roadmap roadmap-id
                        roadmap-pause roadmap-status
                        roadmap-status-names runtime-names
                        session session-kind-names
-                       session-record->json status-names
-                       timestamp work-session)
+                       session-record->json settings
+                       status-names timestamp work-session)
 
 (use ledger/item-api ->advancement ->criterion-gap
                      ->criterion-status ->criterion-verdict
+                     ->follow-up-decision ->follow-up-draft
                      ->graph-request ->graph-source
                      ->item-edit ->log-query ->new-item
                      ->verify-request add-dep add-item
-                     advance-item advancement batch
-                     batch-size batch-size-of blocked-item
-                     claim-item close-item criteria-input
-                     criterion-gap criterion-result
-                     criterion-status criterion-verdict
-                     decision-next description-input
-                     draw-graph drop-item edit-item
-                     graph-level graph-level-names
-                     graph-request graph-source item-detail
-                     item-edit kind-change list-items
+                     add-proposals advance-item advancement
+                     batch batch-size batch-size-of
+                     blocked-item claim-item close-item
+                     criteria-input criterion-gap
+                     criterion-result criterion-status
+                     criterion-verdict decision-next
+                     description-input draw-graph drop-item
+                     edit-item follow-up follow-up-decision
+                     follow-up-draft graph-level
+                     graph-level-names graph-request
+                     graph-source item-detail item-edit
+                     kind-change list-items list-proposals
                      log-query new-item next-actions
                      next-entry next-item read-log readiness
                      ready-batch ready-items remove-dep
                      show-item verify-criterion
                      verify-request)
 
-(use ledger/failure-api database-problem failure
-                        failure-code failure-message
-                        pull-request-refusal refusal
-                        refusal-catalog refusal-description)
-
-(use ledger/ledger-api ->settings clock
-                       default-database-path init-ledger
-                       init-outcome init-outcome-names
-                       init-report list-roadmaps new-roadmap
-                       pause-roadmap resume-roadmap
-                       settings)
-
 (export ->acceptance ->advancement ->claim-request
         ->decision-id ->decision-query ->decision-revision
+        ->follow-up-decision ->follow-up-draft
         ->graph-request ->item-edit ->item-id ->log-query
         ->new-decision ->new-item ->option-draft ->proposal
         ->recommendation ->report-id ->report-query
@@ -103,28 +102,29 @@
         ->review-start-request ->session ->settings
         ->verify-request abandoned accept-decision
         acceptance action-names actor-names
-        add-decision-block add-dep add-item advance-item
-        advancement approval approval-of approved?
-        ask-decision batch batch-size batch-size-of
-        blocked-item body-source case-name case-named claim
-        claim-item claim-request clock close-item
-        criteria-input criterion-gap criterion-result
-        criterion-result-names criterion-status
-        criterion-verdict database-problem decision
-        decision-id decision-next decision-option
+        add-decision-block add-dep add-item add-proposals
+        advance-item advancement approval approval-of
+        approved? ask-decision batch batch-size
+        batch-size-of blocked-item body-source case-name
+        case-named claim claim-item claim-request clock
+        close-item criteria-input criterion-gap
+        criterion-result criterion-result-names
+        criterion-status criterion-verdict database-problem
+        decision decision-id decision-next decision-option
         decision-option-record decision-query
         decision-revision decision-status-names
-        default-database-path dep dep-type dep-type-names
+        default-database-path dep dep-type-names
         deprecate-decision description-input draw-graph
         drop-item edit-item end-reason end-session
         ended-session event event-type-names export-ledger
-        failure failure-code failure-message graph-format
+        failure failure-code failure-message follow-up
+        follow-up-decision follow-up-draft graph-format
         graph-format-names graph-level graph-level-names
         graph-request graph-source history ids->json
-        init-ledger init-outcome init-outcome-names
-        init-report item item-detail item-edit item-id
-        kind-change kind-names ledger-export list-decisions
-        list-items list-reports list-roadmaps log-query
+        init-ledger init-outcome-names init-report item
+        item-detail item-edit item-id kind-change kind-names
+        ledger-export list-decisions list-items
+        list-proposals list-reports list-roadmaps log-query
         new-decision new-item new-roadmap next-actions
         next-entry next-item optional-decision-id->json
         optional-id->json optional-text->json

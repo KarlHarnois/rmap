@@ -1,0 +1,63 @@
+(module
+  "Writes the items, criteria, dependencies and proposal links a close application creates.")
+
+(use ledger/core/follow-up-creation close-application
+                                    created-follow-up)
+
+(use ledger/sqlite/connection connection database-error)
+(use ledger/sqlite/criteria insert-criteria)
+(use ledger/sqlite/deps insert-deps)
+(use ledger/sqlite/follow-ups mark-created-item)
+(use ledger/sqlite/items insert-item)
+(use ledger/operations/transaction transaction)
+(use ledger/failure failure)
+
+(export write-close-application)
+
+(defn write-close-application (transaction application)
+  (match application
+    ((some present) (write-application transaction present))
+    (none (ok (do)))))
+
+(type write-application
+  (fn ((ref transaction) (ref close-application))
+    (result unit failure)))
+
+(defn write-application (transaction application)
+  (let (connection (ref (:connection transaction)))
+    (let-try (_ (write-items connection (ref (:created application)))
+              _ (insert-deps connection (ref (:deps application))))
+      (mark-created-items connection
+                          (ref (:source application))
+                          (ref (:created application))))))
+
+(defn write-items (connection created)
+  (loop (index 0)
+    (if (< index (len created))
+      (let-try (_ (write-item connection (at created index)))
+        (recur (inc index)))
+      (ok (do)))))
+
+(type write-item
+  (fn ((ref connection) (ref created-follow-up))
+    (result unit database-error)))
+
+(defn write-item (connection entry)
+  (let (item (ref (:item entry)))
+    (let-try (_ (insert-item connection item))
+      (insert-criteria connection
+                       (ref (:id item))
+                       (ref (:criteria item))))))
+
+(defn mark-created-items (connection source created)
+  (map-err (mark-created-loop connection source created)
+    (fn (error) (failure/database error))))
+
+(defn mark-created-loop (connection source created)
+  (loop (index 0)
+    (if (< index (len created))
+      (let-try (_ (mark-created-item connection source
+                                     (ref (:id (:follow-up (at created index))))
+                                     (ref (:id (:item (at created index))))))
+        (recur (inc index)))
+      (ok (do)))))

@@ -1,0 +1,136 @@
+(module
+  "Records the proposals a research or design item's report makes, and lists them.")
+
+(use ledger/model item item-id session snapshot)
+
+(use ledger/model/follow-ups ->proposal-submission follow-up
+                             follow-up-decision
+                             follow-up-draft
+                             proposal-submission)
+
+(use ledger/core/follow-up-checks check-decision-raised-by
+                                  check-drafts check-source
+                                  check-writer)
+
+(use ledger/core/follow-up-resolution check-cycles
+                                      resolve-drafts)
+
+(use ledger/core/decision-moves check-option)
+(use ledger/core/snapshot existing)
+(use ledger/sqlite/connection connection database-failure)
+
+(use ledger/sqlite/follow-ups delete-follow-ups
+                              follow-ups-of
+                              insert-follow-ups)
+
+(use ledger/sqlite/snapshot load-snapshot)
+(use ledger/operations/lookups existing-decision)
+
+(use ledger/operations/transaction in-read-transaction
+                                   in-transaction record
+                                   settings transaction)
+
+(use ledger/follow-up-events proposals-recorded)
+(use ledger/failure failure)
+
+(export add-proposals list-proposals)
+
+(type add-proposals
+  (fn ((ref settings) item-id session (vec follow-up-draft))
+    (result (vec follow-up) failure)))
+
+(defn add-proposals (settings source session drafts)
+  (in-transaction settings
+    (fn (transaction)
+      (store-proposals transaction
+                       (ref (->proposal-submission :source (clone source)
+                                                   :session (clone session)
+                                                   :proposals drafts))))))
+
+(type list-proposals
+  (fn ((ref settings) item-id)
+    (result (vec follow-up) failure)))
+
+(defn list-proposals (settings id)
+  (in-read-transaction settings
+    (fn (transaction)
+      (let-try (snapshot (load-snapshot (ref (:connection transaction)))
+                _ (existing (ref snapshot) (ref id)))
+        (map-err (follow-ups-of (ref (:connection transaction))
+                                (ref id))
+                 (fn (error) (failure/database error)))))))
+
+(type store-proposals
+  (fn ((ref transaction) (ref proposal-submission))
+    (result (vec follow-up) failure)))
+
+(defn store-proposals (transaction submission)
+  (let (connection (ref (:connection transaction)))
+    (let-try (snapshot (load-snapshot connection)
+              source (existing (ref snapshot)
+                               (ref (:source submission)))
+              _ (check-source (ref source))
+              manager (manager-of (ref snapshot) (ref source))
+              _ (check-writer (ref source)
+                              (ref manager)
+                              (ref (:session submission)))
+              _ (check-drafts (ref (:proposals submission))
+                              (clone (:parent source)))
+              _ (check-links connection
+                             (ref source)
+                             (ref (:proposals submission)))
+              resolved (resolve-drafts (ref (:proposals submission))
+                                       (ref (:items snapshot)))
+              _ (check-cycles (ref resolved))
+              _ (replace-proposals connection
+                                   (ref (:source submission))
+                                   (ref resolved))
+              _ (record transaction
+                        (proposals-recorded (ref source) (ref resolved))))
+      (ok resolved))))
+
+(defn replace-proposals (connection source follow-ups)
+  (let-try (_ (delete-follow-ups connection source))
+    (insert-follow-ups connection source follow-ups)))
+
+(type manager-of
+  (fn ((ref snapshot) (ref item))
+    (result session failure)))
+
+(defn manager-of (snapshot item)
+  (match (find (iter (:roadmaps snapshot))
+           (fn (roadmap)
+             (= (ref (:id roadmap))
+                (ref (:roadmap-id item)))))
+    ((some roadmap) (ok (clone (:manager roadmap))))
+    (none (err (failure/database (database-failure (str "the item's roadmap is gone")))))))
+
+(defn check-links (connection source drafts)
+  (loop (index 0)
+    (if (< index (len drafts))
+      (let-try (_ (check-link connection source (at drafts index)))
+        (recur (inc index)))
+      (ok (do)))))
+
+(type check-link
+  (fn ((ref connection)
+       (ref item)
+       (ref follow-up-draft))
+    (result unit failure)))
+
+(defn check-link (connection source draft)
+  (match (:decision draft)
+    ((some link) (check-existing-link connection source link))
+    (none (ok (do)))))
+
+(type check-existing-link
+  (fn ((ref connection)
+       (ref item)
+       (ref follow-up-decision))
+    (result unit failure)))
+
+(defn check-existing-link (connection source link)
+  (let-try (found (existing-decision connection (:decision link))
+            _ (check-decision-raised-by source found)
+            _ (check-option found (:option link)))
+    (ok (do))))

@@ -40,6 +40,14 @@
   decision-block-exists
   decision-block-not-found
   supersede-target-not-accepted
+  decisions-pending
+  proposal-incomplete
+  proposal-duplicate
+  proposal-target-not-found
+  proposal-cycle
+  proposal-source-kind
+  proposal-writer
+  proposal-decision-not-raised
   session-busy
   session-not-live
   session-not-claimant
@@ -102,6 +110,20 @@
      refusal-code/decision-block-not-found)
     ((refusal/supersede-target-not-accepted _)
      refusal-code/supersede-target-not-accepted)
+    ((refusal/decisions-pending _)
+     refusal-code/decisions-pending)
+    ((refusal/proposal-incomplete _)
+     refusal-code/proposal-incomplete)
+    ((refusal/proposal-duplicate _)
+     refusal-code/proposal-duplicate)
+    ((refusal/proposal-target-not-found _)
+     refusal-code/proposal-target-not-found)
+    ((refusal/proposal-cycle _) refusal-code/proposal-cycle)
+    ((refusal/proposal-source-kind _ _)
+     refusal-code/proposal-source-kind)
+    ((refusal/proposal-writer _ _) refusal-code/proposal-writer)
+    ((refusal/proposal-decision-not-raised _ _)
+     refusal-code/proposal-decision-not-raised)
     ((refusal/session-busy _) refusal-code/session-busy)
     ((refusal/session-not-live _) refusal-code/session-not-live)
     ((refusal/session-not-claimant _ _)

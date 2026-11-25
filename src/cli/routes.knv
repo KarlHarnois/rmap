@@ -49,6 +49,8 @@
   decision-deprecate
   decision-block
   decision-unblock
+  proposal-add
+  proposal-list
   (report report-command)
   (pull-request pr-command))
 

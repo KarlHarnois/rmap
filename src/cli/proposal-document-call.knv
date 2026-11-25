@@ -1,0 +1,43 @@
+(module
+  "Names the ledger call `proposal add` makes once its document is read.")
+
+(use ledger/api ->item-id ->session follow-up-draft item-id
+                session)
+
+(use cli/decision-requests document-source
+                           document-source-of)
+
+(use cli/flags optional-text required-text)
+(use cli/ledger-calls ->ledger-call ledger-call)
+(use cli/requests request)
+
+(export ->proposal-document-call proposal-add-document-call
+        proposal-document->ledger-call
+        proposal-document-call)
+
+(defstruct proposal-document-call
+  :database (option string)
+  :actor (option string)
+  :source document-source
+  :item item-id
+  :session session)
+
+(defn proposal-add-document-call (arguments id)
+  (let-try (source (document-source-of arguments)
+            session (required-text arguments "session"))
+    (ok (->proposal-document-call :database (optional-text arguments "db")
+                                  :actor (optional-text arguments "actor")
+                                  :source source
+                                  :item (->item-id :value id)
+                                  :session (->session :name session)))))
+
+(type proposal-document->ledger-call
+  (fn ((ref proposal-document-call) (vec follow-up-draft))
+    ledger-call))
+
+(defn proposal-document->ledger-call (call drafts)
+  (->ledger-call :database (clone (:database call))
+                 :actor (clone (:actor call))
+                 :request (request/proposal-add (clone (:item call))
+                                                (clone (:session call))
+                                                drafts)))

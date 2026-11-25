@@ -2,9 +2,16 @@
   "Describes each ledger result in plain text.")
 
 (use json/value json->source)
-(use ledger/api dep init-outcome init-report)
+
+(use ledger/api case-name dep init-outcome-names
+                init-report)
+
 (use cli/export-json export->json)
 (use cli/session-ended-text session-ended-text)
+
+(use cli/follow-up-text proposals-list-text
+                        proposals-recorded-text)
+
 (use cli/replies reply)
 
 (use cli/item-text item-added-text item-edited-text
@@ -60,6 +67,10 @@
     ((reply/graph-drawn graph) (clone (:source graph)))
     ((reply/exported document)
      (json->source (ref (export->json document))))
+    ((reply/proposals-recorded id follow-ups)
+     (proposals-recorded-text id follow-ups))
+    ((reply/proposals-listed id follow-ups)
+     (proposals-list-text id follow-ups))
     ((reply/decision-proposed decision)
      (decision-proposed-text (ref decision)))
     ((reply/decision-revised decision)
@@ -86,9 +97,9 @@
 
 (defn init-report-text (report)
   (let (path (:database-path report))
-    (match (:outcome report)
-      (init-outcome/created (str "Created ledger " path "."))
-      (init-outcome/existing (str "Ledger already exists at " path ".")))))
+    (match (case-name init-outcome-names (:outcome report))
+      ("created" (str "Created ledger " path "."))
+      (_ (str "Ledger already exists at " path ".")))))
 
 (type dep-text
   (fn ((ref dep) (ref str)) string))

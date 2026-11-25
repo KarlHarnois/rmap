@@ -56,6 +56,9 @@
       (fn (pro) (push! lines (str "+ " pro))))
     (for-each (:cons option)
       (fn (con) (push! lines (str "- " con))))
+    (when (not (empty? (:skips option)))
+      (push! lines
+             (str "skips: " (join (:skips option) ", "))))
     (if (empty? lines)
       (str (:number option) ". " (:title option))
       (str (:number option)

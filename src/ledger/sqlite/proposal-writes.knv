@@ -1,0 +1,108 @@
+(module
+  "Replaces a source item's proposals, their criteria and dependencies, and records the item each became.")
+
+(use ledger/sqlite/values int->sql optional-int->sql
+                          optional-text->sql text->sql)
+
+(use ledger/model ->decision-id item-id)
+
+(use ledger/model/follow-ups ->follow-up-decision follow-up
+                             follow-up-decision)
+
+(use ledger/names case-name kind-names)
+
+(use ledger/sqlite/connection connection database-error
+                              execute)
+
+(use ledger/sqlite/proposal-criteria insert-criteria)
+(use ledger/sqlite/proposal-deps insert-deps)
+
+(export delete-follow-ups insert-follow-ups
+        mark-created-item)
+
+(type delete-follow-ups
+  (fn ((ref connection) (ref item-id))
+    (result unit database-error)))
+
+(defn delete-follow-ups (connection source)
+  (let-try (_ (execute
+                connection
+                "DELETE FROM item_proposal_deps WHERE source_item_id = ?1"
+                (ref (vec (text->sql (as-str (:value source))))))
+            _ (execute
+                connection
+                "DELETE FROM item_proposal_criteria WHERE source_item_id = ?1"
+                (ref (vec (text->sql (as-str (:value source))))))
+            _ (execute connection
+                       "DELETE FROM item_proposals WHERE source_item_id = ?1"
+                       (ref (vec (text->sql (as-str (:value source)))))))
+    (ok (do))))
+
+(type mark-created-item
+  (fn ((ref connection)
+       (ref item-id)
+       (ref string)
+       (ref item-id))
+    (result unit database-error)))
+
+(defn mark-created-item (connection source proposal created)
+  (map-ok (execute connection
+                   "UPDATE item_proposals SET created_item_id = ?3 WHERE source_item_id = ?1 AND proposal_id = ?2"
+                   (ref (vec (text->sql (as-str (:value source)))
+                             (text->sql (as-str proposal))
+                             (text->sql (as-str (:value created))))))
+          (fn (_) (do))))
+
+(defn insert-follow-ups (connection source follow-ups)
+  (loop (index 0)
+    (if (< index (len follow-ups))
+      (let-try (_ (insert-follow-up connection source
+                                    (at follow-ups index)
+                                    index))
+        (recur (inc index)))
+      (ok (do)))))
+
+(defn insert-follow-up (connection source follow-up position)
+  (let-try (_ (insert-proposal connection source follow-up position))
+    (let-try (_ (insert-criteria connection source follow-up))
+      (insert-deps connection source follow-up))))
+
+(type insert-proposal
+  (fn ((ref connection)
+       (ref item-id)
+       (ref follow-up)
+       int)
+    (result unit database-error)))
+
+(defn insert-proposal (connection source follow-up position)
+  (let (decision (ref (:decision follow-up)))
+    (map-ok (execute connection
+                     "INSERT INTO item_proposals (source_item_id, proposal_id, position, title, kind, priority, description, decision_id, decision_option) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"
+                     (ref (vec (text->sql (as-str (:value source)))
+                               (text->sql (as-str (:id follow-up)))
+                               (int->sql position)
+                               (text->sql (as-str (:title follow-up)))
+                               (text->sql (case-name kind-names
+                                                     (:kind follow-up)))
+                               (int->sql (:priority follow-up))
+                               (text->sql (as-str (:description follow-up)))
+                               (optional-text->sql (decision-id-text decision))
+                               (optional-int->sql (decision-number decision)))))
+            (fn (_) (do)))))
+
+(type decision-id-text
+  (fn ((ref (option follow-up-decision)))
+    (option string)))
+
+(defn decision-id-text (decision)
+  (map-some (clone decision)
+    (fn (link)
+      (clone (:value (:decision link))))))
+
+(type decision-number
+  (fn ((ref (option follow-up-decision)))
+    (option int)))
+
+(defn decision-number (decision)
+  (map-some (clone decision)
+    (fn (link) (:option link))))

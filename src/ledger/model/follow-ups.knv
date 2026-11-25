@@ -1,0 +1,38 @@
+(module
+  "Holds a research or design item's proposed follow-up items, what each comes after, and the item it became.")
+
+(use ledger/model decision-id item-id kind session)
+
+(export ->follow-up ->follow-up-decision ->follow-up-draft
+        ->proposal-submission follow-up follow-up-decision
+        follow-up-draft proposal-submission)
+
+(defstruct proposal-submission
+  :source item-id
+  :session session
+  :proposals (vec follow-up-draft))
+
+(defstruct follow-up-draft
+  :id string
+  :title string
+  :kind kind
+  :priority int
+  :description string
+  :criteria (vec string)
+  :after (vec string)
+  :decision (option follow-up-decision))
+
+(defstruct follow-up
+  :id string
+  :title string
+  :kind kind
+  :priority int
+  :description string
+  :criteria (vec string)
+  :after (vec string)
+  :decision (option follow-up-decision)
+  :created-item (option item-id))
+
+(defstruct follow-up-decision
+  :decision decision-id
+  :option int)

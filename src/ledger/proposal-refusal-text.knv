@@ -1,0 +1,42 @@
+(module
+  "Describes each proposal refusal code in a sentence and catalogs them.")
+
+(use ledger/refusal-codes refusal-code)
+(use ledger/refusal-description described)
+(use ledger/criterion-refusal-text criterion-refusal-description)
+
+(export proposal-refusal-catalog
+        proposal-refusal-description)
+
+(defn proposal-refusal-catalog ()
+  (collect (map (iter (vec refusal-code/decisions-pending
+                           refusal-code/proposal-incomplete
+                           refusal-code/proposal-duplicate
+                           refusal-code/proposal-target-not-found
+                           refusal-code/proposal-cycle
+                           refusal-code/proposal-source-kind
+                           refusal-code/proposal-writer
+                           refusal-code/proposal-decision-not-raised))
+                proposal-refusal-description)))
+
+(defn proposal-refusal-description (code)
+  (match code
+    (decisions-pending (described "decisions-pending"
+                                  "An item cannot close while a decision it raised is proposed or rejected. The error lists those decisions."))
+    (proposal-incomplete (described "proposal-incomplete"
+                                    "A proposal needs an id, a title, a description, at least one acceptance criterion, a priority from 0 to 4, and no epic kind when the source belongs to an epic."))
+    (proposal-duplicate (described
+                          "proposal-duplicate"
+                          "Two proposals in one document share an id."))
+    (proposal-target-not-found (described "proposal-target-not-found"
+                                          "A proposal comes after an id that is neither a proposal in the document nor an item in the ledger."))
+    (proposal-cycle (described
+                      "proposal-cycle"
+                      "The proposals come after each other in a cycle."))
+    (proposal-source-kind (described "proposal-source-kind"
+                                     "Only a research or design item records proposals."))
+    (proposal-writer (described "proposal-writer"
+                                "Only the source item's live session or the roadmap's manager records its proposals."))
+    (proposal-decision-not-raised (described "proposal-decision-not-raised"
+                                             "A proposal links to a decision the source item did not raise."))
+    (_ (criterion-refusal-description code))))

@@ -7,7 +7,7 @@
 (use ledger/api refusal-catalog refusal-description)
 (use cli/routes route-name)
 (use cli/commands routes)
-(use cli/decision-commands route-document)
+(use cli/route-documents route-document)
 
 (use cli/flag-specs boolean? flag-input flag-spec
                     global-flags required?)

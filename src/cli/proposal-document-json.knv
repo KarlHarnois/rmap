@@ -1,0 +1,139 @@
+(module
+  "Reads the proposal document `proposal add` takes, and describes that document's shape.")
+
+(use json/value array field int->json json json->int
+                json->items json->text null? object
+                text->json)
+
+(use ledger/api ->decision-id ->follow-up-decision
+                ->follow-up-draft case-named kind-names)
+
+(export json->proposal-drafts proposal-add-document-shape)
+
+(defn proposal-add-document-shape ()
+  (object (vec (pair (str "proposals")
+                     (array (vec (proposal-shape)))))))
+
+(defn json->proposal-drafts (given)
+  (let-try (_ (check-object given "the proposal document")
+            items (proposals-field given))
+    (json->drafts (ref items))))
+
+(defn proposal-shape ()
+  (object (vec (pair (str "id") (placeholder "<text>"))
+               (pair (str "title") (placeholder "<text>"))
+               (pair (str "kind") (placeholder "build"))
+               (pair (str "priority") (int->json 2))
+               (pair (str "description") (placeholder "<text>"))
+               (pair (str "criteria")
+                     (array (vec (placeholder "<text>"))))
+               (pair (str "after")
+                     (array (vec (placeholder "<proposal id or item id>"))))
+               (pair (str "decision")
+                     (object (vec (pair (str "id")
+                                        (placeholder "<decision id>"))
+                                  (pair (str "option") (int->json 1))))))))
+
+(defn proposals-field (document)
+  (let-try (found (ok-or (field document "proposals")
+                         (str "the proposal document needs \"proposals\" as a list"))
+            items (ok-or (json->items (ref found))
+                         (str "the proposal document needs \"proposals\" as a list")))
+    (ok items)))
+
+(defn json->drafts (items)
+  (loop (index 0
+         drafts (vec))
+    (if (< index (len items))
+      (let-try (draft (json->draft (at items index) (inc index)))
+        (recur (inc index) (appended drafts draft)))
+      (ok drafts))))
+
+(defn json->draft (value number)
+  (let (owner (str "proposal " number))
+    (let-try (_ (check-object value (as-str owner))
+              id (text-field value "id" (as-str owner))
+              title (text-field value "title" (as-str owner))
+              kind (kind-field value (as-str owner))
+              priority (int-field value "priority" (as-str owner))
+              description (text-field value "description" (as-str owner))
+              criteria (texts-field value "criteria" (as-str owner))
+              after (optional-texts-field value "after" (as-str owner))
+              decision (decision-field value (as-str owner)))
+      (ok (->follow-up-draft :id id
+                             :title title
+                             :kind kind
+                             :priority priority
+                             :description description
+                             :criteria criteria
+                             :after after
+                             :decision decision)))))
+
+(defn check-object (value owner)
+  (match value
+    ((json/object _) (ok (do)))
+    (_ (err (str owner " must be a JSON object")))))
+
+(defn text-field (value key owner)
+  (ok-or (then-some (field value key)
+           (fn (found) (json->text (ref found))))
+         (str owner " needs \"" key "\" as text")))
+
+(defn int-field (value key owner)
+  (ok-or (then-some (field value key)
+           (fn (found) (json->int (ref found))))
+         (str owner " needs \"" key "\" as a whole number")))
+
+(defn kind-field (value owner)
+  (let-try (text (text-field value "kind" owner))
+    (ok-or (case-named kind-names (as-str text))
+           (str owner
+                " needs \"kind\" as one of epic, research, design or build"))))
+
+(defn texts-field (value key owner)
+  (match (present-field value key)
+    ((some found) (json->texts (ref found) key owner))
+    (none (err (str owner " needs \"" key "\" as a list of texts")))))
+
+(defn optional-texts-field (value key owner)
+  (match (present-field value key)
+    ((some found) (json->texts (ref found) key owner))
+    (none (ok (vec)))))
+
+(defn json->texts (value key owner)
+  (let (problem (str owner " gives \"" key "\" that is not a list of texts"))
+    (let-try (items (ok-or (json->items value) (clone problem)))
+      (loop (index 0
+             texts (vec))
+        (if (< index (len items))
+          (let-try (text (ok-or (json->text (at items index))
+                                (clone problem)))
+            (recur (inc index) (appended texts text)))
+          (ok texts))))))
+
+(defn present-field (value key)
+  (match (field value key)
+    ((some found) (non-null found))
+    (none none)))
+
+(defn non-null (value)
+  (if (null? (ref value))
+    none
+    (some value)))
+
+(defn decision-field (value owner)
+  (match (present-field value "decision")
+    ((some found) (json->decision (ref found) owner))
+    (none (ok none))))
+
+(defn json->decision (value owner)
+  (let-try (_ (check-object (ref value) (str owner " decision"))
+            id (text-field (ref value) "id" (str owner " decision"))
+            option (int-field (ref value) "option" (str owner " decision")))
+    (ok (some (->follow-up-decision :decision (->decision-id :value id)
+                                    :option option)))))
+
+(defn placeholder (text) (text->json text))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))

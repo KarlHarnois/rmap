@@ -1,0 +1,113 @@
+(use ledger/model ->session decision-status kind status)
+(use ledger/refusal refusal)
+
+(use ledger/core/follow-up-checks check-decision-raised-by
+                                  check-drafts check-source
+                                  check-writer)
+
+(use support/follow-ups draft)
+(use support/items claimed id-of work-item)
+(use support/decisions sample-decision)
+
+(defn refusal-of (outcome)
+  (match outcome
+    ((err refused) (some (clone refused)))
+    ((ok _) none)))
+
+(defn research ()
+  (work-item "rm-s" kind/research status/open))
+
+(defn other-session ()
+  (->session :name (str "other")))
+
+(deftest a-complete-draft-passes
+  (assert (ok? (check-drafts (ref (vec (draft "p1")))
+                             none))))
+
+(deftest an-empty-title-is-named
+  (assert (match (refusal-of (check-drafts (ref (vec (assoc (draft "p1")
+                                                            :title (str " "))))
+                                           none))
+            ((some (refusal/proposal-incomplete problem))
+             (= problem (str "the proposal p1 has an empty title")))
+            (_ false))))
+
+(deftest a-draft-needs-a-criterion
+  (assert (match (refusal-of (check-drafts (ref (vec (assoc (draft "p1")
+                                                            :criteria (vec))))
+                                           none))
+            ((some refusal/criteria-required) true)
+            (_ false))))
+
+(deftest a-priority-past-the-lowest-is-named
+  (assert (match (refusal-of (check-drafts (ref (vec (assoc (draft "p1")
+                                                            :priority 5)))
+                                           none))
+            ((some (refusal/priority-out-of-range 5)) true)
+            (_ false))))
+
+(deftest two-drafts-cannot-share-an-id
+  (assert (match (refusal-of (check-drafts (ref (vec (draft "p1") (draft "p1")))
+                                           none))
+            ((some (refusal/proposal-duplicate id)) (= id (str "p1")))
+            (_ false))))
+
+(deftest an-epic-cannot-sit-under-an-epic
+  (assert (match (refusal-of (check-drafts (ref (vec (assoc (draft "p1")
+                                                            :kind kind/epic)))
+                                           (some (id-of "rm-epic"))))
+            ((some (refusal/proposal-incomplete _)) true)
+            (_ false))))
+
+(deftest only-a-research-or-design-item-records-proposals
+  (let (build (work-item "rm-b" kind/build status/open))
+    (assert (match (refusal-of (check-source (ref build)))
+              ((some (refusal/proposal-source-kind id kind))
+               (and (= (:value id) (str "rm-b"))
+                    (= kind kind/build)))
+              (_ false)))))
+
+(deftest a-closed-item-records-no-proposals
+  (let (accepted (work-item "rm-s" kind/research status/accepted))
+    (assert (match (refusal-of (check-source (ref accepted)))
+              ((some (refusal/item-closed id))
+               (= (:value id) (str "rm-s")))
+              (_ false)))))
+
+(deftest the-live-worker-records-the-proposals
+  (let (item (claimed (research))
+        manager (->session :name (str "manager"))
+        worker (->session :name (str "worker")))
+    (assert (ok? (check-writer (ref item)
+                               (ref manager)
+                               (ref worker))))))
+
+(deftest the-manager-records-the-proposals
+  (let (item (research)
+        manager (->session :name (str "manager")))
+    (assert (ok? (check-writer (ref item)
+                               (ref manager)
+                               (ref manager))))))
+
+(deftest another-session-records-none
+  (let (item (claimed (research))
+        manager (->session :name (str "manager")))
+    (assert (match (refusal-of (check-writer (ref item)
+                                             (ref manager)
+                                             (ref (other-session))))
+              ((some (refusal/proposal-writer writer id))
+               (and (= (:name writer) (str "other"))
+                    (= (:value id) (str "rm-s"))))
+              (_ false)))))
+
+(deftest a-proposal-links-only-to-a-decision-its-item-raised
+  (let (item (research)
+        raised (assoc (sample-decision decision-status/proposed)
+                      :item (some (id-of "rm-s")))
+        elsewhere (assoc (sample-decision decision-status/proposed)
+                         :item (some (id-of "rm-o"))))
+    (assert (ok? (check-decision-raised-by (ref item) (ref raised))))
+    (assert (match (refusal-of (check-decision-raised-by (ref item)
+                                                         (ref elsewhere)))
+              ((some (refusal/proposal-decision-not-raised _ _)) true)
+              (_ false)))))

@@ -4,7 +4,7 @@
 (use ledger/refusal-codes refusal-code)
 (use ledger/refusal-description described)
 (use ledger/pull-request-refusal-codes pull-request-description)
-(use ledger/criterion-refusal-text criterion-refusal-description)
+(use ledger/proposal-refusal-text proposal-refusal-description)
 
 (export general-refusal-catalog general-refusal-description)
 
@@ -128,4 +128,4 @@
     (report-already-read (described "report-already-read"
                                     "The report was already read."))
     ((pull-request code) (pull-request-description code))
-    (_ (criterion-refusal-description code))))
+    (_ (proposal-refusal-description code))))

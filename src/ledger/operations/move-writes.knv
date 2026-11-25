@@ -1,0 +1,44 @@
+(module
+  "Computes the item a move leaves and writes it with its session change.")
+
+(use ledger/model item timestamp)
+(use ledger/move-events ->applied-move applied-move)
+(use ledger/core/move move moved session-change-of)
+(use ledger/core/session-changes session-change)
+(use ledger/sqlite/items update-item)
+(use ledger/sqlite/sessions end-session start-session)
+(use ledger/operations/transaction transaction)
+(use ledger/failure failure)
+
+(export applied write-move write-session-change)
+
+(type applied
+  (fn ((ref item) move timestamp) applied-move))
+
+(defn applied (item move now)
+  (let (change (session-change-of item (ref move) (ref now)))
+    (->applied-move :before (clone item)
+                    :after (moved item
+                                  (ref move)
+                                  (ref change)
+                                  (ref now))
+                    :move move
+                    :session-change change)))
+
+(type write-move
+  (fn ((ref transaction) (ref applied-move))
+    (result unit failure)))
+
+(defn write-move (transaction applied)
+  (let (connection (ref (:connection transaction)))
+    (let-try (_ (update-item connection (ref (:after applied)))
+              _ (write-session-change connection
+                                      (ref (:id (:after applied)))
+                                      (ref (:session-change applied))))
+      (ok (do)))))
+
+(defn write-session-change (connection item change)
+  (match change
+    ((started session) (start-session connection item session))
+    ((ended end) (end-session connection item end))
+    (kept (ok 0))))

@@ -91,6 +91,9 @@ INSERT INTO reports (item_id, session_id, kind, body, created_at) VALUES ('rm-00
   "INSERT INTO roadmaps (id, name, manager_session, created_at) VALUES ('rm-0001', 'road', 'm1', 't');
 INSERT INTO items (id, roadmap_id, title, kind, status, created_at) VALUES ('rm-0002', 'rm-0001', 'old', 'research', 'open', 't');")
 
+(def proposal-row
+  "INSERT INTO item_proposals (source_item_id, proposal_id, position, title, kind, priority, description) VALUES ('rm-0002', 'p1', 0, 'title', 'build', 2, 'desc');")
+
 (defn embedded-files ()
   (let (files (collect (map (iter (migration-sources))
                          (fn (migration)
@@ -609,3 +612,32 @@ INSERT INTO item_criteria (item_id, position, text) VALUES ('rm-0002', 1, 'x');"
                             "INSERT INTO criterion_verdicts (item_id, position, verdict, reviewer_session_id, created_at) VALUES ('rm-0002', 1, 'failed', 1, 't');")))
     (assert (err? (run-batch (ref connection)
                              "INSERT INTO criterion_verdicts (item_id, position, verdict, reviewer_session_id, created_at) VALUES ('rm-0002', 1, 'maybe', 1, 't');")))))
+
+(deftest the-proposals-migration-adds-empty-proposal-tables
+  (let (connection (upgraded-from-version-ten "proposals-table"))
+    (assert (= (row-count (ref connection) "item_proposals") 0))
+    (assert (= (row-count (ref connection) "item_proposal_criteria") 0))
+    (assert (= (row-count (ref connection) "item_proposal_deps") 0))
+    (assert (= (row-count (ref connection) "decision_option_skips") 0))
+    (assert (= (unwrap-ok (schema-version (ref connection)))
+               (newest-version)))))
+
+(deftest a-proposal-needs-a-source-item-and-a-unique-id
+  (let (connection (upgraded-from-version-ten "proposals-source"))
+    (assert (ok? (run-batch (ref connection) proposal-row)))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO item_proposals (source_item_id, proposal_id, position, title, kind, priority, description) VALUES ('rm-ffff', 'p2', 1, 'title', 'build', 2, 'desc');")))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO item_proposals (source_item_id, proposal_id, position, title, kind, priority, description) VALUES ('rm-0002', 'p1', 1, 'title', 'build', 2, 'desc');")))))
+
+(deftest a-proposal-criterion-and-dep-need-a-proposal
+  (let (connection (upgraded-from-version-ten "proposals-children"))
+    (unwrap-ok (run-batch (ref connection) proposal-row))
+    (assert (ok? (run-batch (ref connection)
+                            "INSERT INTO item_proposal_criteria (source_item_id, proposal_id, position, text) VALUES ('rm-0002', 'p1', 0, 'criterion');")))
+    (assert (ok? (run-batch (ref connection)
+                            "INSERT INTO item_proposal_deps (source_item_id, proposal_id, position, on_id) VALUES ('rm-0002', 'p1', 0, 'rm-0002');")))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO item_proposal_criteria (source_item_id, proposal_id, position, text) VALUES ('rm-0002', 'p2', 0, 'criterion');")))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO item_proposal_deps (source_item_id, proposal_id, position, on_id) VALUES ('rm-0002', 'p2', 0, 'rm-0002');")))))

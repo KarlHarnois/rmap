@@ -65,3 +65,8 @@
 (deftest a-recommendation-without-a-whole-number-is-refused
   (assert (= (problem-of "{\"title\": \"t\", \"context\": \"c\", \"options\": [], \"recommendation\": {\"option\": \"1\", \"reason\": \"r\"}}")
              (str "the recommendation needs \"option\" as a whole number"))))
+
+(deftest an-option-carries-the-proposals-it-skips
+  (let (option (unwrap (first (:options (unwrap-ok (proposal-of (as-str (str "{\"title\": \"t\", \"context\": \"c\", \"options\": [{\"title\": \"a\", \"skips\": [\"p1\", \"p2\"]}, {\"title\": \"b\"}], \"recommendation\": {\"option\": 1, \"reason\": \"r\"}}"))))))))
+    (assert (= (:skips option)
+               (vec (str "p1") (str "p2"))))))

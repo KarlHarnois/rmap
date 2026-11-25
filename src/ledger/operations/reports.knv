@@ -17,8 +17,8 @@
 (use ledger/core/snapshot existing)
 (use ledger/report-events item-reported report-read)
 
-(use ledger/operations/moves applied write-move
-                             write-session-change)
+(use ledger/operations/move-writes applied write-move
+                                   write-session-change)
 
 (use ledger/operations/report-bodies resolve-body)
 (use ledger/operations/review-sessions review-end-for-report)

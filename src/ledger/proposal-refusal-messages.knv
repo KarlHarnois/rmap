@@ -1,0 +1,47 @@
+(module
+  "Gives each proposal refusal its sentence for the user.")
+
+(use ledger/model decision-id)
+(use ledger/names case-name kind-names)
+(use ledger/refusal refusal)
+
+(export proposal-refusal->message)
+
+(defn proposal-refusal->message (refused)
+  (match refused
+    ((decisions-pending ids)
+     (str "the item raised decisions awaiting the owner: "
+          (listed-ids ids)))
+    ((proposal-incomplete problem)
+     (str "the proposal is incomplete: " problem))
+    ((proposal-duplicate id)
+     (str "two proposals share the id " id))
+    ((proposal-target-not-found id)
+     (str "no proposal or item has the id " id))
+    ((proposal-cycle id)
+     (str "the proposal " id
+          " waits on a chain of proposals that returns to itself"))
+    ((proposal-source-kind id kind)
+     (str "only a research or design item records proposals, and "
+          (:value id)
+          " is "
+          (case-name kind-names kind)))
+    ((proposal-writer writer item)
+     (str "only the item's live session or the roadmap's manager records its proposals, and "
+          (:name writer)
+          " is neither for "
+          (:value item)))
+    ((proposal-decision-not-raised decision item)
+     (str "the decision "
+          (:value decision)
+          " was not raised by "
+          (:value item)))
+    (_ (str ""))))
+
+(type listed-ids
+  (fn ((ref (vec decision-id))) string))
+
+(defn listed-ids (ids)
+  (join (collect (map (iter ids)
+                   (fn (id) (clone (:value id)))))
+        ", "))

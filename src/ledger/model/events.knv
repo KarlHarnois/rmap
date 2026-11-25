@@ -54,4 +54,5 @@
   criterion-verified
   head-recorded
   review-started
-  session-ended)
+  session-ended
+  proposals-recorded)

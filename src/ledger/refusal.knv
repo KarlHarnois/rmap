@@ -2,7 +2,7 @@
   "Names each way the ledger refuses a call.")
 
 (use ledger/model blockage decision-id decision-status
-                  item-id session status)
+                  item-id kind session status)
 
 (use ledger/model/pull-requests head)
 (use ledger/model/reports report-id)
@@ -44,6 +44,14 @@
   (decision-block-exists decision-id item-id)
   (decision-block-not-found decision-id item-id)
   (supersede-target-not-accepted decision-id)
+  (decisions-pending (vec decision-id))
+  (proposal-incomplete string)
+  (proposal-duplicate string)
+  (proposal-target-not-found string)
+  (proposal-cycle string)
+  (proposal-source-kind item-id kind)
+  (proposal-writer session item-id)
+  (proposal-decision-not-raised decision-id item-id)
   (session-busy session)
   (session-not-live session)
   (session-not-claimant session item-id)

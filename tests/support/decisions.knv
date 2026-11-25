@@ -48,7 +48,8 @@
   (->option-draft :title (str title)
                   :description (str "")
                   :pros (vec)
-                  :cons (vec)))
+                  :cons (vec)
+                  :skips (vec)))
 
 (defn decision-id-of (text)
   (->decision-id :value (str text)))

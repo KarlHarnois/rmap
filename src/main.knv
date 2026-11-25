@@ -9,6 +9,11 @@
                       ledger-call)
 
 (use cli/ledger-settings settings-for)
+(use cli/proposal-document read-proposal-drafts)
+
+(use cli/proposal-document-call proposal-document->ledger-call
+                                proposal-document-call)
+
 (use cli/proposal-files read-proposal)
 (use cli/perform perform)
 (use cli/exit-codes exit-code->number)
@@ -48,7 +53,9 @@
     ((invocation/command-help routes)
      (response/command-help routes))
     ((invocation/on-ledger call) (call-ledger call))
-    ((invocation/on-document call) (call-with-document call))))
+    ((invocation/on-document call) (call-with-document call))
+    ((invocation/on-proposal-document call)
+     (call-with-proposal-document call))))
 
 (type call-with-document (fn (document-call) response))
 
@@ -56,6 +63,15 @@
   (match (read-proposal (ref (:source call)))
     ((ok proposal)
      (call-ledger (document-call->ledger-call call proposal)))
+    ((err message) (response/misused message))))
+
+(type call-with-proposal-document
+  (fn (proposal-document-call) response))
+
+(defn call-with-proposal-document (call)
+  (match (read-proposal-drafts (ref (:source call)))
+    ((ok drafts)
+     (call-ledger (proposal-document->ledger-call call drafts)))
     ((err message) (response/misused message))))
 
 (defn call-ledger (call)

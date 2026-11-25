@@ -1,0 +1,63 @@
+(use ledger/model ->decision-id kind)
+
+(use ledger/model/follow-ups ->follow-up
+                             ->follow-up-decision
+                             ->follow-up-draft follow-up
+                             follow-up-draft)
+
+(export draft follow-up-for linked-follow-up with-after
+        with-decision with-draft-after)
+
+(defn draft (id)
+  (->follow-up-draft :id (str id)
+                     :title (str "Add ")
+                     :kind kind/build
+                     :priority 2
+                     :description (str "a proposal")
+                     :criteria (vec (str "a criterion"))
+                     :after (vec)
+                     :decision none))
+
+(type linked-follow-up
+  (fn (string (ref string) int) follow-up))
+
+(defn linked-follow-up (id decision option)
+  (with-decision (follow-up-for id) decision option))
+
+(type with-after
+  (fn ((ref follow-up) (ref (vec string)))
+    follow-up))
+
+(defn with-after (follow-up ids)
+  (assoc (clone follow-up)
+         :after (collect (map (iter ids) (fn (id) (str id))))))
+
+(type with-draft-after
+  (fn ((ref follow-up-draft)
+       (ref (vec string)))
+    follow-up-draft))
+
+(defn with-draft-after (draft ids)
+  (assoc (clone draft)
+         :after (collect (map (iter ids) (fn (id) (str id))))))
+
+(defn follow-up-for (id)
+  (->follow-up :id (str id)
+               :title (str "Add ")
+               :kind kind/build
+               :priority 2
+               :description (str "a proposal")
+               :criteria (vec (str "a criterion"))
+               :after (vec)
+               :decision none
+               :created-item none))
+
+(type with-decision
+  (fn ((ref follow-up) (ref string) int)
+    follow-up))
+
+(defn with-decision (follow-up id option)
+  (assoc (clone follow-up)
+         :decision (some (->follow-up-decision :decision (->decision-id
+                                                           :value (str id))
+                                               :option option))))

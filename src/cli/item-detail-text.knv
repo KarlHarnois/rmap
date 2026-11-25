@@ -1,11 +1,12 @@
 (module
   "Describes one item in detail: its rows, its description and its children.")
 
-(use ledger/api case-name claim dep dep-type item-detail
-                kind-names origin-names status-names
-                timestamp)
+(use ledger/api case-name claim dep dep-type-names
+                item-detail kind-names origin-names
+                status-names timestamp)
 
 (use cli/criteria-text criteria-text)
+(use cli/follow-up-text proposals-section)
 (use cli/description-text description-text)
 (use cli/item-text item-table optional-id-text)
 (use cli/tables indented table)
@@ -26,6 +27,7 @@
          (description-text (ref (:description item)))
          (criteria-text (ref (:criterion-statuses detail)))
          (children-text (ref (:children detail)))
+         (proposals-section (ref (:proposals detail)))
          (pull-request-section (ref (:pull-request detail))))))
 
 (type detail-rows
@@ -53,10 +55,10 @@
                      (optional-timestamp-text (ref (:closed-at item))))
          (detail-row "after"
                      (listed (dep-targets (ref (:deps detail))
-                                          dep-type/blocks)))
+                                          (str "blocks"))))
          (detail-row "discovered from"
                      (listed (dep-targets (ref (:deps detail))
-                                          dep-type/discovered-from))))))
+                                          (str "discovered_from")))))))
 
 (defn detail-row (label value)
   (vec (str label) value))
@@ -68,12 +70,13 @@
     (claim/unclaimed (str "-"))))
 
 (type dep-targets
-  (fn ((ref (vec dep)) dep-type)
+  (fn ((ref (vec dep)) (ref string))
     (vec string)))
 
 (defn dep-targets (deps wanted)
   (collect (map (filter (iter deps)
-                  (fn (dep) (= (:type dep) wanted)))
+                  (fn (dep)
+                    (= (case-name dep-type-names (:type dep)) wanted)))
                 (fn (dep) (clone (:value (:on dep)))))))
 
 (defn listed (values)
