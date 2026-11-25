@@ -40,4 +40,5 @@
                   (str "priority")
                   (str "parent_id")
                   (str "closed_at")
-                  (str "description")))))
+                  (str "description")
+                  (str "criteria")))))

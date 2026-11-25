@@ -1,0 +1,4 @@
+WHEN I add an item, rmap SHALL keep its criteria.
+
+  WHEN I show it, rmap SHALL print them.  
+

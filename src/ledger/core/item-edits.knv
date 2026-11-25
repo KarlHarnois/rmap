@@ -3,6 +3,7 @@
 
 (use ledger/model item)
 (use ledger/refusal refusal)
+(use ledger/core/criteria check-criteria criteria-input)
 
 (use ledger/core/new-items check-description
                            description-input)
@@ -10,17 +11,23 @@
 (use ledger/core/phases finished?)
 (use ledger/core/priorities check-priority)
 
-(export ->item-edit apply-edit check-description-edit
-        check-edit description-edit item-edit)
+(export ->item-edit apply-edit check-criteria-edit
+        check-description-edit check-edit criteria-edit
+        description-edit item-edit)
 
 (defstruct item-edit
   :title (option string)
   :priority (option int)
-  :description description-input)
+  :description description-input
+  :criteria criteria-input)
 
 (defenum description-edit
   keep
   (set (option string)))
+
+(defenum criteria-edit
+  keep
+  (set (vec string)))
 
 (type check-edit
   (fn ((ref item) (ref item-edit))
@@ -33,18 +40,24 @@
 
 (defn check-description-edit (description)
   (match description
-    (keep (ok (do)))
-    ((set value) (check-description value))))
+    (description-edit/keep (ok (do)))
+    ((description-edit/set value) (check-description value))))
+
+(defn check-criteria-edit (criteria)
+  (match criteria
+    (criteria-edit/keep (ok (do)))
+    ((criteria-edit/set values) (check-criteria values))))
 
 (type apply-edit
-  (fn ((ref item) (ref item-edit) description-edit)
+  (fn ((ref item) (ref item-edit) description-edit criteria-edit)
     item))
 
-(defn apply-edit (item edit description)
+(defn apply-edit (item edit description criteria)
   (let (titled (with-title (clone item)
                            (ref (:title edit)))
-        prioritized (with-priority titled (:priority edit)))
-    (with-description prioritized description)))
+        prioritized (with-priority titled (:priority edit))
+        described (with-description prioritized description))
+    (with-criteria described criteria)))
 
 (type check-finished-edit
   (fn ((ref item) (ref item-edit))
@@ -91,5 +104,14 @@
 
 (defn with-description (item description)
   (match description
-    (keep item)
-    ((set value) (assoc item :description (clone value)))))
+    (description-edit/keep item)
+    ((description-edit/set value)
+     (assoc item :description (clone value)))))
+
+(type with-criteria (fn (item criteria-edit) item))
+
+(defn with-criteria (item criteria)
+  (match criteria
+    (criteria-edit/keep item)
+    ((criteria-edit/set values)
+     (assoc item :criteria (clone values)))))

@@ -23,6 +23,7 @@
           :parent none
           :title (str "work")
           :description none
+          :criteria (vec)
           :kind kind
           :status status
           :origin origin/planned

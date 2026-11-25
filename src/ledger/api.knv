@@ -66,9 +66,9 @@
                      add-item advance-item advancement batch
                      batch-size batch-size-of blockage
                      blocked-item claim-item close-item
-                     decision-next description-input
-                     draw-graph drop-item edit-item
-                     graph-level graph-level-names
+                     criteria-input decision-next
+                     description-input draw-graph drop-item
+                     edit-item graph-level graph-level-names
                      graph-request graph-source item-detail
                      item-edit kind-change list-items
                      log-query new-item next-action
@@ -105,8 +105,8 @@
         approval-of approved? ask-decision batch batch-size
         batch-size-of blockage blocked-item body-source
         case-name case-named claim claim-item claim-request
-        clock close-item database-problem decision
-        decision-id decision-next decision-option
+        clock close-item criteria-input database-problem
+        decision decision-id decision-next decision-option
         decision-query decision-revision decision-status
         decision-status-names default-database-path dep
         dep-type dep-type-names deprecate-decision

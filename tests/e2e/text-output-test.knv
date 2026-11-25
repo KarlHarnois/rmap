@@ -10,7 +10,8 @@
                           (vec "item" "add" "--roadmap"
                                "road" "--title" "e" "--kind"
                                "epic" "--description"
-                               "a spec")))
+                               "a spec" "--criterion"
+                               "a criterion")))
            "item" "id"))
 
 (defn child-id (database epic)
@@ -18,7 +19,8 @@
                           (vec "item" "add" "--roadmap"
                                "road" "--title" "c" "--kind"
                                "research" "--description"
-                               "a spec" "--parent"
+                               "a spec" "--criterion"
+                               "a criterion" "--parent"
                                (as-str epic))))
            "item" "id"))
 

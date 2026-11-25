@@ -2,15 +2,19 @@
   "Edits an item and records the change in one transaction.")
 
 (use ledger/model item item-id)
+(use ledger/core/criteria criteria-input)
 
 (use ledger/core/item-edits ->item-edit apply-edit
+                            check-criteria-edit
                             check-description-edit
-                            check-edit description-edit
-                            item-edit)
+                            check-edit criteria-edit
+                            description-edit item-edit)
 
 (use ledger/core/new-items description-input)
+(use ledger/sqlite/criteria replace-criteria)
 (use ledger/sqlite/items update-item)
 (use ledger/sqlite/snapshot load-snapshot)
+(use ledger/operations/criteria resolve-criteria)
 (use ledger/operations/descriptions resolve-description)
 
 (use ledger/operations/transaction in-transaction record
@@ -27,10 +31,13 @@
     (result item failure)))
 
 (defn edit-item (settings id edit)
-  (let-try (description (resolved-edit-description (clone (:description edit))))
+  (let-try (description (resolved-edit-description (clone (:description edit)))
+            criteria (resolved-edit-criteria (clone (:criteria edit))))
     (in-transaction settings
       (fn (transaction)
-        (apply-edit-in transaction (ref id) edit description)))))
+        (apply-edit-in transaction
+                       (ref id)
+                       edit description criteria)))))
 
 (defn resolved-edit-description (input)
   (match (clone input)
@@ -40,6 +47,13 @@
     (_ (map-ok (resolve-description input)
          (fn (text)
            (description-edit/set (cleared-option text)))))))
+
+(defn resolved-edit-criteria (input)
+  (match (clone input)
+    (criteria-input/unspecified (ok criteria-edit/keep))
+    (_ (map-ok (resolve-criteria input)
+         (fn (criteria)
+           (criteria-edit/set (unwrap-or criteria (vec))))))))
 
 (defn cleared-option (text)
   (match text
@@ -52,17 +66,20 @@
     (some (clone text))))
 
 (type apply-edit-in
-  (fn ((ref transaction) (ref item-id) item-edit description-edit)
+  (fn ((ref transaction)
+       (ref item-id)
+       item-edit description-edit criteria-edit)
     (result item failure)))
 
-(defn apply-edit-in (transaction id edit description)
+(defn apply-edit-in (transaction id edit description criteria)
   (let-try (snapshot (load-snapshot (ref (:connection transaction)))
             item (existing (ref snapshot) id)
             _ (check-edit (ref item) (ref edit))
-            _ (check-description-edit (ref description)))
+            _ (check-description-edit (ref description))
+            _ (check-criteria-edit (ref criteria)))
     (store-edit transaction
                 (ref item)
-                (apply-edit (ref item) (ref edit) description))))
+                (apply-edit (ref item) (ref edit) description criteria))))
 
 (type store-edit
   (fn ((ref transaction) (ref item) item)
@@ -71,6 +88,9 @@
 (defn store-edit (transaction before after)
   (let-try (_ (update-item (ref (:connection transaction))
                            (ref after))
+            _ (replace-criteria (ref (:connection transaction))
+                                (ref (:id after))
+                                (ref (:criteria after)))
             _ (record-edit transaction before (ref after)))
     (ok after)))
 

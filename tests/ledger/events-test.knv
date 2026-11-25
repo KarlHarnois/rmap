@@ -1,9 +1,10 @@
-(use json/value copy-of null?)
+(use json/value copy-of json->items json->text null?)
 
 (use ledger/model ->dep ->roadmap ->roadmap-id ->session
                   ->timestamp dep-type item kind
                   roadmap-status status)
 
+(use ledger/core/criteria criteria-input)
 (use ledger/core/deps dep-change)
 (use ledger/core/new-items ->new-item description-input)
 
@@ -17,6 +18,7 @@
   (->new-item :parent none
               :title (str "work")
               :description description-input/unspecified
+              :criteria (criteria-input/values (vec (str "a criterion")))
               :kind kind/research
               :origin (work-origin)
               :priority 0
@@ -44,12 +46,18 @@
          :on (id-of "rm-0002")
          :type dep-type/blocks))
 
+(defn side-texts (payload column which)
+  (collect (map (iter (unwrap (json->items (ref (side payload column which)))))
+             (fn (value)
+               (unwrap (json->text (copy-of value)))))))
+
 (deftest an-added-item-records-every-column-it-sets
   (let (payload (copy-of (ref (:payload (item-added (ref (described (research status/open)))
                                                     (ref (new-research)))))))
     (assert (= (columns payload)
                (vec (str "blocked_by")
                     (str "closed_at")
+                    (str "criteria")
                     (str "description")
                     (str "discovered_from")
                     (str "kind")
@@ -108,3 +116,25 @@
                     (str "status"))))
     (assert (= (side-text payload "manager_session" "new")
                (some (str "m1"))))))
+
+(deftest an-added-item-records-its-criteria-as-a-new-array
+  (let (item (assoc (described (research status/open))
+                    :criteria (vec (str "first") (str "second")))
+        payload (copy-of (ref (:payload (item-added (ref item)
+                                                    (ref (new-research)))))))
+    (assert (null? (ref (side payload "criteria" "old"))))
+    (assert (= (side-texts payload "criteria" "new")
+               (vec (str "first") (str "second"))))))
+
+(deftest an-edit-records-the-old-and-new-criteria-arrays
+  (let (before (assoc (described (research status/open))
+                      :criteria (vec (str "old")))
+        after (assoc (clone before)
+                     :criteria (vec (str "new")))
+        payload (copy-of (ref (:payload (item-edited (ref after)
+                                                     (ref (edit-changes (ref before)
+                                                                        (ref after))))))))
+    (assert (= (side-texts payload "criteria" "old")
+               (vec (str "old"))))
+    (assert (= (side-texts payload "criteria" "new")
+               (vec (str "new"))))))

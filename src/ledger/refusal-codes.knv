@@ -16,6 +16,8 @@
   item-not-found
   item-closed
   description-required
+  criteria-required
+  blank-criterion
   parent-not-epic
   parent-in-other-roadmap
   epic-has-parent
@@ -58,6 +60,8 @@
     ((refusal/item-not-found _) refusal-code/item-not-found)
     ((refusal/item-closed _) refusal-code/item-closed)
     (refusal/description-required refusal-code/description-required)
+    (refusal/criteria-required refusal-code/criteria-required)
+    (refusal/blank-criterion refusal-code/blank-criterion)
     ((refusal/parent-not-epic _) refusal-code/parent-not-epic)
     ((refusal/parent-in-other-roadmap _)
      refusal-code/parent-in-other-roadmap)

@@ -5,6 +5,7 @@
                   snapshot)
 
 (use ledger/refusal refusal)
+(use ledger/core/criteria criteria-input)
 (use ledger/core/priorities check-priority)
 (use ledger/core/snapshot existing find-item)
 
@@ -15,6 +16,7 @@
   :parent (option item-id)
   :title string
   :description description-input
+  :criteria criteria-input
   :kind kind
   :origin origin
   :priority int

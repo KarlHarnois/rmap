@@ -1,0 +1,29 @@
+(module
+  "Reads the --criterion and --criteria-file flags into a criteria input.")
+
+(use ledger/api criteria-input)
+(use cli/flags optional-text text-values)
+
+(export criteria-of)
+
+(defn criteria-of (arguments)
+  (let (file (optional-text arguments "criteria-file")
+        criteria (text-values arguments "criterion"))
+    (match file
+      ((some path) (criteria-from-file (ref criteria) (str path)))
+      (none (criteria-without-file (ref criteria))))))
+
+(defn criteria-without-file (criteria)
+  (if (empty? criteria)
+    (ok criteria-input/unspecified)
+    (ok (criteria-input/values (clone criteria)))))
+
+(defn criteria-from-file (criteria path)
+  (if (empty? criteria)
+    (ok (criteria-input-of-path path))
+    (err (str "--criterion and --criteria-file cannot both be given"))))
+
+(defn criteria-input-of-path (path)
+  (if (= (as-str path) "-")
+    criteria-input/from-stdin
+    (criteria-input/from-file (str path))))

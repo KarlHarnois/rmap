@@ -17,6 +17,14 @@
   (assert (= (refusal->message refusal/description-required)
              (str "an item needs a description"))))
 
+(deftest a-missing-criteria-message-says-an-item-needs-one
+  (assert (= (refusal->message refusal/criteria-required)
+             (str "an item needs at least one acceptance criterion"))))
+
+(deftest a-blank-criterion-message-says-it-cannot-be-blank
+  (assert (= (refusal->message refusal/blank-criterion)
+             (str "an acceptance criterion cannot be blank"))))
+
 (deftest a-frozen-decision-message-names-its-status
   (assert (= (refusal->message (refusal/decision-frozen
                                  (->decision-id :value (str "rm-0002"))

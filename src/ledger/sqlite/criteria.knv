@@ -1,0 +1,82 @@
+(module
+  "Reads and writes the `item_criteria` table.")
+
+(use ledger/model ->criterion ->item-id criterion item
+                  item-id)
+
+(use ledger/sqlite/values int->sql text->sql)
+
+(use ledger/sqlite/connection connection database-error
+                              execute query)
+
+(use ledger/sqlite/rows rows->values text-cell)
+
+(export all-criteria insert-criteria replace-criteria
+        with-criteria)
+
+(defn all-criteria (connection)
+  (let-try (rows (query connection
+                        "SELECT item_id, text FROM item_criteria ORDER BY item_id, position"
+                        (ref (vec))))
+    (rows->values (ref rows) row->criterion)))
+
+(defn replace-criteria (connection id criteria)
+  (let-try (_ (delete-criteria connection id))
+    (insert-criteria connection id criteria)))
+
+(defn insert-criteria (connection id criteria)
+  (loop (index 0)
+    (if (< index (len criteria))
+      (let-try (_ (insert-criterion connection id
+                                    (inc index)
+                                    (clone (at criteria index))))
+        (recur (inc index)))
+      (ok (do)))))
+
+(type with-criteria
+  (fn ((ref (vec item)) (ref (vec criterion)))
+    (vec item)))
+
+(defn with-criteria (items criteria)
+  (collect (map (iter items)
+             (fn (item)
+               (assoc (clone item)
+                      :criteria (texts-for criteria (ref (:id item))))))))
+
+(defn row->criterion (row)
+  (let-try (item (text-cell row 0)
+            text (text-cell row 1))
+    (ok (->criterion :item (->item-id :value item) :text text))))
+
+(type insert-criterion
+  (fn ((ref connection) (ref item-id) int string)
+    (result unit database-error)))
+
+(defn insert-criterion (connection id position text)
+  (map-ok (execute connection
+                   "INSERT INTO item_criteria (item_id, position, text) VALUES (?1, ?2, ?3)"
+                   (ref (vec (text->sql (as-str (:value id)))
+                             (int->sql position)
+                             (text->sql (as-str text)))))
+          (fn (_) (do))))
+
+(type delete-criteria
+  (fn ((ref connection) (ref item-id))
+    (result unit database-error)))
+
+(defn delete-criteria (connection id)
+  (map-ok (execute connection
+                   "DELETE FROM item_criteria WHERE item_id = ?1"
+                   (ref (vec (text->sql (as-str (:value id))))))
+          (fn (_) (do))))
+
+(type texts-for
+  (fn ((ref (vec criterion)) (ref item-id))
+    (vec string)))
+
+(defn texts-for (criteria id)
+  (collect (map (filter (iter criteria)
+                  (fn (criterion)
+                    (= (ref (:item criterion)) id)))
+                (fn (criterion)
+                  (clone (:text criterion))))))

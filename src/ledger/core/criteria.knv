@@ -1,0 +1,28 @@
+(module
+  "Checks the acceptance criteria an item add or edit asks for.")
+
+(use ledger/refusal refusal)
+
+(export check-criteria criteria-input normalized-criteria)
+
+(defenum criteria-input
+  unspecified
+  (values (vec string))
+  (from-file string)
+  from-stdin)
+
+(defn normalized-criteria (criteria)
+  (collect (map (iter criteria)
+             (fn (criterion)
+               (str (trim (as-str criterion)))))))
+
+(defn check-criteria (criteria)
+  (cond
+    ((empty? criteria) (err refusal/criteria-required))
+    ((any-blank? criteria) (err refusal/blank-criterion))
+    (else (ok (do)))))
+
+(defn any-blank? (criteria)
+  (some? (find (iter criteria)
+           (fn (criterion)
+             (empty? (trim (as-str criterion)))))))

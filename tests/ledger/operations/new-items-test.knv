@@ -1,5 +1,5 @@
-(use ledger/api ->item-id add-item description-input kind
-                show-item)
+(use ledger/api ->item-id add-item criteria-input
+                description-input kind show-item)
 
 (use support/ledger added-id item-draft
                     ledger-with-two-roadmaps
@@ -87,3 +87,33 @@
                                   (str other-roadmap-name)
                                   (item-draft kind/research))))
     (assert (= (:roadmap-name item) (str other-roadmap-name)))))
+
+(deftest an-added-item-keeps-its-criteria-in-order
+  (let (settings (scratch-ledger "added-criteria")
+        draft (assoc (item-draft kind/research)
+                     :criteria (criteria-input/values (vec (str "first")
+                                                           (str "second"))))
+        id (added-id (ref settings) draft))
+    (assert (= (:criteria (:item (unwrap-ok (show-item (ref settings) id))))
+               (vec (str "first") (str "second"))))))
+
+(deftest adding-an-item-without-a-criterion-is-refused
+  (let (settings (scratch-ledger "added-without-criteria")
+        draft (assoc (item-draft kind/research)
+                     :criteria criteria-input/unspecified))
+    (assert (= (refusal-code-of (added (ref settings) draft))
+               (some (str "criteria-required"))))))
+
+(deftest adding-an-item-with-a-blank-criterion-is-refused
+  (let (settings (scratch-ledger "added-blank-criterion")
+        draft (assoc (item-draft kind/research)
+                     :criteria (criteria-input/values (vec (str " ")))))
+    (assert (= (refusal-code-of (added (ref settings) draft))
+               (some (str "blank-criterion"))))))
+
+(deftest adding-an-item-refuses-a-criterion-that-is-only-whitespace
+  (let (settings (scratch-ledger "added-whitespace-criterion")
+        draft (assoc (item-draft kind/research)
+                     :criteria (criteria-input/values (vec (str "\n\t ")))))
+    (assert (= (refusal-code-of (added (ref settings) draft))
+               (some (str "blank-criterion"))))))

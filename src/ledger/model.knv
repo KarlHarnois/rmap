@@ -1,9 +1,10 @@
 (module
   "Holds the ledger's values: roadmaps, items, their sessions, dependencies, decisions and blockages.")
 
-(export ->blockage ->decision-block ->decision-id ->dep
-        ->item ->item-id ->roadmap ->roadmap-id ->session
-        ->snapshot ->timestamp ->work-session blockage claim
+(export ->blockage ->criterion ->decision-block
+        ->decision-id ->dep ->item ->item-id ->roadmap
+        ->roadmap-id ->session ->snapshot ->timestamp
+        ->work-session blockage claim criterion
         decision-block decision-id decision-status dep
         dep-type graph-format history item item-id kind
         origin roadmap roadmap-id roadmap-pause
@@ -43,6 +44,10 @@
   paused
   done)
 
+(defstruct criterion
+  :item item-id
+  :text string)
+
 (defstruct item
   :id item-id
   :roadmap-id roadmap-id
@@ -50,6 +55,7 @@
   :parent (option item-id)
   :title string
   :description (option string)
+  :criteria (vec string)
   :kind kind
   :status status
   :origin origin

@@ -1,5 +1,5 @@
 (use ledger/api ->claim-request ->item-id ->session
-                description-input)
+                criteria-input description-input)
 
 (use cli/arguments ->arguments)
 
@@ -108,3 +108,42 @@
                                                  :branch (some (str "feature"))
                                                  :base (some (str
                                                                "trunk"))))))))
+
+(deftest an-item-without-a-criterion-has-none
+  (assert (= (:criteria (unwrap (draft-for (base-flags))))
+             criteria-input/unspecified)))
+
+(deftest an-item-keeps-each-criterion-it-is-given-in-order
+  (let (flags (base-flags))
+    (push! flags
+           (pair (str "criterion") (str "first")))
+    (push! flags
+           (pair (str "criterion") (str "second")))
+    (assert (= (:criteria (unwrap (draft-for flags)))
+               (criteria-input/values (vec (str "first") (str "second")))))))
+
+(deftest an-item-reads-its-criteria-from-a-file
+  (assert (= (:criteria (unwrap (draft-for (flags-with (vec (pair (str "criteria-file")
+                                                                  (str "criteria.txt")))))))
+             (criteria-input/from-file (str "criteria.txt")))))
+
+(deftest an-item-refuses-a-criterion-and-a-criteria-file
+  (assert (err? (add-item-request (->arguments :words (vec)
+                                               :flags (flags-with (vec
+                                                                    (pair (str "criterion")
+                                                                          (str "first"))
+                                                                    (pair (str "criteria-file")
+                                                                          (str "criteria.txt"))))
+                                               :switches (vec))))))
+
+(deftest an-edit-carries-its-criteria
+  (let (arguments (->arguments :words (vec (str "rm-0001"))
+                               :flags (vec
+                                        (pair (str "criterion") (str "first"))
+                                        (pair (str "criterion") (str "second")))
+                               :switches (vec)))
+    (match (edit-item-request arguments (str "rm-0001"))
+      ((ok (request/edit-item _ edit))
+       (assert (= (:criteria edit)
+                  (criteria-input/values (vec (str "first") (str "second"))))))
+      (_ (assert false)))))

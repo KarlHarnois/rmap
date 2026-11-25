@@ -1,0 +1,45 @@
+(module
+  "Reads and normalizes the acceptance criteria an item add or edit asks for.")
+
+(use ledger/core/criteria criteria-input
+                          normalized-criteria)
+
+(use ledger/failure failure)
+
+(export resolve-criteria)
+
+(defn resolve-criteria (input)
+  (match input
+    (criteria-input/unspecified (ok none))
+    ((criteria-input/values values)
+     (ok (some (normalized-criteria (ref values)))))
+    ((criteria-input/from-file path) (read-criteria-file path))
+    (criteria-input/from-stdin (read-criteria-stdin))))
+
+(type read-criteria-file
+  (fn (string)
+    (result (option (vec string)) failure)))
+
+(defn read-criteria-file (path)
+  (let-try (content (map-err (slurp path)
+                      (fn (cause)
+                        (failure/criteria-unreadable
+                          (str "could not read the criteria file "
+                               path ": " cause)))))
+    (ok (some (content->criteria (ref content))))))
+
+(defn read-criteria-stdin ()
+  (let-try (content (map-err (slurp stdin)
+                      (fn (cause)
+                        (failure/criteria-unreadable (str "could not read the criteria from stdin: "
+                                                          cause)))))
+    (ok (some (content->criteria (ref content))))))
+
+(defn content->criteria (content)
+  (let (criteria (vec))
+    (for-each (lines (as-str content))
+      (fn (line)
+        (let (text (str (trim line)))
+          (when (not (empty? text))
+            (push! criteria text)))))
+    criteria))

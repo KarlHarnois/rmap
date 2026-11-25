@@ -1,6 +1,6 @@
-(use ledger/api ->item-edit close-item description-input
-                edit-item event-type failure-code kind
-                show-item)
+(use ledger/api ->item-edit close-item criteria-input
+                description-input edit-item event-type
+                failure-code kind show-item)
 
 (use support/ledger added-id all-events item-draft
                     refusal-code-of reported-research
@@ -9,13 +9,20 @@
 (defn edit (title priority description)
   (->item-edit :title title
                :priority priority
-               :description description))
+               :description description
+               :criteria criteria-input/unspecified))
 
 (defn shown (settings id)
   (clone (:item (unwrap-ok (show-item (ref settings) id)))))
 
 (defn events (settings)
   (unwrap-ok (all-events (ref settings))))
+
+(defn edit-criteria (criteria)
+  (->item-edit :title none
+               :priority none
+               :description description-input/unspecified
+               :criteria criteria))
 
 (deftest an-edit-changes-title-priority-and-description
   (let (settings (scratch-ledger "edit-fields")
@@ -136,3 +143,41 @@
        (assert (= (failure-code (ref error))
                   (str "description-unreadable"))))
       ((ok _) (assert false)))))
+
+(deftest an-edit-replaces-the-whole-criteria-list
+  (let (settings (scratch-ledger "edit-criteria")
+        id (added-id (ref settings)
+                     (assoc (item-draft kind/research)
+                            :criteria (criteria-input/values (vec (str "first")
+                                                                  (str "second")))))
+        _ (unwrap-ok (edit-item (ref settings)
+                                (clone id)
+                                (edit-criteria (criteria-input/values (vec (str "third")
+                                                                           (str "fourth"))))))
+        item (shown (ref settings) id))
+    (assert (= (:criteria item)
+               (vec (str "third") (str "fourth"))))))
+
+(deftest an-edit-cannot-clear-the-criteria
+  (let (settings (scratch-ledger "edit-empty-criteria")
+        id (added-id (ref settings) (item-draft kind/research))
+        before (events (ref settings))
+        outcome (edit-item (ref settings)
+                           (clone id)
+                           (edit-criteria (criteria-input/from-file (str "/dev/null")))))
+    (assert (= (refusal-code-of outcome)
+               (some (str "criteria-required"))))
+    (assert (= (:criteria (shown (ref settings) id))
+               (vec (str "a criterion"))))
+    (assert (= (len (events (ref settings)))
+               (len before)))))
+
+(deftest a-finished-item-takes-a-criteria-edit
+  (let (settings (scratch-ledger "edit-closed-criteria")
+        id (reported-research (ref settings))
+        _ (unwrap-ok (close-item (ref settings) (clone id)))
+        _ (unwrap-ok (edit-item (ref settings)
+                                (clone id)
+                                (edit-criteria (criteria-input/values (vec (str "new criterion")))))))
+    (assert (= (:criteria (shown (ref settings) id))
+               (vec (str "new criterion"))))))
