@@ -7,7 +7,8 @@
 (use ledger/model/criteria criterion)
 (use ledger/model/rulings ruling)
 
-(export block-records criterion-records ruling-records)
+(export block-records criterion-records option-point-records
+        ruling-records)
 
 (type criterion-records
   (fn ((ref (vec criterion))) (vec json)))
@@ -15,7 +16,7 @@
 (defn criterion-records (criteria)
   (collect (map (iter criteria)
              (fn (criterion)
-               (object (vec (pair (str "item_id")
+               (object (vec (pair (str "item")
                                   (text->json (as-str (:value (:item
                                                                 criterion)))))
                             (pair (str "position")
@@ -35,6 +36,22 @@
                             (text->json (as-str (:value (:decision block)))))
                       (pair (str "item_id")
                             (text->json (as-str (:value (:item block)))))))))))
+
+(defn option-point-records (points)
+  (collect (map (iter points)
+             (fn (point)
+               (object (vec (pair (str "decision_id")
+                                  (text->json (as-str (:value (:point-decision
+                                                                point)))))
+                            (pair (str "number")
+                                  (int->json (:point-number point)))
+                            (pair (str "side")
+                                  (text->json (as-str (:point-side point))))
+                            (pair (str "position")
+                                  (int->json (:point-position point)))
+                            (pair (str "text")
+                                  (text->json (as-str (:point-text
+                                                        point))))))))))
 
 (type ruling-records
   (fn ((ref (vec ruling))) (vec json)))

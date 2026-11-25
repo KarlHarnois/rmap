@@ -1,7 +1,7 @@
 (module
   "Turns decisions into the JSON objects the CLI prints.")
 
-(use json/value array int->json json object text->json)
+(use json/value int->json json object text->json)
 
 (use ledger/api case-name decision decision-option-record
                 decision-status-names ids->json
@@ -66,15 +66,7 @@
                  (field "title"
                         (text->json (as-str (:title option))))
                  (field "description"
-                        (text->json (as-str (:description option))))
-                 (field "pros"
-                        (texts->json (ref (:pros option))))
-                 (field "cons"
-                        (texts->json (ref (:cons option))))))))
-
-(defn texts->json (texts)
-  (array (collect (map (iter texts)
-                    (fn (text) (text->json (as-str text)))))))
+                        (text->json (as-str (:description option))))))))
 
 (type recommendation->json
   (fn ((ref recommendation)) json))

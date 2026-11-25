@@ -4,6 +4,7 @@
 (use ledger/core/ready readiness-of)
 (use ledger/core/snapshot scope)
 (use ledger/model ->snapshot item roadmap timestamp)
+(use ledger/model/pull-requests pull-request)
 (use ledger/model/export ->ledger-export ledger-export)
 
 (use ledger/operations/export-facts export-items
@@ -11,6 +12,7 @@
 
 (use ledger/operations/export-records block-records
                                       criterion-records
+                                      option-point-records
                                       ruling-records)
 
 (use ledger/model/decisions ->decision-option-record
@@ -23,6 +25,7 @@
 (use ledger/failure failure)
 (use ledger/sqlite/connection connection)
 (use ledger/sqlite/decision-blocks all-blocks)
+(use ledger/sqlite/decision-option-points all-option-points)
 (use ledger/sqlite/decisions decisions-matching)
 (use ledger/sqlite/criteria all-criteria)
 (use ledger/sqlite/criterion-verdicts all-criterion-verdicts)
@@ -69,32 +72,35 @@
             pull-requests (all-pull-requests connection)
             reviews (all-reviews connection)
             decisions (decisions-matching connection any-decision)
+            option-points (all-option-points connection)
             blocks (all-blocks connection)
             rulings (all-rulings connection)
             events (events-matching connection every-event))
     (let (ordered-decisions (ordered decisions decision-key)
           ordered-items (ordered items item-key)
+          ordered-pull-requests (ordered pull-requests pull-request-key)
           whole (->snapshot :roadmaps (clone roadmaps)
                             :items (clone items)
                             :deps (clone deps)
                             :decision-blocks (clone blocks))
           readiness (readiness-of (ref whole) (ref scope/every-roadmap)))
-      (ok (->ledger-export :exported-at (clone at)
-                           :export-roadmaps (ordered roadmaps roadmap-key)
-                           :export-items (export-items (ref readiness)
-                                                       (ref ordered-items))
-                           :export-criteria (criterion-records (ref criteria))
-                           :export-criterion-verdicts criterion-verdicts
-                           :export-deps deps
-                           :export-sessions sessions
-                           :export-reports reports
-                           :export-pull-requests (export-pull-requests (ref pull-requests))
-                           :export-reviews reviews
-                           :export-decisions (clone ordered-decisions)
-                           :export-decision-options (option-records (ref ordered-decisions))
-                           :export-decision-blocks (block-records (ref blocks))
-                           :export-rulings (ruling-records (ref rulings))
-                           :export-events events)))))
+      (ok (->ledger-export
+            :exported-at (clone at)
+            :export-roadmaps (ordered roadmaps roadmap-key)
+            :export-items (export-items (ref readiness) (ref ordered-items))
+            :export-criteria (criterion-records (ref criteria))
+            :export-criterion-verdicts criterion-verdicts
+            :export-deps deps
+            :export-sessions sessions
+            :export-reports reports
+            :export-pull-requests (export-pull-requests (ref ordered-pull-requests))
+            :export-reviews reviews
+            :export-decisions (clone ordered-decisions)
+            :export-decision-options (option-records (ref ordered-decisions))
+            :export-decision-option-points (option-point-records (ref option-points))
+            :export-decision-blocks (block-records (ref blocks))
+            :export-rulings (ruling-records (ref rulings))
+            :export-events events)))))
 
 (defn ordered (values key)
   (let (all (collect (map (iter values) clone)))
@@ -106,6 +112,12 @@
 
 (defn roadmap-key (roadmap)
   (clone (:value (:id roadmap))))
+
+(type pull-request-key
+  (fn ((ref pull-request)) string))
+
+(defn pull-request-key (pull-request)
+  (clone (:value (:item pull-request))))
 
 (type item-key (fn ((ref item)) string))
 

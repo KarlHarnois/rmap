@@ -280,8 +280,11 @@
                          (str "reports")
                          (str "pull_requests")
                          (str "reviews")
+                         (str "item_criteria")
+                         (str "criterion_verdicts")
                          (str "decisions")
                          (str "decision_options")
+                         (str "decision_option_points")
                          (str "decision_blocks")
                          (str "rulings")
                          (str "events"))
@@ -331,9 +334,9 @@
     (assert (> (len criteria) 0))
     (assert (every? criteria
               (fn (criterion)
-                (and (some? (field criterion "item_id"))
-                     (some? (field criterion "position"))
-                     (some? (field criterion "text"))))))
+                (and (some? (field (copy-of criterion) "item"))
+                     (some? (field (copy-of criterion) "position"))
+                     (some? (field (copy-of criterion) "text"))))))
     (assert (every? items
               (fn (item)
                 (none? (field item "criteria")))))))
@@ -408,3 +411,21 @@
                 (= (json->text (ref (unwrap (field (copy-of verdict)
                                                    "verdict"))))
                    (some (str "failed"))))))))
+
+(deftest the-export-splits-option-points-out-of-options
+  (let (document (:json (export-reply (export-database
+                                        "e2e-export-option-points")))
+        options (listed (copy-of document) "decision_options")
+        points (listed (copy-of document) "decision_option_points"))
+    (assert (> (len points) 0))
+    (assert (every? options
+              (fn (option)
+                (and (none? (field (copy-of option) "pros"))
+                     (none? (field (copy-of option) "cons"))))))
+    (assert (every? points
+              (fn (point)
+                (and (some? (field (copy-of point) "decision_id"))
+                     (some? (field (copy-of point) "number"))
+                     (some? (field (copy-of point) "side"))
+                     (some? (field (copy-of point) "position"))
+                     (some? (field (copy-of point) "text"))))))))

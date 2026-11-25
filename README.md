@@ -136,7 +136,7 @@ Commands:
   decision unblock <id> <item>
     Removes an item from what a decision blocks, in any decision status.
   export
-    Prints the whole ledger as one JSON document, with or without --json: every roadmap, item, acceptance criterion, dependency, session, report, pull request, review, decision, decision option, decision block, ruling and event.
+    Prints the whole ledger as one JSON document, with or without --json: every roadmap, item, acceptance criterion, criterion verdict, dependency, session, report, pull request, review, decision, decision option, decision option point, decision block, ruling and event.
   report list [--item <id>] [--unread]
     Lists the reports, oldest first. --item keeps those on one item, --unread those not read yet.
   report show <id>

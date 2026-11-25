@@ -51,6 +51,10 @@
       (list-field "decision_options"
                   (ref (:export-decision-options document))
                   option-record->json)
+      (pair (str "decision_option_points")
+            (array (collect (map (iter (:export-decision-option-points
+                                         document))
+                                 copy-of))))
       (pair (str "decision_blocks")
             (array (collect (map (iter (:export-decision-blocks document))
                                  copy-of))))

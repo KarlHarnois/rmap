@@ -29,6 +29,7 @@
   :export-reviews (vec review)
   :export-decisions (vec decision)
   :export-decision-options (vec decision-option-record)
+  :export-decision-option-points (vec json)
   :export-decision-blocks (vec json)
   :export-rulings (vec json)
   :export-events (vec event))

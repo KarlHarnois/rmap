@@ -8,6 +8,6 @@
 (defn export-routes ()
   (vec (->route :subcommand subcommand/export
                 :words (words "export")
-                :summary (str "Prints the whole ledger as one JSON document, with or without --json: every roadmap, item, acceptance criterion, dependency, session, report, pull request, review, decision, decision option, decision block, ruling and event.")
+                :summary (str "Prints the whole ledger as one JSON document, with or without --json: every roadmap, item, acceptance criterion, criterion verdict, dependency, session, report, pull request, review, decision, decision option, decision option point, decision block, ruling and event.")
                 :operands (vec)
                 :flags (vec))))

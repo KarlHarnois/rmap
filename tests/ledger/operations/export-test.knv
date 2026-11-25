@@ -101,6 +101,7 @@
     (assert (= (len (:export-reviews document)) 1))
     (assert (= (len (:export-decisions document)) 1))
     (assert (= (len (:export-decision-options document)) 2))
+    (assert (> (len (:export-decision-option-points document)) 0))
     (assert (= (len (:export-decision-blocks document)) 1))
     (assert (= (len (:export-rulings document)) 1))
     (assert (> (len (:export-events document)) 0))))
@@ -225,7 +226,7 @@
           (and (holds? (ref item-ids)
                        (unwrap (json->text (ref (unwrap (field (copy-of
                                                                  criterion)
-                                                               "item_id"))))))
+                                                               "item"))))))
                (> (unwrap (json->int (ref (unwrap (field (copy-of criterion)
                                                          "position")))))
                   0)
@@ -250,3 +251,20 @@
                 (and (:request-approved record)
                      (not (empty? (:approved-by (:request-approval
                                                   record))))))))))
+
+(deftest the-snapshot-orders-pull-requests-by-item
+  (let (settings (scratch-ledger "export-pr-order")
+        connection (unwrap-ok (open (as-str (:database-path settings)))))
+    (unwrap-ok (run-batch (ref connection)
+                          "INSERT INTO items (id, roadmap_id, title, kind, status, origin, priority, created_at) SELECT 'rm-0001', id, 'a', 'build', 'open', 'planned', 0, '2026-01-01T00:00:00Z' FROM roadmaps LIMIT 1; INSERT INTO items (id, roadmap_id, title, kind, status, origin, priority, created_at) SELECT 'rm-0002', id, 'b', 'build', 'open', 'planned', 0, '2026-01-01T00:00:00Z' FROM roadmaps LIMIT 1; INSERT INTO pull_requests (item_id, number, head_sha, opened_at) VALUES ('rm-0001', 2, '1111111111111111111111111111111111111111', '2026-01-01T00:00:00Z'), ('rm-0002', 1, '1111111111111111111111111111111111111111', '2026-01-01T00:00:00Z');"))
+    (let (records (:export-pull-requests (unwrap-ok (export-ledger (ref settings)))))
+      (assert (= (collect (map (iter records)
+                            (fn (record)
+                              (clone (:value (:item (:exported-pull-request
+                                                      record)))))))
+                 (vec (str "rm-0001") (str "rm-0002"))))
+      (assert (= (collect (map (iter records)
+                            (fn (record)
+                              (clone (:value (:pr-number (:exported-pull-request
+                                                           record)))))))
+                 (vec 2 1))))))

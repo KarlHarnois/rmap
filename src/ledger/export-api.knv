@@ -1,8 +1,6 @@
 (module
   "Holds the export part of the ledger's public surface: the snapshot operation and every record kind it lists.")
 
-(use ledger/decision-columns option->json)
-
 (use ledger/model/decisions ->decision-option-record
                             decision-option-record)
 
@@ -16,4 +14,4 @@
 (export ->decision-option-record ->ledger-export ->ruling
         ->session-record decision-option-record export-item
         export-ledger export-pull-request ledger-export
-        option->json ruling session-record)
+        ruling session-record)
