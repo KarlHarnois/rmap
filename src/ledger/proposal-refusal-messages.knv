@@ -36,7 +36,17 @@
           (:value decision)
           " was not raised by "
           (:value item)))
+    ((unknown-skip decision option skips)
+     (str "the decision "
+          (:value decision)
+          " option " option
+          " skips proposals this item does not have: "
+          (listed-texts (ref skips))))
     (_ (str ""))))
+
+(defn listed-texts (texts)
+  (join (collect (map (iter texts) as-str))
+        ", "))
 
 (type listed-ids
   (fn ((ref (vec decision-id))) string))

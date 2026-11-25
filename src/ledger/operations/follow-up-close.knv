@@ -7,6 +7,8 @@
 (use ledger/core/follow-up-applications applicable
                                         pending-decisions)
 
+(use ledger/core/follow-up-skips check-skips)
+
 (use ledger/core/follow-up-creation ->close-application
                                     ->created-follow-up
                                     application-deps
@@ -43,7 +45,8 @@
   (let (connection (ref (:connection transaction)))
     (let-try (follow-ups (follow-ups-of connection (ref (:id item)))
               decisions (decisions-raised-by connection (ref (:id item)))
-              _ (refuse-pending (ref decisions)))
+              _ (refuse-pending (ref decisions))
+              _ (check-skips (ref follow-ups) (ref decisions)))
       (plan-application transaction item
                         (ref follow-ups)
                         (ref decisions)))))

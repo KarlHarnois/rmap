@@ -16,7 +16,8 @@
                            refusal-code/proposal-cycle
                            refusal-code/proposal-source-kind
                            refusal-code/proposal-writer
-                           refusal-code/proposal-decision-not-raised))
+                           refusal-code/proposal-decision-not-raised
+                           refusal-code/unknown-skip))
                 proposal-refusal-description)))
 
 (defn proposal-refusal-description (code)
@@ -39,4 +40,6 @@
                                 "Only the source item's live session or the roadmap's manager records its proposals."))
     (proposal-decision-not-raised (described "proposal-decision-not-raised"
                                              "A proposal links to a decision the source item did not raise."))
+    (unknown-skip (described "unknown-skip"
+                             "A chosen option of an accepted decision skips a proposal id the closing item does not have. The error names the decision, the option and the unknown ids."))
     (_ (criterion-refusal-description code))))

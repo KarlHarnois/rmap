@@ -244,3 +244,29 @@
         refused (add-proposals database build "worker"
                                (str "{\"proposals\": [{\"id\": \"p1\", \"title\": \"A\", \"kind\": \"build\", \"priority\": 2, \"description\": \"d\", \"criteria\": [\"c\"]}]}")))
     (assert (= (error-code refused) "proposal-source-kind"))))
+
+(deftest a-chosen-skip-that-names-no-proposal-blocks-the-close
+  (let (database (database-with-roadmap "proposals-unknown-skip")
+        research (reported-research database)
+        decision (propose-decision database research
+                                   (str "{\"title\": \"Which store?\", \"context\": \"Sessions must survive.\", \"options\": [{\"title\": \"A\", \"skips\": []}, {\"title\": \"B\", \"skips\": [\"ghost\"]}], \"recommendation\": {\"option\": 2, \"reason\": \"it runs\"}}"))
+        _ (assert (= (:exit-code (accept-decision database decision 2)) 0))
+        added (add-proposals database research "worker"
+                             (str "{\"proposals\": [{\"id\": \"p1\", \"title\": \"A\", \"kind\": \"build\", \"priority\": 2, \"description\": \"d\", \"criteria\": [\"c\"]}]}"))
+        refused (run-rmap (clone database)
+                          (vec (str "item")
+                               (str "close")
+                               (str (as-str research)))))
+    (assert (= (:exit-code added) 0))
+    (assert (= (error-code refused) "unknown-skip"))
+    (assert (= (:exit-code (add-proposals database research
+                                          "worker"
+                                          (str "{\"proposals\": [{\"id\": \"p1\", \"title\": \"A\", \"kind\": \"build\", \"priority\": 2, \"description\": \"d\", \"criteria\": [\"c\"]}, {\"id\": \"ghost\", \"title\": \"Ghost\", \"kind\": \"build\", \"priority\": 2, \"description\": \"d\", \"criteria\": [\"c\"]}]}")))
+               0))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec (str "item")
+                                          (str "close")
+                                          (str (as-str research)))))
+               0))
+    (assert (some? (item-titled database (str "A"))))
+    (assert (none? (item-titled database (str "Ghost"))))))

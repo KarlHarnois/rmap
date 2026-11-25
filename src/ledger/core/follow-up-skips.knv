@@ -1,0 +1,115 @@
+(module
+  "Refuses to apply proposals when a chosen decision option skips a proposal the item does not have.")
+
+(use ledger/model decision-id decision-status)
+(use ledger/model/decisions decision decision-option)
+(use ledger/model/follow-ups follow-up)
+(use ledger/refusal refusal)
+
+(export check-skips)
+
+(defstruct unknown-skip
+  :decision decision-id
+  :option int
+  :skips (vec string))
+
+(defn check-skips (follow-ups decisions)
+  (match (first-unknown follow-ups decisions)
+    ((some finding)
+     (err (refusal/unknown-skip (clone (:decision finding))
+                                (:option finding)
+                                (clone (:skips finding)))))
+    (none (ok (do)))))
+
+(defn first-unknown (follow-ups decisions)
+  (let (proposal-ids (ids-of (ref follow-ups)))
+    (loop (index 0)
+      (cond
+        ((>= index (len decisions)) none)
+        ((unknown-in-decision? (at decisions index)
+                               (ref proposal-ids))
+         (some (finding-for (at decisions index) (ref proposal-ids))))
+        (else (recur (inc index)))))))
+
+(type ids-of
+  (fn ((ref (vec follow-up)))
+    (vec string)))
+
+(defn ids-of (follow-ups)
+  (collect (map (iter follow-ups)
+             (fn (follow-up) (clone (:id follow-up))))))
+
+(type unknown-in-decision?
+  (fn ((ref decision) (ref (vec string)))
+    bool))
+
+(defn unknown-in-decision? (decision proposal-ids)
+  (if (= (:status decision) decision-status/accepted)
+    (unknown-at? decision (chosen-number decision) proposal-ids)
+    false))
+
+(defn unknown-at? (decision number proposal-ids)
+  (match number
+    ((some chosen)
+     (unknown-in-option? decision chosen proposal-ids))
+    (none false)))
+
+(defn unknown-in-option? (decision number proposal-ids)
+  (match (find-option decision number)
+    ((some option)
+     (not (empty? (unknown-ids (ref (:skips option)) proposal-ids))))
+    (none false)))
+
+(defn finding-for (decision proposal-ids)
+  (let (number (chosen-number decision))
+    (finding-at decision number proposal-ids)))
+
+(defn finding-at (decision number proposal-ids)
+  (match number
+    ((some chosen)
+     (option-finding decision chosen proposal-ids))
+    (none (empty-finding decision proposal-ids))))
+
+(defn option-finding (decision number proposal-ids)
+  (match (find-option decision number)
+    ((some option)
+     (->unknown-skip :decision (clone (:id decision))
+                     :option number
+                     :skips (unknown-ids (ref (:skips option)) proposal-ids)))
+    (none (empty-finding decision proposal-ids))))
+
+(type empty-finding
+  (fn ((ref decision) (ref (vec string)))
+    unknown-skip))
+
+(defn empty-finding (decision _proposal-ids)
+  (->unknown-skip :decision (clone (:id decision))
+                  :option 0
+                  :skips (vec)))
+
+(type find-option
+  (fn ((ref decision) int)
+    (option (ref decision-option))))
+
+(defn find-option (decision number)
+  (find (iter (:options decision))
+    (fn (option)
+      (= (:number option) number))))
+
+(type unknown-ids
+  (fn ((ref (vec string)) (ref (vec string)))
+    (vec string)))
+
+(defn unknown-ids (skips proposal-ids)
+  (collect (map (filter (iter skips)
+                  (fn (id)
+                    (not (contains? proposal-ids (clone id)))))
+                clone)))
+
+(type chosen-number
+  (fn ((ref decision)) (option int)))
+
+(defn chosen-number (decision)
+  (match (:outcome decision)
+    ((some outcome) (:option outcome))
+    (none none)))

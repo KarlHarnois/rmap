@@ -48,6 +48,7 @@
   proposal-source-kind
   proposal-writer
   proposal-decision-not-raised
+  unknown-skip
   session-busy
   session-not-live
   session-not-claimant
@@ -124,6 +125,7 @@
     ((refusal/proposal-writer _ _) refusal-code/proposal-writer)
     ((refusal/proposal-decision-not-raised _ _)
      refusal-code/proposal-decision-not-raised)
+    ((refusal/unknown-skip _ _ _) refusal-code/unknown-skip)
     ((refusal/session-busy _) refusal-code/session-busy)
     ((refusal/session-not-live _) refusal-code/session-not-live)
     ((refusal/session-not-claimant _ _)

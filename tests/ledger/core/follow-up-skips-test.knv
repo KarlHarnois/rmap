@@ -1,0 +1,54 @@
+(use ledger/model ->decision-id ->timestamp decision-status)
+(use ledger/model/decisions ->outcome decision)
+(use ledger/refusal refusal)
+(use ledger/core/follow-up-skips check-skips)
+(use support/decisions sample-decision)
+(use support/follow-ups follow-up-for)
+
+(defn accepted (option skips)
+  (with-skips (assoc (sample-decision decision-status/accepted)
+                     :id (->decision-id :value (str "rm-d1"))
+                     :outcome (some (outcome-of option)))
+              skips))
+
+(type with-skips
+  (fn ((ref decision) (ref (vec string)))
+    decision))
+
+(defn with-skips (decision ids)
+  (let (options (:options decision)
+        first-option (assoc (clone (unwrap (get options 0)))
+                            :skips (vec))
+        second-option (assoc (clone (unwrap (get options 1)))
+                             :skips (collect (map (iter ids)
+                                               (fn (id) (str id))))))
+    (assoc (clone decision)
+           :options (vec first-option second-option))))
+
+(defn outcome-of (option)
+  (->outcome :option (some option)
+             :justification (str "because")
+             :consequences none
+             :decided-by (str "owner")
+             :decided-at (->timestamp :value (str "2026-01-02T00:00:00Z"))))
+
+(defn proposals ()
+  (vec (follow-up-for "p1")))
+
+(deftest a-chosen-option-that-skips-an-unknown-proposal-is-refused
+  (assert (match (check-skips (ref (proposals))
+                              (ref (vec (accepted 2 (vec (str "ghost"))))))
+            ((err (refusal/unknown-skip decision option skips))
+             (and (= (:value decision) (str "rm-d1"))
+                  (= option 2)
+                  (= skips (vec (str "ghost")))))
+            (_ false))))
+
+(deftest a-skip-that-names-a-proposal-is-accepted
+  (let (follow-ups (vec (follow-up-for "p1") (follow-up-for "ghost")))
+    (assert (ok? (check-skips (ref follow-ups)
+                              (ref (vec (accepted 2 (vec (str "ghost"))))))))))
+
+(deftest a-skip-on-an-option-the-owner-did-not-choose-is-ignored
+  (assert (ok? (check-skips (ref (proposals))
+                            (ref (vec (accepted 1 (vec (str "ghost")))))))))

@@ -52,6 +52,7 @@
   (proposal-source-kind item-id kind)
   (proposal-writer session item-id)
   (proposal-decision-not-raised decision-id item-id)
+  (unknown-skip decision-id int (vec string))
   (session-busy session)
   (session-not-live session)
   (session-not-claimant session item-id)
