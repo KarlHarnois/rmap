@@ -1,9 +1,10 @@
 (module
   "Describes a build's pull request in plain text: a sentence about a review or a head recorded, and the pull request with its reviews and approval.")
 
-(use ledger/api approval-of approved? case-name pull-request
-                recorded-head review review-kind-names
-                session status-names verdict-names)
+(use ledger/api approval-of approved? case-name item
+                pull-request recorded-head review
+                review-kind-names session status-names
+                verdict-names work-session)
 
 (use cli/pr-replies pr-reply)
 (use cli/tables headed indented table)
@@ -12,6 +13,8 @@
 
 (defn pr-reply->text (reply)
   (match reply
+    ((started item session)
+     (started-text (ref item) (ref session)))
     ((reviewed recorded) (reviewed-text (ref recorded)))
     ((head-recorded recorded)
      (head-recorded-text (ref recorded)))
@@ -33,6 +36,17 @@
        "\n"
        (approval-text (ref (approval-of pull-request)))
        (reviews-text (ref (:reviews pull-request)))))
+
+(type started-text
+  (fn ((ref item) (ref work-session))
+    string))
+
+(defn started-text (item session)
+  (str "Started review session "
+       (:name (:session session))
+       " on "
+       (:value (:id item))
+       "."))
 
 (defn reviewed-text (recorded)
   (let (review (ref (:review recorded)))

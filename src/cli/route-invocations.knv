@@ -2,8 +2,12 @@
   "Maps a route and its arguments to the invocation the CLI runs.")
 
 (use cli/invocation invocation)
+
+(use cli/route-ledger decision-ledger-invocation on-document
+                      on-ledger)
+
 (use cli/routes subcommand)
-(use cli/arguments arguments operand)
+(use cli/arguments operand)
 (use cli/flags optional-text)
 
 (use cli/requests add-item-request advance-request
@@ -21,13 +25,13 @@
                            decision-reject-request
                            decision-show-request
                            decision-unblock-request
-                           document-source-of
-                           pending-decision proposal-pending
+                           proposal-pending
                            revision-pending)
 
-(use cli/ledger-calls document-call-of ledger-call-of)
 (use cli/report-requests report-operation-of)
-(use cli/pr-requests pr-operation-of)
+
+(use cli/pr-requests pr-operation-of
+                     start-review-operation-of)
 
 (export invocation-of)
 
@@ -125,26 +129,11 @@
      (on-ledger arguments
                 (map-ok (report-operation-of arguments route command)
                   (fn (operation) (request/report operation)))))
+    (subcommand/review-start
+      (on-ledger arguments
+                 (map-ok (start-review-operation-of arguments route)
+                   (fn (operation) (request/pull-request operation)))))
     ((subcommand/pull-request command)
      (on-ledger arguments
                 (map-ok (pr-operation-of arguments route command)
                   (fn (operation) (request/pull-request operation)))))))
-
-(defn decision-ledger-invocation (arguments requested)
-  (on-ledger arguments
-             (map-ok requested
-               (fn (request) (request/decision request)))))
-
-(defn on-ledger (arguments requested)
-  (map-ok requested
-    (fn (request)
-      (invocation/on-ledger (ledger-call-of arguments request)))))
-
-(type on-document
-  (fn ((ref arguments) (result pending-decision string))
-    (result invocation string)))
-
-(defn on-document (arguments pending)
-  (let-try (source (document-source-of arguments)
-            pending pending)
-    (ok (invocation/on-document (document-call-of arguments source pending)))))

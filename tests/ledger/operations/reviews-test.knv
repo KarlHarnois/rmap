@@ -1,9 +1,10 @@
 (use json/value copy-of)
 
-(use ledger/api ->item-id claim-item record-review settings
-                show-item status)
+(use ledger/api ->item-id ->review-start-request ->session
+                claim-item clock record-head record-review
+                settings show-item status)
 
-(use ledger/model kind)
+(use ledger/model ->timestamp claim kind)
 (use ledger/model/pull-requests verdict)
 (use ledger/sqlite/connection open query)
 
@@ -17,13 +18,18 @@
                     scratch-ledger)
 
 (use support/pull-requests first-head in-review-build
-                           review-as reviewed second-head)
+                           review-as review-start-as
+                           second-head start-review-result)
 
 (defn build-in-review (settings)
   (in-review-build settings
                    (ref (claimed settings
                                  (added-id settings (item-draft kind/build))))
                    12))
+
+(defn with-clock (settings at)
+  (assoc (clone settings)
+         :clock (clock/fixed (->timestamp :value at))))
 
 (type review-sessions
   (fn ((ref settings))
@@ -32,16 +38,19 @@
 (defn review-sessions (settings)
   (let (connection (unwrap-ok (open (as-str (:database-path settings))))
         rows (unwrap-ok (query (ref connection)
-                               "SELECT name, kind, ended_at, end_reason FROM sessions WHERE kind = 'review' ORDER BY id"
+                               "SELECT name, kind, started_at, ended_at, end_reason FROM sessions WHERE kind = 'review' ORDER BY id"
                                (ref (vec)))))
     (unwrap-ok (rows->values (ref rows)
                  (fn (row)
                    (let-try (name (text-cell row 0)
                              kind (text-cell row 1)
-                             ended-at (optional-text-cell row 2)
-                             end-reason (optional-text-cell row 3))
-                     (ok
-                       (vec (some name) (some kind) ended-at end-reason))))))))
+                             started-at (text-cell row 2)
+                             ended-at (optional-text-cell row 3)
+                             end-reason (optional-text-cell row 4))
+                     (ok (vec (some name)
+                              (some kind)
+                              (some started-at)
+                              ended-at end-reason))))))))
 
 (defn last-payload (settings)
   (let (events (unwrap-ok (all-events settings)))
@@ -50,6 +59,7 @@
 (deftest a-review-is-recorded-without-moving-the-build
   (let (settings (scratch-ledger "review-recorded")
         id (build-in-review (ref settings))
+        _started (review-start-as (ref settings) (ref id) "r1")
         recorded (unwrap-ok
                    (record-review
                      (ref settings)
@@ -62,35 +72,110 @@
                                                      (clone id)))))
                status/in-review))))
 
-(deftest a-review-records-a-finished-review-session
+(deftest a-review-ends-the-review-session-started-earlier
   (let (settings (scratch-ledger "review-session")
-        id (build-in-review (ref settings)))
-    (reviewed (ref settings)
-              (ref id)
-              "r1" verdict/changes first-head)
+        id (build-in-review (ref settings))
+        start-settings (with-clock settings (str "2026-03-03T00:01:00Z"))
+        end-settings (with-clock settings (str "2026-03-03T00:02:00Z")))
+    (review-start-as (ref start-settings) (ref id) "r1")
+    (unwrap-ok (record-review
+                 (ref end-settings)
+                 (review-as (ref id) "r1" verdict/changes first-head)))
     (assert (= (review-sessions (ref settings))
                (vec (vec (some (str "r1"))
                          (some (str "review"))
-                         (some (str "2026-03-03T00:00:00Z"))
+                         (some (str "2026-03-03T00:01:00Z"))
+                         (some (str "2026-03-03T00:02:00Z"))
                          (some (str "finished"))))))))
 
 (deftest a-review-records-an-item-reviewed-event
   (let (settings (scratch-ledger "review-event")
         id (build-in-review (ref settings)))
-    (reviewed (ref settings)
-              (ref id)
-              "r1" verdict/changes first-head)
+    (review-start-as (ref settings) (ref id) "r1")
+    (unwrap-ok (record-review
+                 (ref settings)
+                 (review-as (ref id) "r1" verdict/changes first-head)))
     (let (payload (last-payload (ref settings)))
       (assert (= (side-text (copy-of (ref payload)) "verdict" "new")
                  (some (str "changes"))))
-      (assert (= (side-text (copy-of (ref payload)) "session_kind" "new")
-                 (some (str "review"))))
+      (assert (= (side-text (copy-of (ref payload)) "end_reason" "new")
+                 (some (str "finished"))))
       (assert (= (side-text payload "head_sha" "new")
                  (some (str first-head)))))))
+
+(deftest a-review-start-records-a-review-started-event
+  (let (settings (scratch-ledger "review-start-event")
+        id (build-in-review (ref settings)))
+    (review-start-as (ref settings) (ref id) "r1")
+    (let (payload (last-payload (ref settings)))
+      (assert (= (side-text (copy-of (ref payload)) "session_kind" "new")
+                 (some (str "review"))))
+      (assert (= (side-text payload "session" "new")
+                 (some (str "r1")))))))
+
+(deftest a-review-start-outside-in-review-is-refused
+  (let (settings (scratch-ledger "review-start-open")
+        id (claimed (ref settings)
+                    (added-id (ref settings) (item-draft kind/build))))
+    (assert (= (refusal-code-of
+                 (start-review-result (ref settings) (ref id) "r1"))
+               (some (str "review-not-in-review"))))))
+
+(deftest a-second-live-review-session-is-refused
+  (let (settings (scratch-ledger "review-second-live")
+        id (build-in-review (ref settings)))
+    (review-start-as (ref settings) (ref id) "r1")
+    (assert (= (refusal-code-of
+                 (start-review-result (ref settings) (ref id) "r2"))
+               (some (str "review-already-live"))))))
+
+(deftest a-live-review-session-and-a-live-work-session-coexist
+  (let (settings (scratch-ledger "review-with-work")
+        id (build-in-review (ref settings)))
+    (review-start-as (ref settings) (ref id) "r1")
+    (let (detail (unwrap-ok (show-item (ref settings) (clone id)))
+          claim (:claim (:item detail)))
+      (assert (= (match claim
+                   ((claimed-by session) (clone (:name (:session session))))
+                   (unclaimed (str "")))
+                 (str "worker-" (:value id)))))))
+
+(deftest a-review-start-under-a-live-session-name-is-refused
+  (let (settings (scratch-ledger "review-start-busy")
+        id (build-in-review (ref settings)))
+    (assert (= (refusal-code-of (start-review-result (ref settings)
+                                                     (ref id)
+                                                     (str "worker-"
+                                                          (:value id))))
+               (some (str "session-busy"))))))
+
+(deftest a-review-without-a-live-review-session-is-refused
+  (let (settings (scratch-ledger "review-needs-session")
+        id (build-in-review (ref settings)))
+    (assert (= (refusal-code-of
+                 (record-review
+                   (ref settings)
+                   (review-as (ref id) "r1" verdict/approve first-head)))
+               (some (str "review-session-required"))))))
+
+(deftest a-recorded-head-ends-a-live-review-session-as-superseded
+  (let (settings (scratch-ledger "review-head-supersedes")
+        id (build-in-review (ref settings)))
+    (review-start-as (ref settings) (ref id) "r1")
+    (unwrap-ok (record-head (ref settings)
+                            (clone id)
+                            (str second-head)))
+    (assert (= (review-sessions (ref settings))
+               (vec (vec (some (str "r1"))
+                         (some (str "review"))
+                         (some (str "2026-03-03T00:00:00Z"))
+                         (some (str "2026-03-03T00:00:00Z"))
+                         (some (str "superseded"))))))))
 
 (deftest a-review-at-another-head-than-the-ledger-head-is-refused
   (let (settings (scratch-ledger "review-other-head")
         id (build-in-review (ref settings)))
+    (review-start-as (ref settings) (ref id) "r1")
     (assert (= (refusal-code-of
                  (record-review
                    (ref settings)
@@ -106,6 +191,14 @@
                    (ref settings)
                    (review-as (ref id) "r1" verdict/approve first-head)))
                (some (str "pr-not-found"))))))
+
+(deftest a-review-start-of-a-missing-item-is-refused
+  (let (settings (scratch-ledger "review-start-missing"))
+    (assert (= (refusal-code-of (start-review-result (ref settings)
+                                                     (ref (->item-id :value (str
+                                                                              "rm-ffff")))
+                                                     "r1"))
+               (some (str "item-not-found"))))))
 
 (deftest a-review-of-a-missing-item-is-refused
   (let (settings (scratch-ledger "review-missing"))
@@ -126,6 +219,7 @@
     (advanced (ref settings) (clone id) status/open)
     (claimed (ref settings) (clone id))
     (in-review-build (ref settings) (ref id) 12)
+    (review-start-as (ref settings) (ref id) "old-worker")
     (assert (= (refusal-code-of (record-review (ref settings)
                                                (review-as (ref id)
                                                           "old-worker"
@@ -140,6 +234,10 @@
     (unwrap-ok (claim-item (ref settings)
                            (clone other)
                            (claim-by "other-item-worker")))
+    (advanced (ref settings) (clone other) status/open)
+    (review-start-as (ref settings)
+                     (ref id)
+                     "other-item-worker")
     (assert (ok? (record-review (ref settings)
                                 (review-as (ref id)
                                            "other-item-worker"

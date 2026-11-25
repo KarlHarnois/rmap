@@ -12,7 +12,8 @@
 
 (use ledger/delivery-api ->report-id ->report-query
                          ->report-request ->review-request
-                         approval approval-of approved?
+                         ->review-start-request approval
+                         approval-of approved?
                          body-source list-reports
                          pull-request read-report
                          record-head record-report
@@ -22,8 +23,10 @@
                          report-kind-names report-query
                          report-reading report-request
                          review review-kind-names
-                         review-request show-pull-request
-                         show-report verdict-names)
+                         review-request review-start-request
+                         show-pull-request show-report
+                         start-review
+                         verdict-names)
 
 (use ledger/decision-api ->acceptance ->decision-id
                          ->decision-query
@@ -105,7 +108,8 @@
         ->log-query ->new-decision ->new-item ->option-draft
         ->proposal ->recommendation ->report-id
         ->report-query ->report-request ->review-request
-        ->session ->settings accept-decision acceptance
+        ->review-start-request ->session ->settings
+        accept-decision acceptance
         action action-names actor actor-names
         add-decision-block add-dep add-item advance-item
         advancement approval approval-of approved?
@@ -141,10 +145,12 @@
         remove-decision-block remove-dep report report-id
         report-kind report-kind-names report-query
         report-reading report-request resume-roadmap review
-        review-kind-names review-request revise-decision
+        review-kind-names review-request
+        review-start-request revise-decision
         roadmap roadmap-id roadmap-pause roadmap-status
         roadmap-status-names runtime-names session
         session-kind-names settings show-decision show-item
-        show-pull-request show-report status status-names
+        show-pull-request show-report start-review status
+        status-names
         supersedes-change timestamp verdict-names
         work-session)

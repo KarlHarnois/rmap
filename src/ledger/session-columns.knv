@@ -2,31 +2,34 @@
   "Records how a move changes an item's session as columns of an event's `changes` object.")
 
 (use json/value json text->json)
-(use ledger/model claim item work-session)
+(use ledger/model claim work-session)
 (use ledger/model/sessions session-end)
 
 (use ledger/names case-name end-reason-names runtime-names
                   session-kind-names)
 
 (use ledger/core/session-changes session-change)
-(use ledger/changes column-change inserted updated)
+
+(use ledger/changes column-change copy-change inserted
+                    updated)
 
 (use ledger/json-values optional-text->json
                         optional-timestamp->json)
 
-(export session-changes)
+(export ended-session-columns session-changes
+        started-session-columns)
 
 (defn session-changes (before change)
   (match change
-    ((started session) (started-columns session))
+    ((started session) (started-session-columns session))
     ((ended end) (ended-columns before end))
     (kept (vec))))
 
-(type started-columns
+(type started-session-columns
   (fn ((ref work-session))
     (vec column-change)))
 
-(defn started-columns (session)
+(defn started-session-columns (session)
   (vec (inserted "session"
                  (text->json (as-str (:name (:session session)))))
        (inserted "session_kind"
@@ -41,18 +44,24 @@
                  (optional-timestamp->json (ref (some (clone (:started-at
                                                                session))))))))
 
-(type ended-columns
-  (fn ((ref item) (ref session-end))
+(type ended-session-columns
+  (fn ((ref session-end))
     (vec column-change)))
 
-(defn ended-columns (before end)
-  (vec (updated "session"
-                (claimant->json (ref (:claim before)))
-                json/null)
-       (inserted "ended_at"
+(defn ended-session-columns (end)
+  (vec (inserted "ended_at"
                  (text->json (as-str (:value (:at end)))))
        (inserted "end_reason"
                  (text->json (case-name end-reason-names (:reason end))))))
+
+(defn ended-columns (before end)
+  (let (changes (vec (updated "session"
+                              (claimant->json (ref (:claim before)))
+                              json/null)))
+    (for-each (ended-session-columns end)
+      (fn (change)
+        (push! changes (copy-change change))))
+    changes))
 
 (defn claimant->json (claim)
   (match claim

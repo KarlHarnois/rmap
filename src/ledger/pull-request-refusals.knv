@@ -1,8 +1,9 @@
 (module
   "Names each refusal about a build's pull request and its reviews, and gives it a sentence for the user.")
 
-(use ledger/model item-id session)
+(use ledger/model item-id session status)
 (use ledger/model/pull-requests approval head pr-number)
+(use ledger/names case-name status-names)
 
 (export pull-request-refusal pull-request-refusal->message)
 
@@ -17,6 +18,9 @@
   (head-unchanged head)
   (reviewer-is-worker session)
   (reviewer-not-fresh session head head)
+  (review-not-in-review item-id status)
+  (review-already-live session)
+  (review-session-required session)
   (not-approved approval))
 
 (defn pull-request-refusal->message (refused)
@@ -43,7 +47,19 @@
     ((reviewer-is-worker reviewer)
      (str "the reviewer "
           (:name reviewer)
-          " is the item's own worker session"))
+          " is a work or fix session of the item, live or ended"))
+    ((review-not-in-review id current)
+     (str "a review can start only while "
+          (:value id)
+          " is in_review, and it is "
+          (case-name status-names current)))
+    ((review-already-live reviewer)
+     (str "the item already has a live review session, "
+          (:name reviewer)))
+    ((review-session-required reviewer)
+     (str "the reviewer "
+          (:name reviewer)
+          " has no live review session for this item"))
     ((reviewer-not-fresh reviewer reviewed tried)
      (str "the reviewer "
           (:name reviewer)

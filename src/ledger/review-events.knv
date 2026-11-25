@@ -1,0 +1,82 @@
+(module
+  "Describes what a review session adds to an event: the event of a review session starting and the event of the review it records when it ends.")
+
+(use json/value int->json json text->json)
+(use ledger/model item work-session)
+(use ledger/model/sessions session-end)
+
+(use ledger/model/events ->event-draft event-draft
+                         event-type)
+
+(use ledger/model/pull-requests pull-request review)
+(use ledger/names case-name review-kind-names verdict-names)
+
+(use ledger/changes column-change copy-change inserted
+                    payload-with-changes)
+
+(use ledger/json-values head->json id->json pr-number->json)
+
+(use ledger/session-columns ended-session-columns
+                            started-session-columns)
+
+(export item-reviewed review-started)
+
+(type item-reviewed
+  (fn ((ref item)
+       (ref review)
+       (ref session-end)
+       (ref pull-request))
+    event-draft))
+
+(defn item-reviewed (item review end pull-request)
+  (let (changes (review-columns review))
+    (for-each (ended-session-columns end)
+      (fn (change)
+        (push! changes (copy-change change))))
+    (->event-draft :roadmap-id (some (clone (:roadmap-id item)))
+                   :item-id (some (clone (:id item)))
+                   :decision-id none
+                   :type event-type/item-reviewed
+                   :payload (payload-with-changes
+                              (ref changes)
+                              (review-context review pull-request)))))
+
+(type review-started
+  (fn ((ref item) (ref work-session))
+    event-draft))
+
+(defn review-started (item session)
+  (->event-draft :roadmap-id (some (clone (:roadmap-id item)))
+                 :item-id (some (clone (:id item)))
+                 :decision-id none
+                 :type event-type/review-started
+                 :payload (payload-with-changes (ref (started-session-columns
+                                                       session))
+                                                (vec))))
+
+(type review-columns
+  (fn ((ref review)) (vec column-change)))
+
+(defn review-columns (review)
+  (vec (inserted "item_id"
+                 (id->json (ref (:item review))))
+       (inserted "session_id"
+                 (int->json (:value (:session-id review))))
+       (inserted "review_kind"
+                 (text->json (case-name review-kind-names (:kind review))))
+       (inserted "head_sha"
+                 (head->json (ref (:head review))))
+       (inserted "verdict"
+                 (text->json (case-name verdict-names (:verdict review))))
+       (inserted "created_at"
+                 (text->json (as-str (:value (:created-at review)))))))
+
+(type review-context
+  (fn ((ref review) (ref pull-request))
+    (vec (pair string json))))
+
+(defn review-context (review pull-request)
+  (vec (pair (str "review_id")
+             (int->json (:value (:id review))))
+       (pair (str "pr_number")
+             (pr-number->json (:pr-number pull-request)))))

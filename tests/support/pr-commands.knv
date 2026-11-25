@@ -2,7 +2,8 @@
 (use support/rmap run-rmap)
 
 (export approved-on-first-head build-id first-sha
-        report-build review-build second-sha)
+        report-build report-build-as review-build
+        review-start second-sha)
 
 (def first-sha "1111111111111111111111111111111111111111")
 
@@ -32,10 +33,13 @@
              0)))
 
 (defn report-build (database id kind extra)
+  (report-build-as database id "s1" kind extra))
+
+(defn report-build-as (database id session kind extra)
   (let (args (vec (str "report")
                   (clone id)
                   (str "--session")
-                  (str "s1")
+                  (str session)
                   (str "--kind")
                   (str kind)
                   (str "--text")
@@ -45,8 +49,15 @@
     (run-rmap (clone database) args)))
 
 (defn review-build (database id reviewer verdict sha)
+  (let (started (review-start (clone database) id reviewer))
+    (if (= (:exit-code started) 0)
+      (run-rmap (clone database)
+                (vec "pr" "review"
+                     (as-str id)
+                     "--verdict" verdict "--kind" "behavior"
+                     "--head" sha "--reviewer" reviewer))
+      started)))
+
+(defn review-start (database id reviewer)
   (run-rmap (clone database)
-            (vec "pr" "review"
-                 (as-str id)
-                 "--verdict" verdict "--kind" "behavior"
-                 "--head" sha "--reviewer" reviewer)))
+            (vec "review" "start" (as-str id) "--session" reviewer)))

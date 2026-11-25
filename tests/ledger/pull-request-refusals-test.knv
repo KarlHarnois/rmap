@@ -1,4 +1,4 @@
-(use ledger/model ->item-id ->session)
+(use ledger/model ->item-id ->session status)
 
 (use ledger/model/pull-requests ->approval ->head
                                 ->pr-number approval)
@@ -66,7 +66,23 @@
 (deftest a-worker-review-names-the-worker
   (assert (= (pull-request-refusal->message (pull-request-refusal/reviewer-is-worker
                                               (->session :name (str "w1"))))
-             (str "the reviewer w1 is the item's own worker session"))))
+             (str "the reviewer w1 is a work or fix session of the item, live or ended"))))
+
+(deftest a-review-start-outside-in-review-names-the-status
+  (assert (= (pull-request-refusal->message (pull-request-refusal/review-not-in-review
+                                              (->item-id :value (str "rm-0001"))
+                                              status/merging))
+             (str "a review can start only while rm-0001 is in_review, and it is merging"))))
+
+(deftest a-second-review-start-names-the-live-reviewer
+  (assert (= (pull-request-refusal->message (pull-request-refusal/review-already-live
+                                              (->session :name (str "r1"))))
+             (str "the item already has a live review session, r1"))))
+
+(deftest a-verdict-without-a-live-review-session-names-the-reviewer
+  (assert (= (pull-request-refusal->message (pull-request-refusal/review-session-required
+                                              (->session :name (str "r1"))))
+             (str "the reviewer r1 has no live review session for this item"))))
 
 (deftest a-stale-reviewer-names-itself-and-both-heads
   (assert (= (pull-request-refusal->message (pull-request-refusal/reviewer-not-fresh

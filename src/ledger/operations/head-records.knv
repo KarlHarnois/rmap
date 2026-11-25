@@ -1,10 +1,13 @@
 (module
   "Records a new head for a build's pull request and moves the build back to in_review, in one transaction with its event.")
 
-(use ledger/model item-id)
+(use ledger/model item-id timestamp)
 
 (use ledger/model/pull-requests ->recorded-head
                                 recorded-head)
+
+(use ledger/model/sessions ->session-end end-reason
+                           live-session)
 
 (use ledger/core/move move)
 (use ledger/core/transitions approved-move)
@@ -21,8 +24,13 @@
 (use ledger/operations/transaction in-transaction now record
                                    settings transaction)
 
+(use ledger/sqlite/live-review-sessions live-review-session)
+(use ledger/sqlite/sessions end-session-id)
 (use ledger/sqlite/snapshot load-snapshot)
-(use ledger/sqlite/connection database-failure)
+
+(use ledger/sqlite/connection connection database-error
+                              database-failure)
+
 (use ledger/failure failure)
 
 (export record-head)
@@ -48,14 +56,17 @@
               item (existing (ref snapshot) id)
               move (approved-move (ref snapshot) (ref item) move/record-head)
               before (pull-request-for connection (ref (:id item)))
+              live (live-review-session connection (ref (:id item)))
               change (new-head-change (ref item) (ref before) head))
       (let (update (changed-pull-request before
                                          (ref item)
                                          change
                                          (ref (now transaction)))
+            review-end (superseded-review-end live (now transaction))
             applied (applied (ref item) move (now transaction)))
         (let-try (_ (write-move transaction (ref applied))
                   _ (write-pull-request-update connection (ref update))
+                  _ (end-review-session connection (ref live) (now transaction))
                   after (pull-request-for connection (ref (:id item)))
                   pull-request (ok-or after
                                       (failure/database (database-failure (str "the pull request is gone"))))
@@ -63,6 +74,30 @@
                             (head-recorded (ref applied)
                                            (ref (pull-request-update-columns (ref
                                                                                update)))
+                                           (ref review-end)
                                            (ref pull-request))))
           (ok (->recorded-head :item (clone (:after applied))
                                :pull-request pull-request)))))))
+
+(defn superseded-review-end (live now)
+  (match live
+    ((some _)
+     (some (->session-end :reason end-reason/superseded
+                          :at (clone now))))
+    (none none)))
+
+(type end-review-session
+  (fn ((ref connection)
+       (ref (option live-session))
+       (ref timestamp))
+    (result unit database-error)))
+
+(defn end-review-session (connection live now)
+  (match live
+    ((some present)
+     (map-ok (end-session-id connection
+                             (ref (:id present))
+                             (->session-end :reason end-reason/superseded
+                                            :at (clone now)))
+             (fn (_) (do))))
+    (none (ok (do)))))

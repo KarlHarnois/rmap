@@ -72,6 +72,13 @@
                                (->session :name (str "r1"))
                                (->head :sha (str "abc"))
                                (->head :sha (str "def"))))
+       (refusal/pull-request (pull-request-refusal/review-not-in-review
+                               (sample-id)
+                               status/merging))
+       (refusal/pull-request (pull-request-refusal/review-already-live
+                               (->session :name (str "r1"))))
+       (refusal/pull-request (pull-request-refusal/review-session-required
+                               (->session :name (str "r1"))))
        (refusal/pull-request (pull-request-refusal/not-approved (sample-approval)))))
 
 (defn sample-approval ()

@@ -1,7 +1,8 @@
 (use ledger/api ->advancement ->claim-request ->session
                 advance-item claim claim-item close-item
                 drop-item failure kind kind-change
-                record-head refusal settings status)
+                record-head record-review refusal settings
+                status)
 
 (use ledger/model ->timestamp ->work-session runtime
                   session-kind)
@@ -12,7 +13,8 @@
 (use ledger/model/pull-requests verdict)
 
 (use support/pull-requests approved-build first-head
-                           in-review-build reviewed
+                           in-review-build review-as
+                           review-start-as reviewed
                            second-head)
 
 (use support/ledger added-id all-events blocked-research
@@ -219,16 +221,13 @@
                            (ref (claimed (ref settings)
                                          (build (ref settings))))
                            12))
+    (review-start-as (ref settings) (ref id) "r2")
     (assert (ok? (advance (ref settings) (clone id) status/merging)))
-    (reviewed (ref settings)
-              (ref id)
-              "r2" verdict/changes first-head)
+    (assert (ok? (record-review
+                   (ref settings)
+                   (review-as (ref id) "r2" verdict/changes first-head))))
     (assert (= (refusal-code-of (close-item (ref settings) (clone id)))
-               (some (str "not-approved"))))
-    (reviewed (ref settings)
-              (ref id)
-              "r2" verdict/approve first-head)
-    (assert (ok? (close-item (ref settings) id)))))
+               (some (str "not-approved"))))))
 
 (deftest a-change-request-holds-the-build-in-review
   (let (settings (scratch-ledger "merge-held-by-changes")

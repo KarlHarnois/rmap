@@ -1,7 +1,8 @@
 (use ledger/model ->item-id ->session ->timestamp kind
                   session-kind status)
 
-(use ledger/model/sessions ->session-id end-reason)
+(use ledger/model/sessions ->live-session ->session-end
+                           ->session-id end-reason)
 
 (use ledger/model/pull-requests ->head ->pr-number
                                 ->pull-request ->review
@@ -11,8 +12,12 @@
 (use ledger/refusal refusal)
 (use ledger/pull-request-refusals pull-request-refusal)
 
+(use ledger/core/review-starts approved-review-start
+                               review-start-session)
+
 (use ledger/core/reviews ->review-stamp approved-head
-                         review-session stamped-review)
+                         check-live-review review-end
+                         stamped-review)
 
 (use support/items claimed work-item)
 
@@ -61,6 +66,18 @@
                   :created-at (->timestamp :value (str
                                                     "2026-01-04T00:00:00Z"))))
 
+(defn live-review (name)
+  (->live-session :id (->session-id :value 9)
+                  :session (->session :name (str name))))
+
+(defn now ()
+  (->timestamp :value (str "2026-01-04T00:00:00Z")))
+
+(defn refusal-of (outcome)
+  (match outcome
+    ((ok _) none)
+    ((err refused) (some refused))))
+
 (deftest a-review-of-an-open-pull-request-is-approved
   (assert (= (approved-head (ref (build status/in-review))
                             (ref (opened))
@@ -99,19 +116,48 @@
     (assert (= (:verdict review) verdict/changes))
     (assert (= (:kind review) review-kind/design))))
 
-(deftest the-review-session-is-a-finished-review-session-of-the-reviewer
-  (let (review (stamped-review (ref (request sha))
-                               (->head :sha (str sha))
-                               (stamp))
-        session (review-session (ref review)
-                                (ref (stamp))))
-    (assert (= (:value (:id session)) 9))
-    (assert (= (:kind (:session session)) session-kind/review))
-    (assert (= (:name (:session (:session session)))
+(deftest a-review-start-session-is-a-live-review-session-of-the-reviewer
+  (let (session (review-start-session (ref (worker-named "reviewer"))
+                                      (now)))
+    (assert (= (:name (:session session))
                (str "reviewer")))
-    (assert (= (:reason (:end session)) end-reason/finished))
-    (assert (= (:at (:end session))
-               (:started-at (:session session))))))
+    (assert (= (:kind session) session-kind/review))
+    (assert (= (:branch session) none))
+    (assert (= (:value (:started-at session))
+               (str "2026-01-04T00:00:00Z")))))
+
+(deftest a-review-may-start-while-the-build-is-in-review
+  (assert (ok? (approved-review-start (ref (build status/in-review))
+                                      (ref none)))))
+
+(deftest a-review-may-not-start-before-the-build-is-in-review
+  (assert (= (refusal-of (approved-review-start (ref (build status/dispatched))
+                                                (ref none)))
+             (some (refusal/pull-request (pull-request-refusal/review-not-in-review
+                                           (->item-id :value (str "rm-0001"))
+                                           status/dispatched))))))
+
+(deftest a-second-live-review-session-on-one-item-is-refused
+  (assert (= (refusal-of (approved-review-start (ref (build status/in-review))
+                                                (ref (some (live-review
+                                                             "r1")))))
+             (some (refusal/pull-request (pull-request-refusal/review-already-live
+                                           (->session :name (str "r1"))))))))
+
+(deftest a-verdict-needs-the-reviewers-live-review-session
+  (assert (= (check-live-review (ref none)
+                                (ref (worker-named "reviewer")))
+             (err (refusal/pull-request (pull-request-refusal/review-session-required
+                                          (worker-named "reviewer")))))))
+
+(deftest a-verdict-ends-the-reviewers-live-review-session
+  (assert (= (check-live-review (ref (some (->session-id :value 9)))
+                                (ref (worker-named "reviewer")))
+             (ok (->session-id :value 9)))))
+
+(deftest a-recorded-verdict-ends-the-session-as-finished
+  (assert (= (review-end (now))
+             (->session-end :reason end-reason/finished :at (now)))))
 
 (deftest a-review-at-another-head-is-refused
   (assert (= (approved-head (ref (build status/in-review))

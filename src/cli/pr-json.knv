@@ -10,6 +10,7 @@
 
 (use cli/pr-replies pr-reply)
 (use cli/ledger-json item->json)
+(use cli/session-json session->json)
 
 (export approval-fields optional-pull-request->json
         pr-reply-fields)
@@ -19,6 +20,11 @@
 
 (defn pr-reply-fields (reply)
   (match reply
+    ((started item session)
+     (vec (pair (str "item")
+                (item->json (ref item)))
+          (pair (str "session")
+                (session->json (ref session)))))
     ((reviewed recorded)
      (vec (pair (str "review")
                 (review->json (ref (:review recorded))))

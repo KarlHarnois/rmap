@@ -1,14 +1,18 @@
 (module
   "Holds the ledger's pull requests: the one a build opened, the head it points at, and the reviews each reviewer session gave it.")
 
-(use ledger/model item item-id session timestamp)
+(use ledger/model item item-id session timestamp
+                  work-session)
+
 (use ledger/model/sessions session-id)
 
 (export ->approval ->head ->pr-number ->pull-request
         ->recorded-head ->recorded-review ->review
-        ->review-id ->review-request approval head pr-number
+        ->review-id ->review-request ->review-start-request
+        ->started-review approval head pr-number
         pull-request recorded-head recorded-review review
-        review-id review-kind review-request verdict)
+        review-id review-kind review-request
+        review-start-request started-review verdict)
 
 (defstruct recorded-head
   :item item
@@ -24,6 +28,14 @@
   :kind review-kind
   :head string
   :verdict verdict)
+
+(defstruct review-start-request
+  :item item-id
+  :reviewer session)
+
+(defstruct started-review
+  :item item
+  :session work-session)
 
 (defstruct approval
   :pr-number pr-number

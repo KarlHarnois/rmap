@@ -1,0 +1,53 @@
+(module
+  "Reads an item's live review session, and the live review session a named reviewer started on it.")
+
+(use ledger/model ->session item-id session)
+
+(use ledger/model/sessions ->live-session ->session-id
+                           live-session session-id)
+
+(use ledger/sqlite/values text->sql)
+
+(use ledger/sqlite/connection connection database-error
+                              query)
+
+(use ledger/sqlite/rows int-cell rows->values text-cell)
+
+(export live-review-session live-review-session-id)
+
+(type live-review-session
+  (fn ((ref connection) (ref item-id))
+    (result (option live-session) database-error)))
+
+(defn live-review-session (connection item)
+  (let-try (rows (query connection
+                        "SELECT id, name FROM sessions WHERE item_id = ?1 AND kind = 'review' AND ended_at IS NULL"
+                        (ref (vec (text->sql (as-str (:value item))))))
+            lives (rows->values (ref rows) row->live-session))
+    (ok (map-some (first lives)
+          (fn (live)
+            (->live-session :id (clone (:id live))
+                            :session (clone (:session live))))))))
+
+(type live-review-session-id
+  (fn ((ref connection)
+       (ref item-id)
+       (ref session))
+    (result (option session-id) database-error)))
+
+(defn live-review-session-id (connection item reviewer)
+  (let-try (rows (query connection
+                        "SELECT id FROM sessions WHERE item_id = ?1 AND name = ?2 AND kind = 'review' AND ended_at IS NULL"
+                        (ref (vec (text->sql (as-str (:value item)))
+                                  (text->sql (as-str (:name reviewer))))))
+            ids (rows->values (ref rows)
+                  (fn (row) (int-cell row 0))))
+    (ok (map-some (first ids)
+          (fn (id)
+            (->session-id :value (deref id)))))))
+
+(defn row->live-session (row)
+  (let-try (id (int-cell row 0)
+            name (text-cell row 1))
+    (ok (->live-session :id (->session-id :value id)
+                        :session (->session :name name)))))

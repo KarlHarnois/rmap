@@ -1,5 +1,5 @@
 (module
-  "Lists the commands that record a build's pull request reviews and head, and show the pull request.")
+  "Lists the commands that start a review session, record a build's pull request reviews and head, and show the pull request.")
 
 (use ledger/api review-kind-names verdict-names)
 (use cli/flag-specs choices required)
@@ -10,9 +10,14 @@
 (export pr-routes)
 
 (defn pr-routes ()
-  (vec (->route :subcommand (subcommand/pull-request pr-command/review)
+  (vec (->route :subcommand subcommand/review-start
+                :words (words "review start")
+                :summary (str "Starts a live review session on a build that is in_review, so the reviewer can record its verdict with pr review. A live work or fix session and one live review session may run together.")
+                :operands (operands (vec "item"))
+                :flags (vec (required "session" "<name>")))
+       (->route :subcommand (subcommand/pull-request pr-command/review)
                 :words (words "pr review")
-                :summary (str "Records a review of the build's pull request at --head, which must be the pull request's current head in the ledger, by the reviewer session, as a finished review session. It never moves the item. The build moves to merging, and closes as merged, only when, among each reviewer's latest verdict on the pull request's head, one approves and none asks for changes.")
+                :summary (str "Records a review of the build's pull request at --head, which must be the pull request's current head in the ledger, by the reviewer session's live review session, and ends that session. It never moves the item. The build moves to merging, and closes as merged, only when, among each reviewer's latest verdict on the pull request's head, one approves and none asks for changes.")
                 :operands (operands (vec "item"))
                 :flags (vec (required "verdict" (choices verdict-names))
                             (required "kind" (choices review-kind-names))
@@ -20,7 +25,7 @@
                             (required "reviewer" "<session>")))
        (->route :subcommand (subcommand/pull-request pr-command/head)
                 :words (words "pr head")
-                :summary (str "Records a new head for the build's pull request when its branch moved without a fixed report, and moves an in_review or merging build back to in_review. Reviews on older heads stop counting toward its approval.")
+                :summary (str "Records a new head for the build's pull request when its branch moved without a fixed report, and moves an in_review or merging build back to in_review. Any live review session ends as superseded, and reviews on older heads stop counting toward its approval.")
                 :operands (operands (vec "item" "commit sha"))
                 :flags (vec))
        (->route :subcommand (subcommand/pull-request pr-command/show)

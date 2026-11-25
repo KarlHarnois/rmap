@@ -1,11 +1,11 @@
 (module
-  "Holds what a claim asks for, why and when a session ends, and a session recorded as already finished.")
+  "Holds what a claim asks for, a live session with its id, and why and when a session ends.")
 
-(use ledger/model session timestamp work-session)
+(use ledger/model session timestamp)
 
-(export ->claim-request ->finished-session ->session-end
+(export ->claim-request ->live-session ->session-end
         ->session-id ->session-start claim-request
-        end-reason finished-session session-end session-id
+        end-reason live-session session-end session-id
         session-start)
 
 (defstruct claim-request
@@ -18,10 +18,9 @@
   :branch string
   :base string)
 
-(defstruct finished-session
+(defstruct live-session
   :id session-id
-  :session work-session
-  :end session-end)
+  :session session)
 
 (defstruct session-end
   :reason end-reason
@@ -30,7 +29,8 @@
 (defenum end-reason
   reopened
   replaced
-  finished)
+  finished
+  superseded)
 
 (defstruct session-id
   :value int)

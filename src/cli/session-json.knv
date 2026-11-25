@@ -7,7 +7,7 @@
                 runtime-names session-kind-names
                 work-session)
 
-(export claim->json claim->session-json)
+(export claim->json claim->session-json session->json)
 
 (defn claim->json (claim)
   (match claim

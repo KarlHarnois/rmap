@@ -34,6 +34,7 @@
   dep-add
   dep-rm
   graph
+  review-start
   decision-propose
   decision-revise
   decision-show

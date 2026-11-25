@@ -5,8 +5,9 @@
                   text-at)
 
 (use support/pr-commands approved-on-first-head build-id
-                         first-sha report-build review-build
-                         second-sha)
+                         first-sha report-build
+                         report-build-as review-build
+                         review-start second-sha)
 
 (defn advance (database id status)
   (run-rmap (clone database)
@@ -134,13 +135,25 @@
 (deftest a-review-by-the-items-own-worker-is-refused
   (let (database (database-with-roadmap "e2e-pr-worker-review")
         id (build-id (ref database)))
-    (report-build (ref database)
-                  (ref id)
-                  "done"
-                  (vec "--pr" "7" "--head" first-sha))
-    (let (reply (review-build (ref database)
-                              (ref id)
-                              "s1" "approve" first-sha))
+    (assert (= (:exit-code (advance (ref database) (ref id) "open"))
+               0))
+    (assert (= (:exit-code (run-rmap
+                             (clone database)
+                             (vec "item" "claim" (as-str id) "--session" "s2")))
+               0))
+    (report-build-as (ref database)
+                     (ref id)
+                     "s2" "done"
+                     (vec "--pr" "7" "--head" first-sha))
+    (assert (= (:exit-code (review-start (ref database) (ref id) "s1"))
+               0))
+    (let (reply (run-rmap (clone database)
+                          (vec "pr" "review"
+                               (as-str id)
+                               "--verdict" "approve"
+                               "--kind" "behavior" "--head"
+                               first-sha "--reviewer"
+                               "s1")))
       (assert (= (:exit-code reply) 1))
       (assert (= (error-code (ref reply))
                  (str "reviewer-is-worker")))
@@ -227,13 +240,88 @@
   (let (database (database-with-roadmap "e2e-pr-close-held")
         id (build-id (ref database)))
     (approved-on-first-head (ref database) (ref id))
+    (assert (= (:exit-code (review-start (ref database) (ref id) "r2"))
+               0))
     (assert (= (:exit-code (advance (ref database) (ref id) "merging"))
                0))
-    (assert (= (:exit-code (review-build (ref database)
-                                         (ref id)
-                                         "r2" "changes"
-                                         first-sha))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec
+                                       "pr" "review"
+                                       (as-str id)
+                                       "--verdict" "changes"
+                                       "--kind" "behavior"
+                                       "--head" first-sha
+                                       "--reviewer" "r2")))
                0))
     (assert (= (error-code (ref (run-rmap (clone database)
                                           (vec "item" "close" (as-str id)))))
                (str "not-approved")))))
+
+(deftest review-start-outside-in-review-is-refused
+  (let (database (database-with-roadmap "e2e-review-start-open")
+        id (build-id (ref database))
+        reply (review-start (ref database) (ref id) "r1"))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "review-not-in-review")))))
+
+(deftest review-start-records-a-live-review-session
+  (let (database (database-with-roadmap "e2e-review-start")
+        id (build-id (ref database)))
+    (report-build (ref database)
+                  (ref id)
+                  "done"
+                  (vec "--pr" "7" "--head" first-sha))
+    (let (reply (review-start (ref database) (ref id) "r1"))
+      (assert (= (:exit-code reply) 0))
+      (assert (= (text-at (ref reply) "session" "name")
+                 (str "r1")))
+      (assert (= (text-at (ref reply) "session" "kind")
+                 (str "review")))
+      (assert (= (text-at (ref reply) "item" "claimed_by")
+                 (str "s1"))))))
+
+(deftest a-second-live-review-session-is-refused
+  (let (database (database-with-roadmap "e2e-review-start-second")
+        id (build-id (ref database)))
+    (report-build (ref database)
+                  (ref id)
+                  "done"
+                  (vec "--pr" "7" "--head" first-sha))
+    (assert (= (:exit-code (review-start (ref database) (ref id) "r1"))
+               0))
+    (let (reply (review-start (ref database) (ref id) "r2"))
+      (assert (= (:exit-code reply) 1))
+      (assert (= (error-code (ref reply))
+                 (str "review-already-live"))))))
+
+(deftest review-start-under-a-live-session-name-is-refused
+  (let (database (database-with-roadmap "e2e-review-start-busy")
+        id (build-id (ref database)))
+    (report-build (ref database)
+                  (ref id)
+                  "done"
+                  (vec "--pr" "7" "--head" first-sha))
+    (let (reply (review-start (ref database) (ref id) "s1"))
+      (assert (= (:exit-code reply) 1))
+      (assert (= (error-code (ref reply))
+                 (str "session-busy"))))))
+
+(deftest a-recorded-head-supersedes-a-live-review-session
+  (let (database (database-with-roadmap "e2e-review-start-head")
+        id (build-id (ref database)))
+    (report-build (ref database)
+                  (ref id)
+                  "done"
+                  (vec "--pr" "7" "--head" first-sha))
+    (assert (= (:exit-code (review-start (ref database) (ref id) "r1"))
+               0))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "pr" "head" (as-str id) second-sha)))
+               0))
+    (let (reply (review-build (ref database)
+                              (ref id)
+                              "r1" "approve" first-sha))
+      (assert (= (:exit-code reply) 1))
+      (assert (= (error-code (ref reply))
+                 (str "head-not-current"))))))

@@ -1,32 +1,56 @@
 (module
-  "Records a reviewer session's review of a build's pull request, with the finished review session, in one transaction with its event. It never moves the item.")
+  "Starts a reviewer session's live review session, and records a reviewer session's review of a build's pull request while ending that session, each in one transaction with its event. It never moves the item.")
+
+(use ledger/model session)
 
 (use ledger/model/pull-requests ->recorded-review
+                                ->started-review
                                 recorded-review
-                                review-request)
+                                review-request
+                                review-start-request
+                                started-review)
+
+(use ledger/model/sessions session-id)
+
+(use ledger/core/review-starts approved-review-start
+                               review-start-session)
 
 (use ledger/core/reviews ->review-stamp approved-head
-                         review-session review-stamp
-                         stamped-review)
+                         check-live-review review-end
+                         review-stamp stamped-review)
 
 (use ledger/core/snapshot existing)
-(use ledger/pull-request-events item-reviewed)
+(use ledger/review-events item-reviewed review-started)
 (use ledger/operations/pull-requests pull-request-for)
+(use ledger/refusal refusal)
 
 (use ledger/operations/transaction in-transaction now record
                                    settings transaction)
 
 (use ledger/sqlite/reviews insert-review next-review-id)
 
-(use ledger/sqlite/sessions insert-finished-session
+(use ledger/sqlite/live-review-sessions live-review-session
+                                        live-review-session-id)
+
+(use ledger/sqlite/sessions end-session-id
                             item-worker-sessions
-                            next-session-id)
+                            live-session-named?
+                            start-session)
 
 (use ledger/sqlite/snapshot load-snapshot)
-(use ledger/sqlite/connection database-failure)
+(use ledger/sqlite/connection connection database-failure)
 (use ledger/failure failure)
 
-(export record-review)
+(export record-review start-review)
+
+(type start-review
+  (fn ((ref settings) review-start-request)
+    (result started-review failure)))
+
+(defn start-review (settings request)
+  (in-transaction settings
+    (fn (transaction)
+      (store-review-start transaction (ref request)))))
 
 (type record-review
   (fn ((ref settings) review-request)
@@ -36,6 +60,37 @@
   (in-transaction settings
     (fn (transaction)
       (store-review transaction (ref request)))))
+
+(type store-review-start
+  (fn ((ref transaction) (ref review-start-request))
+    (result started-review failure)))
+
+(defn store-review-start (transaction request)
+  (let (connection (ref (:connection transaction)))
+    (let-try (snapshot (load-snapshot connection)
+              item (existing (ref snapshot)
+                             (ref (:item request)))
+              live (live-review-session connection (ref (:id item)))
+              _ (approved-review-start (ref item) (ref live))
+              _ (check-name-free connection (ref (:reviewer request))))
+      (let (session (review-start-session (ref (:reviewer request))
+                                          (now transaction)))
+        (let-try (_ (start-session connection
+                                   (ref (:id item))
+                                   (ref session))
+                  _ (record transaction
+                            (review-started (ref item) (ref session))))
+          (ok (->started-review :item item :session session)))))))
+
+(type check-name-free
+  (fn ((ref connection) (ref session))
+    (result unit failure)))
+
+(defn check-name-free (connection reviewer)
+  (let-try (busy (live-session-named? connection reviewer))
+    (if busy
+      (err (failure/refused (refusal/session-busy (clone reviewer))))
+      (ok (do)))))
 
 (type store-review
   (fn ((ref transaction) (ref review-request))
@@ -48,16 +103,19 @@
                              (ref (:item request)))
               before (pull-request-for connection (ref (:id item)))
               workers (item-worker-sessions connection (ref (:id item)))
+              live (live-review-session-id connection
+                                           (ref (:id item))
+                                           (ref (:reviewer request)))
               head (approved-head (ref item)
                                   (ref before)
                                   request
                                   (ref workers))
-              stamp (review-stamp-of transaction))
-      (let (review (stamped-review request head (clone stamp))
-            session (review-session (ref review) (ref stamp)))
-        (let-try (_ (insert-finished-session connection
-                                             (ref (:id item))
-                                             (ref session))
+              session-id (check-live-review (ref live)
+                                            (ref (:reviewer request)))
+              stamp (review-stamp-of transaction (ref session-id)))
+      (let (review (stamped-review request head stamp)
+            end (review-end (now transaction)))
+        (let-try (_ (end-session-id connection (ref session-id) (ref end))
                   _ (insert-review connection (ref review))
                   after (pull-request-for connection (ref (:id item)))
                   pull-request (ok-or after
@@ -65,19 +123,18 @@
                   _ (record transaction
                             (item-reviewed (ref item)
                                            (ref review)
-                                           (ref session)
+                                           (ref end)
                                            (ref pull-request))))
           (ok (->recorded-review :review review
                                  :pull-request pull-request)))))))
 
 (type review-stamp-of
-  (fn ((ref transaction))
+  (fn ((ref transaction) (ref session-id))
     (result review-stamp failure)))
 
-(defn review-stamp-of (transaction)
+(defn review-stamp-of (transaction session-id)
   (let (connection (ref (:connection transaction)))
-    (let-try (id (next-review-id connection)
-              session-id (next-session-id connection))
+    (let-try (id (next-review-id connection))
       (ok (->review-stamp :id id
-                          :session-id session-id
+                          :session-id (clone session-id)
                           :created-at (now transaction))))))
