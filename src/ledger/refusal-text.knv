@@ -30,6 +30,8 @@
                            refusal-code/item-not-found
                            refusal-code/item-closed
                            refusal-code/description-required
+                           refusal-code/criteria-required
+                           refusal-code/blank-criterion
                            refusal-code/parent-not-epic
                            refusal-code/parent-in-other-roadmap
                            refusal-code/epic-has-parent
@@ -76,6 +78,11 @@
                             "A merged, accepted or dropped item is closed."))
     (description-required (described "description-required"
                                      "An item needs a description."))
+    (criteria-required (described
+                         "criteria-required"
+                         "An item needs at least one acceptance criterion."))
+    (blank-criterion (described "blank-criterion"
+                                "An acceptance criterion cannot be blank."))
     (parent-not-epic (described "parent-not-epic" "The parent is not an epic."))
     (parent-in-other-roadmap (described
                                "parent-in-other-roadmap"

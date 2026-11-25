@@ -1,0 +1,9 @@
+(use cli/criteria-text criteria-text)
+
+(deftest an-item-without-criteria-shows-a-dash
+  (assert (= (criteria-text (ref (vec)))
+             (str "\n\nAcceptance criteria: -"))))
+
+(deftest criteria-are-numbered-in-order
+  (assert (= (criteria-text (ref (vec (str "first") (str "second"))))
+             (str "\n\nAcceptance criteria:\n  1. first\n  2. second"))))

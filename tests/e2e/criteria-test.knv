@@ -1,0 +1,226 @@
+(use json/value copy-of field json->items json->text null?)
+
+(use support/rmap database-with-roadmap error-code
+                  reported-done run-rmap run-rmap-text
+                  text-at)
+
+(use support/scratch scratch-database)
+
+(def write-file
+  (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
+    (fn ((ref str) (ref str))
+      (result unit string))))
+
+(defn added-id (database extra)
+  (text-at (ref (add-with database extra)) "item" "id"))
+
+(defn add-with (database extra)
+  (let (args (vec (str "item")
+                  (str "add")
+                  (str "--roadmap")
+                  (str "road")
+                  (str "--title")
+                  (str "w")
+                  (str "--kind")
+                  (str "research")
+                  (str "--description")
+                  (str "a spec")))
+    (for-each extra
+      (fn (arg) (push! args (str arg))))
+    (run-rmap (clone database) args)))
+
+(defn edited (database id extra)
+  (let (args (vec (str "item") (str "edit") (str id)))
+    (for-each extra
+      (fn (arg) (push! args (str arg))))
+    (run-rmap (clone database) args)))
+
+(defn shown-item (database id)
+  (let (reply (run-rmap (clone database)
+                        (vec "item" "show" (as-str id))))
+    (assert (= (:exit-code reply) 0))
+    (unwrap (field (:json reply) "item"))))
+
+(defn criterion-texts (item)
+  (collect (map (iter (unwrap (json->items (unwrap (field item "criteria")))))
+             (fn (value)
+               (unwrap (json->text (copy-of value)))))))
+
+(defn last-event (database id)
+  (let (reply (run-rmap (clone database)
+                        (vec "log" "--item" (as-str id))))
+    (assert (= (:exit-code reply) 0))
+    (let (events (unwrap (json->items (unwrap (field (:json reply) "events")))))
+      (copy-of (unwrap (get events (- (len events) 1)))))))
+
+(defn change-side (event which)
+  (collect (map (iter (unwrap (json->items (unwrap (field (criteria-change
+                                                            event)
+                                                          which)))))
+                (fn (value)
+                  (unwrap (json->text (copy-of value)))))))
+
+(defn criteria-change (event)
+  (-> event
+      (field "payload")
+      unwrap
+      (field "changes")
+      unwrap
+      (field "criteria")
+      unwrap))
+
+(deftest adding-an-item-without-a-criterion-is-refused
+  (let (database (database-with-roadmap "criteria-absent")
+        reply (add-with (ref database)
+                        (the (vec string) (vec))))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "criteria-required")))))
+
+(deftest adding-an-item-with-a-blank-criterion-is-refused
+  (let (database (database-with-roadmap "criteria-blank")
+        reply (add-with (ref database)
+                        (vec (str "--criterion") (str "   "))))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "blank-criterion")))))
+
+(deftest repeated-criteria-are-kept-in-order-and-shown-numbered
+  (let (database (database-with-roadmap "criteria-order")
+        id (added-id (clone database)
+                     (vec (str "--criterion")
+                          (str "first")
+                          (str "--criterion")
+                          (str "second")))
+        item (shown-item (ref database) id)
+        output (run-rmap-text
+                 (vec "--db" (as-str database) "item" "show" (as-str id))))
+    (assert (= (criterion-texts item)
+               (vec (str "first") (str "second"))))
+    (assert (contains? (:stdout output)
+                       (as-str (str "Acceptance criteria:\n"
+                                    "  1. first\n"
+                                    "  2. second"))))))
+
+(deftest item-list-json-carries-the-criteria-while-the-table-does-not
+  (let (database (database-with-roadmap "criteria-list")
+        _ (added-id (clone database)
+                    (vec (str "--criterion") (str "a unique criterion")))
+        reply (run-rmap (clone database) (vec "item" "list"))
+        items (unwrap (json->items (unwrap (field (:json reply) "items"))))
+        output (run-rmap-text (vec "--db" (as-str database) "item" "list")))
+    (assert (= (criterion-texts (unwrap (first items)))
+               (vec (str "a unique criterion"))))
+    (assert (not (contains? (:stdout output)
+                            (as-str (str "a unique criterion")))))))
+
+(deftest a-criteria-file-gives-one-criterion-per-non-blank-line
+  (let (database (database-with-roadmap "criteria-file")
+        path (str (scratch-database "criteria-file-source") ".txt")
+        text (str "first\n\nsecond\n"))
+    (unwrap-ok (write-file (as-str path) (as-str text)))
+    (let (id (added-id (ref database)
+                       (vec (str "--criteria-file") (str path))))
+      (assert (= (criterion-texts (shown-item (ref database) id))
+                 (vec (str "first") (str "second")))))))
+
+(deftest an-item-add-refuses-a-criterion-and-a-criteria-file-together
+  (let (database (database-with-roadmap "criteria-both")
+        reply (add-with (ref database)
+                        (vec (str "--criterion")
+                             (str "first")
+                             (str "--criteria-file")
+                             (str "criteria.txt"))))
+    (assert (= (:exit-code reply) 2))
+    (assert (= (error-code (ref reply))
+               (str "usage")))))
+
+(deftest an-unreadable-criteria-file-is-reported
+  (let (database (database-with-roadmap "criteria-unreadable")
+        reply (add-with (ref database)
+                        (vec (str "--criteria-file")
+                             (str "/nonexistent/criteria.txt"))))
+    (assert (= (:exit-code reply) 2))
+    (assert (= (error-code (ref reply))
+               (str "criteria-unreadable")))))
+
+(deftest an-edit-replaces-the-whole-criteria-list
+  (let (database (database-with-roadmap "criteria-edit")
+        id (added-id (clone database)
+                     (vec (str "--criterion")
+                          (str "first")
+                          (str "--criterion")
+                          (str "second")))
+        reply (edited (ref database)
+                      id
+                      (vec (str "--criterion") (str "third"))))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (criterion-texts (shown-item (ref database) id))
+               (vec (str "third"))))))
+
+(deftest an-edit-cannot-clear-the-criteria
+  (let (database (database-with-roadmap "criteria-edit-empty")
+        id (added-id (clone database)
+                     (vec (str "--criterion") (str "first")))
+        reply (edited (ref database)
+                      id
+                      (vec (str "--criteria-file") (str "/dev/null"))))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "criteria-required")))
+    (assert (= (criterion-texts (shown-item (ref database) id))
+               (vec (str "first"))))))
+
+(deftest an-edit-refuses-a-blank-criterion
+  (let (database (database-with-roadmap "criteria-edit-blank")
+        id (added-id (clone database)
+                     (vec (str "--criterion") (str "first")))
+        reply (edited (ref database)
+                      id
+                      (vec (str "--criterion") (str "   "))))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "blank-criterion")))
+    (assert (= (criterion-texts (shown-item (ref database) id))
+               (vec (str "first"))))))
+
+(deftest a-finished-item-takes-a-criteria-edit
+  (let (database (database-with-roadmap "criteria-edit-finished")
+        id (added-id (clone database)
+                     (vec (str "--criterion") (str "first")))
+        _ (run-rmap (clone database)
+                    (vec "item" "claim" (as-str id) "--session" "s1"))
+        _ (reported-done (ref database) id)
+        _ (run-rmap (clone database)
+                    (vec "item" "close" (as-str id)))
+        reply (edited (ref database)
+                      id
+                      (vec (str "--criterion") (str "second"))))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (criterion-texts (shown-item (ref database) id))
+               (vec (str "second"))))))
+
+(deftest an-added-event-records-the-criteria-as-a-new-array
+  (let (database (database-with-roadmap "criteria-added-event")
+        id (added-id (clone database)
+                     (vec (str "--criterion")
+                          (str "first")
+                          (str "--criterion")
+                          (str "second")))
+        change (criteria-change (last-event (ref database) id)))
+    (assert (null? (ref (unwrap (field change "old")))))
+    (assert (= (change-side (last-event (ref database) id) "new")
+               (vec (str "first") (str "second"))))))
+
+(deftest an-edited-event-records-the-old-and-new-criteria-arrays
+  (let (database (database-with-roadmap "criteria-edited-event")
+        id (added-id (clone database)
+                     (vec (str "--criterion") (str "first")))
+        _ (edited (ref database)
+                  id
+                  (vec (str "--criterion") (str "second")))
+        event (last-event (ref database) id))
+    (assert (= (change-side event "old")
+               (vec (str "first"))))
+    (assert (= (change-side event "new")
+               (vec (str "second"))))))

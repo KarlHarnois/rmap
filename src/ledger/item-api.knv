@@ -1,6 +1,8 @@
 (module
   "Holds the items part of the ledger's public surface: adding, editing, showing and moving items, the deps between them, and the views over them: readiness, next actions, the log and the graph.")
 
+(use ledger/core/criteria criteria-input)
+
 (use ledger/core/new-items ->new-item description-input
                            new-item)
 
@@ -36,7 +38,7 @@
         ->item-edit ->log-query ->new-item action actor
         add-dep add-item advance-item advancement batch
         batch-size batch-size-of blockage blocked-item
-        claim-item close-item decision-next
+        claim-item close-item criteria-input decision-next
         description-input draw-graph drop-item edit-item
         graph-level graph-level-names graph-request
         graph-source item-detail item-edit kind-change

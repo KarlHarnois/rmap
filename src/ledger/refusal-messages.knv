@@ -25,6 +25,8 @@
     ((item-closed id)
      (str "the item " (:value id) " is closed"))
     (description-required (str "an item needs a description"))
+    (criteria-required (str "an item needs at least one acceptance criterion"))
+    (blank-criterion (str "an acceptance criterion cannot be blank"))
     ((parent-not-epic id)
      (str "the parent " (:value id) " is not an epic"))
     ((parent-in-other-roadmap id)

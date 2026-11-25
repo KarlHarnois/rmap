@@ -16,6 +16,8 @@
                         optional-text-cell rows->values
                         text-cell)
 
+(use ledger/sqlite/criteria all-criteria with-criteria)
+
 (use ledger/sqlite/sessions live-session-columns
                             live-session-join row->claim)
 
@@ -73,8 +75,11 @@
                                      " FROM items JOIN roadmaps ON roadmaps.id = items.roadmap_id"
                                      live-session-join
                                      " ORDER BY items.created_at, items.id"))
-                        (ref (vec))))
-    (rows->values (ref rows) row->item)))
+                        (ref (vec)))
+            criteria (all-criteria connection))
+    (map-ok (rows->values (ref rows) row->item)
+      (fn (items)
+        (with-criteria (ref items) (ref criteria))))))
 
 (type optional-id->sql
   (fn ((ref (option item-id))) sql-value))
@@ -119,6 +124,7 @@
                           (fn (value) (->item-id :value value)))
                 :title title
                 :description description
+                :criteria (vec)
                 :kind kind
                 :status status
                 :origin origin

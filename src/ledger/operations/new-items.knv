@@ -4,11 +4,15 @@
 (use ledger/model ->dep ->item ->item-id claim dep dep-type
                   item item-id roadmap-id status timestamp)
 
+(use ledger/core/criteria check-criteria)
+
 (use ledger/core/new-items check-description check-new-item
                            new-item normalized)
 
+(use ledger/operations/criteria resolve-criteria)
 (use ledger/operations/descriptions resolve-description)
 (use ledger/sqlite/items insert-item)
+(use ledger/sqlite/criteria insert-criteria)
 (use ledger/sqlite/deps insert-deps)
 (use ledger/sqlite/snapshot load-snapshot)
 (use ledger/sqlite/generated fresh-id)
@@ -33,14 +37,20 @@
     (result item failure)))
 
 (defn add-item (settings roadmap request)
-  (let-try (description (resolve-description (clone (:description request))))
+  (let-try (description (resolve-description (clone (:description request)))
+            criteria (add-criteria (clone (:criteria request))))
     (in-transaction settings
       (fn (transaction)
         (insert-new-item transaction roadmap
                          (normalized request)
-                         description)))))
+                         description criteria)))))
 
-(defn insert-new-item (transaction roadmap request description)
+(defn add-criteria (input)
+  (map-ok (resolve-criteria input)
+    (fn (resolved)
+      (unwrap-or resolved (vec)))))
+
+(defn insert-new-item (transaction roadmap request description criteria)
   (let-try (roadmap-id (roadmap-id-named (ref (:connection transaction))
                                          (as-str roadmap))
             snapshot (load-snapshot (ref (:connection transaction)))
@@ -48,6 +58,7 @@
                               (ref roadmap-id)
                               (ref request))
             _ (check-description (ref description))
+            _ (check-criteria (ref criteria))
             id (fresh-id (ref (:connection transaction))))
     (store-item transaction
                 (request->item (ref request)
@@ -55,7 +66,7 @@
                                              :roadmap-id roadmap-id
                                              :roadmap-name (str roadmap)
                                              :created-at (now transaction))
-                               description)
+                               description criteria)
                 (ref request))))
 
 (type store-item
@@ -65,16 +76,22 @@
 (defn store-item (transaction item request)
   (let-try (_ (insert-item (ref (:connection transaction))
                            (ref item))
+            _ (insert-criteria (ref (:connection transaction))
+                               (ref (:id item))
+                               (ref (:criteria item)))
             _ (insert-deps (ref (:connection transaction))
                            (ref (draft-deps (ref item) request)))
             _ (record transaction (item-added (ref item) request)))
     (ok item)))
 
 (type request->item
-  (fn ((ref new-item) item-stamp (option string))
+  (fn ((ref new-item)
+       item-stamp
+       (option string)
+       (vec string))
     item))
 
-(defn request->item (request stamp description)
+(defn request->item (request stamp description criteria)
   (let-match ((item-stamp :id id
                           :roadmap-id roadmap-id
                           :roadmap-name roadmap-name
@@ -85,6 +102,7 @@
             :parent (clone (:parent request))
             :title (clone (:title request))
             :description description
+            :criteria criteria
             :kind (:kind request)
             :status status/open
             :origin (:origin request)

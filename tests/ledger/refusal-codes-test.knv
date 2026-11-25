@@ -19,6 +19,7 @@
        (refusal/item-not-found (sample-id))
        (refusal/item-closed (sample-id))
        refusal/description-required
+       refusal/criteria-required refusal/blank-criterion
        (refusal/parent-not-epic (sample-id))
        (refusal/parent-in-other-roadmap (sample-id))
        refusal/epic-has-parent

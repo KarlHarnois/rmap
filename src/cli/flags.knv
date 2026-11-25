@@ -6,7 +6,7 @@
 
 (export id-list optional-choice optional-number
         optional-text required-choice required-number
-        required-text switch-on? text-list)
+        required-text switch-on? text-list text-values)
 
 (type switch-on?
   (fn ((ref arguments) (ref str)) bool))
@@ -47,6 +47,15 @@
   (match (optional-text arguments name)
     ((some text) (comma-separated (as-str text)))
     (none (vec))))
+
+(type text-values
+  (fn ((ref arguments) (ref str))
+    (vec string)))
+
+(defn text-values (arguments name)
+  (collect (map (filter (iter (:flags arguments))
+                  (fn (entry) (= (first entry) name)))
+                (fn (entry) (clone (second entry))))))
 
 (type optional-text
   (fn ((ref arguments) (ref str))

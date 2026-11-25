@@ -5,6 +5,7 @@
                 kind-names origin-names status-names
                 timestamp)
 
+(use cli/criteria-text criteria-text)
 (use cli/description-text description-text)
 (use cli/item-text item-table optional-id-text)
 (use cli/tables indented table)
@@ -23,6 +24,7 @@
          "\n"
          (indented (table (detail-rows detail)))
          (description-text (ref (:description item)))
+         (criteria-text (ref (:criteria item)))
          (children-text (ref (:children detail)))
          (pull-request-section (ref (:pull-request detail))))))
 

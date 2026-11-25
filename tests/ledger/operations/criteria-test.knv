@@ -1,0 +1,26 @@
+(use ledger/core/criteria criteria-input)
+(use ledger/failure failure-code)
+(use ledger/operations/criteria resolve-criteria)
+
+(def fixture "tests/fixtures/criteria-lines.txt")
+
+(deftest an-unspecified-criteria-input-resolves-to-none
+  (assert (= (resolve-criteria criteria-input/unspecified) (ok none))))
+
+(deftest criterion-flags-resolve-in-order-with-surrounding-space-removed
+  (assert (= (resolve-criteria (criteria-input/values (vec (str "  first ")
+                                                           (str "second "))))
+             (ok (some (vec (str "first") (str "second")))))))
+
+(deftest a-criteria-file-gives-one-criterion-per-non-blank-line
+  (assert (= (resolve-criteria (criteria-input/from-file (str fixture)))
+             (ok (some (vec (str "WHEN I add an item, rmap SHALL keep its criteria.")
+                            (str "WHEN I show it, rmap SHALL print them.")))))))
+
+(deftest an-unreadable-criteria-file-fails
+  (let (outcome (resolve-criteria (criteria-input/from-file (str "/nonexistent/criteria.txt"))))
+    (match outcome
+      ((err error)
+       (assert (= (failure-code (ref error))
+                  (str "criteria-unreadable"))))
+      ((ok _) (assert false)))))

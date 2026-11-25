@@ -1,0 +1,21 @@
+(module
+  "Prints an item's acceptance criteria as a numbered section.")
+
+(use cli/tables indented)
+
+(export criteria-text)
+
+(defn criteria-text (criteria)
+  (if (empty? criteria)
+    (str "\n\nAcceptance criteria: -")
+    (str "\n\nAcceptance criteria:\n"
+         (indented (numbered (ref criteria))))))
+
+(type numbered
+  (fn ((ref (vec string))) string))
+
+(defn numbered (criteria)
+  (join (collect (map (range 0 (len criteria))
+                   (fn (index)
+                     (str (inc index) ". " (at criteria index)))))
+        "\n"))

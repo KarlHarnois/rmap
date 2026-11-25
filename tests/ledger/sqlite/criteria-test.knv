@@ -1,0 +1,50 @@
+(use ledger/model criterion)
+(use ledger/api criteria-input kind)
+(use ledger/operations/transaction connect)
+(use ledger/sqlite/criteria all-criteria replace-criteria)
+(use ledger/sqlite/items all-items)
+(use support/ledger added-id item-draft scratch-ledger)
+
+(defn added-with (settings criteria)
+  (added-id settings
+            (assoc (item-draft kind/research) :criteria criteria)))
+
+(defn texts (criteria)
+  (collect (map (iter criteria) criterion-text)))
+
+(type criterion-text
+  (fn ((ref criterion)) string))
+
+(defn criterion-text (criterion)
+  (clone (:text criterion)))
+
+(deftest an-added-items-criteria-are-read-back-in-order
+  (let (settings (scratch-ledger "criteria-rows")
+        _ (added-with (ref settings)
+                      (criteria-input/values (vec (str "first")
+                                                  (str "second"))))
+        connection (unwrap-ok (connect (ref settings))))
+    (assert (= (texts (unwrap-ok (all-criteria (ref connection))))
+               (vec (str "first") (str "second"))))))
+
+(deftest replacing-criteria-removes-the-old-rows
+  (let (settings (scratch-ledger "criteria-replace")
+        id (added-with (ref settings)
+                       (criteria-input/values (vec (str "first")
+                                                   (str "second"))))
+        connection (unwrap-ok (connect (ref settings))))
+    (unwrap-ok (replace-criteria (ref connection)
+                                 (ref id)
+                                 (ref (vec (str "third")))))
+    (assert (= (texts (unwrap-ok (all-criteria (ref connection))))
+               (vec (str "third"))))))
+
+(deftest a-read-item-carries-its-criteria
+  (let (settings (scratch-ledger "criteria-read-item")
+        id (added-with (ref settings)
+                       (criteria-input/values (vec (str "first")
+                                                   (str "second"))))
+        connection (unwrap-ok (connect (ref settings))))
+    (assert (= (:criteria (unwrap (find (iter (unwrap-ok (all-items (ref connection))))
+                                        (fn (item) (= (ref (:id item)) id)))))
+               (vec (str "first") (str "second"))))))

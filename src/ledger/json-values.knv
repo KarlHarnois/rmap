@@ -8,10 +8,10 @@
 (use ledger/names case-name kind-names origin-names
                   status-names)
 
-(export claim->json head->json id->json ids->json
-        item->columns optional-id->json optional-ids->json
-        optional-text->json optional-timestamp->json
-        pr-number->json)
+(export claim->json criteria->json head->json id->json
+        ids->json item->columns optional-id->json
+        optional-ids->json optional-text->json
+        optional-timestamp->json pr-number->json)
 
 (defn head->json (head)
   (text->json (as-str (:sha head))))
@@ -50,7 +50,12 @@
        (pair (str "closed_at")
              (optional-timestamp->json (ref (:closed-at item))))
        (pair (str "description")
-             (optional-text->json (ref (:description item))))))
+             (optional-text->json (ref (:description item))))
+       (pair (str "criteria")
+             (criteria->json (ref (:criteria item))))))
+
+(defn criteria->json (criteria)
+  (array (collect (map (iter criteria) text->json))))
 
 (defn optional-id->json (id)
   (match id

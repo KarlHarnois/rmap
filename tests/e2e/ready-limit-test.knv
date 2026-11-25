@@ -9,7 +9,8 @@
                           (vec "item" "add" "--roadmap"
                                "road" "--title" "b" "--kind"
                                "build" "--description"
-                               "a spec")))
+                               "a spec" "--criterion"
+                               "a criterion")))
            "item" "id"))
 
 (defn list-at (reply key)

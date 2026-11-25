@@ -1,9 +1,11 @@
 (use ledger/model kind status)
 (use ledger/refusal refusal)
+(use ledger/core/criteria criteria-input)
 
 (use ledger/core/item-edits ->item-edit apply-edit
                             check-description-edit
-                            check-edit description-edit)
+                            check-edit criteria-edit
+                            description-edit)
 
 (use ledger/core/new-items description-input)
 (use support/items work-item)
@@ -11,7 +13,8 @@
 (defn edit (title priority)
   (->item-edit :title title
                :priority priority
-               :description description-input/unspecified))
+               :description description-input/unspecified
+               :criteria criteria-input/unspecified))
 
 (defn refusal-of (item edit)
   (match (check-edit (ref item) (ref edit))
@@ -59,7 +62,8 @@
                     :description (some (str "old spec")))
         changed (apply-edit (ref item)
                             (ref (edit (some (str "new title")) none))
-                            description-edit/keep))
+                            description-edit/keep
+                            criteria-edit/keep))
     (assert (= (:title changed) (str "new title")))
     (assert (= (:priority changed) (:priority item)))
     (assert (= (:description changed) (:description item)))))
@@ -68,7 +72,8 @@
   (let (item (work-item "rm-0007" kind/research status/open)
         changed (apply-edit (ref item)
                             (ref (edit none none))
-                            (description-edit/set (some (str "new spec")))))
+                            (description-edit/set (some (str "new spec")))
+                            criteria-edit/keep))
     (assert (= (:description changed)
                (some (str "new spec"))))))
 

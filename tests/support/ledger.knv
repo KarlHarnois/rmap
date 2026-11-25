@@ -3,10 +3,10 @@
 (use ledger/api ->advancement ->claim-request ->log-query
                 ->new-item ->report-request ->session
                 ->settings add-item advance-item body-source
-                claim-item clock description-input
-                failure-code init-ledger item-id kind
-                kind-change new-roadmap origin read-log
-                record-report report-kind)
+                claim-item clock criteria-input
+                description-input failure-code init-ledger
+                item-id kind kind-change new-roadmap origin
+                read-log record-report report-kind)
 
 (use support/scratch scratch-database scratch-directory)
 
@@ -80,6 +80,7 @@
   (->new-item :parent none
               :title (str "work")
               :description (description-input/text (str "a spec"))
+              :criteria (criteria-input/values (vec (str "a criterion")))
               :kind kind
               :origin origin/planned
               :priority 0

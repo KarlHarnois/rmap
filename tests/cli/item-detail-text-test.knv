@@ -16,7 +16,7 @@
                               :children (vec)
                               :pull-request none))
     (assert (= (item-detail-text (ref detail))
-               (str "rm-0002  work\n  roadmap          rm-road\n  kind             build\n  status           dispatched\n  claimed by       worker\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  after            rm-0001\n  discovered from  rm-0009")))))
+               (str "rm-0002  work\n  roadmap          rm-road\n  kind             build\n  status           dispatched\n  claimed by       worker\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  after            rm-0001\n  discovered from  rm-0009\n\nAcceptance criteria: -")))))
 
 (deftest item-detail-prints-a-description-section-after-the-rows
   (let (detail (->item-detail
@@ -26,7 +26,7 @@
                  :children (vec)
                  :pull-request none))
     (assert (= (item-detail-text (ref detail))
-               (str "rm-0001  work\n  roadmap          rm-road\n  kind             research\n  status           open\n  claimed by       -\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  after            -\n  discovered from  -\n\nDescription:\n  line one\n  line two")))))
+               (str "rm-0001  work\n  roadmap          rm-road\n  kind             research\n  status           open\n  claimed by       -\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  after            -\n  discovered from  -\n\nDescription:\n  line one\n  line two\n\nAcceptance criteria: -")))))
 
 (deftest an-epic-detail-lists-its-children-under-a-heading
   (let (detail (->item-detail :item (epic-item "rm-0001")
@@ -37,4 +37,4 @@
                                                        "rm-0001"))
                               :pull-request none))
     (assert (= (item-detail-text (ref detail))
-               (str "rm-0001  work\n  roadmap          rm-road\n  kind             epic\n  status           open\n  claimed by       -\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  after            -\n  discovered from  -\n\nChildren:\n  ID       ROADMAP  KIND   STATUS  PRIORITY  TITLE\n  rm-0002  road     build  merged  0         work")))))
+               (str "rm-0001  work\n  roadmap          rm-road\n  kind             epic\n  status           open\n  claimed by       -\n  origin           planned\n  priority         0\n  parent           -\n  created          2026-01-01T00:00:00Z\n  closed           -\n  after            -\n  discovered from  -\n\nAcceptance criteria: -\n\nChildren:\n  ID       ROADMAP  KIND   STATUS  PRIORITY  TITLE\n  rm-0002  road     build  merged  0         work")))))

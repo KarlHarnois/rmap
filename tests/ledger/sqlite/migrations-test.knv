@@ -87,6 +87,10 @@ INSERT INTO sessions (name, item_id, kind, started_at, ended_at, end_reason) VAL
 INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('s1', 'rm-0002', 'work', '2026-01-03T00:00:00Z');
 INSERT INTO reports (item_id, session_id, kind, body, created_at) VALUES ('rm-0002', 2, 'question', 'why?', '2026-01-04T00:00:00Z');")
 
+(def version-ten-rows
+  "INSERT INTO roadmaps (id, name, manager_session, created_at) VALUES ('rm-0001', 'road', 'm1', 't');
+INSERT INTO items (id, roadmap_id, title, kind, status, created_at) VALUES ('rm-0002', 'rm-0001', 'old', 'research', 'open', 't');")
+
 (defn embedded-files ()
   (let (files (collect (map (iter (migration-sources))
                          (fn (migration)
@@ -217,6 +221,13 @@ INSERT INTO reports (item_id, session_id, kind, body, created_at) VALUES ('rm-00
   (let (connection (opened name))
     (unwrap-ok (migrate (ref connection) (migrations-through 8)))
     (unwrap-ok (run-batch (ref connection) version-eight-rows))
+    (unwrap-ok (migrate (ref connection) (migration-sources)))
+    connection))
+
+(defn upgraded-from-version-ten (name)
+  (let (connection (opened name))
+    (unwrap-ok (migrate (ref connection) (migrations-through 10)))
+    (unwrap-ok (run-batch (ref connection) version-ten-rows))
     (unwrap-ok (migrate (ref connection) (migration-sources)))
     connection))
 
@@ -540,3 +551,27 @@ INSERT INTO sessions (name, item_id, kind, started_at) VALUES ('s2', 'rm-0002', 
   (let (connection (upgraded-from-version-nine "review-sessions-abandoned"))
     (assert (ok? (run-batch (ref connection)
                             "UPDATE sessions SET ended_at = 't', end_reason = 'abandoned' WHERE id = 1;")))))
+
+(deftest the-criteria-migration-adds-an-empty-item-criteria-table-to-an-existing-ledger
+  (let (connection (upgraded-from-version-ten "criteria-table"))
+    (assert (= (row-count (ref connection) "item_criteria") 0))
+    (assert (= (row-count (ref connection) "items") 1))
+    (assert (= (unwrap-ok (schema-version (ref connection)))
+               (newest-version)))))
+
+(deftest the-criteria-migration-gives-old-items-no-criteria
+  (let (connection (upgraded-from-version-ten "criteria-old-items"))
+    (assert (= (:criteria (unwrap (first (unwrap-ok (all-items (ref connection))))))
+               (vec)))))
+
+(deftest an-item-criterion-needs-an-item
+  (let (connection (upgraded-from-version-ten "criteria-foreign-key"))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO item_criteria (item_id, position, text) VALUES ('rm-ffff', 1, 'x');")))))
+
+(deftest a-position-belongs-to-one-criterion-per-item
+  (let (connection (upgraded-from-version-ten "criteria-primary-key"))
+    (assert (ok? (run-batch (ref connection)
+                            "INSERT INTO item_criteria (item_id, position, text) VALUES ('rm-0002', 1, 'x');")))
+    (assert (err? (run-batch (ref connection)
+                             "INSERT INTO item_criteria (item_id, position, text) VALUES ('rm-0002', 1, 'y');")))))

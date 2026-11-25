@@ -1,0 +1,30 @@
+(use ledger/core/criteria check-criteria
+                          normalized-criteria)
+
+(use ledger/refusal refusal)
+
+(defn refusal-of (criteria)
+  (match (check-criteria (ref criteria))
+    ((err refused) (some refused))
+    ((ok _) none)))
+
+(deftest an-item-needs-at-least-one-criterion
+  (assert (= (refusal-of (vec))
+             (some refusal/criteria-required))))
+
+(deftest a-blank-criterion-is-refused
+  (assert (= (refusal-of (vec (str "a criterion") (str "  \n\t ")))
+             (some refusal/blank-criterion))))
+
+(deftest normalization-keeps-the-order-they-are-given
+  (assert (= (normalized-criteria (ref (vec (str " second ") (str " first "))))
+             (vec (str "second") (str "first")))))
+
+(deftest normalization-trims-each-criterion
+  (assert (= (normalized-criteria (ref (vec (str "  first  ")
+                                            (str "\tsecond\n"))))
+             (vec (str "first") (str "second")))))
+
+(deftest a-list-of-non-blank-criteria-is-accepted
+  (assert (= (refusal-of (vec (str "first") (str "second")))
+             none)))

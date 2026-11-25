@@ -1,5 +1,6 @@
 (use ledger/model ->roadmap-id ->snapshot kind origin)
 (use ledger/refusal refusal)
+(use ledger/core/criteria criteria-input)
 
 (use ledger/core/new-items ->new-item check-description
                            check-new-item description-input)
@@ -24,6 +25,7 @@
   (->new-item :parent none
               :title (str "work")
               :description description-input/unspecified
+              :criteria (criteria-input/values (vec (str "a criterion")))
               :kind kind/research
               :origin origin/planned
               :priority priority

@@ -42,3 +42,8 @@
   (assert (contains? (as-str (command-help-text (routes-named
                                                   "decision revise")))
                      "--no-supersedes")))
+
+(deftest item-add-help-shows-an-example-criterion-in-the-when-then-style
+  (assert (contains?
+            (as-str (command-help-text (routes-named "item add")))
+            "WHEN I run item show, rmap SHALL print the acceptance criteria.")))

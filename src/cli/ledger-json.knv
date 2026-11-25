@@ -1,7 +1,9 @@
 (module
   "Turns ledger values into the JSON objects the CLI prints.")
 
-(use json/value copy-of int->json json object text->json)
+(use json/value array copy-of int->json json object
+                text->json)
+
 (use cli/session-json claim->json claim->session-json)
 
 (use ledger/api case-name dep dep-type-names event
@@ -85,6 +87,8 @@
                      (text->json (as-str (:title item))))
                (pair (str "description")
                      (optional-text->json (ref (:description item))))
+               (pair (str "criteria")
+                     (array (collect (map (iter (:criteria item)) text->json))))
                (pair (str "kind")
                      (text->json (case-name kind-names (:kind item))))
                (pair (str "status")

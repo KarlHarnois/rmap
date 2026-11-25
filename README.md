@@ -45,14 +45,14 @@ Commands:
     Lists the next action for each open item and proposed decision, and who takes it: an agent asks an unanswered decision, the user answers an asked one, and a rejected decision that holds an item sends it back for a replan. A manager with no roadmaps gives an empty list, not an error.
   log [--item <id>] [--decision <id>] [--since <event id>]
     Prints the events, for one item, for one decision or after one event id when given.
-  item add --roadmap <name> --title <text> [--description <text>] [--description-file <path|->] --kind epic|research|design|build [--parent <epic id>] [--after <ids, comma-separated>] [--from <id>] [--origin planned|user-bug|follow-up] [--priority <0 (highest) to 4 (lowest), default 2>]
-    Adds an item to a roadmap. Every item needs a description.
+  item add --roadmap <name> --title <text> [--description <text>] [--description-file <path|->] [--criterion <text>] [--criteria-file <path|->] --kind epic|research|design|build [--parent <epic id>] [--after <ids, comma-separated>] [--from <id>] [--origin planned|user-bug|follow-up] [--priority <0 (highest) to 4 (lowest), default 2>]
+    Adds an item to a roadmap. Every item needs a description and at least one acceptance criterion, for example "WHEN I run item show, rmap SHALL print the acceptance criteria." Repeat --criterion for each one, or read one per non-blank line from --criteria-file.
   item list [--roadmap <name>]
     Lists the items.
   item show <id>
     Shows one item with its dependencies.
-  item edit <id> [--title <text>] [--priority <0 (highest) to 4 (lowest)>] [--description <text>] [--description-file <path|->]
-    Changes an item's title, priority or description. Give at least one of the flags. A finished item takes only a description change.
+  item edit <id> [--title <text>] [--priority <0 (highest) to 4 (lowest)>] [--description <text>] [--description-file <path|->] [--criterion <text>] [--criteria-file <path|->]
+    Changes an item's title, priority, description or acceptance criteria. Give at least one of the flags. --criterion and --criteria-file replace the whole list. A finished item takes only a description or criteria change.
   item claim <id> --session <name> [--branch <name>] [--base <branch>]
     Gives a ready item to a new session and marks it dispatched. The branch defaults to the session name and the base to the repository's default branch.
   item advance <id> <open|dispatched|reported|in_review|fixing|merging|merged|accepted|dropped> [--kind build]
@@ -171,6 +171,8 @@ Refusal codes:
   item-not-found                 No item has that id.
   item-closed                    A merged, accepted or dropped item is closed.
   description-required           An item needs a description.
+  criteria-required              An item needs at least one acceptance criterion.
+  blank-criterion                An acceptance criterion cannot be blank.
   parent-not-epic                The parent is not an epic.
   parent-in-other-roadmap        The parent belongs to another roadmap.
   epic-has-parent                An epic cannot have a parent.
