@@ -188,3 +188,33 @@
                                                 decision-status/rejected)))
         blockage (assoc (blocked-report) :pause roadmap-pause/paused))
     (assert (not (blocked-only-by-rejected? (ref snapshot) (ref blockage))))))
+
+(deftest an-approved-in-review-build-waits-on-a-proposed-decision
+  (let (item (claimed (work-item "rm-0001" kind/build status/in-review))
+        decisions (vec (raised item decision-status/proposed))
+        result (actions-for item (ref decisions) (one-action action/merge)))
+    (assert (= (actions (ref result))
+               (vec action/wait)))))
+
+(deftest an-approved-in-review-build-replans-a-rejected-decision-alone
+  (let (item (claimed (work-item "rm-0001" kind/build status/in-review))
+        decisions (vec (raised item decision-status/rejected))
+        result (actions-for item (ref decisions) (one-action action/merge)))
+    (assert (= (actions (ref result))
+               (vec action/replan)))))
+
+(deftest a-merging-build-with-changes-requested-keeps-review-and-replans
+  (let (item (claimed (work-item "rm-0001" kind/build status/merging))
+        decisions (vec (raised item decision-status/rejected))
+        result (actions-for item
+                            (ref decisions)
+                            (one-action action/review)))
+    (assert (= (actions (ref result))
+               (vec action/review action/replan)))))
+
+(deftest replan-replaces-a-wait-whatever-its-reason
+  (let (item (work-item "rm-0001" kind/build status/open)
+        decisions (vec (raised item decision-status/rejected))
+        result (actions-for item (ref decisions) (one-action action/wait)))
+    (assert (= (actions (ref result))
+               (vec action/replan)))))

@@ -574,3 +574,27 @@
 
 (deftest a-dropped-item-with-a-raised-rejection-is-not-listed
   (assert (empty? (finished-with-rejected status/dropped))))
+
+(deftest replan-replaces-a-wait-and-keeps-its-blocker
+  (let (item (work-item "rm-0001" kind/build status/open)
+        blocker (work-item "rm-0002" kind/research status/open)
+        decision (assoc (sample-decision decision-status/rejected)
+                        :id (->decision-id :value (str "rm-d1"))
+                        :item (some (clone (:id item))))
+        snapshot (snapshot-of (vec item blocker)
+                              (vec (blocks-dep "rm-0001" "rm-0002")))
+        entry (item-entry-for (next-of (ref snapshot)
+                                       (ref (vec (road)))
+                                       (ref (reports-only (vec)))
+                                       (ref (vec decision)))
+                              "rm-0001")
+        actions (entry-actions entry)
+        planned (clone (unwrap (first actions)))
+        reasons (unwrap (clone (:reasons planned))))
+    (assert (= (len actions) 1))
+    (assert (= (:action planned) action/replan))
+    (assert (= (reason-ids planned)
+               (vec (str "rm-d1"))))
+    (assert (= (collect (map (iter (:blockers reasons))
+                          (fn (id) (clone (:value id)))))
+               (vec (str "rm-0002"))))))

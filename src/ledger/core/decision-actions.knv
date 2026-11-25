@@ -2,8 +2,8 @@
   "Replaces the next action a raised decision holds, once a decision is proposed or rejected.")
 
 (use ledger/model ->blockage blockage decision-id
-                  decision-status item kind roadmap-pause
-                  snapshot status)
+                  decision-status item roadmap-pause
+                  snapshot)
 
 (use ledger/model/decisions decision)
 (use ledger/core/actions action next-action planned)
@@ -15,6 +15,10 @@
                                raised-rejected)
 
 (export blocked-only-by-rejected? with-decision-actions)
+
+(defenum hold
+  proposed
+  rejected)
 
 (type with-decision-actions
   (fn ((ref readiness)
@@ -39,72 +43,47 @@
 (defn raised-actions (readiness decisions item actions)
   (let (rejected (raised-rejected decisions item))
     (if (empty? rejected)
-      (with-proposed-action readiness decisions item actions)
-      (append-or-replace actions
-                         (held-action item)
+      (proposed-actions readiness decisions item actions)
+      (replace-or-append actions hold/rejected
                          (replan-action readiness item rejected)))))
 
-(defn with-proposed-action (readiness decisions item actions)
+(defn proposed-actions (readiness decisions item actions)
   (let (proposed (raised-proposed decisions item))
     (if (empty? proposed)
       actions
-      (replace-when-held actions
-                         (held-action item)
-                         (raised-wait readiness item proposed)))))
+      (replace-held actions hold/proposed
+                    (raised-wait readiness item proposed)))))
 
-(defn append-or-replace (actions held replacement)
-  (match held
-    ((some want) (replace-held actions want replacement))
-    (none (replan-once actions replacement))))
-
-(defn replan-once (actions replacement)
-  (if (has-action? actions action/replan)
-    (replace-held actions action/replan replacement)
+(defn replace-or-append (actions mode replacement)
+  (if (any-hold? actions mode)
+    (replace-held actions mode replacement)
     (appended actions replacement)))
 
-(defn has-action? (actions wanted)
-  (any? (iter actions)
-    (fn (planned)
-      (= (:action planned) wanted))))
-
-(defn replace-when-held (actions held replacement)
-  (match held
-    ((some want) (replace-held actions want replacement))
-    (none actions)))
-
-(defn replace-held (actions want replacement)
+(defn replace-held (actions mode replacement)
   (collect (map (iter actions)
-             (fn (planned) (substitute planned want replacement)))))
+             (fn (planned) (substitute planned mode replacement)))))
+
+(defn any-hold? (actions mode)
+  (any? (iter actions)
+    (fn (planned) (holds? planned mode))))
 
 (defn appended (actions replacement)
   (let (all actions)
     (push! all (clone replacement))
     all))
 
-(defn substitute (planned want replacement)
-  (if (= (:action planned) want)
+(defn holds? (planned mode)
+  (match (:action planned)
+    (accept-report true)
+    (merge true)
+    (wait (= mode hold/rejected))
+    (replan (= mode hold/rejected))
+    (_ false)))
+
+(defn substitute (planned mode replacement)
+  (if (holds? planned mode)
     (clone replacement)
     (clone planned)))
-
-(type held-action
-  (fn ((ref item)) (option action)))
-
-(defn held-action (item)
-  (match (:status item)
-    (reported (reported-hold (:kind item)))
-    (merging (merging-hold (:kind item)))
-    (_ none)))
-
-(defn reported-hold (item-kind)
-  (match item-kind
-    (research (some action/accept-report))
-    (design (some action/accept-report))
-    (_ none)))
-
-(defn merging-hold (item-kind)
-  (match item-kind
-    (build (some action/merge))
-    (_ none)))
 
 (defn replan-action (readiness item rejected)
   (planned action/replan none

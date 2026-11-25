@@ -4,6 +4,9 @@
 (use support/rmap database-with-roadmap reply reported-done
                   research-id run-rmap text-at)
 
+(use support/pr-commands build-id first-sha report-build
+                         review-build)
+
 (use support/scratch scratch-database)
 
 (def write-file
@@ -341,3 +344,33 @@
                              (fn (action) (text-of action "action")))))
     (assert (= listed
                (vec (str "work") (str "replan"))))))
+
+(deftest an-approved-in-review-build-waits-on-a-proposed-decision-it-raised
+  (let (database (database-with-roadmap "e2e-next-approved-raised")
+        build (build-id (ref database))
+        _done (assert (= (:exit-code (report-build (ref database)
+                                                   build
+                                                   "done"
+                                                   (vec (str "--pr")
+                                                        (str "1")
+                                                        (str "--head")
+                                                        (str first-sha))))
+                         0))
+        _review (assert (= (:exit-code (review-build (ref database)
+                                                     build
+                                                     "r1"
+                                                     "approve"
+                                                     first-sha))
+                           0))
+        before (run-rmap (clone database) (vec "next"))
+        before-action (action-of
+                        (entry-named (ref before) "item" (clone build)))
+        _decision (proposed (clone database)
+                            "e2e-next-approved-raised-doc"
+                            (vec (str "--item") (clone build)))
+        after (run-rmap (clone database) (vec "next"))
+        waiting (action-of (entry-named (ref after) "item" (clone build))))
+    (assert (= (text-of (ref before-action) "action")
+               (str "merge")))
+    (assert (= (text-of (ref waiting) "action")
+               (str "wait")))))
