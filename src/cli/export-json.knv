@@ -6,7 +6,7 @@
 (use cli/criterion-json criterion->json)
 (use cli/decision-json decision-fields option-record->json)
 
-(use cli/ledger-json dep->json event->json item->json
+(use cli/ledger-json dep->json event->json item-fields
                      roadmap->json)
 
 (use cli/pr-json pull-request-record->json review->json)
@@ -24,7 +24,7 @@
                              roadmap->json)
                  (list-field "items"
                              (ref (:export-items document))
-                             item->json)
+                             item-record->json)
                  (list-field "item_criteria"
                              (ref (:export-criteria document))
                              criterion->json)
@@ -60,6 +60,9 @@
 (defn list-field (name values value->json)
   (pair (str name)
         (array (collect (map (iter values) value->json)))))
+
+(defn item-record->json (item)
+  (object (item-fields item)))
 
 (defn decision-record->json (decision)
   (object (decision-fields decision)))

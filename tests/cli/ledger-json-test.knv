@@ -1,6 +1,6 @@
 (use ledger/model ->roadmap-id ->timestamp kind status)
 (use ledger/model/events ->event event-type)
-(use cli/ledger-json event->json item->json)
+(use cli/ledger-json event->json item->json item-fields)
 
 (use json/value field json->text null? object same?
                 text->json)
@@ -65,3 +65,10 @@
 (deftest an-unclaimed-item-prints-a-null-session
   (assert (null? (ref (item-field (work-item "rm-0001" kind/build status/open)
                                   "session")))))
+
+(deftest an-item-record-keeps-its-claimant-but-not-its-session
+  (let (item (claimed (work-item "rm-0001" kind/build status/dispatched))
+        record (object (item-fields item)))
+    (assert (= (json->text (ref (unwrap (field record "claimed_by"))))
+               (some (str "worker"))))
+    (assert (none? (field record "session")))))

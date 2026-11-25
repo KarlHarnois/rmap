@@ -229,3 +229,12 @@
     (assert (every? items
               (fn (item)
                 (none? (field item "criteria")))))))
+
+(deftest the-export-items-do-not-nest-their-sessions
+  (let (document (:json (export-reply (export-database
+                                        "e2e-export-item-shape")))
+        items (listed (copy-of document) "items"))
+    (assert (every? items
+              (fn (item)
+                (and (none? (field item "session"))
+                     (some? (field item "claimed_by"))))))))
