@@ -33,6 +33,8 @@
 (use cli/pr-requests pr-operation-of
                      start-review-operation-of)
 
+(use cli/session-requests session-end-request)
+
 (export invocation-of)
 
 (defn invocation-of (route arguments)
@@ -136,4 +138,6 @@
     ((subcommand/pull-request command)
      (on-ledger arguments
                 (map-ok (pr-operation-of arguments route command)
-                  (fn (operation) (request/pull-request operation)))))))
+                  (fn (operation) (request/pull-request operation)))))
+    ((subcommand/session command)
+     (on-ledger arguments (session-end-request arguments route)))))

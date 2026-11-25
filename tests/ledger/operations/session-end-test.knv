@@ -1,0 +1,83 @@
+(use json/value copy-of)
+
+(use ledger/api ->session case-name claim-item end-reason
+                end-session event-type-names show-item
+                status)
+
+(use ledger/model claim kind)
+
+(use support/ledger added-id advanced all-events claim-by
+                    claimed item-draft refusal-code-of
+                    scratch-ledger session-named)
+
+(use support/payloads side-text)
+
+(use support/pull-requests in-review-build review-start-as
+                           start-review-result)
+
+(deftest ending-a-live-review-session-lets-a-new-review-start
+  (let (settings (scratch-ledger "session-end-review")
+        id (in-review-build (ref settings)
+                            (ref (claimed (ref settings)
+                                          (added-id (ref settings)
+                                                    (item-draft kind/build))))
+                            12))
+    (review-start-as (ref settings) (ref id) "r1")
+    (unwrap-ok (end-session (ref settings)
+                            (session-named "r1")
+                            end-reason/abandoned))
+    (assert (ok? (start-review-result (ref settings) (ref id) "r2")))))
+
+(deftest ending-a-live-work-session-frees-its-name
+  (let (settings (scratch-ledger "session-end-work")
+        id (claimed (ref settings)
+                    (added-id (ref settings) (item-draft kind/build))))
+    (unwrap-ok (end-session (ref settings)
+                            (session-named (str "worker-" (:value id)))
+                            end-reason/abandoned))
+    (let (detail (unwrap-ok (show-item (ref settings) (clone id))))
+      (assert (= (:claim (:item detail)) claim/unclaimed)))
+    (advanced (ref settings) (clone id) status/open)
+    (assert (ok? (claim-item (ref settings)
+                             (clone id)
+                             (claim-by (str "worker-" (:value id))))))))
+
+(deftest ending-a-session-that-is-not-live-is-refused
+  (let (settings (scratch-ledger "session-end-not-live")
+        id (in-review-build (ref settings)
+                            (ref (claimed (ref settings)
+                                          (added-id (ref settings)
+                                                    (item-draft kind/build))))
+                            12))
+    (review-start-as (ref settings) (ref id) "r1")
+    (unwrap-ok (end-session (ref settings)
+                            (session-named "r1")
+                            end-reason/abandoned))
+    (assert (= (refusal-code-of (end-session (ref settings)
+                                             (session-named "r1")
+                                             end-reason/abandoned))
+               (some (str "session-not-live"))))
+    (assert (= (refusal-code-of (end-session (ref settings)
+                                             (session-named "ghost")
+                                             end-reason/abandoned))
+               (some (str "session-not-live"))))))
+
+(deftest ending-a-session-records-its-actor-and-reason
+  (let (settings (scratch-ledger "session-end-event")
+        id (in-review-build (ref settings)
+                            (ref (claimed (ref settings)
+                                          (added-id (ref settings)
+                                                    (item-draft kind/build))))
+                            12))
+    (review-start-as (ref settings) (ref id) "r1")
+    (unwrap-ok (end-session (ref settings)
+                            (session-named "r1")
+                            end-reason/abandoned))
+    (let (events (unwrap-ok (all-events (ref settings)))
+          event (unwrap (last events))
+          payload (copy-of (ref (:payload event))))
+      (assert (= (case-name event-type-names (:type event))
+                 (str "session-ended")))
+      (assert (= (:actor event) (str "tester")))
+      (assert (= (side-text payload "end_reason" "new")
+                 (some (str "abandoned")))))))

@@ -1,0 +1,26 @@
+(module
+  "Turns an ended session into the JSON fields the CLI prints.")
+
+(use json/value json object text->json)
+(use ledger/api case-name ended-session session-kind-names)
+(use cli/ledger-json item->json)
+
+(export session-ended-fields)
+
+(type session-ended-fields
+  (fn ((ref ended-session))
+    (vec (pair string json))))
+
+(defn session-ended-fields (ended)
+  (vec (pair (str "item")
+             (item->json (ref (:item ended))))
+       (pair (str "session")
+             (object (vec (pair (str "name")
+                                (text->json (as-str (:name (:session ended)))))
+                          (pair (str "kind")
+                                (text->json (case-name session-kind-names
+                                                       (:kind ended)))))))
+       (pair (str "reason")
+             (text->json (as-str (:reason ended))))
+       (pair (str "ended_at")
+             (text->json (as-str (:value (:at (:end ended))))))))

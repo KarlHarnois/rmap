@@ -16,7 +16,7 @@ CREATE TABLE sessions (
   base TEXT,
   started_at TEXT NOT NULL,
   ended_at TEXT,
-  end_reason TEXT CHECK (end_reason IN ('reopened', 'replaced', 'finished', 'superseded'))
+  end_reason TEXT CHECK (end_reason IN ('reopened', 'replaced', 'finished', 'superseded', 'abandoned'))
 );
 
 CREATE UNIQUE INDEX sessions_live_name ON sessions (name) WHERE ended_at IS NULL;

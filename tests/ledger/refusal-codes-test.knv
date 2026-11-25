@@ -49,6 +49,7 @@
                                          (sample-id))
        (refusal/supersede-target-not-accepted (sample-decision-id))
        (refusal/session-busy (->session :name (str "s1")))
+       (refusal/session-not-live (->session :name (str "s1")))
        (refusal/session-not-claimant (->session :name (str "s1"))
                                      (sample-id))
        refusal/report-empty

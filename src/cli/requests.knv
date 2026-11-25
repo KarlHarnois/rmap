@@ -5,10 +5,10 @@
                 ->graph-request ->item-id ->log-query
                 ->session advancement batch-size
                 batch-size-of case-named claim-request
-                graph-format graph-format-names graph-level
-                graph-level-names graph-request history
-                item-edit item-id kind-change log-query
-                new-item session status-names)
+                end-reason graph-format graph-format-names
+                graph-level graph-level-names graph-request
+                history item-edit item-id kind-change
+                log-query new-item session status-names)
 
 (use cli/item-flags item-edit-of new-item-of)
 (use cli/report-requests report-operation)
@@ -48,7 +48,8 @@
   (graph graph-request)
   (decision decision-request)
   (report report-operation)
-  (pull-request pr-operation))
+  (pull-request pr-operation)
+  (end-session session end-reason))
 
 (defn new-roadmap-request (arguments name)
   (let-try (manager (required-text arguments "manager"))

@@ -1,0 +1,18 @@
+(module
+  "Builds the request to end a live session by name.")
+
+(use ledger/api ->session abandoned)
+(use cli/arguments operand)
+(use cli/flags required-choice)
+(use cli/requests request)
+
+(export session-end-request)
+
+(def session-end-reason-names
+  (vec (pair (abandoned) "abandoned")))
+
+(defn session-end-request (arguments route)
+  (let-try (reason (required-choice arguments "reason"
+                                    session-end-reason-names))
+    (ok (request/end-session (->session :name (operand arguments route 0))
+                             reason))))

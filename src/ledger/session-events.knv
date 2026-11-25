@@ -1,0 +1,40 @@
+(module
+  "Describes the event of a named live session ending, with the session it names.")
+
+(use json/value json text->json)
+(use ledger/model item)
+(use ledger/model/sessions live-session session-end)
+
+(use ledger/model/events ->event-draft event-draft
+                         event-type)
+
+(use ledger/changes payload-with-changes)
+(use ledger/names case-name session-kind-names)
+(use ledger/session-columns ended-session-columns)
+
+(export session-ended)
+
+(type session-ended
+  (fn ((ref item)
+       (ref live-session)
+       (ref session-end))
+    event-draft))
+
+(defn session-ended (item session end)
+  (->event-draft :roadmap-id (some (clone (:roadmap-id item)))
+                 :item-id (some (clone (:id item)))
+                 :decision-id none
+                 :type event-type/session-ended
+                 :payload (payload-with-changes (ref (ended-session-columns
+                                                       end))
+                                                (session-context session))))
+
+(type session-context
+  (fn ((ref live-session))
+    (vec (pair string json))))
+
+(defn session-context (session)
+  (vec (pair (str "session")
+             (text->json (as-str (:name (:session session)))))
+       (pair (str "session_kind")
+             (text->json (case-name session-kind-names (:kind session))))))

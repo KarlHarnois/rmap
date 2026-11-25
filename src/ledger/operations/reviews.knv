@@ -19,7 +19,7 @@
                                    settings transaction)
 
 (use ledger/sqlite/reviews insert-review next-review-id)
-(use ledger/sqlite/live-review-sessions live-review-session-id)
+(use ledger/sqlite/live-sessions live-review-session-id)
 
 (use ledger/sqlite/sessions end-session-id
                             item-worker-sessions)

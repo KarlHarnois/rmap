@@ -1,0 +1,11 @@
+(module
+  "Decides whether a named session may be ended: only a live session may.")
+
+(use ledger/refusal refusal)
+
+(export approved-session-end)
+
+(defn approved-session-end (session live)
+  (match live
+    ((some _) (ok (do)))
+    (none (err (refusal/session-not-live (clone session))))))

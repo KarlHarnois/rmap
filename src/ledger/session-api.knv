@@ -1,0 +1,9 @@
+(module
+  "Holds the session part of the ledger's public surface: the reason a session ends and ending a live session by name.")
+
+(use ledger/model/sessions end-reason ended-session)
+(use ledger/operations/session-end end-session)
+
+(export abandoned end-reason end-session ended-session)
+
+(defn abandoned () end-reason/abandoned)

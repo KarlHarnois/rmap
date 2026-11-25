@@ -52,4 +52,5 @@
   report-read
   item-reviewed
   head-recorded
-  review-started)
+  review-started
+  session-ended)

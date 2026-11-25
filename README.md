@@ -149,6 +149,8 @@ Commands:
     Records a new head for the build's pull request when its branch moved without a fixed report, and moves an in_review or merging build back to in_review. Any live review session ends as superseded, and reviews on older heads stop counting toward its approval.
   pr show <item>
     Shows the build's pull request with its reviews and whether they approve its head.
+  session end <name> --reason abandoned
+    Ends a live session by name. The only reason it records today is abandoned.
 
 Environment:
   RMAP_JSON   Set to 1 to print JSON, as --json does.
@@ -191,6 +193,7 @@ Refusal codes:
   decision-block-not-found       The decision does not block that item.
   supersede-target-not-accepted  Only a decision that is accepted, or rejected in the same roadmap, can be superseded.
   session-busy                   A live session already has that name.
+  session-not-live               No live session has that name.
   session-not-claimant           The session is not the item's live session.
   report-empty                   A report needs a body.
   report-not-found               No report has that id.

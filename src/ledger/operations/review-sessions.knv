@@ -9,7 +9,7 @@
 (use ledger/core/pull-requests pr-change)
 (use ledger/operations/pull-requests pull-request-update)
 (use ledger/sqlite/connection connection database-error)
-(use ledger/sqlite/live-review-sessions live-review-session)
+(use ledger/sqlite/live-sessions live-review-session)
 (use ledger/sqlite/sessions end-session-id)
 
 (export end-live-review-session review-end-for-report

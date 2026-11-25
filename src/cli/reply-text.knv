@@ -1,8 +1,9 @@
 (module
   "Describes each ledger result in plain text.")
 
-(use ledger/api case-name dep init-outcome init-report
-                roadmap roadmap-status roadmap-status-names)
+(use ledger/api case-name dep ended-session init-outcome
+                init-report roadmap roadmap-status
+                roadmap-status-names session-kind-names)
 
 (use cli/replies reply)
 (use cli/tables headed table)
@@ -68,7 +69,23 @@
     ((reply/decision-deprecated decision)
      (decision-deprecated-text (ref decision)))
     ((reply/reported answer) (report-reply->text answer))
-    ((reply/pull-request answer) (pr-reply->text answer))))
+    ((reply/pull-request answer) (pr-reply->text answer))
+    ((reply/session-ended ended)
+     (session-ended-text (ref ended)))))
+
+(type session-ended-text
+  (fn ((ref ended-session)) string))
+
+(defn session-ended-text (ended)
+  (str "Ended "
+       (:name (:session ended))
+       " ("
+       (case-name session-kind-names (:kind ended))
+       ") on "
+       (:value (:id (:item ended)))
+       " as "
+       (:reason ended)
+       "."))
 
 (type init-report-text
   (fn ((ref init-report)) string))

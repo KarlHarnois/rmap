@@ -40,6 +40,7 @@
   (decision-block-not-found decision-id item-id)
   (supersede-target-not-accepted decision-id)
   (session-busy session)
+  (session-not-live session)
   (session-not-claimant session item-id)
   report-empty
   (report-not-found report-id)

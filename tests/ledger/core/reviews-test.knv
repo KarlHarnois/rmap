@@ -68,7 +68,9 @@
 
 (defn live-review (name)
   (->live-session :id (->session-id :value 9)
-                  :session (->session :name (str name))))
+                  :session (->session :name (str name))
+                  :item (->item-id :value (str "rm-0001"))
+                  :kind session-kind/review))
 
 (defn now ()
   (->timestamp :value (str "2026-01-04T00:00:00Z")))

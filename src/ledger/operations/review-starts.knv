@@ -19,7 +19,7 @@
 (use ledger/operations/transaction in-transaction now record
                                    settings transaction)
 
-(use ledger/sqlite/live-review-sessions live-review-session)
+(use ledger/sqlite/live-sessions live-review-session)
 
 (use ledger/sqlite/sessions item-worker-sessions
                             live-session-named?

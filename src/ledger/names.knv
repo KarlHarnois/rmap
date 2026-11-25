@@ -56,7 +56,8 @@
   (vec (pair end-reason/reopened "reopened")
        (pair end-reason/replaced "replaced")
        (pair end-reason/finished "finished")
-       (pair end-reason/superseded "superseded")))
+       (pair end-reason/superseded "superseded")
+       (pair end-reason/abandoned "abandoned")))
 
 (def dep-type-names
   (vec (pair dep-type/blocks "blocks")
@@ -88,7 +89,8 @@
        (pair event-type/report-read "report-read")
        (pair event-type/item-reviewed "item-reviewed")
        (pair event-type/head-recorded "head-recorded")
-       (pair event-type/review-started "review-started")))
+       (pair event-type/review-started "review-started")
+       (pair event-type/session-ended "session-ended")))
 
 (def report-kind-names
   (vec (pair report-kind/done "done")

@@ -96,6 +96,8 @@
           " is neither"))
     ((session-busy session)
      (str "a live session is already named " (:name session)))
+    ((session-not-live session)
+     (str "the session " (:name session) " is not live"))
     ((session-not-claimant session item)
      (str "the session "
           (:name session)
