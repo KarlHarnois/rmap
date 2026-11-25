@@ -4,6 +4,7 @@
 (use ledger/model item item-id)
 
 (use ledger/core/item-edits ->item-edit apply-edit
+                            check-description-edit
                             check-edit description-edit
                             item-edit)
 
@@ -57,7 +58,8 @@
 (defn apply-edit-in (transaction id edit description)
   (let-try (snapshot (load-snapshot (ref (:connection transaction)))
             item (existing (ref snapshot) id)
-            _ (check-edit (ref item) (ref edit)))
+            _ (check-edit (ref item) (ref edit))
+            _ (check-description-edit (ref description)))
     (store-edit transaction
                 (ref item)
                 (apply-edit (ref item) (ref edit) description))))

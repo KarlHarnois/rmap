@@ -32,29 +32,38 @@
     (assert (= (:description item)
                (some (str "new spec"))))))
 
-(deftest an-empty-description-clears-it
+(deftest an-edit-cannot-clear-the-description
   (let (settings (scratch-ledger "edit-empty-description")
         id (added-id (ref settings)
                      (assoc (item-draft kind/research)
                             :description (description-input/text (str "old spec"))))
-        _ (unwrap-ok (edit-item (ref settings)
-                                (clone id)
-                                (edit none none
-                                      (description-input/text (str ""))))))
+        before (events (ref settings))
+        outcome (edit-item (ref settings)
+                           (clone id)
+                           (edit none none (description-input/text (str "")))))
+    (assert (= (refusal-code-of outcome)
+               (some (str "description-required"))))
     (assert (= (:description (shown (ref settings) id))
-               none))))
+               (some (str "old spec"))))
+    (assert (= (len (events (ref settings)))
+               (len before)))))
 
-(deftest an-empty-description-file-clears-it
+(deftest a-finished-item-cannot-clear-its-description
   (let (settings (scratch-ledger "edit-empty-description-file")
-        id (added-id (ref settings)
-                     (assoc (item-draft kind/research)
-                            :description (description-input/text (str "old spec"))))
-        _ (unwrap-ok (edit-item (ref settings)
-                                (clone id)
-                                (edit none none
-                                      (description-input/from-file (str "/dev/null"))))))
+        id (reported-research (ref settings))
+        _ (unwrap-ok (close-item (ref settings) (clone id)))
+        before (events (ref settings))
+        outcome (edit-item (ref settings)
+                           (clone id)
+                           (edit none none
+                                 (description-input/from-file (str
+                                                                "/dev/null")))))
+    (assert (= (refusal-code-of outcome)
+               (some (str "description-required"))))
     (assert (= (:description (shown (ref settings) id))
-               none))))
+               (some (str "a spec"))))
+    (assert (= (len (events (ref settings)))
+               (len before)))))
 
 (deftest an-edit-records-one-edited-event
   (let (settings (scratch-ledger "edit-event")

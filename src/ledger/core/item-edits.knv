@@ -3,12 +3,15 @@
 
 (use ledger/model item)
 (use ledger/refusal refusal)
-(use ledger/core/new-items description-input)
+
+(use ledger/core/new-items check-description
+                           description-input)
+
 (use ledger/core/phases finished?)
 (use ledger/core/priorities check-priority)
 
-(export ->item-edit apply-edit check-edit description-edit
-        item-edit)
+(export ->item-edit apply-edit check-description-edit
+        check-edit description-edit item-edit)
 
 (defstruct item-edit
   :title (option string)
@@ -27,6 +30,11 @@
   (if (finished? (:status item))
     (check-finished-edit item edit)
     (check-priority-of edit)))
+
+(defn check-description-edit (description)
+  (match description
+    (keep (ok (do)))
+    ((set value) (check-description value))))
 
 (type apply-edit
   (fn ((ref item) (ref item-edit) description-edit)

@@ -2,6 +2,7 @@
 (use ledger/refusal refusal)
 
 (use ledger/core/item-edits ->item-edit apply-edit
+                            check-description-edit
                             check-edit description-edit)
 
 (use ledger/core/new-items description-input)
@@ -14,6 +15,11 @@
 
 (defn refusal-of (item edit)
   (match (check-edit (ref item) (ref edit))
+    ((err refused) (some refused))
+    ((ok _) none)))
+
+(defn description-refusal-of (description)
+  (match (check-description-edit (ref description))
     ((err refused) (some refused))
     ((ok _) none)))
 
@@ -66,10 +72,19 @@
     (assert (= (:description changed)
                (some (str "new spec"))))))
 
-(deftest a-null-description-clears-the-description
-  (let (item (assoc (work-item "rm-0008" kind/research status/open)
-                    :description (some (str "old spec")))
-        changed (apply-edit (ref item)
-                            (ref (edit none none))
-                            (description-edit/set none)))
-    (assert (= (:description changed) none))))
+(deftest an-edit-cannot-clear-the-description
+  (assert (= (description-refusal-of (description-edit/set none))
+             (some refusal/description-required))))
+
+(deftest an-edit-with-an-empty-description-is-refused
+  (assert (= (description-refusal-of (description-edit/set (some (str ""))))
+             (some refusal/description-required))))
+
+(deftest an-edit-with-a-whitespace-description-is-refused
+  (assert (= (description-refusal-of (description-edit/set (some (str
+                                                                   "  \n\t "))))
+             (some refusal/description-required))))
+
+(deftest an-edit-with-a-description-is-allowed
+  (assert (= (description-refusal-of (description-edit/set (some (str "new spec"))))
+             none)))

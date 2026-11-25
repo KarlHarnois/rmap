@@ -1,5 +1,5 @@
 (use json/value copy-of field json->entries json->int
-                json->items json->text null? same?)
+                json->items json->text same?)
 
 (use support/rmap database-with-roadmap error-code
                   reported-done run-rmap text-at)
@@ -135,15 +135,34 @@
     (assert (= (json->text (item-field (ref database) id "description"))
                (some (str "new spec"))))))
 
-(deftest an-empty-description-file-clears-it
-  (let (database (database-with-roadmap "edit-empty-description-file")
+(deftest an-edit-cannot-clear-the-description
+  (let (database (database-with-roadmap "edit-empty-description")
         id (added-id (clone database)
                      (vec (str "--description") (str "old spec")))
         reply (run-edit (ref database)
                         id
+                        (vec (str "--description") (str ""))))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "description-required")))
+    (assert (= (json->text (item-field (ref database) id "description"))
+               (some (str "old spec"))))))
+
+(deftest a-finished-item-cannot-clear-its-description
+  (let (database (database-with-roadmap "edit-closed-empty-description")
+        id (added-id (clone database)
+                     (vec (str "--description") (str "old spec")))
+        _ (claim (ref database) id)
+        _ (reported-done (ref database) (ref id))
+        _ (close (ref database) id)
+        reply (run-edit (ref database)
+                        id
                         (vec (str "--description-file") (str "/dev/null"))))
-    (assert (= (:exit-code reply) 0))
-    (assert (null? (item-field (ref database) id "description")))))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "description-required")))
+    (assert (= (json->text (item-field (ref database) id "description"))
+               (some (str "old spec"))))))
 
 (deftest an-edit-to-a-priority-reorders-ready
   (let (database (database-with-roadmap "edit-priority-ready")
