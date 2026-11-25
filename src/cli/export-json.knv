@@ -1,8 +1,11 @@
 (module
   "Builds the JSON document `rmap export` prints: every ledger record in one snapshot.")
 
-(use json/value array json object text->json)
+(use json/value array bool->json copy-of json object
+                text->json)
+
 (use ledger/api decision-block session-record->json)
+(use cli/blockage-json blockage-fields)
 (use cli/criterion-json criterion->json)
 (use cli/decision-json decision-fields option-record->json)
 
@@ -61,8 +64,29 @@
   (pair (str name)
         (array (collect (map (iter values) value->json)))))
 
-(defn item-record->json (item)
-  (object (item-fields item)))
+(defn item-record->json (record)
+  (let (fields (item-fields (ref (:exported-item record))))
+    (push! fields
+           (pair (str "ready")
+                 (bool->json (:item-ready record))))
+    (match (:item-blockage record)
+      ((some blockage)
+       (for-each (blockage-fields blockage)
+         (fn (entry)
+           (push! fields
+                  (pair (clone (first entry))
+                        (copy-of (second entry)))))))
+      (none (push! fields
+                   (pair (str "paused") (bool->json false)))
+            (push! fields
+                   (pair (str "blockers") (array (vec))))
+            (push! fields
+                   (pair (str "dropped_blockers")
+                         (array (vec))))
+            (push! fields
+                   (pair (str "blocking_decisions")
+                         (array (vec))))))
+    (object fields)))
 
 (defn decision-record->json (decision)
   (object (decision-fields decision)))

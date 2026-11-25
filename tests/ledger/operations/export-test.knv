@@ -97,10 +97,12 @@
   (let (settings (export-fixture "export-statuses")
         document (unwrap-ok (export-ledger (ref settings))))
     (assert (holds? (collect (map (iter (:export-items document))
-                               (fn (item) (:status item))))
+                               (fn (item)
+                                 (:status (:exported-item item)))))
                     status/reported))
     (assert (holds? (collect (map (iter (:export-items document))
-                               (fn (item) (:status item))))
+                               (fn (item)
+                                 (:status (:exported-item item)))))
                     status/dropped))))
 
 (deftest the-snapshot-orders-every-list-by-id
@@ -110,7 +112,8 @@
               (fn (roadmap)
                 (clone (:value (:id roadmap))))))
     (assert (ordered? (:export-items document)
-              (fn (item) (clone (:value (:id item))))))
+              (fn (item)
+                (clone (:value (:id (:exported-item item)))))))
     (assert (ordered? (:export-decision-options document)
               (fn (record) (:number (:option record)))))
     (assert (ordered? (:export-events document) :id))))
@@ -119,7 +122,8 @@
   (let (settings (export-fixture "export-references")
         document (unwrap-ok (export-ledger (ref settings)))
         items (collect (map (iter (:export-items document))
-                         (fn (item) (clone (:value (:id item))))))
+                         (fn (item)
+                           (clone (:value (:id (:exported-item item)))))))
         roadmaps (collect (map (iter (:export-roadmaps document))
                             (fn (roadmap)
                               (clone (:value (:id roadmap))))))
@@ -132,9 +136,10 @@
         option-numbers (collect (map (iter (:export-decision-options document))
                                   (fn (record) (:number (:option record))))))
     (assert (every? (:export-items document)
-              (fn (item)
+              (fn (record)
                 (holds? roadmaps
-                        (clone (:value (:roadmap-id item)))))))
+                        (clone (:value (:roadmap-id (:exported-item
+                                                      record))))))))
     (assert (every? (:export-deps document)
               (fn (dep)
                 (and (holds? items
@@ -153,9 +158,10 @@
                      (holds? sessions
                              (clone (:value (:session-id report))))))))
     (assert (every? (:export-pull-requests document)
-              (fn (pull-request)
+              (fn (record)
                 (holds? items
-                        (clone (:value (:item pull-request)))))))
+                        (clone (:value (:item (:exported-pull-request
+                                                record))))))))
     (assert (every? (:export-reviews document)
               (fn (review)
                 (and (holds? items
@@ -191,13 +197,32 @@
 
 (deftest every-criterion-carries-its-item-position-and-text
   (let (settings (export-fixture "export-criteria")
-        document (unwrap-ok (export-ledger (ref settings))))
+        document (unwrap-ok (export-ledger (ref settings)))
+        item-ids (collect (map (iter (:export-items document))
+                            (fn (record)
+                              (clone (:value (:id (:exported-item record))))))))
     (assert (every? (:export-criteria document)
               (fn (criterion)
-                (and (holds? (collect (map (iter (:export-items document))
-                                        (fn (item)
-                                          (clone (:value (:id item))))))
+                (and (holds? (ref item-ids)
                              (clone (:value (:item criterion))))
                      (> (:position criterion) 0)
                      (= (:text criterion) (str "a criterion"))))))
     (assert (ordered? (:export-criteria document) :position))))
+
+(deftest the-snapshot-carries-readiness-and-approval
+  (let (settings (export-fixture "export-facts")
+        document (unwrap-ok (export-ledger (ref settings))))
+    (assert (any? (:export-items document)
+              (fn (record) (:item-ready record))))
+    (assert (any? (:export-items document)
+              (fn (record)
+                (match (:item-blockage record)
+                  ((some blockage)
+                   (and (not (empty? (:blockers blockage)))
+                        (not (empty? (:decisions blockage)))))
+                  (none false)))))
+    (assert (any? (:export-pull-requests document)
+              (fn (record)
+                (and (:request-approved record)
+                     (not (empty? (:approved-by (:request-approval
+                                                  record))))))))))

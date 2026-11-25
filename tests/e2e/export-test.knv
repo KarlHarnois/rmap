@@ -1,9 +1,12 @@
-(use json/value copy-of field json->entries json->int
-                json->items json->text object parse-json
-                same?)
+(use json/value copy-of field json json->bool json->entries
+                json->int json->items json->text object
+                parse-json same?)
 
 (use ledger/sqlite/connection open run-batch)
-(use support/pr-commands approved-on-first-head build-id)
+
+(use support/pr-commands approved-on-first-head build-id
+                         first-sha report-build review-build
+                         second-sha)
 
 (use support/rmap database-with-roadmap research-id run-rmap
                   run-rmap-text text-at)
@@ -23,17 +26,34 @@
     (read-first-report (clone database)
                        (report-done (clone database) (clone research) "w1"))
     (merged-build (clone database))
+    (stale-build (clone database))
     (dropped-id (clone database))
     (let (blocked (added-id (clone database) "research")
-          blocker (added-id (clone database) "design"))
+          blocker (added-id (clone database) "design")
+          decision-blocked (added-id (clone database) "research"))
       (assert (= (:exit-code (run-rmap (clone database)
                                        (vec "dep" "add"
                                             (as-str blocked)
                                             (as-str blocker))))
                  0))
       (insert-ruling (clone database) (as-str research))
-      (proposed-id (clone database) (clone blocked)))
+      (proposed-id (clone database) (clone decision-blocked)))
     database))
+
+(defn stale-build (database)
+  (let (id (build-id (clone database)))
+    (assert (= (:exit-code (report-build database
+                                         (clone id)
+                                         "done"
+                                         (vec "--pr" "2" "--head" first-sha)))
+               0))
+    (assert (= (:exit-code
+                 (review-build database (clone id) "r2" "approve" first-sha))
+               0))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "pr" "head" (as-str id) second-sha)))
+               0))
+    id))
 
 (defn merged-build (database)
   (let (id (build-id (clone database)))
@@ -162,6 +182,74 @@
                    (pair (clone key) (copy-of value)))))))
     (object kept)))
 
+(type same-as-pr-show? (fn (string json) bool))
+
+(defn same-as-pr-show? (database record)
+  (let (id (record-text (ref record) "item")
+        shown (:json (run-rmap (clone database)
+                               (vec "pr" "show" (as-str id))))
+        pull-request (unwrap (field (copy-of shown) "pull_request")))
+    (and (same-field? (ref record) (ref pull-request) "approved")
+         (same-field? (ref record) (ref pull-request) "approval"))))
+
+(defn pull-request-with-approval (document wanted)
+  (unwrap (map-some (find (iter (listed (copy-of document) "pull_requests"))
+                      (fn (record)
+                        (= (record-approved? record) wanted)))
+                    copy-of)))
+
+(defn exported-item-blocked-by (document key)
+  (unwrap (map-some (find (iter (listed (copy-of document) "items"))
+                      (fn (record)
+                        (> (len (unwrap (json->items
+                                          (ref (unwrap (field (copy-of record)
+                                                              key))))))
+                           0)))
+                    copy-of)))
+
+(defn blocked-entry-with (ready key)
+  (unwrap (map-some (find (iter (listed (copy-of ready) "blocked"))
+                      (fn (entry)
+                        (> (len (unwrap (json->items
+                                          (ref (unwrap (field (copy-of entry)
+                                                              key))))))
+                           0)))
+                    copy-of)))
+
+(defn ready-record (document)
+  (unwrap (map-some (find (iter (listed (copy-of document) "items"))
+                      (fn (record) (record-ready? record)))
+                    copy-of)))
+
+(type ready-listed?
+  (fn ((ref json) string) bool))
+
+(defn ready-listed? (ready id)
+  (some? (find (iter (listed (copy-of ready) "ready"))
+           (fn (record)
+             (= (record-text record "id") (clone id))))))
+
+(type same-blockage? (fn (json json) bool))
+
+(defn same-blockage? (item blocked)
+  (and (same-field? (ref item) (ref blocked) "paused")
+       (same-field? (ref item) (ref blocked) "blockers")
+       (same-field? (ref item) (ref blocked) "dropped_blockers")
+       (same-field? (ref item) (ref blocked) "blocking_decisions")))
+
+(defn record-text (record key)
+  (unwrap (json->text (ref (unwrap (field (copy-of record) key))))))
+
+(defn record-approved? (record)
+  (unwrap (json->bool (ref (unwrap (field (copy-of record) "approved"))))))
+
+(defn record-ready? (record)
+  (unwrap (json->bool (ref (unwrap (field (copy-of record) "ready"))))))
+
+(defn same-field? (one two key)
+  (same? (ref (unwrap (field (copy-of one) key)))
+         (ref (unwrap (field (copy-of two) key)))))
+
 (deftest the-export-holds-one-of-every-record-kind
   (let (document (:json (export-reply (export-database "e2e-export-kinds"))))
     (assert (= (unwrap (json->int (ref (unwrap (at (copy-of document)
@@ -247,3 +335,31 @@
         kinds (text-values (listed (copy-of document) "sessions") "kind"))
     (assert (any? kinds
               (fn (kind) (= kind (str "review")))))))
+
+(deftest the-export-matches-pr-show-on-approval
+  (let (database (export-database "e2e-export-approval")
+        document (:json (export-reply (clone database)))
+        approved (pull-request-with-approval document true)
+        stale (pull-request-with-approval document false))
+    (assert (same-as-pr-show? (clone database) approved))
+    (assert (same-as-pr-show? database (copy-of (ref stale))))
+    (let (approval (unwrap (field stale "approval")))
+      (assert (> (len (unwrap (json->items
+                                (ref (unwrap (field approval "stale_heads"))))))
+                 0)))))
+
+(deftest the-export-matches-ready-on-readiness
+  (let (database (export-database "e2e-export-readiness")
+        document (:json (export-reply (clone database)))
+        ready-doc (:json (run-rmap database (vec "ready")))
+        ready (ready-record document)
+        dep-item (exported-item-blocked-by document "blockers")
+        dep-entry (blocked-entry-with ready-doc "blockers")
+        decision-item (exported-item-blocked-by document "blocking_decisions")
+        decision-entry (blocked-entry-with ready-doc "blocking_decisions"))
+    (assert (ready-listed? ready-doc (record-text (ref ready) "id")))
+    (assert (same-blockage? (copy-of (ref dep-item)) dep-entry))
+    (assert (same-blockage? (copy-of (ref decision-item))
+                            decision-entry))
+    (assert (not (record-ready? (ref dep-item))))
+    (assert (not (record-ready? (ref decision-item))))))

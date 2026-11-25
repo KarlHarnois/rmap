@@ -1,0 +1,28 @@
+(module
+  "Attaches the readiness of each item and the approval of each pull request to the export records, using the ledger's own rules.")
+
+(use ledger/core/ready blockage-in ready-in?)
+(use ledger/core/requirements approval-of approved?)
+
+(use ledger/model/export ->export-item
+                         ->export-pull-request)
+
+(export export-items export-pull-requests)
+
+(defn export-items (readiness items)
+  (collect (map (iter items)
+             (fn (item) (export-item-of readiness item)))))
+
+(defn export-pull-requests (pull-requests)
+  (collect (map (iter pull-requests) export-pull-request-for)))
+
+(defn export-item-of (readiness item)
+  (->export-item :exported-item (clone item)
+                 :item-ready (ready-in? readiness (ref (:id item)))
+                 :item-blockage (blockage-in readiness (ref (:id item)))))
+
+(defn export-pull-request-for (pull-request)
+  (let (approval (approval-of pull-request))
+    (->export-pull-request :exported-pull-request (clone pull-request)
+                           :request-approved (approved? (ref approval))
+                           :request-approval approval)))

@@ -1,8 +1,13 @@
 (module
   "Reads every record kind in one read transaction, ordered by id, for `rmap export`.")
 
-(use ledger/model item roadmap timestamp)
+(use ledger/core/ready readiness-of)
+(use ledger/core/snapshot scope)
+(use ledger/model ->snapshot item roadmap timestamp)
 (use ledger/model/export ->ledger-export ledger-export)
+
+(use ledger/operations/export-facts export-items
+                                    export-pull-requests)
 
 (use ledger/model/decisions ->decision-option-record
                             decision decision-option-record)
@@ -61,15 +66,22 @@
             blocks (all-blocks connection)
             rulings (all-rulings connection)
             events (events-matching connection every-event))
-    (let (ordered-decisions (ordered decisions decision-key))
+    (let (ordered-decisions (ordered decisions decision-key)
+          ordered-items (ordered items item-key)
+          whole (->snapshot :roadmaps (clone roadmaps)
+                            :items (clone items)
+                            :deps (clone deps)
+                            :decision-blocks (clone blocks))
+          readiness (readiness-of (ref whole) (ref scope/every-roadmap)))
       (ok (->ledger-export :exported-at (clone at)
                            :export-roadmaps (ordered roadmaps roadmap-key)
-                           :export-items (ordered items item-key)
+                           :export-items (export-items (ref readiness)
+                                                       (ref ordered-items))
                            :export-criteria criteria
                            :export-deps deps
                            :export-sessions sessions
                            :export-reports reports
-                           :export-pull-requests pull-requests
+                           :export-pull-requests (export-pull-requests (ref pull-requests))
                            :export-reviews reviews
                            :export-decisions (clone ordered-decisions)
                            :export-decision-options (option-records (ref ordered-decisions))
