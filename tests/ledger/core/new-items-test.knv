@@ -1,8 +1,8 @@
 (use ledger/model ->roadmap-id ->snapshot kind origin)
 (use ledger/refusal refusal)
 
-(use ledger/core/new-items ->new-item check-new-item
-                           description-input)
+(use ledger/core/new-items ->new-item check-description
+                           check-new-item description-input)
 
 (defn refusal-of (priority)
   (match (checked priority)
@@ -29,6 +29,29 @@
               :priority priority
               :blocked-by (vec)
               :discovered-from none))
+
+(defn description-refusal (description)
+  (match (checked-description description)
+    ((err refused) (some refused))
+    ((ok _) none)))
+
+(defn checked-description (description)
+  (check-description (ref description)))
+
+(deftest a-missing-description-is-refused
+  (assert (= (description-refusal none)
+             (some refusal/description-required))))
+
+(deftest an-empty-description-is-refused
+  (assert (= (description-refusal (some (str "")))
+             (some refusal/description-required))))
+
+(deftest a-whitespace-description-is-refused
+  (assert (= (description-refusal (some (str "  \n\t ")))
+             (some refusal/description-required))))
+
+(deftest a-description-is-accepted
+  (assert (ok? (checked-description (some (str "a spec"))))))
 
 (deftest a-priority-below-zero-is-refused
   (assert (= (refusal-of -1)

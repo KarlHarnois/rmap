@@ -79,7 +79,7 @@
 (defn item-draft (kind)
   (->new-item :parent none
               :title (str "work")
-              :description description-input/unspecified
+              :description (description-input/text (str "a spec"))
               :kind kind
               :origin origin/planned
               :priority 0

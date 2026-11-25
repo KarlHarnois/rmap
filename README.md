@@ -46,13 +46,13 @@ Commands:
   log [--item <id>] [--decision <id>] [--since <event id>]
     Prints the events, for one item, for one decision or after one event id when given.
   item add --roadmap <name> --title <text> [--description <text>] [--description-file <path|->] --kind epic|research|design|build [--parent <epic id>] [--after <ids, comma-separated>] [--from <id>] [--origin planned|user-bug|follow-up] [--priority <0 (highest) to 4 (lowest), default 2>]
-    Adds an item to a roadmap.
+    Adds an item to a roadmap. Every item needs a description.
   item list [--roadmap <name>]
     Lists the items.
   item show <id>
     Shows one item with its dependencies.
   item edit <id> [--title <text>] [--priority <0 (highest) to 4 (lowest)>] [--description <text>] [--description-file <path|->]
-    Changes an item's title, priority or description. Give at least one of the flags, and only while the item is open.
+    Changes an item's title, priority or description. Give at least one of the flags. A finished item takes only a description change.
   item claim <id> --session <name> [--branch <name>] [--base <branch>]
     Gives a ready item to a new session and marks it dispatched. The branch defaults to the session name and the base to the repository's default branch.
   item advance <id> <open|dispatched|reported|in_review|fixing|merging|merged|accepted|dropped> [--kind build]
@@ -169,7 +169,8 @@ Refusal codes:
   roadmap-already-paused         A pause changes nothing: the roadmap is already paused.
   roadmap-not-paused             A resume changes nothing: the roadmap is not paused.
   item-not-found                 No item has that id.
-  item-closed                    A merged, accepted or dropped item cannot be edited.
+  item-closed                    A merged, accepted or dropped item is closed.
+  description-required           An item needs a description.
   parent-not-epic                The parent is not an epic.
   parent-in-other-roadmap        The parent belongs to another roadmap.
   epic-has-parent                An epic cannot have a parent.

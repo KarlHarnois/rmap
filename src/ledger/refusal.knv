@@ -16,6 +16,7 @@
   (roadmap-not-paused string)
   (item-not-found item-id)
   (item-closed item-id)
+  description-required
   (parent-not-epic item-id)
   (parent-in-other-roadmap item-id)
   epic-has-parent

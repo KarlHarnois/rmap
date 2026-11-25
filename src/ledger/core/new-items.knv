@@ -8,8 +8,8 @@
 (use ledger/core/priorities check-priority)
 (use ledger/core/snapshot existing find-item)
 
-(export ->new-item check-new-item description-input distinct
-        new-item normalized)
+(export ->new-item check-description check-new-item
+        description-input distinct new-item normalized)
 
 (defstruct new-item
   :parent (option item-id)
@@ -26,6 +26,11 @@
   (text string)
   (from-file string)
   from-stdin)
+
+(defn check-description (description)
+  (match description
+    ((some text) (check-description-text text))
+    (none (err refusal/description-required))))
 
 (defn check-new-item (snapshot roadmap-id request)
   (let-try (_ (check-epic-has-no-parent request)
@@ -50,6 +55,11 @@
         (when (not (contains? (ref unique) (clone value)))
           (push! unique (clone value)))))
     unique))
+
+(defn check-description-text (text)
+  (if (empty? (trim (as-str text)))
+    (err refusal/description-required)
+    (ok (do))))
 
 (type check-epic-has-no-parent
   (fn ((ref new-item))

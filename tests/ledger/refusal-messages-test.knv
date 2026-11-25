@@ -13,6 +13,10 @@
   (assert (= (refusal->message (refusal/priority-out-of-range 5))
              (str "a priority must be from 0 (highest) to 4 (lowest), got 5"))))
 
+(deftest a-missing-description-message-says-an-item-needs-one
+  (assert (= (refusal->message refusal/description-required)
+             (str "an item needs a description"))))
+
 (deftest a-frozen-decision-message-names-its-status
   (assert (= (refusal->message (refusal/decision-frozen
                                  (->decision-id :value (str "rm-0002"))

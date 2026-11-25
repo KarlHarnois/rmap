@@ -9,14 +9,16 @@
   (text-at (ref (run-rmap database
                           (vec "item" "add" "--roadmap"
                                "road" "--title" "e" "--kind"
-                               "epic")))
+                               "epic" "--description"
+                               "a spec")))
            "item" "id"))
 
 (defn child-id (database epic)
   (text-at (ref (run-rmap database
                           (vec "item" "add" "--roadmap"
                                "road" "--title" "c" "--kind"
-                               "research" "--parent"
+                               "research" "--description"
+                               "a spec" "--parent"
                                (as-str epic))))
            "item" "id"))
 
