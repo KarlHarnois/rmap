@@ -71,7 +71,8 @@
   (let (database (database-with-roadmap "e2e-decision-block")
         item (added-id (clone database)
                        (vec "item" "add" "--roadmap" "road"
-                            "--title" "b" "--kind" "build"))
+                            "--title" "b" "--kind" "build"
+                            "--description" "a spec"))
         decision (proposed (clone database) "e2e-decision-block-doc")
         blocked (run-rmap
                   (clone database)
@@ -105,7 +106,8 @@
   (let (database (database-with-roadmap "e2e-decision-block-epic")
         group (added-id (clone database)
                         (vec "item" "add" "--roadmap" "road"
-                             "--title" "e" "--kind" "epic"))
+                             "--title" "e" "--kind" "epic"
+                             "--description" "a spec"))
         decision (proposed (clone database) "e2e-decision-block-epic-doc")
         _blocked (run-rmap
                    (clone database)
@@ -113,6 +115,7 @@
         child (added-id (clone database)
                         (vec "item" "add" "--roadmap" "road"
                              "--title" "c" "--kind" "build"
+                             "--description" "a spec"
                              "--parent"
                              (as-str group)))
         _child-blocked (run-rmap (clone database)
@@ -129,8 +132,8 @@
         decision (proposed (clone database) "e2e-decision-block-missing-doc")
         item (added-id (clone database)
                        (vec "item" "add" "--roadmap" "road"
-                            "--title" "b" "--kind"
-                            "build")))
+                            "--title" "b" "--kind" "build"
+                            "--description" "a spec")))
     (assert (= (error-code (run-rmap
                              (clone database)
                              (vec "decision" "block" "rm-ffff" (as-str item))))

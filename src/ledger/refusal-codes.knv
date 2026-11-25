@@ -15,6 +15,7 @@
   roadmap-not-paused
   item-not-found
   item-closed
+  description-required
   parent-not-epic
   parent-in-other-roadmap
   epic-has-parent
@@ -56,6 +57,7 @@
      refusal-code/roadmap-not-paused)
     ((refusal/item-not-found _) refusal-code/item-not-found)
     ((refusal/item-closed _) refusal-code/item-closed)
+    (refusal/description-required refusal-code/description-required)
     ((refusal/parent-not-epic _) refusal-code/parent-not-epic)
     ((refusal/parent-in-other-roadmap _)
      refusal-code/parent-in-other-roadmap)

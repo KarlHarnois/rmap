@@ -17,11 +17,19 @@
     (assert (= (:description (:item (unwrap-ok (show-item (ref settings) id))))
                (some (str "a spec"))))))
 
-(deftest an-added-item-without-a-description-keeps-none
+(deftest adding-an-item-without-a-description-is-refused
   (let (settings (scratch-ledger "added-without-description")
-        id (added-id (ref settings) (item-draft kind/research)))
-    (assert (= (:description (:item (unwrap-ok (show-item (ref settings) id))))
-               none))))
+        draft (assoc (item-draft kind/research)
+                     :description description-input/unspecified))
+    (assert (= (refusal-code-of (added (ref settings) draft))
+               (some (str "description-required"))))))
+
+(deftest adding-an-item-with-an-empty-description-is-refused
+  (let (settings (scratch-ledger "added-empty-description")
+        draft (assoc (item-draft kind/research)
+                     :description (description-input/text (str ""))))
+    (assert (= (refusal-code-of (added (ref settings) draft))
+               (some (str "description-required"))))))
 
 (deftest repeated-blockers-are-stored-once
   (let (settings (scratch-ledger "repeated-blockers")

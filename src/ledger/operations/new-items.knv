@@ -4,8 +4,8 @@
 (use ledger/model ->dep ->item ->item-id claim dep dep-type
                   item item-id roadmap-id status timestamp)
 
-(use ledger/core/new-items check-new-item new-item
-                           normalized)
+(use ledger/core/new-items check-description check-new-item
+                           new-item normalized)
 
 (use ledger/operations/descriptions resolve-description)
 (use ledger/sqlite/items insert-item)
@@ -47,6 +47,7 @@
             _ (check-new-item (ref snapshot)
                               (ref roadmap-id)
                               (ref request))
+            _ (check-description (ref description))
             id (fresh-id (ref (:connection transaction))))
     (store-item transaction
                 (request->item (ref request)

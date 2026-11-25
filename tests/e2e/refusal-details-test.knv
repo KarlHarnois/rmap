@@ -13,7 +13,8 @@
         blocked (run-rmap (clone database)
                           (vec "item" "add" "--roadmap"
                                "road" "--title" "b" "--kind"
-                               "design" "--after"
+                               "design" "--description"
+                               "a spec" "--after"
                                (as-str blocker)))
         blocked-id (unwrap (json->text (unwrap (field (unwrap (field (:json
                                                                        blocked)

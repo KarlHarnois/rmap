@@ -18,6 +18,7 @@
        (refusal/roadmap-not-paused (str "road"))
        (refusal/item-not-found (sample-id))
        (refusal/item-closed (sample-id))
+       refusal/description-required
        (refusal/parent-not-epic (sample-id))
        (refusal/parent-in-other-roadmap (sample-id))
        refusal/epic-has-parent

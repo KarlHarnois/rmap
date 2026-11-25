@@ -17,20 +17,26 @@
     ((err refused) (some refused))
     ((ok _) none)))
 
-(deftest a-merged-item-cannot-be-edited
-  (let (item (work-item "rm-0001" kind/build status/merged))
-    (assert (= (refusal-of item (edit none none))
-               (some (refusal/item-closed (clone (:id item))))))))
+(deftest a-finished-item-cannot-change-its-title
+  (for-each (vec status/merged status/accepted status/dropped)
+    (fn (status)
+      (let (item (work-item "rm-0001" kind/research status))
+        (assert (= (refusal-of item
+                               (edit (some (str "again")) none))
+                   (some (refusal/item-closed (clone (:id item))))))))))
 
-(deftest an-accepted-item-cannot-be-edited
-  (let (item (work-item "rm-0002" kind/research status/accepted))
-    (assert (= (refusal-of item (edit none none))
-               (some (refusal/item-closed (clone (:id item))))))))
+(deftest a-finished-item-cannot-change-its-priority
+  (for-each (vec status/merged status/accepted status/dropped)
+    (fn (status)
+      (let (item (work-item "rm-0002" kind/research status))
+        (assert (= (refusal-of item (edit none (some 1)))
+                   (some (refusal/item-closed (clone (:id item))))))))))
 
-(deftest a-dropped-item-cannot-be-edited
-  (let (item (work-item "rm-0003" kind/research status/dropped))
-    (assert (= (refusal-of item (edit none none))
-               (some (refusal/item-closed (clone (:id item))))))))
+(deftest a-finished-item-can-change-its-description
+  (for-each (vec status/merged status/accepted status/dropped)
+    (fn (status)
+      (let (item (work-item "rm-0003" kind/research status))
+        (assert (= (refusal-of item (edit none none)) none))))))
 
 (deftest an-open-item-can-be-edited
   (assert (= (refusal-of (work-item "rm-0004" kind/research status/open)

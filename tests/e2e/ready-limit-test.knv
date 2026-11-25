@@ -8,7 +8,8 @@
   (text-at (ref (run-rmap (clone database)
                           (vec "item" "add" "--roadmap"
                                "road" "--title" "b" "--kind"
-                               "build")))
+                               "build" "--description"
+                               "a spec")))
            "item" "id"))
 
 (defn list-at (reply key)

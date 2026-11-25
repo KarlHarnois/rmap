@@ -19,10 +19,14 @@
   keep
   (set (option string)))
 
+(type check-edit
+  (fn ((ref item) (ref item-edit))
+    (result unit refusal)))
+
 (defn check-edit (item edit)
-  (let-try (_ (check-open item)
-            _ (check-priority-of edit))
-    (ok (do))))
+  (if (finished? (:status item))
+    (check-finished-edit item edit)
+    (check-priority-of edit)))
 
 (type apply-edit
   (fn ((ref item) (ref item-edit) description-edit)
@@ -34,13 +38,21 @@
         prioritized (with-priority titled (:priority edit)))
     (with-description prioritized description)))
 
-(type check-open
-  (fn ((ref item)) (result unit refusal)))
+(type check-finished-edit
+  (fn ((ref item) (ref item-edit))
+    (result unit refusal)))
 
-(defn check-open (item)
-  (if (finished? (:status item))
+(defn check-finished-edit (item edit)
+  (if (changes-title-or-priority? edit)
     (err (refusal/item-closed (clone (:id item))))
     (ok (do))))
+
+(type changes-title-or-priority?
+  (fn ((ref item-edit)) bool))
+
+(defn changes-title-or-priority? (edit)
+  (or (some? (:title edit))
+      (some? (:priority edit))))
 
 (type check-priority-of
   (fn ((ref item-edit))

@@ -1,4 +1,4 @@
-(use json/value copy-of field json->items json->text null?)
+(use json/value copy-of field json->items json->text)
 
 (use support/rmap database-with-roadmap error-code run-rmap
                   run-rmap-text run-rmap-with-stdin text-at)
@@ -45,12 +45,29 @@
     (assert (= (json->text (ref (item-description (ref database) id)))
                (some (str "line one\nline two"))))))
 
-(deftest adding-an-item-without-a-description-keeps-null
+(deftest adding-an-item-without-a-description-is-refused
   (let (database (database-with-roadmap "description-absent")
-        added (item-add (ref database)
-                        (the (vec string) (vec)))
-        id (text-at (ref added) "item" "id"))
-    (assert (null? (ref (item-description (ref database) id))))))
+        reply (item-add (ref database)
+                        (the (vec string) (vec))))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "description-required")))))
+
+(deftest adding-an-item-with-an-empty-description-is-refused
+  (let (database (database-with-roadmap "description-empty")
+        reply (item-add (ref database)
+                        (vec (str "--description") (str ""))))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "description-required")))))
+
+(deftest adding-an-item-with-an-empty-description-file-is-refused
+  (let (database (database-with-roadmap "description-empty-file")
+        reply (item-add (ref database)
+                        (vec (str "--description-file") (str "/dev/null"))))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "description-required")))))
 
 (deftest an-item-reads-its-description-from-a-file
   (let (database (database-with-roadmap "description-file")
@@ -98,7 +115,7 @@
         _ (item-add (ref database)
                     (vec (str "--description") (str "a spec")))
         _ (item-add (ref database)
-                    (the (vec string) (vec)))
+                    (vec (str "--description") (str "b spec")))
         reply (run-rmap (clone database) (vec "item" "list"))
         descriptions (collect (map (iter (unwrap (json->items (unwrap (field (:json
                                                                                reply)
@@ -107,7 +124,8 @@
                                      (json->text
                                        (unwrap (field item "description")))))))
     (assert (= descriptions
-               (vec (some (str "a spec")) none)))))
+               (vec (some (str "a spec"))
+                    (some (str "b spec")))))))
 
 (deftest an-unreadable-description-file-is-reported
   (let (database (database-with-roadmap "description-unreadable")

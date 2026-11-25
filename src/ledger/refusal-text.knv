@@ -29,6 +29,7 @@
                            refusal-code/roadmap-not-paused
                            refusal-code/item-not-found
                            refusal-code/item-closed
+                           refusal-code/description-required
                            refusal-code/parent-not-epic
                            refusal-code/parent-in-other-roadmap
                            refusal-code/epic-has-parent
@@ -71,9 +72,10 @@
     (roadmap-not-paused (described "roadmap-not-paused"
                                    "A resume changes nothing: the roadmap is not paused."))
     (item-not-found (described "item-not-found" "No item has that id."))
-    (item-closed (described
-                   "item-closed"
-                   "A merged, accepted or dropped item cannot be edited."))
+    (item-closed (described "item-closed"
+                            "A merged, accepted or dropped item is closed."))
+    (description-required (described "description-required"
+                                     "An item needs a description."))
     (parent-not-epic (described "parent-not-epic" "The parent is not an epic."))
     (parent-in-other-roadmap (described
                                "parent-in-other-roadmap"

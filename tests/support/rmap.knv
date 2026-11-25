@@ -74,7 +74,8 @@
   (let (added (run-rmap (clone database)
                         (vec "item" "add" "--roadmap" "road"
                              "--title" "r" "--kind"
-                             "research")))
+                             "research" "--description"
+                             "a spec")))
     (assert (= (:exit-code added) 0))
     (text-at (ref added) "item" "id")))
 
@@ -82,7 +83,8 @@
   (text-at (ref (run-rmap (clone database)
                           (vec "item" "add" "--roadmap"
                                "road" "--title" "d" "--kind"
-                               "design" "--after"
+                               "design" "--description"
+                               "a spec" "--after"
                                (as-str blocker))))
            "item" "id"))
 

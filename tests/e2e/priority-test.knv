@@ -16,7 +16,9 @@
                   (str "--title")
                   (str "w")
                   (str "--kind")
-                  (str "design")))
+                  (str "design")
+                  (str "--description")
+                  (str "a spec")))
     (for-each extra
       (fn (arg) (push! args (str arg))))
     (run-rmap (clone database) args)))

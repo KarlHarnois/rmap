@@ -80,7 +80,7 @@
         after (events (ref settings)))
     (assert (= (len after) (len before)))))
 
-(deftest editing-a-closed-item-is-refused
+(deftest editing-a-closed-item-title-is-refused
   (let (settings (scratch-ledger "edit-closed")
         id (reported-research (ref settings))
         _ (unwrap-ok (close-item (ref settings) (clone id))))
@@ -91,6 +91,20 @@
                                              none
                                              description-input/unspecified)))
                (some (str "item-closed"))))))
+
+(deftest a-closed-item-takes-a-description-edit
+  (let (settings (scratch-ledger "edit-closed-description")
+        id (reported-research (ref settings))
+        _ (unwrap-ok (close-item (ref settings) (clone id)))
+        _ (unwrap-ok (edit-item (ref settings)
+                                (clone id)
+                                (edit none none
+                                      (description-input/text (str
+                                                                "new spec")))))
+        latest (unwrap (last (events (ref settings)))))
+    (assert (= (:description (shown (ref settings) id))
+               (some (str "new spec"))))
+    (assert (= (:type latest) event-type/edited))))
 
 (deftest a-priority-outside-the-range-is-refused
   (let (settings (scratch-ledger "edit-priority-range")

@@ -24,6 +24,7 @@
      (str "no item has the id " (:value id)))
     ((item-closed id)
      (str "the item " (:value id) " is closed"))
+    (description-required (str "an item needs a description"))
     ((parent-not-epic id)
      (str "the parent " (:value id) " is not an epic"))
     ((parent-in-other-roadmap id)

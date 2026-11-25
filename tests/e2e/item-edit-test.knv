@@ -27,9 +27,27 @@
                   (str "first")
                   (str "--kind")
                   kind))
-    (for-each extra
+    (for-each (with-default-description extra)
       (fn (arg) (push! args (str arg))))
     (run-rmap (clone database) args)))
+
+(defn with-default-description (extra)
+  (if (has-description? (ref extra))
+    extra
+    (do
+      (push! extra (str "--description"))
+      (push! extra (str "a spec"))
+      extra)))
+
+(defn has-description? (extra)
+  (or (contains? extra (str "--description"))
+      (contains? extra (str "--description-file"))))
+
+(defn assert-item-closed (database id extra)
+  (let (reply (run-edit (ref database) id extra))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "item-closed")))))
 
 (defn run-edit (database id extra)
   (let (args (vec (str "item") (str "edit") (str id)))
@@ -153,8 +171,32 @@
     (assert (= (error-code (ref reply))
                (str "usage")))))
 
-(deftest a-finished-item-cannot-be-edited
+(deftest a-finished-item-refuses-a-title-or-priority-edit
   (let (database (database-with-roadmap "edit-closed")
+        accepted (added-id (clone database)
+                           (the (vec string) (vec)))
+        _ (claim (ref database) accepted)
+        _ (reported-done (ref database) (ref accepted))
+        _ (close (ref database) accepted)
+        merged (added-build (clone database))
+        _ (claim (ref database) merged)
+        _ (approved-on-first-head (ref database) (ref merged))
+        _ (advance (ref database) merged "merging")
+        _ (close (ref database) merged)
+        dropped (added-id (clone database)
+                          (the (vec string) (vec)))
+        _ (drop-it (ref database) dropped))
+    (for-each (vec accepted merged dropped)
+      (fn (id)
+        (assert-item-closed (ref database)
+                            id
+                            (vec (str "--title") (str "again")))
+        (assert-item-closed (ref database)
+                            id
+                            (vec (str "--priority") (str "1")))))))
+
+(deftest a-finished-item-takes-a-description-edit
+  (let (database (database-with-roadmap "edit-closed-description")
         accepted (added-id (clone database)
                            (the (vec string) (vec)))
         _ (claim (ref database) accepted)
@@ -172,10 +214,14 @@
       (fn (id)
         (let (reply (run-edit (ref database)
                               id
-                              (vec (str "--title") (str "again"))))
-          (assert (= (:exit-code reply) 1))
-          (assert (= (error-code (ref reply))
-                     (str "item-closed"))))))))
+                              (vec (str "--description")
+                                   (str "a better spec"))))
+          (assert (= (:exit-code reply) 0))
+          (assert (= (json->text (item-field (ref database) id "description"))
+                     (some (str "a better spec"))))
+          (assert (= (change-keys (ref (changes-of (last-event (ref database)
+                                                               id))))
+                     (vec (str "description")))))))))
 
 (deftest a-priority-outside-the-range-is-refused
   (let (database (database-with-roadmap "edit-priority-refused")
