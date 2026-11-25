@@ -1,21 +1,28 @@
 (module
-  "Works out the next actions for each item from its state, roadmap by roadmap, in the order ready uses.")
+  "Lists the next actions for each item and proposed decision, roadmap by roadmap, in the order ready uses.")
 
-(use ledger/model claim item item-id kind roadmap snapshot
-                  status)
-
+(use ledger/model item roadmap snapshot)
+(use ledger/model/decisions decision)
 (use ledger/model/reports report)
 (use ledger/model/pull-requests pull-request)
-(use ledger/core/pull-requests pull-request-of)
-(use ledger/core/requirements approval-of approved?)
-(use ledger/core/actions action next-action planned)
+(use ledger/core/actions next-action)
 (use ledger/core/report-actions with-reports)
-(use ledger/core/ready readiness readiness-of)
-(use ledger/core/snapshot scope)
+(use ledger/core/ready readiness-of)
+(use ledger/core/snapshot scope work-items-in)
 (use ledger/core/order ordered)
+(use ledger/core/item-next status-actions)
 
-(export ->deliveries ->next-item deliveries next-item
-        next-of)
+(use ledger/core/decision-next decision-entries
+                               decision-next)
+
+(use ledger/core/decision-actions with-decision-actions)
+
+(export ->deliveries ->next-item deliveries next-entry
+        next-item next-of)
+
+(defenum next-entry
+  (listed-item next-item)
+  (listed-decision decision-next))
 
 (defstruct next-item
   :item item
@@ -29,117 +36,60 @@
 (type next-of
   (fn ((ref snapshot)
        (ref (vec roadmap))
-       (ref deliveries))
-    (vec next-item)))
+       (ref deliveries)
+       (ref (vec decision)))
+    (vec next-entry)))
 
-(defn next-of (snapshot roadmaps deliveries)
+(defn next-of (snapshot roadmaps deliveries decisions)
   (let (readiness (readiness-of snapshot (ref scope/every-roadmap))
         listed (vec))
     (for-each roadmaps
       (fn (roadmap)
         (for-each (roadmap-next-items snapshot
                                       (ref readiness)
-                                      deliveries roadmap)
+                                      deliveries decisions
+                                      roadmap)
                   (fn (entry)
                     (push! listed (clone entry))))))
     listed))
 
-(defn roadmap-next-items (snapshot readiness deliveries roadmap)
+(defn roadmap-next-items (snapshot readiness deliveries decisions roadmap)
+  (let (entries (collect (map (iter (decision-entries roadmap decisions))
+                           (fn (entry)
+                             (next-entry/listed-decision (clone entry))))))
+    (for-each (roadmap-item-entries snapshot readiness
+                                    deliveries decisions
+                                    roadmap)
+              (fn (entry)
+                (push! entries (clone entry))))
+    entries))
+
+(defn roadmap-item-entries (snapshot readiness deliveries decisions roadmap)
   (-> (ordered (work-items-in snapshot roadmap))
       iter
       (map (fn (item)
-             (->next-item :item (clone item)
-                          :roadmap (clone roadmap)
-                          :actions (with-reports (actions-of readiness
-                                                             (ref (:pull-requests
-                                                                    deliveries))
-                                                             item)
-                                                 (ref (:reports deliveries))
-                                                 item))))
-      (filter (fn (entry)
-                (not (empty? (:actions entry)))))
+             (next-entry/listed-item
+               (->next-item :item (clone item)
+                            :roadmap (clone roadmap)
+                            :actions (with-reports (actions-of readiness
+                                                               snapshot
+                                                               deliveries
+                                                               decisions
+                                                               item)
+                                                   (ref (:reports deliveries))
+                                                   item)))))
+      (filter (fn (entry) (filled? entry)))
       collect))
 
-(type work-items-in
-  (fn ((ref snapshot) (ref roadmap))
-    (vec item)))
+(defn filled? (entry)
+  (match entry
+    ((next-entry/listed-item item)
+     (not (empty? (:actions item))))
+    ((next-entry/listed-decision decision)
+     (not (empty? (:actions decision))))))
 
-(defn work-items-in (snapshot roadmap)
-  (collect (map (filter (iter (:items snapshot))
-                  (fn (item)
-                    (and (not= (:kind item) kind/epic)
-                         (= (:roadmap-id item) (:id roadmap)))))
-                clone)))
-
-(type actions-of
-  (fn ((ref readiness)
-       (ref (vec pull-request))
-       (ref item))
-    (vec next-action)))
-
-(defn actions-of (readiness pull-requests item)
-  (match (:status item)
-    (open (open-actions readiness item))
-    (dispatched (claimed-actions action/work item))
-    (reported (claimed-actions action/accept-report item))
-    (in-review (claimed-actions (review-or-merge pull-requests item) item))
-    (fixing (claimed-actions action/fix item))
-    (merging (claimed-actions (review-or-merge pull-requests item) item))
-    (merged (vec))
-    (accepted (vec))
-    (dropped (vec))))
-
-(type open-actions
-  (fn ((ref readiness) (ref item))
-    (vec next-action)))
-
-(defn open-actions (readiness item)
-  (if (ready-in? readiness (ref (:id item)))
-    (vec (planned action/dispatch none none))
-    (waiting-actions readiness (ref (:id item)))))
-
-(type ready-in?
-  (fn ((ref readiness) (ref item-id))
-    bool))
-
-(defn ready-in? (readiness id)
-  (any? (iter (:ready readiness))
-    (fn (ready) (= (ref (:id ready)) id))))
-
-(type waiting-actions
-  (fn ((ref readiness) (ref item-id))
-    (vec next-action)))
-
-(defn waiting-actions (readiness id)
-  (-> (:blocked readiness)
-      iter
-      (filter (fn (blocked)
-                (= (ref (:id (:item blocked))) id)))
-      (map (fn (blocked)
-             (planned action/wait none
-                      (some (clone (:blockage blocked))))))
-      collect))
-
-(defn claimed-actions (action item)
-  (vec (planned action
-                (claimant (ref (:claim item)))
-                none)))
-
-(defn claimant (claim)
-  (match claim
-    ((claimed-by session) (some (clone (:session session))))
-    (unclaimed none)))
-
-(type review-or-merge
-  (fn ((ref (vec pull-request)) (ref item))
-    action))
-
-(defn review-or-merge (pull-requests item)
-  (if (approved-pull-request? (ref (pull-request-of pull-requests
-                                                    (ref (:id item)))))
-    action/merge action/review))
-
-(defn approved-pull-request? (pull-request)
-  (match pull-request
-    ((some present) (approved? (ref (approval-of present))))
-    (none false)))
+(defn actions-of (readiness snapshot deliveries decisions item)
+  (with-decision-actions readiness decisions item
+                         (status-actions readiness snapshot
+                                         (ref (:pull-requests deliveries))
+                                         item)))

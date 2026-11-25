@@ -1,0 +1,130 @@
+(use ledger/model ->decision-id ->roadmap-id ->timestamp
+                  decision-status item kind status)
+
+(use ledger/model/decisions decision)
+(use ledger/core/actions action next-action)
+
+(use ledger/core/decision-next decision-entries
+                               decision-next raised-proposed
+                               raised-rejected)
+
+(use support/decisions sample-decision)
+(use support/items roadmap-of work-item)
+
+(defn decision-with (id status created)
+  (assoc (sample-decision status)
+         :id (->decision-id :value (str id))
+         :created-at (->timestamp :value (str created))
+         :asked-at none))
+
+(defn asked (decision at)
+  (assoc decision
+         :asked-at (some (->timestamp :value (str at)))))
+
+(type entry-ids
+  (fn ((ref (vec decision-next)))
+    (vec string)))
+
+(defn entry-ids (entries)
+  (collect (map (iter entries)
+             (fn (entry)
+               (clone (:value (:decision entry)))))))
+
+(type entry-by
+  (fn ((ref (vec decision-next)) (ref str))
+    decision-next))
+
+(defn entry-by (entries id)
+  (clone (unwrap (find (iter entries)
+                   (fn (entry)
+                     (= (:value (:decision entry)) (str id)))))))
+
+(type sole-action
+  (fn ((ref decision-next)) next-action))
+
+(defn sole-action (entry)
+  (clone (unwrap (first (:actions entry)))))
+
+(type raised-by
+  (fn ((ref item) decision-status) decision))
+
+(defn raised-by (item status)
+  (assoc (sample-decision status)
+         :item (some (clone (:id item)))))
+
+(deftest proposed-decisions-in-a-roadmap-become-entries-by-created-at
+  (let (road (roadmap-of "rm-road" "manager")
+        decisions (vec (decision-with "rm-d2"
+                                      decision-status/proposed
+                                      "2026-01-02T00:00:00Z")
+                       (decision-with "rm-d1"
+                                      decision-status/proposed
+                                      "2026-01-01T00:00:00Z")))
+    (assert (= (entry-ids (ref (decision-entries (ref road) (ref decisions))))
+               (vec (str "rm-d1") (str "rm-d2"))))))
+
+(deftest settled-decisions-become-no-entry
+  (let (road (roadmap-of "rm-road" "manager")
+        decisions (vec (decision-with "rm-d1"
+                                      decision-status/accepted
+                                      "2026-01-01T00:00:00Z")
+                       (decision-with "rm-d2"
+                                      decision-status/rejected
+                                      "2026-01-01T00:00:00Z")
+                       (decision-with "rm-d3"
+                                      decision-status/deprecated
+                                      "2026-01-01T00:00:00Z")
+                       (decision-with "rm-d4"
+                                      decision-status/superseded
+                                      "2026-01-01T00:00:00Z")))
+    (assert (empty? (decision-entries (ref road) (ref decisions))))))
+
+(deftest an-unasked-decision-asks-the-agent
+  (let (road (roadmap-of "rm-road" "manager")
+        decisions (vec (decision-with "rm-d1"
+                                      decision-status/proposed
+                                      "2026-01-01T00:00:00Z"))
+        entry (entry-by (decision-entries (ref road) (ref decisions))
+                        "rm-d1"))
+    (assert (= (:action (sole-action entry)) action/ask))))
+
+(deftest an-asked-decision-awaits-the-user
+  (let (road (roadmap-of "rm-road" "manager")
+        decisions (vec (asked (decision-with "rm-d1"
+                                             decision-status/proposed
+                                             "2026-01-01T00:00:00Z")
+                              "2026-01-02T00:00:00Z"))
+        entry (entry-by (decision-entries (ref road) (ref decisions))
+                        "rm-d1"))
+    (assert (= (:action (sole-action entry)) action/await-decision))))
+
+(deftest a-standalone-decision-still-gets-an-entry
+  (let (road (roadmap-of "rm-road" "manager")
+        standalone (decision-with "rm-d1"
+                                  decision-status/proposed
+                                  "2026-01-01T00:00:00Z"))
+    (assert (= (:item standalone) none))
+    (assert (= (entry-ids (ref (decision-entries (ref road)
+                                                 (ref (vec standalone)))))
+               (vec (str "rm-d1"))))))
+
+(deftest a-decision-in-another-roadmap-is-not-listed
+  (let (road (roadmap-of "rm-road" "manager")
+        other (assoc (decision-with "rm-d1"
+                                    decision-status/proposed
+                                    "2026-01-01T00:00:00Z")
+                     :roadmap-id (->roadmap-id (str "rm-other"))))
+    (assert (empty? (decision-entries (ref road)
+                                      (ref (vec other)))))))
+
+(deftest raised-decisions-are-found-by-the-item-and-status
+  (let (item (work-item "rm-0001" kind/design status/reported)
+        decisions (vec (raised-by item decision-status/proposed)
+                       (raised-by item decision-status/rejected)
+                       (raised-by
+                         (work-item "rm-0002" kind/design status/reported)
+                         decision-status/proposed)))
+    (assert (= (len (raised-proposed (ref decisions) (ref item)))
+               1))
+    (assert (= (len (raised-rejected (ref decisions) (ref item)))
+               1))))

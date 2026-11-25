@@ -2,12 +2,16 @@
   "Reads the next actions for each open item. It changes nothing.")
 
 (use ledger/model session)
-(use ledger/core/next ->deliveries next-item next-of)
-(use ledger/sqlite/pull-requests all-pull-requests)
+(use ledger/core/next ->deliveries next-entry next-of)
 (use ledger/core/selection selected-roadmaps)
 (use ledger/sqlite/roadmaps all-roadmaps)
 (use ledger/sqlite/snapshot load-snapshot)
 (use ledger/sqlite/reports reports-matching)
+(use ledger/sqlite/pull-requests all-pull-requests)
+
+(use ledger/sqlite/decisions ->decision-filter
+                             decisions-matching)
+
 (use ledger/model/reports ->report-query report-reading)
 
 (use ledger/operations/transaction in-read-transaction
@@ -22,7 +26,7 @@
   (fn ((ref settings)
        (option string)
        (option session))
-    (result (vec next-item) failure)))
+    (result (vec next-entry) failure)))
 
 (defn next-actions (settings roadmap manager)
   (in-read-transaction settings
@@ -39,8 +43,14 @@
                      connection
                      (ref (->report-query :item none
                                           :reading report-reading/unread-only)))
-            pull-requests (all-pull-requests connection))
+            pull-requests (all-pull-requests connection)
+            decisions (decisions-matching connection
+                                          (ref (->decision-filter
+                                                 :roadmap-id none
+                                                 :status none
+                                                 :item none))))
     (ok (next-of (ref snapshot)
                  (ref (selected-roadmaps (ref roadmaps) (ref scope) manager))
                  (ref (->deliveries :reports unread
-                                    :pull-requests pull-requests))))))
+                                    :pull-requests pull-requests))
+                 (ref decisions)))))

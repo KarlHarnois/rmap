@@ -45,9 +45,11 @@
                          revise-decision show-decision
                          supersedes-change)
 
-(use ledger/names action-names actor-names case-name
-                  case-named dep-type-names event-type-names
-                  graph-format-names kind-names origin-names
+(use ledger/action-names action-names actor-names)
+
+(use ledger/names case-name case-named dep-type-names
+                  event-type-names graph-format-names
+                  kind-names origin-names
                   roadmap-status-names runtime-names
                   session-kind-names status-names)
 
@@ -88,7 +90,8 @@
 (use ledger/operations/readiness ready-batch ready-items)
 (use ledger/operations/next next-actions)
 (use ledger/core/actions action actor next-action)
-(use ledger/core/next next-item)
+(use ledger/core/next next-entry next-item)
+(use ledger/core/decision-next decision-next)
 (use ledger/operations/log ->log-query log-query read-log)
 (use ledger/core/graph/levels graph-level graph-level-names)
 
@@ -109,7 +112,7 @@
         ask-decision batch batch-size batch-size-of blockage
         blocked-item body-source case-name case-named claim
         claim-item claim-request clock close-item
-        database-problem decision decision-id
+        database-problem decision decision-id decision-next
         decision-option decision-query decision-revision
         decision-status decision-status-names
         default-database-path dep dep-type dep-type-names
@@ -123,8 +126,8 @@
         item-detail item-edit item-id kind kind-change
         kind-names list-decisions list-items list-reports
         list-roadmaps log-query new-decision new-item
-        new-roadmap next-action next-actions next-item
-        option-draft optional-decision-id->json
+        new-roadmap next-action next-actions next-entry
+        next-item option-draft optional-decision-id->json
         optional-id->json optional-text->json
         optional-timestamp->json options->json origin
         origin-names outcome pause-roadmap proposal

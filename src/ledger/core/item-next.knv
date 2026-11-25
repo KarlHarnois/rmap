@@ -1,0 +1,84 @@
+(module
+  "Works out the next action for an item from its status and from what holds it.")
+
+(use ledger/model claim item item-id snapshot status)
+(use ledger/model/pull-requests pull-request)
+(use ledger/core/actions action next-action planned)
+(use ledger/core/pull-requests pull-request-of)
+(use ledger/core/ready readiness ready-in?)
+(use ledger/core/requirements approval-of approved?)
+(use ledger/core/decision-actions blocked-only-by-rejected?)
+
+(export status-actions)
+
+(type status-actions
+  (fn ((ref readiness)
+       (ref snapshot)
+       (ref (vec pull-request))
+       (ref item))
+    (vec next-action)))
+
+(defn status-actions (readiness snapshot pull-requests item)
+  (match (:status item)
+    (open (open-actions readiness snapshot item))
+    (dispatched (claimed-actions action/work item))
+    (reported (claimed-actions action/accept-report item))
+    (in-review (claimed-actions (review-or-merge pull-requests item) item))
+    (fixing (claimed-actions action/fix item))
+    (merging (claimed-actions (review-or-merge pull-requests item) item))
+    (merged (vec))
+    (accepted (vec))
+    (dropped (vec))))
+
+(type open-actions
+  (fn ((ref readiness)
+       (ref snapshot)
+       (ref item))
+    (vec next-action)))
+
+(defn open-actions (readiness snapshot item)
+  (if (ready-in? readiness (ref (:id item)))
+    (vec (planned action/dispatch none none))
+    (waiting-actions readiness snapshot (ref (:id item)))))
+
+(type waiting-actions
+  (fn ((ref readiness)
+       (ref snapshot)
+       (ref item-id))
+    (vec next-action)))
+
+(defn waiting-actions (readiness snapshot id)
+  (collect (map (filter (iter (:blocked readiness))
+                  (fn (held)
+                    (= (ref (:id (:item held))) id)))
+                (fn (held) (waiting-action snapshot held)))))
+
+(defn waiting-action (snapshot held)
+  (let (blockage (ref (:blockage held)))
+    (if (blocked-only-by-rejected? snapshot blockage)
+      (planned action/replan none (some (clone blockage)))
+      (planned action/wait none (some (clone blockage))))))
+
+(defn claimed-actions (action item)
+  (vec (planned action
+                (claimant (ref (:claim item)))
+                none)))
+
+(defn claimant (claim)
+  (match claim
+    ((claimed-by session) (some (clone (:session session))))
+    (unclaimed none)))
+
+(type review-or-merge
+  (fn ((ref (vec pull-request)) (ref item))
+    action))
+
+(defn review-or-merge (pull-requests item)
+  (if (approved-pull-request? (ref (pull-request-of pull-requests
+                                                    (ref (:id item)))))
+    action/merge action/review))
+
+(defn approved-pull-request? (pull-request)
+  (match pull-request
+    ((some present) (approved? (ref (approval-of present))))
+    (none false)))

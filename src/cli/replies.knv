@@ -2,7 +2,7 @@
   "Names each result a ledger call hands back to the CLI.")
 
 (use ledger/api batch decision dep event graph-source
-                init-report item item-detail next-item
+                init-report item item-detail next-entry
                 readiness roadmap)
 
 (use cli/report-replies report-reply)
@@ -16,7 +16,7 @@
   (roadmap-status-changed roadmap)
   (roadmaps-listed (vec roadmap))
   (readiness-checked readiness)
-  (next-listed (vec next-item))
+  (next-listed (vec next-entry))
   (batch-picked batch)
   (log-read (vec event))
   (item-added item)

@@ -1,8 +1,21 @@
-(use json/value copy-of field json->int json->items
-                json->text same?)
+(use json/value array copy-of field json json->int
+                json->items json->text object same?)
 
-(use support/rmap database-with-roadmap reported-done
+(use support/rmap database-with-roadmap reply reported-done
                   research-id run-rmap text-at)
+
+(use support/pr-commands build-id first-sha report-build
+                         review-build)
+
+(use support/scratch scratch-database)
+
+(def write-file
+  (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
+    (fn ((ref str) (ref str))
+      (result unit string))))
+
+(def proposal
+  "{\"title\": \"Where do sessions live?\", \"context\": \"Sessions must survive a restart.\", \"options\": [{\"title\": \"Postgres\"}, {\"title\": \"Redis\"}], \"recommendation\": {\"option\": 1, \"reason\": \"Postgres already runs.\"}}")
 
 (defstruct ledger-in-progress
   :database string
@@ -59,6 +72,77 @@
     (->ledger-in-progress :database database
                           :claimed claimed
                           :blocked (text-at (ref blocked) "item" "id"))))
+
+(type proposed
+  (fn (string (ref str)
+              (iterator (ref string)))
+    string))
+
+(defn proposed (database name extras)
+  (let (args (vec (str "decision")
+                  (str "propose")
+                  (str "--roadmap")
+                  (str "road")
+                  (str "--file")
+                  (clone (document-file name))))
+    (for-each extras
+      (fn (extra) (push! args (clone extra))))
+    (let (reply (run-rmap (clone database) args))
+      (assert (= (:exit-code reply) 0))
+      (text-at (ref reply) "decision" "id"))))
+
+(defn document-file (name)
+  (let (path (str (scratch-database name) ".json"))
+    (unwrap-ok (write-file (as-str path) proposal))
+    path))
+
+(defn reported-design (database)
+  (let (design (added (clone database)
+                      (vec "item" "add" "--roadmap" "road"
+                           "--title" "d" "--kind"
+                           "design")))
+    (assert (= (:exit-code
+                 (run-rmap
+                   (clone database)
+                   (vec "item" "claim" (as-str design) "--session" "s1")))
+               0))
+    (reported-done (clone database) (clone design))
+    design))
+
+(defn added (database args)
+  (text-at (ref (run-rmap database args)) "item" "id"))
+
+(type entry-named
+  (fn ((ref reply) (ref str) string) json))
+
+(defn entry-named (reply key id)
+  (-> (next-entries reply)
+      iter
+      (find (fn (entry)
+              (= (entry-text entry key)
+                 (some (clone id)))))
+      (map-some copy-of)
+      unwrap))
+
+(defn entry-text (entry key)
+  (match (field entry key)
+    ((some value) (json->text value))
+    (none none)))
+
+(defn next-entries (reply)
+  (unwrap (json->items (unwrap (field (:json reply) "next")))))
+
+(defn action-of (entry)
+  (copy-of (unwrap (first (unwrap (json->items (unwrap (field entry
+                                                              "actions"))))))))
+
+(defn blocking-decisions (action)
+  (let (reasons (unwrap-or (field action "reasons")
+                           (object (vec)))
+        listed (unwrap-or (field reasons "blocking_decisions")
+                          (array (vec))))
+    (collect (map (iter (unwrap-or (json->items listed) (vec)))
+               (fn (id) (unwrap (json->text id)))))))
 
 (deftest next-lists-each-item-with-its-action-actor-and-session
   (let (ledger (ledger-in-progress "e2e-next-shape")
@@ -124,3 +208,169 @@
     (assert (not (listed? (ref (:json (run-rmap (clone (:database ledger))
                                                 (vec "next"))))
                           (as-str (:claimed ledger)))))))
+
+(deftest a-proposed-decision-is-asked-before-the-item-it-holds
+  (let (database (database-with-roadmap "e2e-next-asks")
+        build (added (clone database)
+                     (vec "item" "add" "--roadmap" "road"
+                          "--title" "b" "--kind" "build"))
+        decision (proposed (clone database)
+                           "e2e-next-asks-doc"
+                           (vec (str "--blocks") (clone build)))
+        reply (run-rmap (clone database) (vec "next"))
+        listed (next-entries (ref reply))
+        decision-entry (entry-named (ref reply) "decision" (clone decision))
+        item-entry (entry-named (ref reply) "item" (clone build))
+        asked (action-of decision-entry)
+        waiting (action-of item-entry))
+    (assert (= (len listed) 2))
+    (assert (= (text-of (ref decision-entry) "kind")
+               (str "decision")))
+    (assert (= (text-of (ref decision-entry) "status")
+               (str "proposed")))
+    (assert (= (text-of (ref asked) "action")
+               (str "ask")))
+    (assert (= (text-of (ref asked) "actor")
+               (str "agent")))
+    (assert (= (text-of (ref waiting) "action")
+               (str "wait")))
+    (assert (= (blocking-decisions waiting)
+               (vec (clone decision))))))
+
+(deftest asking-a-decision-awaits-the-user
+  (let (database (database-with-roadmap "e2e-next-awaits")
+        build (added (clone database)
+                     (vec "item" "add" "--roadmap" "road"
+                          "--title" "b" "--kind" "build"))
+        decision (proposed (clone database)
+                           "e2e-next-awaits-doc"
+                           (vec (str "--blocks") (clone build)))
+        _ (run-rmap (clone database)
+                    (vec "decision" "ask" (as-str decision)))
+        reply (run-rmap (clone database) (vec "next"))
+        asked (action-of
+                (ref (entry-named (ref reply) "decision" (clone decision)))))
+    (assert (= (text-of (ref asked) "action")
+               (str "await-decision")))
+    (assert (= (text-of (ref asked) "actor")
+               (str "user")))))
+
+(deftest a-rejected-decision-sends-its-blocked-item-to-a-replan
+  (let (database (database-with-roadmap "e2e-next-replan")
+        build (added (clone database)
+                     (vec "item" "add" "--roadmap" "road"
+                          "--title" "b" "--kind" "build"))
+        decision (proposed (clone database)
+                           "e2e-next-replan-doc"
+                           (vec (str "--blocks") (clone build)))
+        _ (run-rmap
+            (clone database)
+            (vec "decision" "reject" (as-str decision) "--reason" "No."))
+        reply (run-rmap (clone database) (vec "next"))
+        item-entry (entry-named (ref reply) "item" (clone build))
+        replan (action-of item-entry))
+    (assert (= (text-of (ref replan) "action")
+               (str "replan")))
+    (assert (= (text-of (ref replan) "actor")
+               (str "agent")))))
+
+(deftest a-rejected-raised-decision-replans-the-design
+  (let (database (database-with-roadmap "e2e-next-raised-replan")
+        design (reported-design (clone database))
+        decision (proposed (clone database)
+                           "e2e-next-raised-replan-doc"
+                           (vec (str "--item") (clone design)))
+        _ (run-rmap
+            (clone database)
+            (vec "decision" "reject" (as-str decision) "--reason" "No."))
+        reply (run-rmap (clone database) (vec "next"))
+        item-entry (entry-named (ref reply) "item" (clone design))
+        replan (action-of item-entry))
+    (assert (= (text-of (ref replan) "action")
+               (str "replan")))
+    (assert (= (text-of (ref replan) "actor")
+               (str "agent")))))
+
+(deftest a-proposed-decision-raised-by-a-reported-design-waits-on-it
+  (let (database (database-with-roadmap "e2e-next-raised-wait")
+        design (reported-design (clone database))
+        decision (proposed (clone database)
+                           "e2e-next-raised-wait-doc"
+                           (vec (str "--item") (clone design)))
+        reply (run-rmap (clone database) (vec "next"))
+        item-entry (entry-named (ref reply) "item" (clone design))
+        waiting (action-of item-entry))
+    (assert (= (text-of (ref waiting) "action")
+               (str "wait")))
+    (assert (= (blocking-decisions waiting)
+               (vec (clone decision))))))
+
+(deftest a-dispatched-build-keeps-working-when-it-raised-a-proposed-decision
+  (let (database (database-with-roadmap "e2e-next-dispatched-raised")
+        build (added (clone database)
+                     (vec "item" "add" "--roadmap" "road"
+                          "--title" "b" "--kind" "build"))
+        _claim (run-rmap (clone database)
+                         (vec "item" "claim" (as-str build) "--session" "s1"))
+        _decision (proposed (clone database)
+                            "e2e-next-dispatched-raised-doc"
+                            (vec (str "--item") (clone build)))
+        reply (run-rmap (clone database) (vec "next"))
+        item-entry (entry-named (ref reply) "item" (clone build))
+        working (action-of item-entry))
+    (assert (= (text-of (ref working) "action")
+               (str "work")))
+    (assert (= (text-of (ref working) "actor")
+               (str "worker")))))
+
+(deftest a-dispatched-build-keeps-working-and-replans-a-raised-rejection
+  (let (database (database-with-roadmap "e2e-next-dispatched-rejected")
+        build (added (clone database)
+                     (vec "item" "add" "--roadmap" "road"
+                          "--title" "b" "--kind" "build"))
+        _claim (run-rmap (clone database)
+                         (vec "item" "claim" (as-str build) "--session" "s1"))
+        decision (proposed (clone database)
+                           "e2e-next-dispatched-rejected-doc"
+                           (vec (str "--item") (clone build)))
+        _reject (run-rmap
+                  (clone database)
+                  (vec "decision" "reject" (as-str decision) "--reason" "No."))
+        reply (run-rmap (clone database) (vec "next"))
+        item-entry (entry-named (ref reply) "item" (clone build))
+        listed (collect (map (iter (unwrap (json->items (unwrap (field
+                                                                  item-entry
+                                                                  "actions")))))
+                             (fn (action) (text-of action "action")))))
+    (assert (= listed
+               (vec (str "work") (str "replan"))))))
+
+(deftest an-approved-in-review-build-waits-on-a-proposed-decision-it-raised
+  (let (database (database-with-roadmap "e2e-next-approved-raised")
+        build (build-id (ref database))
+        _done (assert (= (:exit-code (report-build (ref database)
+                                                   build
+                                                   "done"
+                                                   (vec (str "--pr")
+                                                        (str "1")
+                                                        (str "--head")
+                                                        (str first-sha))))
+                         0))
+        _review (assert (= (:exit-code (review-build (ref database)
+                                                     build
+                                                     "r1"
+                                                     "approve"
+                                                     first-sha))
+                           0))
+        before (run-rmap (clone database) (vec "next"))
+        before-action (action-of
+                        (entry-named (ref before) "item" (clone build)))
+        _decision (proposed (clone database)
+                            "e2e-next-approved-raised-doc"
+                            (vec (str "--item") (clone build)))
+        after (run-rmap (clone database) (vec "next"))
+        waiting (action-of (entry-named (ref after) "item" (clone build))))
+    (assert (= (text-of (ref before-action) "action")
+               (str "merge")))
+    (assert (= (text-of (ref waiting) "action")
+               (str "wait")))))

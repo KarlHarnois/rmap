@@ -11,7 +11,7 @@
 (use cli/ledger-json blocked->json dep->json event->json
                      item->json roadmap->json)
 
-(use cli/next-json next-item->json)
+(use cli/next-json next-entry->json)
 (use cli/decision-json decision->json)
 (use cli/report-json report-reply-fields)
 (use cli/pr-json pr-reply-fields)
@@ -116,7 +116,7 @@
 
 (defn next-envelope (items)
   (envelope (vec (pair (str "next")
-                       (array (collect (map (iter items) next-item->json)))))))
+                       (array (collect (map (iter items) next-entry->json)))))))
 
 (defn dep-envelope (dep)
   (envelope (vec (pair (str "dep") (dep->json (ref dep))))))

@@ -1,5 +1,7 @@
 (use ledger/api list-items new-roadmap next-actions
-                settings)
+                next-entry settings)
+
+(use support/decisions proposed-id)
 
 (use support/ledger all-events ledger-with-two-roadmaps
                     other-roadmap-name refusal-code-of
@@ -29,12 +31,33 @@
                                (map-some roadmap str)
                                (map-some manager session-named)))
       iter
-      (map (fn (entry)
-             (clone (:name (:roadmap entry)))))
+      (map entry-roadmap-name)
       collect))
+
+(defn entry-roadmap-name (entry)
+  (match entry
+    ((next-entry/listed-item item)
+     (clone (:name (:roadmap item))))
+    ((next-entry/listed-decision decision)
+     (clone (:name (:roadmap decision))))))
 
 (defn sorted (names)
   (let (all names) (sort! all) all))
+
+(type decision-ids-of
+  (fn ((iterator (ref next-entry)))
+    (vec string)))
+
+(defn decision-ids-of (entries)
+  (let (ids (vec))
+    (for-each entries
+      (fn (entry)
+        (match entry
+          ((next-entry/listed-decision decision)
+           (push! ids
+                  (clone (:value (:decision decision)))))
+          ((next-entry/listed-item _) (do)))))
+    ids))
 
 (defn event-ids (settings)
   (collect (map (iter (unwrap-ok (all-events settings)))
@@ -80,3 +103,16 @@
     (assert (= (event-ids (ref settings)) events-before))
     (assert (= (unwrap-ok (list-items (ref settings) none))
                items-before))))
+
+(deftest naming-a-manager-lists-the-decisions-of-every-roadmap-it-runs
+  (let (settings (ledger-with-two-roadmaps "next-decisions-manager")
+        decision (proposed-id settings))
+    (assert (= (decision-ids-of (unwrap-ok (next-actions (ref settings)
+                                                         none
+                                                         (some (session-named
+                                                                 "manager")))))
+               (vec (clone (:value decision)))))
+    (assert (empty? (decision-ids-of (unwrap-ok (next-actions (ref settings)
+                                                              none
+                                                              (some (session-named
+                                                                      "other-manager")))))))))

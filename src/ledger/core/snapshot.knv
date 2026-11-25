@@ -1,13 +1,13 @@
 (module
   "Answers questions about one snapshot of the ledger: which item has an id, what it depends on, and which items a scope covers.")
 
-(use ledger/model dep dep-type item item-id roadmap-id
-                  snapshot)
+(use ledger/model dep dep-type item item-id kind roadmap
+                  roadmap-id snapshot)
 
 (use ledger/refusal refusal)
 
 (export blocked-by blocks? deps-of existing find-item
-        in-scope? scope)
+        in-scope? scope work-items-in)
 
 (defenum scope
   every-roadmap
@@ -45,6 +45,17 @@
 
 (defn blocks? (dep)
   (= (:type dep) dep-type/blocks))
+
+(type work-items-in
+  (fn ((ref snapshot) (ref roadmap))
+    (vec item)))
+
+(defn work-items-in (snapshot roadmap)
+  (collect (map (filter (iter (:items snapshot))
+                  (fn (item)
+                    (and (not= (:kind item) kind/epic)
+                         (= (:roadmap-id item) (:id roadmap)))))
+                clone)))
 
 (type in-scope?
   (fn ((ref item) (ref scope)) bool))

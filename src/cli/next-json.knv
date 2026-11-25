@@ -1,15 +1,22 @@
 (module
-  "Turns the next actions for an item into the JSON object `rmap next` prints.")
+  "Turns the next entries for items and proposed decisions into the JSON objects `rmap next` prints.")
 
 (use json/value array int->json json object text->json)
 
 (use ledger/api action-names actor-names case-name
-                kind-names next-item report-id session
-                status-names)
+                decision-next decision-status-names
+                kind-names next-entry next-item report-id
+                session status-names)
 
 (use cli/blockage-json blockage-fields)
 
-(export next-item->json)
+(export next-entry->json)
+
+(defn next-entry->json (entry)
+  (match entry
+    ((next-entry/listed-item item) (next-item->json item))
+    ((next-entry/listed-decision decision)
+     (decision-next->json decision))))
 
 (type next-item->json
   (fn ((ref next-item)) json))
@@ -29,6 +36,25 @@
                  (pair (str "actions")
                        (array (collect (map (iter (:actions entry))
                                             next-action->json))))))))
+
+(type decision-next->json
+  (fn ((ref decision-next)) json))
+
+(defn decision-next->json (entry)
+  (object (vec (pair (str "decision")
+                     (text->json (as-str (:value (:decision entry)))))
+               (pair (str "roadmap")
+                     (text->json (as-str (:name (:roadmap entry)))))
+               (pair (str "status")
+                     (text->json (case-name decision-status-names
+                                            (:status entry))))
+               (pair (str "kind")
+                     (text->json (str "decision")))
+               (pair (str "title")
+                     (text->json (as-str (:title entry))))
+               (pair (str "actions")
+                     (array (collect (map (iter (:actions entry))
+                                          next-action->json)))))))
 
 (defn next-action->json (planned)
   (object (-> (vec (pair (str "action")

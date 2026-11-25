@@ -1,0 +1,76 @@
+(use json/value copy-of field json->items json->text)
+(use ledger/model ->decision-id decision-status kind status)
+(use ledger/api ->session action)
+(use ledger/core/actions planned)
+(use ledger/core/decision-next ->decision-next)
+(use ledger/core/next ->next-item next-entry)
+(use cli/next-json next-entry->json)
+(use support/items roadmap-of work-item)
+
+(defn text-at (value key)
+  (json->text (ref (unwrap (field value key)))))
+
+(defn first-action (value)
+  (copy-of (unwrap (first (unwrap (json->items
+                                    (ref (unwrap (field value "actions")))))))))
+
+(defn item-entry ()
+  (next-entry/listed-item (->next-item
+                            :item (work-item "rm-0001" kind/build status/open)
+                            :roadmap (roadmap-of "rm-road" "manager")
+                            :actions (vec (planned action/work
+                                                   (some (->session :name (str "s1")))
+                                                   none)))))
+
+(defn decision-entry (action)
+  (next-entry/listed-decision (->decision-next
+                                :decision (->decision-id :value (str "rm-d1"))
+                                :roadmap (roadmap-of "rm-road" "manager")
+                                :status decision-status/proposed
+                                :title (str "Where do sessions live?")
+                                :actions (vec (planned action none none)))))
+
+(deftest an-item-entry-names-its-item-and-its-kind
+  (let (value (next-entry->json (item-entry)))
+    (assert (= (text-at (ref value) "item")
+               (some (str "rm-0001"))))
+    (assert (none? (field (ref value) "decision")))
+    (assert (= (text-at (ref value) "roadmap")
+               (some (str "rm-road"))))
+    (assert (= (text-at (ref value) "status")
+               (some (str "open"))))
+    (assert (= (text-at (ref value) "kind")
+               (some (str "build"))))
+    (assert (= (text-at (ref (first-action (ref value)))
+                        "action")
+               (some (str "work"))))))
+
+(deftest a-decision-entry-names-the-decision-and-its-kind
+  (let (value (next-entry->json (decision-entry action/ask)))
+    (assert (= (text-at (ref value) "decision")
+               (some (str "rm-d1"))))
+    (assert (none? (field (ref value) "item")))
+    (assert (= (text-at (ref value) "roadmap")
+               (some (str "rm-road"))))
+    (assert (= (text-at (ref value) "status")
+               (some (str "proposed"))))
+    (assert (= (text-at (ref value) "kind")
+               (some (str "decision"))))
+    (assert (= (text-at (ref value) "title")
+               (some (str "Where do sessions live?"))))))
+
+(deftest an-unasked-decision-asks-an-agent
+  (let (action (first-action (ref (next-entry->json (decision-entry
+                                                      action/ask)))))
+    (assert (= (text-at (ref action) "action")
+               (some (str "ask"))))
+    (assert (= (text-at (ref action) "actor")
+               (some (str "agent"))))))
+
+(deftest an-asked-decision-awaits-the-user
+  (let (action (first-action (ref (next-entry->json (decision-entry
+                                                      action/await-decision)))))
+    (assert (= (text-at (ref action) "action")
+               (some (str "await-decision"))))
+    (assert (= (text-at (ref action) "actor")
+               (some (str "user"))))))
