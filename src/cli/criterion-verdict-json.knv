@@ -35,7 +35,9 @@
   (fn ((ref criterion-verdict)) json))
 
 (defn criterion-verdict->json (verdict)
-  (object (vec (pair (str "item")
+  (object (vec (pair (str "id")
+                     (int->json (:value (:id verdict))))
+               (pair (str "item")
                      (text->json (as-str (:value (:item verdict)))))
                (pair (str "position")
                      (int->json (:position verdict)))

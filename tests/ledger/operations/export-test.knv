@@ -1,8 +1,10 @@
-(use ledger/api add-dep drop-item export-ledger item-id kind
-                propose-decision record-report report-kind
-                settings)
+(use json/value copy-of field json->int json->text)
+(use ledger/model/reports report-kind)
 
-(use ledger/model status)
+(use ledger/api add-dep drop-item export-ledger item-id
+                propose-decision record-report settings)
+
+(use ledger/model kind status)
 (use ledger/model/pull-requests verdict)
 (use ledger/sqlite/connection open run-batch)
 (use support/decisions proposal-in)
@@ -69,6 +71,16 @@
       (fn (value) (clone value)))
     (= keys expected)))
 
+(defn ordered-numbers? (values key)
+  (let (keys (collect (map (iter values)
+                        (fn (value)
+                          (unwrap (json->int (ref (unwrap (field (copy-of value)
+                                                                 key))))))))
+        expected (collect (map (iter keys) clone)))
+    (sort-by! expected
+      (fn (value) (clone value)))
+    (= keys expected)))
+
 (type holds?
   (where ((a partial-eq))
     (fn ((ref (vec a)) a) bool)))
@@ -122,8 +134,8 @@
   (let (settings (export-fixture "export-references")
         document (unwrap-ok (export-ledger (ref settings)))
         items (collect (map (iter (:export-items document))
-                         (fn (item)
-                           (clone (:value (:id (:exported-item item)))))))
+                         (fn (record)
+                           (clone (:value (:id (:exported-item record)))))))
         roadmaps (collect (map (iter (:export-roadmaps document))
                             (fn (roadmap)
                               (clone (:value (:id roadmap))))))
@@ -179,13 +191,19 @@
     (assert (every? (:export-decision-blocks document)
               (fn (block)
                 (and (holds? decisions
-                             (clone (:value (:decision block))))
+                             (unwrap (json->text (ref (unwrap (field (copy-of
+                                                                       block)
+                                                                     "decision_id"))))))
                      (holds? items
-                             (clone (:value (:item block))))))))
+                             (unwrap (json->text (ref (unwrap (field (copy-of
+                                                                       block)
+                                                                     "item_id"))))))))))
     (assert (every? (:export-rulings document)
               (fn (ruling)
                 (holds? items
-                        (clone (:value (:item ruling)))))))
+                        (unwrap (json->text (ref (unwrap (field
+                                                           (copy-of ruling)
+                                                           "item_id")))))))))
     (assert (holds? option-numbers 1))))
 
 (deftest the-snapshot-records-no-event
@@ -201,13 +219,19 @@
         item-ids (collect (map (iter (:export-items document))
                             (fn (record)
                               (clone (:value (:id (:exported-item record))))))))
-    (assert (every? (:export-criteria document)
-              (fn (criterion)
-                (and (holds? (ref item-ids)
-                             (clone (:value (:item criterion))))
-                     (> (:position criterion) 0)
-                     (= (:text criterion) (str "a criterion"))))))
-    (assert (ordered? (:export-criteria document) :position))))
+    (assert
+      (every? (:export-criteria document)
+        (fn (criterion)
+          (and (holds? (ref item-ids)
+                       (unwrap (json->text (ref (unwrap (field (copy-of
+                                                                 criterion)
+                                                               "item_id"))))))
+               (> (unwrap (json->int (ref (unwrap (field (copy-of criterion)
+                                                         "position")))))
+                  0)
+               (= (json->text (ref (unwrap (field (copy-of criterion) "text"))))
+                  (some (str "a criterion")))))))
+    (assert (ordered-numbers? (:export-criteria document) "position"))))
 
 (deftest the-snapshot-carries-readiness-and-approval
   (let (settings (export-fixture "export-facts")

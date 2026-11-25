@@ -2,7 +2,7 @@
   "Reads the `rulings` table.")
 
 (use ledger/model ->item-id ->timestamp)
-(use ledger/model/rulings ->ruling ->ruling-id)
+(use ledger/model/rulings ->ruling)
 (use ledger/sqlite/connection query)
 
 (use ledger/sqlite/rows optional-text-cell rows->values
@@ -25,12 +25,11 @@
             supersedes (optional-text-cell row 5)
             ruled-by (text-cell row 6)
             created-at (text-cell row 7))
-    (ok (->ruling :id (->ruling-id :value id)
+    (ok (->ruling :id id
                   :item (->item-id :value item)
                   :question question
                   :choice choice
                   :reason reason
-                  :supersedes (map-some supersedes
-                                (fn (value) (->ruling-id :value value)))
+                  :supersedes supersedes
                   :ruled-by ruled-by
                   :created-at (->timestamp :value created-at)))))

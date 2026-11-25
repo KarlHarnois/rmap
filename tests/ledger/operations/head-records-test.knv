@@ -1,6 +1,6 @@
 (use json/value copy-of)
-(use ledger/api record-head status)
-(use ledger/model kind)
+(use ledger/api record-head)
+(use ledger/model kind status)
 (use support/payloads side-text)
 
 (use support/ledger added-id advanced all-events claimed

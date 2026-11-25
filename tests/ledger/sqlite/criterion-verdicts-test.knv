@@ -1,5 +1,7 @@
-(use ledger/api criteria-input kind)
-(use ledger/model ->item-id ->session ->timestamp item-id)
+(use ledger/api criteria-input)
+
+(use ledger/model ->item-id ->session ->timestamp item-id
+                  kind)
 
 (use ledger/model/criteria ->criterion-verdict
                            ->criterion-verdict-id

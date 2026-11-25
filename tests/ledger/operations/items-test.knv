@@ -1,4 +1,6 @@
-(use ledger/api ->item-id drop-item kind show-item status)
+(use ledger/model kind)
+(use ledger/model status)
+(use ledger/api ->item-id drop-item show-item)
 
 (use support/ledger added-id item-draft refusal-code-of
                     scratch-ledger)

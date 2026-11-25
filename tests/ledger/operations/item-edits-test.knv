@@ -1,6 +1,9 @@
+(use ledger/model/events event-type)
+(use ledger/model kind)
+
 (use ledger/api ->item-edit close-item criteria-input
-                description-input edit-item event-type
-                failure-code kind show-item)
+                description-input edit-item failure-code
+                show-item)
 
 (use support/ledger added-id all-events item-draft
                     refusal-code-of reported-research

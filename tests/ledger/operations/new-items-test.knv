@@ -1,5 +1,7 @@
+(use ledger/model kind)
+
 (use ledger/api ->item-id add-item criteria-input
-                description-input kind show-item)
+                description-input show-item)
 
 (use support/ledger added-id item-draft
                     ledger-with-two-roadmaps

@@ -1,0 +1,64 @@
+(module
+  "Maps a decision route and its arguments to the invocation the CLI runs.")
+
+(use cli/arguments operand)
+
+(use cli/decision-requests decision-accept-request
+                           decision-ask-request
+                           decision-block-request
+                           decision-deprecate-request
+                           decision-list-request
+                           decision-reject-request
+                           decision-show-request
+                           decision-unblock-request
+                           proposal-pending
+                           revision-pending)
+
+(use cli/route-ledger decision-ledger-invocation
+                      on-document)
+
+(use cli/routes subcommand)
+
+(export decision-invocation-of)
+
+(defn decision-invocation-of (route arguments)
+  (match (:subcommand route)
+    (subcommand/decision-propose (on-document arguments
+                                              (proposal-pending arguments)))
+    (subcommand/decision-revise
+      (on-document arguments
+                   (revision-pending arguments (operand arguments route 0))))
+    (subcommand/decision-show (decision-ledger-invocation
+                                arguments
+                                (ok (decision-show-request
+                                      (operand arguments route 0)))))
+    (subcommand/decision-list (decision-ledger-invocation arguments
+                                                          (decision-list-request
+                                                            arguments)))
+    (subcommand/decision-ask (decision-ledger-invocation
+                               arguments
+                               (ok (decision-ask-request
+                                     (operand arguments route 0)))))
+    (subcommand/decision-accept (decision-ledger-invocation
+                                  arguments
+                                  (decision-accept-request
+                                    arguments
+                                    (operand arguments route 0))))
+    (subcommand/decision-reject (decision-ledger-invocation
+                                  arguments
+                                  (decision-reject-request
+                                    arguments
+                                    (operand arguments route 0))))
+    (subcommand/decision-deprecate (decision-ledger-invocation
+                                     arguments
+                                     (decision-deprecate-request
+                                       arguments
+                                       (operand arguments route 0))))
+    (subcommand/decision-block (decision-ledger-invocation
+                                 arguments
+                                 (ok (decision-block-request arguments route))))
+    (subcommand/decision-unblock (decision-ledger-invocation arguments
+                                                             (ok (decision-unblock-request
+                                                                   arguments
+                                                                   route))))
+    (_ (err (str "not a decision command")))))

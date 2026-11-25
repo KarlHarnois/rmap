@@ -3,17 +3,14 @@
 
 (use ledger/model item-id timestamp)
 
-(export ->ruling ->ruling-id ruling ruling-id)
+(export ->ruling ruling)
 
 (defstruct ruling
-  :id ruling-id
+  :id string
   :item item-id
   :question string
   :choice string
   :reason string
-  :supersedes (option ruling-id)
+  :supersedes (option string)
   :ruled-by string
   :created-at timestamp)
-
-(defstruct ruling-id
-  :value string)

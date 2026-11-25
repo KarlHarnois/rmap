@@ -1,6 +1,5 @@
-(use ledger/api ->decision-id ->item-id decision-status
-                supersedes-change)
-
+(use ledger/model decision-status)
+(use ledger/api ->decision-id ->item-id supersedes-change)
 (use cli/arguments ->arguments)
 
 (use cli/decision-requests decision-list-request

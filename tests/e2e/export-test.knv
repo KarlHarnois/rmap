@@ -5,8 +5,10 @@
 (use ledger/sqlite/connection open run-batch)
 
 (use support/pr-commands approved-on-first-head build-id
-                         first-sha report-build review-build
-                         second-sha)
+                         first-sha report-build
+                         review-existing-session
+                         review-start second-sha
+                         verify-criterion)
 
 (use support/rmap database-with-roadmap research-id run-rmap
                   run-rmap-text text-at)
@@ -47,11 +49,27 @@
                                          "done"
                                          (vec "--pr" "2" "--head" first-sha)))
                0))
+    (assert (= (:exit-code (review-start database (clone id) "r2"))
+               0))
     (assert (= (:exit-code
-                 (review-build database (clone id) "r2" "approve" first-sha))
+                 (verify-criterion database (clone id) "r2" 1 first-sha))
+               0))
+    (assert (= (:exit-code (review-existing-session
+                             database
+                             (clone id)
+                             "r2" "approve" first-sha))
                0))
     (assert (= (:exit-code (run-rmap (clone database)
                                      (vec "pr" "head" (as-str id) second-sha)))
+               0))
+    (assert (= (:exit-code (review-start database (clone id) "r3"))
+               0))
+    (assert (= (:exit-code
+                 (run-rmap (clone database)
+                           (vec "item" "verify"
+                                (as-str id)
+                                "1" "--failed" "--reviewer"
+                                "r3" "--head" second-sha)))
                0))
     id))
 
@@ -363,3 +381,30 @@
                             decision-entry))
     (assert (not (record-ready? (ref dep-item))))
     (assert (not (record-ready? (ref decision-item))))))
+
+(deftest the-export-keeps-every-criterion-verdict
+  (let (database (export-database "e2e-export-verdicts")
+        document (:json (export-reply (clone database)))
+        verdicts (listed (copy-of document) "criterion_verdicts"))
+    (assert (>= (len verdicts) 3))
+    (assert (every? verdicts
+              (fn (verdict)
+                (and (some? (field (copy-of verdict) "id"))
+                     (some? (field (copy-of verdict) "item"))
+                     (some? (field (copy-of verdict) "position"))
+                     (some? (field (copy-of verdict) "verdict"))
+                     (some? (field (copy-of verdict) "reviewer"))
+                     (some? (field (copy-of verdict) "head"))
+                     (some? (field (copy-of verdict) "note"))
+                     (some? (field (copy-of verdict) "created_at"))))))
+    (assert (ordered-numbers? verdicts "id"))
+    (assert (any? verdicts
+              (fn (verdict)
+                (= (json->text (ref (unwrap (field (copy-of verdict)
+                                                   "verdict"))))
+                   (some (str "met"))))))
+    (assert (any? verdicts
+              (fn (verdict)
+                (= (json->text (ref (unwrap (field (copy-of verdict)
+                                                   "verdict"))))
+                   (some (str "failed"))))))))

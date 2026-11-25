@@ -1,5 +1,8 @@
-(use ledger/api ->item-id add-decision-block event-type kind
-                ready-items remove-decision-block)
+(use ledger/model/events event-type)
+(use ledger/model kind)
+
+(use ledger/api ->item-id add-decision-block ready-items
+                remove-decision-block)
 
 (use support/decisions decision-id-of mark-status
                        proposed-id)

@@ -9,6 +9,10 @@
 (use ledger/operations/export-facts export-items
                                     export-pull-requests)
 
+(use ledger/operations/export-records block-records
+                                      criterion-records
+                                      ruling-records)
+
 (use ledger/model/decisions ->decision-option-record
                             decision decision-option-record)
 
@@ -21,6 +25,7 @@
 (use ledger/sqlite/decision-blocks all-blocks)
 (use ledger/sqlite/decisions decisions-matching)
 (use ledger/sqlite/criteria all-criteria)
+(use ledger/sqlite/criterion-verdicts all-criterion-verdicts)
 (use ledger/sqlite/deps all-deps)
 (use ledger/sqlite/events events-matching)
 (use ledger/sqlite/items all-items)
@@ -57,6 +62,7 @@
   (let-try (roadmaps (all-roadmaps connection)
             items (all-items connection)
             criteria (all-criteria connection)
+            criterion-verdicts (all-criterion-verdicts connection)
             deps (all-deps connection)
             sessions (all-sessions connection)
             reports (reports-matching connection every-report)
@@ -77,7 +83,8 @@
                            :export-roadmaps (ordered roadmaps roadmap-key)
                            :export-items (export-items (ref readiness)
                                                        (ref ordered-items))
-                           :export-criteria criteria
+                           :export-criteria (criterion-records (ref criteria))
+                           :export-criterion-verdicts criterion-verdicts
                            :export-deps deps
                            :export-sessions sessions
                            :export-reports reports
@@ -85,8 +92,8 @@
                            :export-reviews reviews
                            :export-decisions (clone ordered-decisions)
                            :export-decision-options (option-records (ref ordered-decisions))
-                           :export-decision-blocks blocks
-                           :export-rulings rulings
+                           :export-decision-blocks (block-records (ref blocks))
+                           :export-rulings (ruling-records (ref rulings))
                            :export-events events)))))
 
 (defn ordered (values key)

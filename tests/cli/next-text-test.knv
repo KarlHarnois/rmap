@@ -1,8 +1,8 @@
 (use ledger/model ->blockage ->decision-id decision-status
                   kind roadmap-pause status)
 
-(use ledger/api ->session action)
-(use ledger/core/actions planned planned-for-report)
+(use ledger/api ->session)
+(use ledger/core/actions action planned planned-for-report)
 (use ledger/model/reports ->report-id)
 (use ledger/core/decision-next ->decision-next)
 (use ledger/core/next ->next-item next-entry)

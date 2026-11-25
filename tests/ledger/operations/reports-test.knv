@@ -1,10 +1,11 @@
+(use ledger/model/reports report-kind)
 (use json/value copy-of field json->int)
 
 (use ledger/api ->item-id ->report-id ->report-request
                 body-source close-item read-report
-                record-report report-kind settings status)
+                record-report settings)
 
-(use ledger/model kind)
+(use ledger/model kind status)
 (use ledger/sqlite/connection open query)
 (use ledger/sqlite/rows optional-text-cell rows->values)
 (use support/payloads columns side-int side-text)

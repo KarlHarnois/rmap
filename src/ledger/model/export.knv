@@ -1,10 +1,9 @@
 (module
   "Holds one snapshot of the whole ledger: every record kind the export document lists.")
 
-(use ledger/model blockage decision-block dep item roadmap
-                  timestamp)
-
-(use ledger/model/criteria criterion)
+(use ledger/model blockage dep item roadmap timestamp)
+(use ledger/model/criteria criterion-verdict)
+(use json/value json)
 (use ledger/model/events event)
 (use ledger/model/sessions session-record)
 (use ledger/model/decisions decision decision-option-record)
@@ -13,7 +12,6 @@
                                 review)
 
 (use ledger/model/reports report)
-(use ledger/model/rulings ruling)
 
 (export ->export-item ->export-pull-request ->ledger-export
         export-item export-pull-request ledger-export)
@@ -22,7 +20,8 @@
   :exported-at timestamp
   :export-roadmaps (vec roadmap)
   :export-items (vec export-item)
-  :export-criteria (vec criterion)
+  :export-criteria (vec json)
+  :export-criterion-verdicts (vec criterion-verdict)
   :export-deps (vec dep)
   :export-sessions (vec session-record)
   :export-reports (vec report)
@@ -30,8 +29,8 @@
   :export-reviews (vec review)
   :export-decisions (vec decision)
   :export-decision-options (vec decision-option-record)
-  :export-decision-blocks (vec decision-block)
-  :export-rulings (vec ruling)
+  :export-decision-blocks (vec json)
+  :export-rulings (vec json)
   :export-events (vec event))
 
 (defstruct export-item

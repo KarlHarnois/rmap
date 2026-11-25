@@ -1,4 +1,6 @@
-(use ledger/api batch-size-of close-item kind list-items
+(use ledger/model kind)
+
+(use ledger/api batch-size-of close-item list-items
                 ready-batch ready-items)
 
 (use support/ledger added-id all-events blocked-research-in

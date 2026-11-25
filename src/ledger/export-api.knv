@@ -9,14 +9,11 @@
 (use ledger/model/export ->ledger-export export-item
                          export-pull-request ledger-export)
 
-(use ledger/model/rulings ->ruling ->ruling-id ruling
-                          ruling-id)
-
+(use ledger/model/rulings ->ruling ruling)
 (use ledger/model/sessions ->session-record session-record)
 (use ledger/operations/export export-ledger)
 
 (export ->decision-option-record ->ledger-export ->ruling
-        ->ruling-id ->session-record decision-option-record
-        export-item export-ledger export-pull-request
-        ledger-export option->json ruling ruling-id
-        session-record)
+        ->session-record decision-option-record export-item
+        export-ledger export-pull-request ledger-export
+        option->json ruling session-record)
