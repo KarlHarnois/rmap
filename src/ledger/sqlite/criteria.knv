@@ -8,14 +8,14 @@
 (use ledger/sqlite/connection connection database-error
                               execute query)
 
-(use ledger/sqlite/rows rows->values text-cell)
+(use ledger/sqlite/rows int-cell rows->values text-cell)
 
 (export all-criteria insert-criteria replace-criteria
         with-criteria)
 
 (defn all-criteria (connection)
   (let-try (rows (query connection
-                        "SELECT item_id, text FROM item_criteria ORDER BY item_id, position"
+                        "SELECT item_id, position, text FROM item_criteria ORDER BY item_id, position"
                         (ref (vec))))
     (rows->values (ref rows) row->criterion)))
 
@@ -44,8 +44,11 @@
 
 (defn row->criterion (row)
   (let-try (item (text-cell row 0)
-            text (text-cell row 1))
-    (ok (->criterion :item (->item-id :value item) :text text))))
+            position (int-cell row 1)
+            text (text-cell row 2))
+    (ok (->criterion :item (->item-id :value item)
+                     :position position
+                     :text text))))
 
 (type insert-criterion
   (fn ((ref connection) (ref item-id) int string)

@@ -1,9 +1,54 @@
 (module
-  "Holds the session part of the ledger's public surface: the reason a session ends and ending a live session by name.")
+  "Holds the session part of the ledger's public surface: a stored session record as JSON, the reason a session ends, and ending a live session by name.")
 
-(use ledger/model/sessions end-reason ended-session)
+(use json/value int->json json object text->json)
+
+(use ledger/json-values optional-id->json
+                        optional-text->json
+                        optional-timestamp->json)
+
+(use ledger/model runtime session-kind)
+
+(use ledger/model/sessions ->session-record end-reason
+                           ended-session session-record)
+
+(use ledger/names case-name end-reason-names runtime-names
+                  session-kind-names)
+
 (use ledger/operations/session-end end-session)
 
-(export abandoned end-reason end-session ended-session)
+(export abandoned end-reason end-session ended-session
+        session-record->json)
 
 (defn abandoned () end-reason/abandoned)
+
+(type session-record->json
+  (fn ((ref session-record)) json))
+
+(defn session-record->json (record)
+  (object (vec (pair (str "id")
+                     (int->json (:value (:id record))))
+               (pair (str "name")
+                     (text->json (as-str (:name record))))
+               (pair (str "item_id")
+                     (optional-id->json (ref (:item record))))
+               (pair (str "kind")
+                     (optional-case->json (:kind record) session-kind-names))
+               (pair (str "runtime")
+                     (text->json (case-name runtime-names (:runtime record))))
+               (pair (str "branch")
+                     (optional-text->json (ref (:branch record))))
+               (pair (str "base")
+                     (optional-text->json (ref (:base record))))
+               (pair (str "started_at")
+                     (text->json (as-str (:value (:started-at record)))))
+               (pair (str "ended_at")
+                     (optional-timestamp->json (ref (:ended-at record))))
+               (pair (str "end_reason")
+                     (optional-case->json (:end-reason record)
+                                          end-reason-names)))))
+
+(defn optional-case->json (value names)
+  (match value
+    ((some present) (text->json (case-name names present)))
+    (none json/null)))

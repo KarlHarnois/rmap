@@ -1,0 +1,231 @@
+(use json/value copy-of field json->entries json->int
+                json->items json->text object parse-json
+                same?)
+
+(use ledger/sqlite/connection open run-batch)
+(use support/pr-commands approved-on-first-head build-id)
+
+(use support/rmap database-with-roadmap research-id run-rmap
+                  run-rmap-text text-at)
+
+(def write-file
+  (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
+    (fn ((ref str) (ref str))
+      (result unit string))))
+
+(def proposal
+  "{\"title\": \"Where do sessions live?\", \"context\": \"Sessions must survive a restart.\", \"options\": [{\"title\": \"Postgres\", \"description\": \"Keep them in the main database.\", \"pros\": [\"One store to run\"], \"cons\": [\"More load\"]}, {\"title\": \"Redis\", \"pros\": [\"Fast\"]}], \"recommendation\": {\"option\": 1, \"reason\": \"Postgres already runs.\"}}")
+
+(defn export-database (name)
+  (let (database (database-with-roadmap name)
+        research (research-id (clone database)))
+    (claim (clone database) (clone research) "w1")
+    (read-first-report (clone database)
+                       (report-done (clone database) (clone research) "w1"))
+    (merged-build (clone database))
+    (dropped-id (clone database))
+    (let (blocked (added-id (clone database) "research")
+          blocker (added-id (clone database) "design"))
+      (assert (= (:exit-code (run-rmap (clone database)
+                                       (vec "dep" "add"
+                                            (as-str blocked)
+                                            (as-str blocker))))
+                 0))
+      (insert-ruling (clone database) (as-str research))
+      (proposed-id (clone database) (clone blocked)))
+    database))
+
+(defn merged-build (database)
+  (let (id (build-id (clone database)))
+    (approved-on-first-head (clone database) (clone id))
+    (assert (= (:exit-code (run-rmap
+                             (clone database)
+                             (vec "item" "advance" (as-str id) "merging")))
+               0))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "item" "close" (as-str id))))
+               0))
+    id))
+
+(defn insert-ruling (database item)
+  (let (connection (unwrap-ok (open (as-str database))))
+    (unwrap-ok (run-batch (ref connection)
+                          (as-str (str "INSERT INTO rulings (id,item_id,question,choice,reason,supersedes_id,ruled_by,created_at) VALUES ('rm-r001','"
+                                       item
+                                       "','Q?','A','why',NULL,'owner','2026-03-03T00:00:00Z');"))))))
+
+(defn dropped-id (database)
+  (let (id (added-id (clone database) "design"))
+    (assert (= (:exit-code
+                 (run-rmap
+                   (clone database)
+                   (vec "item" "drop" (as-str id) "--reason" "not needed")))
+               0))
+    id))
+
+(defn added-id (database kind)
+  (let (reply (run-rmap (clone database)
+                        (vec "item" "add" "--roadmap" "road"
+                             "--title" "x" "--kind" kind)))
+    (assert (= (:exit-code reply) 0))
+    (text-at (ref reply) "item" "id")))
+
+(defn proposed-id (database blocked)
+  (let (reply (run-rmap (clone database)
+                        (vec "decision" "propose"
+                             "--roadmap" "road" "--file"
+                             (as-str (document-file database))
+                             "--blocks"
+                             (as-str blocked))))
+    (assert (= (:exit-code reply) 0))
+    (text-at (ref reply) "decision" "id")))
+
+(defn document-file (database)
+  (let (path (str database ".json"))
+    (unwrap-ok (write-file (as-str path) proposal))
+    path))
+
+(defn read-first-report (database reply)
+  (let (id (recorded-report-id reply))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "report" "read" (as-str (str id)))))
+               0))))
+
+(defn recorded-report-id (reply)
+  (let (report (unwrap (field (:json reply) "report")))
+    (unwrap (json->int (ref (unwrap (field report "id")))))))
+
+(defn claim (database id session)
+  (assert (= (:exit-code
+               (run-rmap (clone database)
+                         (vec "item" "claim" (as-str id) "--session" session)))
+             0)))
+
+(defn report-done (database id session)
+  (let (reply (run-rmap (clone database)
+                        (vec "report"
+                             (as-str id)
+                             "--session" session "--kind"
+                             "done" "--text" "found it")))
+    (assert (= (:exit-code reply) 0))
+    reply))
+
+(defn export-reply (database)
+  (let (reply (run-rmap (clone database) (vec "export")))
+    (assert (= (:exit-code reply) 0))
+    reply))
+
+(defn export-text (database)
+  (let (output (run-rmap-text (vec "--db" (as-str (clone database)) "export")))
+    (assert (= (:code output) 0))
+    (unwrap-ok (parse-json (as-str (:stdout output))))))
+
+(defn event-count (database)
+  (let (reply (run-rmap database (vec "log")))
+    (len (listed (copy-of (:json reply)) "events"))))
+
+(defn listed (document key)
+  (unwrap (json->items (ref (unwrap (at document key))))))
+
+(defn ordered-numbers? (values key)
+  (let (keys (collect (map (iter values)
+                        (fn (value)
+                          (unwrap (json->int (ref (unwrap (at value key))))))))
+        expected (collect (map (iter keys) clone)))
+    (sort-by! expected
+      (fn (value) (clone value)))
+    (= keys expected)))
+
+(defn at (document key) (field document key))
+
+(defn ordered? (values key)
+  (let (keys (text-values values key)
+        expected (collect (map (iter keys) clone)))
+    (sort-by! expected
+      (fn (value) (clone value)))
+    (= keys expected)))
+
+(defn text-values (values key)
+  (collect (map (iter values)
+             (fn (value)
+               (unwrap (json->text (ref (unwrap (at value key)))))))))
+
+(defn without-exported-at (document)
+  (let (kept (vec))
+    (for-each (json->entries (ref document))
+      (fn (entry)
+        (let-match ((pair key value) entry)
+          (when (not= key (str "exported_at"))
+            (push! kept
+                   (pair (clone key) (copy-of value)))))))
+    (object kept)))
+
+(deftest the-export-holds-one-of-every-record-kind
+  (let (document (:json (export-reply (export-database "e2e-export-kinds"))))
+    (assert (= (unwrap (json->int (ref (unwrap (at (copy-of document)
+                                                   "schema_version")))))
+               4))
+    (assert (every? (vec (str "roadmaps")
+                         (str "items")
+                         (str "deps")
+                         (str "sessions")
+                         (str "reports")
+                         (str "pull_requests")
+                         (str "reviews")
+                         (str "decisions")
+                         (str "decision_options")
+                         (str "decision_blocks")
+                         (str "rulings")
+                         (str "events"))
+                    (fn (key)
+                      (> (len (listed (copy-of document) (as-str key)))
+                         0))))))
+
+(deftest the-export-keeps-finished-items
+  (let (document (:json (export-reply (export-database "e2e-export-statuses")))
+        statuses (text-values (listed (copy-of document) "items") "status"))
+    (assert (any? statuses
+              (fn (status)
+                (= status (str "reported")))))
+    (assert (any? statuses
+              (fn (status) (= status (str "dropped")))))
+    (assert (any? statuses
+              (fn (status) (= status (str "merged")))))))
+
+(deftest the-export-is-deterministic-apart-from-its-time
+  (let (database (export-database "e2e-export-deterministic")
+        one (:json (export-reply (clone database)))
+        two (:json (export-reply database)))
+    (assert (some? (at (copy-of one) "exported_at")))
+    (assert (same? (ref (without-exported-at (copy-of one)))
+                   (ref (without-exported-at (copy-of two)))))
+    (assert (ordered? (listed (copy-of one) "items") "id"))
+    (assert (ordered-numbers? (listed (copy-of one) "events") "id"))
+    (assert (ordered? (listed (copy-of one) "decisions") "id"))))
+
+(deftest the-export-prints-json-without-the-json-flag
+  (let (database (export-database "e2e-export-text")
+        plain (:json (export-reply (clone database)))
+        text (export-text database))
+    (assert (same? (ref (without-exported-at (copy-of plain)))
+                   (ref (without-exported-at (copy-of text)))))))
+
+(deftest the-export-records-no-event-and-changes-nothing
+  (let (database (export-database "e2e-export-no-event")
+        before (event-count (clone database)))
+    (export-reply (clone database))
+    (assert (= (event-count database) before))))
+
+(deftest the-export-lists-criteria-away-from-the-item
+  (let (document (:json (export-reply (export-database "e2e-export-criteria")))
+        items (listed (copy-of document) "items")
+        criteria (listed (copy-of document) "item_criteria"))
+    (assert (> (len criteria) 0))
+    (assert (every? criteria
+              (fn (criterion)
+                (and (some? (field criterion "item_id"))
+                     (some? (field criterion "position"))
+                     (some? (field criterion "text"))))))
+    (assert (every? items
+              (fn (item)
+                (none? (field item "criteria")))))))

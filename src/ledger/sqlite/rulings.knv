@@ -1,0 +1,36 @@
+(module
+  "Reads the `rulings` table.")
+
+(use ledger/model ->item-id ->timestamp)
+(use ledger/model/rulings ->ruling ->ruling-id)
+(use ledger/sqlite/connection query)
+
+(use ledger/sqlite/rows optional-text-cell rows->values
+                        text-cell)
+
+(export all-rulings)
+
+(defn all-rulings (connection)
+  (let-try (rows (query connection
+                        "SELECT id, item_id, question, choice, reason, supersedes_id, ruled_by, created_at FROM rulings ORDER BY id"
+                        (ref (vec))))
+    (rows->values (ref rows) row->ruling)))
+
+(defn row->ruling (row)
+  (let-try (id (text-cell row 0)
+            item (text-cell row 1)
+            question (text-cell row 2)
+            choice (text-cell row 3)
+            reason (text-cell row 4)
+            supersedes (optional-text-cell row 5)
+            ruled-by (text-cell row 6)
+            created-at (text-cell row 7))
+    (ok (->ruling :id (->ruling-id :value id)
+                  :item (->item-id :value item)
+                  :question question
+                  :choice choice
+                  :reason reason
+                  :supersedes (map-some supersedes
+                                (fn (value) (->ruling-id :value value)))
+                  :ruled-by ruled-by
+                  :created-at (->timestamp :value created-at)))))

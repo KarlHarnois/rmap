@@ -1,9 +1,12 @@
 (module
   "Describes each ledger result in plain text.")
 
+(use json/value json->source)
+
 (use ledger/api case-name dep ended-session init-outcome
                 init-report session-kind-names)
 
+(use cli/export-json export->json)
 (use cli/replies reply)
 
 (use cli/item-text item-added-text item-edited-text
@@ -57,6 +60,8 @@
     ((reply/dep-removed dep)
      (dep-text dep "no longer comes after"))
     ((reply/graph-drawn graph) (clone (:source graph)))
+    ((reply/exported document)
+     (json->source (ref (export->json document))))
     ((reply/decision-proposed decision)
      (decision-proposed-text (ref decision)))
     ((reply/decision-revised decision)

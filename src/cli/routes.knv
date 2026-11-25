@@ -36,6 +36,7 @@
   dep-add
   dep-rm
   graph
+  export
   review-start
   (session session-command)
   decision-propose

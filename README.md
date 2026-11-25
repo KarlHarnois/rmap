@@ -69,6 +69,8 @@ Commands:
     Removes the dependency between two items.
   graph [--roadmap <name>] [--all] [--level item|epic|roadmap] [--format mermaid]
     Prints the roadmaps, their items and dependencies as a Mermaid flowchart. Merged items show only with --all. --level epic or roadmap draws one node per epic or roadmap.
+  export
+    Prints the whole ledger as one JSON document, with or without --json: every roadmap, item, dependency, session, report, pull request, review, decision, decision option, decision block, ruling and event.
   pause <name>
     Pauses a roadmap: its open items wait, while work already started continues.
   resume <name>

@@ -1,0 +1,203 @@
+(use ledger/api add-dep drop-item export-ledger item-id kind
+                propose-decision record-report report-kind
+                settings)
+
+(use ledger/model status)
+(use ledger/model/pull-requests verdict)
+(use ledger/sqlite/connection open run-batch)
+(use support/decisions proposal-in)
+
+(use support/ledger added-id all-events claimed item-draft
+                    research roadmap-name scratch-ledger)
+
+(use support/pull-requests first-head in-review-build
+                           reviewed)
+
+(use support/report-requests report-as worker-of)
+
+(defn export-fixture (name)
+  (let (settings (scratch-ledger name)
+        reported (reported-research (ref settings)))
+    (build-with-review (ref settings))
+    (dropped-design (ref settings))
+    (let (open (added-id (ref settings) (item-draft kind/research))
+          blocker (added-id (ref settings) (item-draft kind/design)))
+      (unwrap-ok (add-dep settings (clone open) (clone blocker)))
+      (unwrap-ok (propose-decision settings
+                                   (assoc (proposal-in roadmap-name)
+                                          :blocks (vec (clone open)))))
+      (insert-ruling (ref settings) (ref reported))
+      settings)))
+
+(defn reported-research (settings)
+  (let (id (claimed settings (research settings)))
+    (unwrap-ok (record-report settings
+                              (report-as (ref id)
+                                         (as-str (worker-of (ref id)))
+                                         report-kind/done
+                                         "found it")))
+    id))
+
+(defn build-with-review (settings)
+  (let (id (in-review-build settings
+                            (ref (claimed settings
+                                          (added-id settings
+                                                    (item-draft kind/build))))
+                            12))
+    (reviewed settings (ref id) "r1" verdict/approve first-head)
+    id))
+
+(defn dropped-design (settings)
+  (unwrap-ok (drop-item settings
+                        (added-id settings (item-draft kind/design))
+                        (str "not needed"))))
+
+(type insert-ruling
+  (fn ((ref settings) (ref item-id)) unit))
+
+(defn insert-ruling (settings item)
+  (let (connection (unwrap-ok (open (as-str (:database-path settings)))))
+    (unwrap-ok (run-batch (ref connection)
+                          (as-str (str "INSERT INTO rulings (id,item_id,question,choice,reason,supersedes_id,ruled_by,created_at) VALUES ('rm-r001','"
+                                       (:value item)
+                                       "','Q?','A','why',NULL,'owner','2026-03-03T00:00:00Z');"))))))
+
+(defn ordered? (values key)
+  (let (keys (collect (map (iter values) key))
+        expected (collect (map (iter keys) clone)))
+    (sort-by! expected
+      (fn (value) (clone value)))
+    (= keys expected)))
+
+(type holds?
+  (where ((a partial-eq))
+    (fn ((ref (vec a)) a) bool)))
+
+(defn holds? (values id)
+  (any? values (fn (value) (= value id))))
+
+(deftest the-snapshot-holds-every-record-kind
+  (let (settings (export-fixture "export-kinds")
+        document (unwrap-ok (export-ledger (ref settings))))
+    (assert (= (len (:export-roadmaps document)) 1))
+    (assert (= (len (:export-items document)) 5))
+    (assert (= (len (:export-criteria document)) 5))
+    (assert (= (len (:export-deps document)) 1))
+    (assert (= (len (:export-sessions document)) 3))
+    (assert (= (len (:export-reports document)) 2))
+    (assert (= (len (:export-pull-requests document)) 1))
+    (assert (= (len (:export-reviews document)) 1))
+    (assert (= (len (:export-decisions document)) 1))
+    (assert (= (len (:export-decision-options document)) 2))
+    (assert (= (len (:export-decision-blocks document)) 1))
+    (assert (= (len (:export-rulings document)) 1))
+    (assert (> (len (:export-events document)) 0))))
+
+(deftest the-snapshot-keeps-finished-and-dropped-items
+  (let (settings (export-fixture "export-statuses")
+        document (unwrap-ok (export-ledger (ref settings))))
+    (assert (holds? (collect (map (iter (:export-items document))
+                               (fn (item) (:status item))))
+                    status/reported))
+    (assert (holds? (collect (map (iter (:export-items document))
+                               (fn (item) (:status item))))
+                    status/dropped))))
+
+(deftest the-snapshot-orders-every-list-by-id
+  (let (settings (export-fixture "export-order")
+        document (unwrap-ok (export-ledger (ref settings))))
+    (assert (ordered? (:export-roadmaps document)
+              (fn (roadmap)
+                (clone (:value (:id roadmap))))))
+    (assert (ordered? (:export-items document)
+              (fn (item) (clone (:value (:id item))))))
+    (assert (ordered? (:export-decision-options document)
+              (fn (record) (:number (:option record)))))
+    (assert (ordered? (:export-events document) :id))))
+
+(deftest every-reference-in-the-snapshot-resolves
+  (let (settings (export-fixture "export-references")
+        document (unwrap-ok (export-ledger (ref settings)))
+        items (collect (map (iter (:export-items document))
+                         (fn (item) (clone (:value (:id item))))))
+        roadmaps (collect (map (iter (:export-roadmaps document))
+                            (fn (roadmap)
+                              (clone (:value (:id roadmap))))))
+        sessions (collect (map (iter (:export-sessions document))
+                            (fn (session)
+                              (clone (:value (:id session))))))
+        decisions (collect (map (iter (:export-decisions document))
+                             (fn (decision)
+                               (clone (:value (:id decision))))))
+        option-numbers (collect (map (iter (:export-decision-options document))
+                                  (fn (record) (:number (:option record))))))
+    (assert (every? (:export-items document)
+              (fn (item)
+                (holds? roadmaps
+                        (clone (:value (:roadmap-id item)))))))
+    (assert (every? (:export-deps document)
+              (fn (dep)
+                (and (holds? items
+                             (clone (:value (:item dep))))
+                     (holds? items
+                             (clone (:value (:on dep))))))))
+    (assert (every? (:export-sessions document)
+              (fn (session)
+                (match (:item session)
+                  ((some item) (holds? items (clone (:value item))))
+                  (none true)))))
+    (assert (every? (:export-reports document)
+              (fn (report)
+                (and (holds? items
+                             (clone (:value (:item report))))
+                     (holds? sessions
+                             (clone (:value (:session-id report))))))))
+    (assert (every? (:export-pull-requests document)
+              (fn (pull-request)
+                (holds? items
+                        (clone (:value (:item pull-request)))))))
+    (assert (every? (:export-reviews document)
+              (fn (review)
+                (and (holds? items
+                             (clone (:value (:item review))))
+                     (holds? sessions
+                             (clone (:value (:session-id review))))))))
+    (assert (every? (:export-decisions document)
+              (fn (decision)
+                (holds? roadmaps
+                        (clone (:value (:roadmap-id decision)))))))
+    (assert (every? (:export-decision-options document)
+              (fn (record)
+                (holds? decisions
+                        (clone (:value (:decision record)))))))
+    (assert (every? (:export-decision-blocks document)
+              (fn (block)
+                (and (holds? decisions
+                             (clone (:value (:decision block))))
+                     (holds? items
+                             (clone (:value (:item block))))))))
+    (assert (every? (:export-rulings document)
+              (fn (ruling)
+                (holds? items
+                        (clone (:value (:item ruling)))))))
+    (assert (holds? option-numbers 1))))
+
+(deftest the-snapshot-records-no-event
+  (let (settings (export-fixture "export-no-event")
+        before (len (unwrap-ok (all-events (ref settings)))))
+    (unwrap-ok (export-ledger (ref settings)))
+    (assert (= (len (unwrap-ok (all-events (ref settings))))
+               before))))
+
+(deftest every-criterion-carries-its-item-position-and-text
+  (let (settings (export-fixture "export-criteria")
+        document (unwrap-ok (export-ledger (ref settings))))
+    (assert (every? (:export-criteria document)
+              (fn (criterion)
+                (and (holds? (collect (map (iter (:export-items document))
+                                        (fn (item)
+                                          (clone (:value (:id item))))))
+                             (clone (:value (:item criterion))))
+                     (> (:position criterion) 0)
+                     (= (:text criterion) (str "a criterion"))))))
+    (assert (ordered? (:export-criteria document) :position))))

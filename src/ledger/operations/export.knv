@@ -1,0 +1,115 @@
+(module
+  "Reads every record kind in one read transaction, ordered by id, for `rmap export`.")
+
+(use ledger/model item roadmap timestamp)
+(use ledger/model/export ->ledger-export ledger-export)
+
+(use ledger/model/decisions ->decision-option-record
+                            decision decision-option-record)
+
+(use ledger/model/reports ->report-query report-reading)
+(use ledger/sqlite/decisions ->decision-filter)
+(use ledger/sqlite/events ->event-filter)
+(use ledger/operations/transaction in-read-transaction now)
+(use ledger/failure failure)
+(use ledger/sqlite/connection connection)
+(use ledger/sqlite/decision-blocks all-blocks)
+(use ledger/sqlite/decisions decisions-matching)
+(use ledger/sqlite/criteria all-criteria)
+(use ledger/sqlite/deps all-deps)
+(use ledger/sqlite/events events-matching)
+(use ledger/sqlite/items all-items)
+(use ledger/sqlite/pull-requests all-pull-requests)
+(use ledger/sqlite/reports reports-matching)
+(use ledger/sqlite/reviews all-reviews)
+(use ledger/sqlite/roadmaps all-roadmaps)
+(use ledger/sqlite/rulings all-rulings)
+(use ledger/sqlite/session-rows all-sessions)
+
+(export export-ledger)
+
+(def every-report
+  (->report-query :item none
+                  :reading report-reading/every-report))
+
+(def any-decision
+  (->decision-filter :roadmap-id none :status none :item none))
+
+(def every-event
+  (->event-filter :item-id none :decision-id none :after-id 0))
+
+(defn export-ledger (settings)
+  (in-read-transaction settings
+    (fn (transaction)
+      (export-within (ref (:connection transaction))
+                     (now transaction)))))
+
+(type export-within
+  (fn ((ref connection) (ref timestamp))
+    (result ledger-export failure)))
+
+(defn export-within (connection at)
+  (let-try (roadmaps (all-roadmaps connection)
+            items (all-items connection)
+            criteria (all-criteria connection)
+            deps (all-deps connection)
+            sessions (all-sessions connection)
+            reports (reports-matching connection every-report)
+            pull-requests (all-pull-requests connection)
+            reviews (all-reviews connection)
+            decisions (decisions-matching connection any-decision)
+            blocks (all-blocks connection)
+            rulings (all-rulings connection)
+            events (events-matching connection every-event))
+    (let (ordered-decisions (ordered decisions decision-key))
+      (ok (->ledger-export :exported-at (clone at)
+                           :export-roadmaps (ordered roadmaps roadmap-key)
+                           :export-items (ordered items item-key)
+                           :export-criteria criteria
+                           :export-deps deps
+                           :export-sessions sessions
+                           :export-reports reports
+                           :export-pull-requests pull-requests
+                           :export-reviews reviews
+                           :export-decisions (clone ordered-decisions)
+                           :export-decision-options (option-records (ref ordered-decisions))
+                           :export-decision-blocks blocks
+                           :export-rulings rulings
+                           :export-events events)))))
+
+(defn ordered (values key)
+  (let (all (collect (map (iter values) clone)))
+    (sort-by! all key)
+    all))
+
+(type roadmap-key
+  (fn ((ref roadmap)) string))
+
+(defn roadmap-key (roadmap)
+  (clone (:value (:id roadmap))))
+
+(type item-key (fn ((ref item)) string))
+
+(defn item-key (item)
+  (clone (:value (:id item))))
+
+(type decision-key
+  (fn ((ref decision)) string))
+
+(defn decision-key (decision)
+  (clone (:value (:id decision))))
+
+(type option-records
+  (fn ((ref (vec decision)))
+    (vec decision-option-record)))
+
+(defn option-records (decisions)
+  (let (records (vec))
+    (for-each decisions
+      (fn (decision)
+        (for-each (:options decision)
+          (fn (option)
+            (push! records
+                   (->decision-option-record :decision (clone (:id decision))
+                                             :option (clone option)))))))
+    records))

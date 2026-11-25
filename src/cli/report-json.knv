@@ -10,7 +10,7 @@
 (use cli/ledger-json item->json)
 (use cli/pr-json optional-pull-request->json)
 
-(export report-reply-fields)
+(export report-detail->json report-reply-fields)
 
 (type report-reply-fields
   (fn (report-reply)

@@ -1,0 +1,36 @@
+(module
+  "Turns a ledger ruling into the JSON object the export prints.")
+
+(use json/value json object text->json)
+(use ledger/api ruling ruling-id)
+
+(export ruling->json)
+
+(type ruling->json
+  (fn ((ref ruling)) json))
+
+(defn ruling->json (ruling)
+  (object (vec (pair (str "id")
+                     (text->json (as-str (:value (:id ruling)))))
+               (pair (str "item_id")
+                     (text->json (as-str (:value (:item ruling)))))
+               (pair (str "question")
+                     (text->json (as-str (:question ruling))))
+               (pair (str "choice")
+                     (text->json (as-str (:choice ruling))))
+               (pair (str "reason")
+                     (text->json (as-str (:reason ruling))))
+               (pair (str "supersedes_id")
+                     (optional-ruling-id->json (:supersedes ruling)))
+               (pair (str "ruled_by")
+                     (text->json (as-str (:ruled-by ruling))))
+               (pair (str "created_at")
+                     (text->json (as-str (:value (:created-at ruling))))))))
+
+(type optional-ruling-id->json
+  (fn ((ref (option ruling-id))) json))
+
+(defn optional-ruling-id->json (id)
+  (match id
+    ((some present) (text->json (as-str (:value present))))
+    (none json/null)))

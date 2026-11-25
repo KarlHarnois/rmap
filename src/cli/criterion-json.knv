@@ -1,0 +1,18 @@
+(module
+  "Turns one acceptance criterion row into the JSON object the export prints.")
+
+(use json/value int->json json object text->json)
+(use ledger/api criterion)
+
+(export criterion->json)
+
+(type criterion->json
+  (fn ((ref criterion)) json))
+
+(defn criterion->json (criterion)
+  (object (vec (pair (str "item_id")
+                     (text->json (as-str (:value (:item criterion)))))
+               (pair (str "position")
+                     (int->json (:position criterion)))
+               (pair (str "text")
+                     (text->json (as-str (:text criterion)))))))

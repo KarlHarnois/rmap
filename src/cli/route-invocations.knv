@@ -91,6 +91,7 @@
                  (ok (request/add-dep (text->id (operand arguments route 0))
                                       (text->id (operand arguments route 1))))))
     (subcommand/graph (on-ledger arguments (graph-request arguments)))
+    (subcommand/export (on-ledger arguments (ok request/export)))
     (subcommand/dep-rm (on-ledger arguments
                                   (ok (request/remove-dep
                                         (text->id (operand arguments route 0))

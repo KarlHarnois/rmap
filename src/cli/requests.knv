@@ -49,6 +49,7 @@
   (add-dep item-id item-id)
   (remove-dep item-id item-id)
   (graph graph-request)
+  export
   (decision decision-request)
   (report report-operation)
   (pull-request pr-operation)

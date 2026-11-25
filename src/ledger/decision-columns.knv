@@ -10,8 +10,8 @@
                         optional-text->json
                         optional-timestamp->json)
 
-(export decision->columns optional-decision-id->json
-        options->json)
+(export decision->columns option->json
+        optional-decision-id->json options->json)
 
 (type decision->columns
   (fn ((ref decision))
@@ -54,9 +54,6 @@
   (optional-text->json (ref (map-some (clone id)
                               (fn (present) (clone (:value present)))))))
 
-(defn column (name value)
-  (pair (str name) value))
-
 (defn option->json (option)
   (object (vec (pair (str "number")
                      (int->json (:number option)))
@@ -68,6 +65,9 @@
                      (texts->json (ref (:pros option))))
                (pair (str "cons")
                      (texts->json (ref (:cons option)))))))
+
+(defn column (name value)
+  (pair (str name) value))
 
 (defn texts->json (texts)
   (array (collect (map (iter texts)

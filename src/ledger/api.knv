@@ -46,20 +46,25 @@
 
 (use ledger/values-api ->item-id ->session abandoned
                        action-names actor-names blockage
-                       case-name case-named claim
-                       criterion-result-names dep dep-type
-                       dep-type-names end-reason end-session
-                       ended-session event-type-names
-                       graph-format graph-format-names
-                       history ids->json item item-id kind
-                       kind-names optional-id->json
-                       optional-text->json
+                       case-name case-named claim criterion
+                       criterion-result-names decision-block
+                       dep dep-type dep-type-names
+                       end-reason end-session ended-session
+                       event-type-names graph-format
+                       graph-format-names history ids->json
+                       item item-id kind kind-names
+                       optional-id->json optional-text->json
                        optional-timestamp->json origin
                        origin-names roadmap roadmap-id
                        roadmap-pause roadmap-status
                        roadmap-status-names runtime-names
                        session session-kind-names status
                        status-names timestamp work-session)
+
+(use ledger/export-api decision-option-record export-ledger
+                       ledger-export ruling ruling-id)
+
+(use ledger/session-api session-record->json)
 
 (use ledger/item-api ->advancement ->criterion-gap
                      ->criterion-status ->criterion-verdict
@@ -108,43 +113,44 @@
         ask-decision batch batch-size batch-size-of blockage
         blocked-item body-source case-name case-named claim
         claim-item claim-request clock close-item
-        criteria-input criterion-gap criterion-result
-        criterion-result-names criterion-status
-        criterion-verdict database-problem decision
-        decision-id decision-next decision-option
+        criteria-input criterion criterion-gap
+        criterion-result criterion-result-names
+        criterion-status criterion-verdict database-problem
+        decision decision-block decision-id decision-next
+        decision-option decision-option-record
         decision-query decision-revision decision-status
         decision-status-names default-database-path dep
         dep-type dep-type-names deprecate-decision
         description-input draw-graph drop-item edit-item
         end-reason end-session ended-session event
-        event-type event-type-names failure failure-code
-        failure-message graph-format graph-format-names
-        graph-level graph-level-names graph-request
-        graph-source head history ids->json init-ledger
-        init-outcome init-outcome-names init-report item
-        item-detail item-edit item-id kind kind-change
-        kind-names list-decisions list-items list-reports
-        list-roadmaps log-query new-decision new-item
-        new-roadmap next-action next-actions next-entry
-        next-item option-draft optional-decision-id->json
-        optional-id->json optional-text->json
-        optional-timestamp->json options->json origin
-        origin-names outcome pause-roadmap proposal
-        propose-decision pull-request pull-request-refusal
-        read-log read-report readiness ready-batch
-        ready-items recommendation record-head record-report
-        record-review recorded-head recorded-report
-        recorded-review refusal refusal-catalog
-        refusal-description reject-decision
+        event-type event-type-names export-ledger failure
+        failure-code failure-message graph-format
+        graph-format-names graph-level graph-level-names
+        graph-request graph-source head history ids->json
+        init-ledger init-outcome init-outcome-names
+        init-report item item-detail item-edit item-id kind
+        kind-change kind-names ledger-export list-decisions
+        list-items list-reports list-roadmaps log-query
+        new-decision new-item new-roadmap next-action
+        next-actions next-entry next-item option-draft
+        optional-decision-id->json optional-id->json
+        optional-text->json optional-timestamp->json
+        options->json origin origin-names outcome
+        pause-roadmap proposal propose-decision pull-request
+        pull-request-refusal read-log read-report readiness
+        ready-batch ready-items recommendation record-head
+        record-report record-review recorded-head
+        recorded-report recorded-review refusal
+        refusal-catalog refusal-description reject-decision
         remove-decision-block remove-dep report report-id
         report-kind report-kind-names report-query
         report-reading report-request resume-roadmap review
         review-kind-names review-request
         review-start-request revise-decision roadmap
         roadmap-id roadmap-pause roadmap-status
-        roadmap-status-names runtime-names session
-        session-kind-names settings show-decision show-item
-        show-pull-request show-report start-review status
-        status-names supersedes-change timestamp
-        verdict-names verify-criterion verify-request
-        work-session)
+        roadmap-status-names ruling ruling-id runtime-names
+        session session-kind-names session-record->json
+        settings show-decision show-item show-pull-request
+        show-report start-review status status-names
+        supersedes-change timestamp verdict-names
+        verify-criterion verify-request work-session)
