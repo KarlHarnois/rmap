@@ -1,0 +1,31 @@
+(module
+  "Builds the invocations for report, review, pull request and session operations.")
+
+(use cli/pr-requests pr-operation-of
+                     start-review-operation-of)
+
+(use cli/report-requests report-operation-of)
+(use cli/requests request)
+(use cli/route-ledger on-ledger)
+(use cli/session-requests session-end-request)
+
+(export pr-invocation report-invocation
+        review-start-invocation session-invocation)
+
+(defn report-invocation (arguments route command)
+  (on-ledger arguments
+             (map-ok (report-operation-of arguments route command)
+               (fn (operation) (request/report operation)))))
+
+(defn review-start-invocation (arguments route)
+  (on-ledger arguments
+             (map-ok (start-review-operation-of arguments route)
+               (fn (operation) (request/pull-request operation)))))
+
+(defn pr-invocation (arguments route command)
+  (on-ledger arguments
+             (map-ok (pr-operation-of arguments route command)
+               (fn (operation) (request/pull-request operation)))))
+
+(defn session-invocation (arguments route _command)
+  (on-ledger arguments (session-end-request arguments route)))

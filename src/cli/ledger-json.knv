@@ -2,7 +2,7 @@
   "Turns ledger values into the JSON objects the CLI prints.")
 
 (use json/value array copy-of int->json json object
-                text->json)
+                optional-int->json text->json)
 
 (use cli/session-json claim->json claim->session-json)
 
@@ -31,6 +31,8 @@
                (pair (str "status")
                      (text->json (case-name roadmap-status-names
                                             (:status roadmap))))
+               (pair (str "max_active")
+                     (optional-int->json (clone (:max-active roadmap))))
                (pair (str "created_at")
                      (timestamp->json (ref (:created-at roadmap)))))))
 

@@ -31,6 +31,8 @@
     ((reply/roadmap-created roadmap) (roadmap-envelope roadmap))
     ((reply/roadmap-status-changed roadmap)
      (roadmap-envelope roadmap))
+    ((reply/roadmap-max-active-changed result)
+     (roadmap-envelope (:roadmap result)))
     ((reply/roadmaps-listed roadmaps)
      (roadmaps-envelope roadmaps))
     ((reply/readiness-checked readiness)

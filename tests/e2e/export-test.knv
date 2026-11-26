@@ -277,6 +277,10 @@
 (defn record-text (record key)
   (unwrap (json->text (ref (unwrap (field (copy-of record) key))))))
 
+(defn capacity-field (record key)
+  (unwrap (field (unwrap (field (copy-of record) "capacity"))
+                 key)))
+
 (defn record-approved? (record)
   (unwrap (json->bool (ref (unwrap (field (copy-of record) "approved"))))))
 
@@ -407,6 +411,34 @@
                             decision-entry))
     (assert (not (record-ready? (ref dep-item))))
     (assert (not (record-ready? (ref decision-item))))))
+
+(deftest the-export-carries-a-cap-on-items-and-roadmaps
+  (let (database (database-with-roadmap "e2e-export-cap")
+        first-item (research-id (clone database))
+        second-item (research-id (clone database))
+        third-item (research-id (clone database))
+        _cap (run-rmap (clone database)
+                       (vec "roadmap" "set" "road" "--max-active" "2"))
+        _first (claim (clone database) first-item "s1")
+        _second (claim (clone database) second-item "s2")
+        document (:json (export-reply (clone database)))
+        ready-doc (:json (run-rmap (clone database) (vec "ready")))
+        held (unwrap (map-some (find (iter (listed (copy-of document) "items"))
+                                 (fn (record)
+                                   (= (record-text record "id")
+                                      (str third-item))))
+                               copy-of))
+        ready-blocked (unwrap (first (listed (copy-of ready-doc) "blocked")))
+        roadmap (unwrap (first (listed (copy-of document) "roadmaps"))))
+    (assert (not (record-ready? (ref held))))
+    (assert (= (json->int (ref (unwrap (field (copy-of roadmap) "max_active"))))
+               (some 2)))
+    (assert (same? (ref (unwrap (field (copy-of held) "capacity")))
+                   (ref (unwrap (field (copy-of ready-blocked) "capacity")))))
+    (assert (= (json->int (ref (capacity-field held "active")))
+               (some 2)))
+    (assert (= (json->int (ref (capacity-field held "max_active")))
+               (some 2)))))
 
 (deftest the-export-keeps-every-criterion-verdict
   (let (database (export-database "e2e-export-verdicts")

@@ -1,10 +1,13 @@
-(use json/value copy-of field json->entries json->text)
+(use json/value copy-of field json->entries json->int
+                json->text)
 
 (use ledger/model ->roadmap ->roadmap-id ->session
                   ->timestamp roadmap-status)
 
 (use ledger/model/events event-type)
-(use ledger/roadmap-events roadmap-status-changed)
+
+(use ledger/roadmap-events roadmap-max-active-changed
+                           roadmap-status-changed)
 
 (defn side-text (payload column which)
   (json->text (ref (side payload column which))))
@@ -18,6 +21,9 @@
       (field which)
       unwrap))
 
+(defn side-int (payload column which)
+  (json->int (side payload column which)))
+
 (defn columns (payload)
   (collect (map (iter (json->entries (ref (unwrap (field (ref payload)
                                                          "changes")))))
@@ -27,6 +33,7 @@
   (->roadmap :id (->roadmap-id :value (str "rm-road"))
              :name (str "road")
              :manager (->session :name (str "m1"))
+             :max-active none
              :status status
              :created-at (->timestamp :value (str "t0"))))
 
@@ -55,3 +62,23 @@
                (some (str "paused"))))
     (assert (= (side-text payload "status" "new")
                (some (str "active"))))))
+
+(deftest setting-a-cap-records-its-old-and-new-value
+  (let (before (roadmap-in roadmap-status/active)
+        after (assoc (clone before) :max-active (some 2))
+        draft (roadmap-max-active-changed (ref before) (ref after))
+        payload (copy-of (ref (:payload draft))))
+    (assert (= (:type draft) event-type/roadmap-max-active-changed))
+    (assert (= (columns payload)
+               (vec (str "max_active"))))
+    (assert (= (side-int payload "max_active" "old") none))
+    (assert (= (side-int payload "max_active" "new") (some 2)))))
+
+(deftest clearing-a-cap-records-both-values
+  (let (before (assoc (roadmap-in roadmap-status/active)
+                      :max-active (some 2))
+        after (assoc (clone before) :max-active none)
+        payload (copy-of (ref (:payload (roadmap-max-active-changed (ref before)
+                                                                    (ref after))))))
+    (assert (= (side-int payload "max_active" "old") (some 2)))
+    (assert (= (side-int payload "max_active" "new") none))))

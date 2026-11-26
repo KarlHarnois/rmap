@@ -32,6 +32,7 @@
   roadmap-created
   roadmap-paused
   roadmap-resumed
+  roadmap-max-active-changed
   item-added
   item-claimed
   item-advanced

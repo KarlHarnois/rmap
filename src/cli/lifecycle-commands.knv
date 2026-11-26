@@ -1,6 +1,7 @@
 (module
-  "Lists the commands that pause and resume a roadmap.")
+  "Lists the commands that change a roadmap.")
 
+(use cli/flag-specs boolean-flag optional)
 (use cli/routes ->route operands subcommand words)
 
 (export lifecycle-routes)
@@ -15,4 +16,10 @@
                 :words (words "resume")
                 :summary (str "Resumes a paused roadmap.")
                 :operands (operands (vec "name"))
-                :flags (vec))))
+                :flags (vec))
+       (->route :subcommand subcommand/roadmap-set
+                :words (words "roadmap set")
+                :summary (str "Caps how many of a roadmap's items may be active at once, or clears the cap with --no-max-active. Active means dispatched, reported, in review, fixing or merging, and epics never count. While a roadmap has that many active items, rmap ready lists its other startable items as blocked at capacity and rmap item claim refuses them.")
+                :operands (operands (vec "name"))
+                :flags (vec (optional "max-active" "<whole number, at least 1>")
+                            (boolean-flag "no-max-active")))))

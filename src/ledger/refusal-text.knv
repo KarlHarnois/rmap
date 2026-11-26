@@ -1,7 +1,7 @@
 (module
   "Describes each refusal code in a sentence and catalogs them.")
 
-(use ledger/refusal-codes code-of)
+(use ledger/refusal-code-of code-of)
 (use ledger/refusal-description refusal-description)
 (use ledger/pull-request-refusal-codes pull-request-catalog)
 (use ledger/criterion-refusal-text criterion-refusal-catalog)

@@ -12,7 +12,8 @@
                   :blockage (->blockage :pause roadmap-pause/not-paused
                                         :blockers (vec (id-of blocker))
                                         :dropped-blockers (vec)
-                                        :decisions (vec))))
+                                        :decisions (vec)
+                                        :capacity none)))
 
 (defn research (id)
   (work-item id kind/research status/open))

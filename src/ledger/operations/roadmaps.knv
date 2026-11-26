@@ -39,6 +39,7 @@
                               :name name
                               :manager manager
                               :status roadmap-status/active
+                              :max-active none
                               :created-at (now transaction)))))
 
 (type store-roadmap

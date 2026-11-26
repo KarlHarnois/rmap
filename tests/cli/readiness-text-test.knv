@@ -1,4 +1,6 @@
-(use ledger/model ->blockage ->item-id roadmap-pause)
+(use ledger/model ->blockage ->capacity ->item-id
+                  roadmap-pause)
+
 (use ledger/model kind status)
 (use ledger/core/ready ->blocked-item ->readiness)
 (use cli/readiness-text blockage-lines readiness-text)
@@ -11,7 +13,8 @@
   (assert (= (blockage-lines (ref (->blockage :pause roadmap-pause/not-paused
                                               :blockers (vec (id-of "rm-0001"))
                                               :dropped-blockers (vec (id-of "rm-0002"))
-                                              :decisions (vec))))
+                                              :decisions (vec)
+                                              :capacity none)))
              (vec (str "waits on rm-0001")
                   (str "waits on dropped rm-0002")))))
 
@@ -19,15 +22,27 @@
   (assert (= (blockage-lines (ref (->blockage :pause roadmap-pause/paused
                                               :blockers (vec)
                                               :dropped-blockers (vec)
-                                              :decisions (vec))))
+                                              :decisions (vec)
+                                              :capacity none)))
              (vec (str "paused")))))
+
+(deftest a-full-roadmap-gets-a-capacity-line
+  (assert (= (blockage-lines
+               (ref (->blockage :pause roadmap-pause/not-paused
+                                :blockers (vec)
+                                :dropped-blockers (vec)
+                                :decisions (vec)
+                                :capacity (some (->capacity :active 3
+                                                            :max-active 3)))))
+             (vec (str "at capacity: 3 of 3 active")))))
 
 (deftest a-blockage-without-reasons-has-no-lines
   (assert (empty? (blockage-lines (ref (->blockage
                                          :pause roadmap-pause/not-paused
                                          :blockers (vec)
                                          :dropped-blockers (vec)
-                                         :decisions (vec)))))))
+                                         :decisions (vec)
+                                         :capacity none))))))
 
 (deftest with-nothing-ready-the-blocked-section-follows-the-notice
   (assert
@@ -40,5 +55,6 @@
                                                  :blockers (vec (id-of
                                                                   "rm-0001"))
                                                  :dropped-blockers (vec)
-                                                 :decisions (vec))))))
+                                                 :decisions (vec)
+                                                 :capacity none)))))
        (str "Nothing is ready.\n\nBlocked:\n  rm-0002  work\n    waits on rm-0001"))))

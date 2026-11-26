@@ -73,6 +73,8 @@ Commands:
     Pauses a roadmap: its open items wait, while work already started continues.
   resume <name>
     Resumes a paused roadmap.
+  roadmap set <name> [--max-active <whole number, at least 1>] [--no-max-active]
+    Caps how many of a roadmap's items may be active at once, or clears the cap with --no-max-active. Active means dispatched, reported, in review, fixing or merging, and epics never count. While a roadmap has that many active items, rmap ready lists its other startable items as blocked at capacity and rmap item claim refuses them.
   decision propose --roadmap <name> --file <path|-> [--item <id>] [--blocks <ids, comma-separated>] [--supersedes <decision id>]
     Proposes a decision for the owner to settle, read from the JSON document in --file (- reads stdin). It needs at least 2 options. description, pros and cons may be left out, and keys the document shape does not list are ignored. --item names the item that raised it, --blocks the open items or unfinished epics of its roadmap that wait on it, --supersedes the decision it would replace: accepted, or rejected in the same roadmap.
     Document:
@@ -204,6 +206,7 @@ Refusal codes:
   roadmap-exists                 A roadmap already has that name.
   roadmap-already-paused         A pause changes nothing: the roadmap is already paused.
   roadmap-not-paused             A resume changes nothing: the roadmap is not paused.
+  max-active-out-of-range        A max active must be at least 1.
   item-not-found                 No item has that id.
   item-closed                    A merged, accepted or dropped item is closed.
   description-required           An item needs a description.
@@ -216,7 +219,7 @@ Refusal codes:
   epic-status-computed           An epic's status comes from its children, so no command moves it.
   invalid-kind-change            Only an advance to dispatched can turn an item into a build.
   invalid-transition             The transition table has no such move for this item.
-  not-ready                      The item is blocked. The error lists whether the roadmap is paused, its blockers, its dropped_blockers and its blocking_decisions.
+  not-ready                      The item is blocked. The error lists whether the roadmap is paused, its capacity, its blockers, its dropped_blockers and its blocking_decisions.
   cycle                          The dependency would close a cycle of blocks dependencies.
   dep-exists                     The blocks dependency already exists.
   dep-not-found                  No such blocks dependency exists.

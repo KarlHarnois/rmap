@@ -1,0 +1,73 @@
+(module
+  "Decides the max active cap: checks a new cap and says whether a roadmap is at it.")
+
+(use ledger/model ->capacity capacity item kind roadmap
+                  roadmap-id snapshot)
+
+(use ledger/core/phases active?)
+(use ledger/refusal refusal)
+
+(export capacity-of check-max-active)
+
+(type capacity-of
+  (fn ((ref snapshot) (ref item))
+    (option capacity)))
+
+(defn capacity-of (snapshot item)
+  (let (roadmap (roadmap-with-id snapshot (ref (:roadmap-id item))))
+    (match roadmap
+      ((some present)
+       (full-capacity snapshot
+                      (ref (:id present))
+                      (ref (:max-active present))))
+      (none none))))
+
+(defn check-max-active (max-active)
+  (match max-active
+    ((some count)
+     (if (>= count 1)
+       (ok (do))
+       (err (refusal/max-active-out-of-range count))))
+    (none (ok (do)))))
+
+(type roadmap-with-id
+  (fn ((ref snapshot) (ref roadmap-id))
+    (option roadmap)))
+
+(defn roadmap-with-id (snapshot id)
+  (-> (:roadmaps snapshot)
+      iter
+      (find (fn (roadmap)
+              (= (ref (:id roadmap)) id)))
+      (map-some clone)))
+
+(type full-capacity
+  (fn ((ref snapshot)
+       (ref roadmap-id)
+       (ref (option int)))
+    (option capacity)))
+
+(defn full-capacity (snapshot id max-active)
+  (match max-active
+    ((some cap)
+     (let (active (active-count snapshot id))
+       (if (>= active cap)
+         (some (->capacity :active active :max-active (clone cap)))
+         none)))
+    (none none)))
+
+(type active-count
+  (fn ((ref snapshot) (ref roadmap-id))
+    int))
+
+(defn active-count (snapshot id)
+  (count (filter (iter (:items snapshot))
+           (fn (item) (active-in? item id)))))
+
+(type active-in?
+  (fn ((ref item) (ref roadmap-id)) bool))
+
+(defn active-in? (item id)
+  (and (= (ref (:roadmap-id item)) id)
+       (not= (:kind item) kind/epic)
+       (active? (:status item))))

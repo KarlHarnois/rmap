@@ -1,0 +1,40 @@
+(module
+  "Sets or clears a roadmap's max active cap in one transaction with its event.")
+
+(use ledger/model ->cap-result cap-result)
+(use ledger/core/max-active check-max-active)
+(use ledger/roadmap-events roadmap-max-active-changed)
+(use ledger/sqlite/roadmaps update-roadmap-max-active)
+(use ledger/operations/lookups roadmap-required)
+
+(use ledger/operations/transaction in-transaction now record
+                                   transaction)
+
+(use ledger/failure failure)
+
+(export set-max-active)
+
+(defn set-max-active (settings name change)
+  (in-transaction settings
+    (fn (transaction)
+      (apply-change transaction (as-str name) change))))
+
+(type apply-change
+  (fn ((ref transaction)
+       (ref str)
+       (option int))
+    (result cap-result failure)))
+
+(defn apply-change (transaction name max-active)
+  (let-try (_ (check-max-active max-active)
+            before (roadmap-required (ref (:connection transaction)) name))
+    (if (= (:max-active before) max-active)
+      (ok (->cap-result :roadmap (clone before) :changed-at none))
+      (let (after (assoc (clone before) :max-active (clone max-active)))
+        (let-try (_ (update-roadmap-max-active (ref (:connection transaction))
+                                               (ref after))
+                  _ (record transaction
+                            (roadmap-max-active-changed (ref before)
+                                                        (ref after))))
+          (ok (->cap-result :roadmap after
+                            :changed-at (some (now transaction)))))))))

@@ -21,6 +21,7 @@
   list
   pause
   resume
+  roadmap-set
   ready
   next
   log

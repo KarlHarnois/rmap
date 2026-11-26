@@ -6,8 +6,8 @@
 
 (use cli/tables headed table)
 
-(export roadmap-created-text roadmap-status-text
-        roadmaps-text)
+(export roadmap-created-text roadmap-max-active-changed-text
+        roadmap-status-text roadmaps-text)
 
 (type roadmap-created-text
   (fn ((ref roadmap)) string))
@@ -18,6 +18,11 @@
        ", managed by "
        (:name (:manager roadmap))
        "."))
+
+(defn roadmap-max-active-changed-text (result)
+  (match (:changed-at result)
+    ((some _) (max-active-changed-text (ref (:roadmap result))))
+    (none (max-active-unchanged-text (ref (:roadmap result))))))
 
 (type roadmap-status-text
   (fn ((ref roadmap)) string))
@@ -33,11 +38,38 @@
     (str "No roadmaps.")
     (roadmap-table roadmaps)))
 
+(type max-active-changed-text
+  (fn ((ref roadmap)) string))
+
+(defn max-active-changed-text (roadmap)
+  (match (:max-active roadmap)
+    ((some count)
+     (str "Set the max active of roadmap "
+          (:name roadmap)
+          " to " count "."))
+    (none (str "Cleared the max active of roadmap "
+               (:name roadmap)
+               "."))))
+
+(type max-active-unchanged-text
+  (fn ((ref roadmap)) string))
+
+(defn max-active-unchanged-text (roadmap)
+  (match (:max-active roadmap)
+    ((some count)
+     (str "The max active of roadmap "
+          (:name roadmap)
+          " is already " count "."))
+    (none (str "The max active of roadmap "
+               (:name roadmap)
+               " is already cleared."))))
+
 (type roadmap-table
   (fn ((ref (vec roadmap))) string))
 
 (defn roadmap-table (roadmaps)
-  (let (rows (headed (vec "ID" "NAME" "STATUS" "MANAGER" "CREATED")))
+  (let (rows (headed (vec "ID" "NAME" "STATUS" "MAX ACTIVE"
+                          "MANAGER" "CREATED")))
     (for-each roadmaps
       (fn (roadmap)
         (push! rows (roadmap-cells roadmap))))
@@ -50,5 +82,14 @@
   (vec (clone (:value (:id roadmap)))
        (clone (:name roadmap))
        (str (case-name roadmap-status-names (:status roadmap)))
+       (max-active-text (ref (:max-active roadmap)))
        (clone (:name (:manager roadmap)))
        (clone (:value (:created-at roadmap)))))
+
+(type max-active-text
+  (fn ((ref (option int))) string))
+
+(defn max-active-text (max-active)
+  (match max-active
+    ((some count) (str count))
+    (none (str "-"))))

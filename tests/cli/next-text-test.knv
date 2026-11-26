@@ -25,7 +25,8 @@
                                                :pause roadmap-pause/not-paused
                                                :blockers (vec)
                                                :dropped-blockers (vec)
-                                               :decisions (vec)))))))
+                                               :decisions (vec)
+                                               :capacity none))))))
     (assert (= (next-text (ref (vec (next-entry/listed-item entry))))
                (str "review  manager     s1  rm-0001  work\n"
                     "wait    controller  -   rm-0001  work")))))

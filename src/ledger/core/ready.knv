@@ -10,6 +10,7 @@
 
 (use ledger/core/snapshot blocked-by in-scope?)
 (use ledger/core/decision-blocks blocking-decisions)
+(use ledger/core/max-active capacity-of)
 (use ledger/core/order ordered)
 
 (export ->blocked-item ->readiness blockage-in blockage-of
@@ -61,7 +62,8 @@
   (and (= (:pause blockage) roadmap-pause/not-paused)
        (empty? (:blockers blockage))
        (empty? (:dropped-blockers blockage))
-       (empty? (:decisions blockage))))
+       (empty? (:decisions blockage))
+       (none? (:capacity blockage))))
 
 (type blockage-of
   (fn ((ref snapshot)
@@ -78,7 +80,8 @@
                 :dropped-blockers (collect (map (filter (iter blocking)
                                                   (fn (id) (dropped? index id)))
                                                 clone))
-                :decisions (blocking-decisions snapshot item))))
+                :decisions (blocking-decisions snapshot item)
+                :capacity (capacity-of snapshot item))))
 
 (defn pause-of (snapshot item)
   (if (paused-roadmap? snapshot item)

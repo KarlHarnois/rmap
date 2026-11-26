@@ -68,6 +68,8 @@
   (vec (pair event-type/roadmap-created "roadmap-created")
        (pair event-type/roadmap-paused "roadmap-paused")
        (pair event-type/roadmap-resumed "roadmap-resumed")
+       (pair event-type/roadmap-max-active-changed
+             "roadmap-max-active-changed")
        (pair event-type/item-added "item-added")
        (pair event-type/item-claimed "item-claimed")
        (pair event-type/item-advanced "item-advanced")

@@ -37,7 +37,19 @@
       (push! lines
              (str "waits on decisions "
                   (decision-ids-text (ref (:decisions blockage))))))
+    (for-each (capacity-lines (:capacity blockage))
+      (fn (line) (push! lines (clone line))))
     lines))
+
+(defn capacity-lines (capacity)
+  (match capacity
+    ((some present)
+     (vec (str "at capacity: "
+               (:active present)
+               " of "
+               (:max-active present)
+               " active")))
+    (none (vec))))
 
 (defn ready-section (items)
   (if (empty? items)

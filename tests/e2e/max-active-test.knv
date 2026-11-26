@@ -1,0 +1,204 @@
+(use json/value copy-of field json->int json->items
+                json->text)
+
+(use support/rmap database-with-roadmap error-code
+                  research-id run-rmap run-rmap-text)
+
+(defn set-cap (database cap)
+  (run-rmap database
+            (vec "roadmap" "set" "road" "--max-active"
+                 (as-str (str cap)))))
+
+(defn clear-cap (database)
+  (run-rmap database
+            (vec "roadmap" "set" "road" "--no-max-active")))
+
+(defn stored-cap (database)
+  (json->int (unwrap (field (roadmap-row database) "max_active"))))
+
+(defn roadmap-row (database)
+  (let (reply (run-rmap database (vec "list")))
+    (copy-of (unwrap (first (unwrap (json->items (unwrap (field
+                                                           (:json reply)
+                                                           "roadmaps")))))))))
+
+(defn claim (database id session)
+  (run-rmap database
+            (vec "item" "claim"
+                 (as-str id)
+                 "--session"
+                 (as-str session))))
+
+(defn event-count (database)
+  (len (logged-events database)))
+
+(defn logged-events (database)
+  (unwrap (json->items (unwrap (field (:json (run-rmap database (vec "log")))
+                                      "events")))))
+
+(defn cap-events (database)
+  (collect (map (filter (iter (logged-events database))
+                  (fn (event)
+                    (= (json->text (unwrap (field event "type")))
+                       (some (str "roadmap-max-active-changed")))))
+                copy-of)))
+
+(defn change-value (event which)
+  (-> (field event "payload")
+      unwrap
+      (field "changes")
+      unwrap
+      (field "max_active")
+      unwrap
+      (field which)
+      unwrap))
+
+(defn capacity-value (value key)
+  (json->int (unwrap (field (unwrap (field value "capacity")) key))))
+
+(defn ready-ids (reply)
+  (collect (map (iter (unwrap (json->items (unwrap (field (:json reply)
+                                                          "ready")))))
+                (fn (item)
+                  (unwrap (json->text (unwrap (field item "id"))))))))
+
+(defn first-blocked (reply)
+  (copy-of (unwrap (first (unwrap (json->items (unwrap (field (:json reply)
+                                                              "blocked"))))))))
+
+(defn error-value (reply)
+  (unwrap (field (:json reply) "error")))
+
+(deftest setting-and-clearing-a-cap-stores-it-and-records-one-event-each
+  (let (database (database-with-roadmap "max-active-set")
+        _set (set-cap (clone database) 2)
+        _cleared (clear-cap (clone database)))
+    (assert (= (stored-cap (clone database)) none))
+    (let (events (cap-events (clone database)))
+      (assert (= (len events) 2))
+      (assert (= (json->int (change-value (unwrap (first events)) "old"))
+                 none))
+      (assert (= (json->int (change-value (unwrap (first events)) "new"))
+                 (some 2)))
+      (assert (= (json->int (change-value (unwrap (second events)) "old"))
+                 (some 2)))
+      (assert (= (json->int (change-value (unwrap (second events)) "new"))
+                 none)))))
+
+(deftest setting-a-cap-again-records-the-old-value
+  (let (database (database-with-roadmap "max-active-reset")
+        _set (set-cap (clone database) 2)
+        _reset (set-cap (clone database) 3)
+        events (cap-events (clone database)))
+    (assert (= (stored-cap (clone database))
+               (some 3)))
+    (assert (= (len events) 2))
+    (assert (= (json->int (change-value (unwrap (second events)) "old"))
+               (some 2)))
+    (assert (= (json->int (change-value (unwrap (second events)) "new"))
+               (some 3)))))
+
+(deftest a-full-roadmap-shows-the-capacity-and-refuses-a-claim
+  (let (database (database-with-roadmap "max-active-full")
+        first (research-id (clone database))
+        second (research-id (clone database))
+        third (research-id (clone database))
+        _set (set-cap (clone database) 2)
+        _first (claim (clone database) first (str "s1"))
+        _second (claim (clone database) second (str "s2"))
+        ready (run-rmap (clone database) (vec "ready" "--roadmap" "road"))
+        blocked (first-blocked (ref ready))
+        events-before (event-count (clone database))
+        refused (claim (clone database) third (str "s3"))
+        events-after (event-count (clone database))
+        text (run-rmap-text
+               (vec "--db" (as-str database) "ready" "--roadmap" "road")))
+    (assert (empty? (ready-ids ready)))
+    (assert (= (capacity-value blocked "active") (some 2)))
+    (assert (= (capacity-value blocked "max_active") (some 2)))
+    (assert (= (error-code (ref refused))
+               (str "not-ready")))
+    (assert (= (capacity-value (error-value (ref refused)) "active")
+               (some 2)))
+    (assert (= events-after events-before))
+    (assert (contains? (as-str (:stdout text))
+                       "at capacity: 2 of 2 active"))))
+
+(deftest setting-the-same-cap-and-clearing-an-uncapped-roadmap-write-nothing
+  (let (database (database-with-roadmap "max-active-noop")
+        _set (set-cap (clone database) 2)
+        after-set (event-count (clone database))
+        same-text (run-rmap-text (vec "--db"
+                                      (as-str database)
+                                      "roadmap" "set" "road"
+                                      "--max-active" "2"))
+        _same (set-cap (clone database) 2)
+        after-same (event-count (clone database)))
+    (assert (= (stored-cap (clone database))
+               (some 2)))
+    (assert (= after-same after-set))
+    (assert (contains? (as-str (:stdout same-text))
+                       "The max active of roadmap road is already 2."))
+    (let (_clear (clear-cap (clone database))
+          after-clear (event-count (clone database))
+          clear-text (run-rmap-text (vec "--db"
+                                         (as-str database)
+                                         "roadmap" "set"
+                                         "road"
+                                         "--no-max-active"))
+          _clear-again (clear-cap (clone database)))
+      (assert (= (stored-cap (clone database)) none))
+      (assert (= (event-count (clone database)) after-clear))
+      (assert (contains?
+                (as-str (:stdout clear-text))
+                "The max active of roadmap road is already cleared.")))))
+
+(deftest finishing-an-item-frees-the-next-startable-item
+  (let (database (database-with-roadmap "max-active-freed")
+        first (research-id (clone database))
+        second (research-id (clone database))
+        third (research-id (clone database))
+        _set (set-cap (clone database) 2)
+        _first (claim (clone database) first (str "s1"))
+        _second (claim (clone database) second (str "s2")))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "report"
+                                          (as-str first)
+                                          "--session" "s1"
+                                          "--kind" "done"
+                                          "--text"
+                                          "found it")))
+               0))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "item" "close" (as-str first))))
+               0))
+    (assert (= (ready-ids (run-rmap (clone database)
+                                    (vec "ready" "--roadmap" "road")))
+               (vec (str third))))))
+
+(deftest a-cap-below-one-and-conflicting-flags-are-refused
+  (let (database (database-with-roadmap "max-active-refusals")
+        zero (set-cap (clone database) 0)
+        both (run-rmap (clone database)
+                       (vec "roadmap" "set" "road"
+                            "--max-active" "2"
+                            "--no-max-active"))
+        neither (run-rmap (clone database) (vec "roadmap" "set" "road"))
+        unknown (run-rmap (clone database)
+                          (vec "roadmap" "set" "nope" "--max-active" "2")))
+    (assert (= (:exit-code zero) 1))
+    (assert (= (error-code (ref zero))
+               (str "max-active-out-of-range")))
+    (assert (= (:exit-code both) 2))
+    (assert (= (:exit-code neither) 2))
+    (assert (= (:exit-code unknown) 1))
+    (assert (= (error-code (ref unknown))
+               (str "roadmap-not-found")))))
+
+(deftest a-roadmap-without-a-cap-keeps-its-items-ready
+  (let (database (database-with-roadmap "max-active-none")
+        item (research-id (clone database)))
+    (assert (= (stored-cap (clone database)) none))
+    (assert (= (ready-ids (run-rmap (clone database)
+                                    (vec "ready" "--roadmap" "road")))
+               (vec (str item))))))
