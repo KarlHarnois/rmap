@@ -2,9 +2,9 @@
   "Replaces the next action a raised decision holds, once a decision is proposed or rejected.")
 
 (use ledger/model ->blockage blockage decision-id
-                  decision-status item roadmap-pause
-                  snapshot)
+                  decision-status item snapshot)
 
+(use ledger/model/roadmap-pauses roadmap-pause)
 (use ledger/model/decisions decision)
 (use ledger/core/actions action next-action planned)
 (use ledger/core/phases finished?)
@@ -36,6 +36,8 @@
   (and (not (empty? (:decisions blockage)))
        (empty? (:blockers blockage))
        (empty? (:dropped-blockers blockage))
+       (empty? (:external-blockers blockage))
+       (none? (:capacity blockage))
        (= (:pause blockage) roadmap-pause/not-paused)
        (every? (iter (:decisions blockage))
          (fn (id) (rejected-in? snapshot id)))))
@@ -106,7 +108,8 @@
               :blockers (vec)
               :dropped-blockers (vec)
               :decisions (vec)
-              :capacity none))
+              :capacity none
+              :external-blockers (vec)))
 
 (defn rejected-in? (snapshot id)
   (= (decision-status-in snapshot id)

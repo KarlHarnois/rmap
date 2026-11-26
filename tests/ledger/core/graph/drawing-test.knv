@@ -1,4 +1,4 @@
-(use ledger/model history)
+(use ledger/model/graphs history)
 (use ledger/core/graph/graph ->graph-view diagram-of)
 (use ledger/core/graph/drawing drawing drawing-of)
 (use ledger/core/graph/levels graph-level)

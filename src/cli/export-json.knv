@@ -10,6 +10,7 @@
 (use cli/ledger-json dep->json event->json item-fields
                      roadmap->json)
 
+(use cli/external-blocker-json external-blocker->json)
 (use cli/pr-json pull-request-record->json review->json)
 (use cli/report-json report-detail->json)
 (use cli/schema-envelope envelope)
@@ -27,6 +28,9 @@
       (list-field "items"
                   (ref (:export-items document))
                   item-record->json)
+      (pair (str "external_blockers")
+            (array (collect (map (iter (:export-external-blockers document))
+                                 external-blocker->json))))
       (pair (str "item_criteria")
             (array (collect (map (iter (:export-criteria document)) copy-of))))
       (pair (str "item_proposals")
@@ -101,6 +105,9 @@
                          (array (vec))))
             (push! fields
                    (pair (str "blocking_decisions")
+                         (array (vec))))
+            (push! fields
+                   (pair (str "external_blockers")
                          (array (vec))))))
     (object fields)))
 

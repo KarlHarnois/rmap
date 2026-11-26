@@ -1,7 +1,7 @@
 (module
   "Draws a graph at roadmap level: one node per roadmap, with an edge where an item in one roadmap blocks an item in another.")
 
-(use ledger/model history)
+(use ledger/model/graphs history)
 (use ledger/core/snapshot scope)
 (use ledger/core/graph/diagram diagram roadmap-cluster)
 

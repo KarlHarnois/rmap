@@ -81,7 +81,7 @@
     ((already-asked id)
      (str "the decision " (:value id) " is already asked"))
     ((not-blockable id)
-     (str "only an open item or an unfinished epic can wait on a decision, and "
+     (str "only an open item or an unfinished epic can take a blocker, and "
           (:value id)
           " is not one"))
     ((decision-in-other-roadmap id)
@@ -96,6 +96,18 @@
      (str "the decision "
           (:value decision)
           " does not block "
+          (:value item)))
+    (blank-external-blocker (str "an external blocker needs a text"))
+    ((external-blocker-not-found id)
+     (str "no external blocker has the id " (:value id)))
+    ((external-blocker-cleared id)
+     (str "the external blocker "
+          (:value id)
+          " is already cleared"))
+    ((external-blocker-in-other-item id item)
+     (str "the external blocker "
+          (:value id)
+          " belongs to another item than "
           (:value item)))
     ((supersede-target-not-accepted id)
      (str "only an accepted decision, or a rejected one in the same roadmap, can be superseded, and "

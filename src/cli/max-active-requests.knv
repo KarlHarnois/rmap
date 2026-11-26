@@ -1,0 +1,11 @@
+(module
+  "Builds the max active request from the command line's flags.")
+
+(use cli/max-active-flags max-active-change-of)
+(use cli/requests request)
+
+(export roadmap-settings-request)
+
+(defn roadmap-settings-request (arguments name)
+  (map-ok (max-active-change-of arguments)
+    (fn (change) (request/set-max-active name change))))

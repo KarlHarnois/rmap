@@ -4,7 +4,7 @@
                 list-roadmaps readiness ready-items refusal
                 set-max-active)
 
-(use ledger/model capacity)
+(use ledger/model/capacity capacity)
 (use ledger/model/events event event-type)
 
 (use support/ledger all-events claim-by claimed

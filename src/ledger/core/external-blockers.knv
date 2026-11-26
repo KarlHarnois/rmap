@@ -1,0 +1,79 @@
+(module
+  "Answers which external blockers hold an item and checks what may gain or clear one.")
+
+(use ledger/model external-blocker item item-id snapshot)
+(use ledger/refusal refusal)
+(use ledger/core/blockable check-blockable)
+(use ledger/core/index index-of with-shown-status)
+(use ledger/core/snapshot existing)
+
+(export blocking-external-blockers
+        check-external-blocker-add
+        check-external-blocker-clear
+        check-external-blocker-text external-blockers-of)
+
+(type external-blockers-of
+  (fn ((ref snapshot) (ref item-id))
+    (vec external-blocker)))
+
+(defn external-blockers-of (snapshot id)
+  (let (held (collect (map (filter (:external-blockers snapshot)
+                             (fn (blocker)
+                               (= (ref (:item blocker)) id)))
+                           clone)))
+    (sort-by! held
+      (fn (blocker)
+        (clone (:value (:id blocker)))))
+    held))
+
+(type blocking-external-blockers
+  (fn ((ref snapshot) (ref item))
+    (vec external-blocker)))
+
+(defn blocking-external-blockers (snapshot item)
+  (let (held (collect (map (filter (:external-blockers snapshot)
+                             (fn (blocker)
+                               (and (uncleared? blocker)
+                                    (holds? blocker item))))
+                           clone)))
+    (sort-by! held
+      (fn (blocker)
+        (clone (:value (:id blocker)))))
+    held))
+
+(defn check-external-blocker-add (snapshot id)
+  (let-try (found (existing snapshot id))
+    (let (statuses (index-of snapshot))
+      (check-blockable (with-shown-status statuses (ref found))))))
+
+(type check-external-blocker-clear
+  (fn ((ref external-blocker) (ref item-id))
+    (result unit refusal)))
+
+(defn check-external-blocker-clear (blocker item)
+  (cond
+    ((some? (:cleared-at blocker))
+     (err (refusal/external-blocker-cleared (clone (:id blocker)))))
+    ((not= (ref (:item blocker)) item)
+     (err (refusal/external-blocker-in-other-item (clone (:id blocker))
+                                                  (clone item))))
+    (else (ok (do)))))
+
+(defn check-external-blocker-text (text)
+  (if (empty? (trim text))
+    (err refusal/blank-external-blocker)
+    (ok (do))))
+
+(type holds?
+  (fn ((ref external-blocker) (ref item))
+    bool))
+
+(defn holds? (blocker item)
+  (or (= (ref (:item blocker))
+         (ref (:id item)))
+      (match (:parent item)
+        ((some parent) (= (ref (:item blocker)) parent))
+        (none false))))
+
+(defn uncleared? (blocker)
+  (none? (:cleared-at blocker)))

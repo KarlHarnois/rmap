@@ -1,6 +1,7 @@
 (use ledger/model ->blockage ->decision-id decision-status
-                  kind roadmap-pause status)
+                  kind status)
 
+(use ledger/model/roadmap-pauses roadmap-pause)
 (use ledger/api ->session)
 (use ledger/core/actions action planned planned-for-report)
 (use ledger/model/reports ->report-id)
@@ -26,7 +27,8 @@
                                                :blockers (vec)
                                                :dropped-blockers (vec)
                                                :decisions (vec)
-                                               :capacity none))))))
+                                               :capacity none
+                                               :external-blockers (vec)))))))
     (assert (= (next-text (ref (vec (next-entry/listed-item entry))))
                (str "review  controller  s1  rm-0001  work\n"
                     "wait    controller  -   rm-0001  work")))))

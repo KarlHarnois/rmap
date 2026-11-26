@@ -1,0 +1,100 @@
+(module
+  "Reads and writes the `external_blockers` table.")
+
+(use ledger/sqlite/values optional-text->sql sql-value
+                          text->sql)
+
+(use ledger/model ->external-blocker ->external-blocker-id
+                  ->item-id ->timestamp external-blocker
+                  external-blocker-id timestamp)
+
+(use ledger/sqlite/connection connection database-error
+                              execute query)
+
+(use ledger/sqlite/rows optional-text-cell rows->values
+                        text-cell)
+
+(export all-external-blockers clear-external-blocker-row
+        external-blocker-with-id insert-external-blocker)
+
+(def columns
+  "id, item_id, text, created_at, created_by, cleared_at, cleared_by, clear_note")
+
+(type insert-external-blocker
+  (fn ((ref connection) (ref external-blocker))
+    (result int database-error)))
+
+(defn insert-external-blocker (connection blocker)
+  (execute connection
+           (as-str (str "INSERT INTO external_blockers ("
+                        columns
+                        ") VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"))
+           (ref (vec (text->sql (as-str (:value (:id blocker))))
+                     (text->sql (as-str (:value (:item blocker))))
+                     (text->sql (as-str (:text blocker)))
+                     (text->sql (as-str (:value (:created-at blocker))))
+                     (text->sql (as-str (:created-by blocker)))
+                     (optional-timestamp->sql (ref (:cleared-at blocker)))
+                     (optional-text->sql (ref (:cleared-by blocker)))
+                     (optional-text->sql (ref (:clear-note blocker)))))))
+
+(defn all-external-blockers (connection)
+  (let-try (rows (query connection
+                        (as-str (str "SELECT " columns
+                                     " FROM external_blockers ORDER BY id"))
+                        (ref (vec))))
+    (rows->values (ref rows) row->external-blocker)))
+
+(type external-blocker-with-id
+  (fn ((ref connection) (ref external-blocker-id))
+    (result (option external-blocker) database-error)))
+
+(defn external-blocker-with-id (connection id)
+  (let-try (rows (query connection
+                        (as-str (str "SELECT " columns
+                                     " FROM external_blockers WHERE id = ?1"))
+                        (ref (vec (text->sql (as-str (:value id)))))))
+    (match (first rows)
+      ((some row) (map-ok (row->external-blocker row) some))
+      (none (ok none)))))
+
+(type clear-external-blocker-row
+  (fn ((ref connection) (ref external-blocker))
+    (result int database-error)))
+
+(defn clear-external-blocker-row (connection blocker)
+  (execute connection
+           "UPDATE external_blockers SET cleared_at = ?2, cleared_by = ?3, clear_note = ?4 WHERE id = ?1"
+           (ref (vec (text->sql (as-str (:value (:id blocker))))
+                     (optional-timestamp->sql (ref (:cleared-at blocker)))
+                     (optional-text->sql (ref (:cleared-by blocker)))
+                     (optional-text->sql (ref (:clear-note blocker)))))))
+
+(defn row->external-blocker (row)
+  (let-try (id (text-cell row 0)
+            item (text-cell row 1)
+            text (text-cell row 2)
+            created-at (text-cell row 3)
+            created-by (text-cell row 4)
+            cleared-at (optional-text-cell row 5)
+            cleared-by (optional-text-cell row 6)
+            clear-note (optional-text-cell row 7))
+    (ok (->external-blocker :id (->external-blocker-id :value id)
+                            :item (->item-id :value item)
+                            :text text
+                            :created-at (->timestamp :value created-at)
+                            :created-by created-by
+                            :cleared-at (map-some cleared-at
+                                          (fn (value)
+                                            (->timestamp :value value)))
+                            :cleared-by cleared-by
+                            :clear-note clear-note))))
+
+(type optional-timestamp->sql
+  (fn ((ref (option timestamp)))
+    sql-value))
+
+(defn optional-timestamp->sql (at)
+  (match at
+    ((some present) (text->sql (as-str (:value present))))
+    (none sql-value/null)))

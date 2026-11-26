@@ -4,7 +4,7 @@
 (use ledger/refusal-codes refusal-code)
 (use ledger/refusal-description described)
 (use ledger/pull-request-refusal-codes pull-request-description)
-(use ledger/proposal-refusal-text proposal-refusal-description)
+(use ledger/external-blocker-refusal-text external-blocker-refusal-description)
 
 (export general-refusal-catalog general-refusal-description)
 
@@ -87,7 +87,7 @@
     (invalid-transition (described "invalid-transition"
                                    "The transition table has no such move for this item."))
     (not-ready (described "not-ready"
-                          "The item is blocked. The error lists whether the roadmap is paused, its capacity, its blockers, its dropped_blockers and its blocking_decisions."))
+                          "The item is blocked. The error lists whether the roadmap is paused, its capacity, its blockers, its dropped_blockers, its blocking_decisions and its external_blockers."))
     (cycle (described
              "cycle"
              "The dependency would close a cycle of blocks dependencies."))
@@ -109,7 +109,7 @@
     (already-asked (described "already-asked"
                               "The decision was already put to the owner."))
     (not-blockable (described "not-blockable"
-                              "Only an open item or an unfinished epic can wait on a decision."))
+                              "Only an open item or an unfinished epic can take a blocker."))
     (decision-in-other-roadmap (described "decision-in-other-roadmap"
                                           "The item belongs to another roadmap than the decision."))
     (decision-block-exists (described "decision-block-exists"
@@ -131,4 +131,4 @@
     (report-already-read (described "report-already-read"
                                     "The report was already read."))
     ((pull-request code) (pull-request-description code))
-    (_ (proposal-refusal-description code))))
+    (_ (external-blocker-refusal-description code))))

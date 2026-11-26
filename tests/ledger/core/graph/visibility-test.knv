@@ -1,4 +1,5 @@
-(use ledger/model history kind status)
+(use ledger/model kind status)
+(use ledger/model/graphs history)
 (use ledger/core/graph/visibility visible-deps visible?)
 (use support/items blocks-dep work-item)
 

@@ -1,0 +1,20 @@
+(module
+  "Lists the commands that record and clear an item's external blockers.")
+
+(use cli/flag-specs optional required)
+(use cli/routes ->route operands subcommand words)
+
+(export block-routes)
+
+(defn block-routes ()
+  (vec (->route :subcommand subcommand/item-block
+                :words (words "item block")
+                :summary (str "Records what an open item or an unfinished epic waits on outside the ledger. An epic's blocker holds its open children.")
+                :operands (operands (vec "id"))
+                :flags (vec (required "external" "<text>")))
+       (->route :subcommand subcommand/item-unblock
+                :words (words "item unblock")
+                :summary (str "Clears an external blocker the item recorded, with an optional note.")
+                :operands (operands (vec "id"))
+                :flags (vec (required "external" "<blocker id>")
+                            (optional "note" "<text>")))))

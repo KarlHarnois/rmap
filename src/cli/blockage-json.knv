@@ -5,6 +5,7 @@
                 text->json)
 
 (use ledger/api decision-id ids->json roadmap-pause)
+(use cli/external-blocker-json blocking-external-blocker->json)
 
 (export blockage-fields)
 
@@ -16,7 +17,10 @@
                       (pair (str "dropped_blockers")
                             (ids->json (ref (:dropped-blockers blockage))))
                       (pair (str "blocking_decisions")
-                            (decision-ids->json (ref (:decisions blockage)))))
+                            (decision-ids->json (ref (:decisions blockage))))
+                      (pair (str "external_blockers")
+                            (blocking-external-blockers->json (ref (:external-blockers
+                                                                     blockage)))))
                  (:capacity blockage)))
 
 (defn with-capacity (fields capacity)
@@ -42,6 +46,9 @@
   (array (collect (map (iter ids)
                     (fn (id)
                       (text->json (as-str (:value id))))))))
+
+(defn blocking-external-blockers->json (blockers)
+  (array (collect (map (iter blockers) blocking-external-blocker->json))))
 
 (defn paused? (blockage)
   (= (:pause blockage) roadmap-pause/paused))

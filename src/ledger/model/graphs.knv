@@ -1,0 +1,10 @@
+(module
+  "Holds how a graph is written and how much history it shows.")
+
+(export graph-format history)
+
+(defenum graph-format mermaid)
+
+(defenum history
+  without-merged
+  with-merged)

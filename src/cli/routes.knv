@@ -29,6 +29,8 @@
   item-list
   item-show
   item-edit
+  item-block
+  item-unblock
   item-verify
   item-claim
   item-advance

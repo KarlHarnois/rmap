@@ -1,4 +1,5 @@
-(use ledger/model ->roadmap-id dep-type history)
+(use ledger/model ->roadmap-id dep-type)
+(use ledger/model/graphs history)
 (use ledger/core/graph/graph ->graph-view diagram-of)
 (use ledger/core/snapshot scope)
 (use ledger/core/graph/diagram diagram roadmap-cluster)

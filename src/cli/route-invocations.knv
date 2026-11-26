@@ -13,8 +13,12 @@
                   claim-request drop-request
                   edit-item-request graph-request
                   log-request new-roadmap-request
-                  ready-request request
-                  roadmap-settings-request text->id)
+                  ready-request request text->id)
+
+(use cli/max-active-requests roadmap-settings-request)
+
+(use cli/external-blocker-requests block-item-request
+                                   unblock-item-request)
 
 (use cli/next-request next-request)
 (use cli/verify-request verify-request-of)
@@ -58,6 +62,12 @@
     (subcommand/item-edit
       (on-ledger arguments
                  (edit-item-request arguments (operand arguments route 0))))
+    (subcommand/item-block
+      (on-ledger arguments
+                 (block-item-request arguments (operand arguments route 0))))
+    (subcommand/item-unblock
+      (on-ledger arguments
+                 (unblock-item-request arguments (operand arguments route 0))))
     (subcommand/item-verify (on-ledger arguments
                                        (verify-request-of
                                          arguments

@@ -1,7 +1,7 @@
 (use ledger/model ->blockage ->decision-id ->item-id
-                  decision-status item kind roadmap-pause
-                  status)
+                  decision-status item kind status)
 
+(use ledger/model/roadmap-pauses roadmap-pause)
 (use ledger/model/decisions decision)
 (use ledger/core/actions action actor planned)
 
@@ -59,7 +59,8 @@
               :blockers (vec)
               :dropped-blockers (vec)
               :decisions (vec (->decision-id :value (str "rm-d1")))
-              :capacity none))
+              :capacity none
+              :external-blockers (vec)))
 
 (deftest a-reported-design-waits-on-a-proposed-decision-it-raised
   (let (item (reported-design)

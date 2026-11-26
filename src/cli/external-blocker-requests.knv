@@ -1,0 +1,17 @@
+(module
+  "Reads the flags of `item block` and `item unblock` into the request each one makes.")
+
+(use cli/flags optional-text required-text)
+(use cli/requests request text->id)
+
+(export block-item-request unblock-item-request)
+
+(defn block-item-request (arguments id)
+  (let-try (text (required-text arguments "external"))
+    (ok (request/block-item (text->id id) text))))
+
+(defn unblock-item-request (arguments id)
+  (let-try (external (required-text arguments "external"))
+    (ok (request/unblock-item (text->id id)
+                              external
+                              (optional-text arguments "note")))))

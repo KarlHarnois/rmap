@@ -1,4 +1,5 @@
-(use ledger/model ->blockage kind roadmap-pause status)
+(use ledger/model ->blockage kind status)
+(use ledger/model/roadmap-pauses roadmap-pause)
 (use ledger/core/ready ->blocked-item)
 (use ledger/core/batch ->batch batch-size-of)
 (use cli/batch-text batch-text)
@@ -13,7 +14,8 @@
                                         :blockers (vec (id-of blocker))
                                         :dropped-blockers (vec)
                                         :decisions (vec)
-                                        :capacity none)))
+                                        :capacity none
+                                        :external-blockers (vec))))
 
 (defn research (id)
   (work-item id kind/research status/open))

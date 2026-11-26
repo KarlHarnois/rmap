@@ -1,0 +1,70 @@
+(module
+  "Describes each change to an item's external blockers as an event to record.")
+
+(use json/value json text->json)
+(use ledger/model external-blocker item)
+
+(use ledger/model/events ->event-draft event-draft
+                         event-type)
+
+(use ledger/json-values optional-text->json
+                        optional-timestamp->json)
+
+(use ledger/changes column-change inserted-columns
+                    only-changed payload-with-changes
+                    updated-columns)
+
+(export external-blocker-added external-blocker-cleared)
+
+(defn external-blocker-added (owner blocker)
+  (event owner blocker event-type/external-blocker-added
+         (inserted-columns (ref (blocker-columns blocker)))))
+
+(defn external-blocker-cleared (owner before after)
+  (event owner after event-type/external-blocker-cleared
+         (only-changed (updated-columns (ref (clear-columns before))
+                                        (ref (clear-columns after))))))
+
+(type event
+  (fn ((ref item)
+       (ref external-blocker)
+       event-type
+       (ref (vec column-change)))
+    event-draft))
+
+(defn event (owner blocker type changes)
+  (->event-draft :roadmap-id (some (clone (:roadmap-id owner)))
+                 :item-id (some (clone (:item blocker)))
+                 :decision-id none
+                 :type type
+                 :payload (payload-with-changes changes (vec))))
+
+(type blocker-columns
+  (fn ((ref external-blocker))
+    (vec (pair string json))))
+
+(defn blocker-columns (blocker)
+  (vec (pair (str "id")
+             (text->json (as-str (:value (:id blocker)))))
+       (pair (str "item_id")
+             (text->json (as-str (:value (:item blocker)))))
+       (pair (str "text")
+             (text->json (as-str (:text blocker))))
+       (pair (str "created_at")
+             (text->json (as-str (:value (:created-at blocker)))))
+       (pair (str "created_by")
+             (text->json (as-str (:created-by blocker))))
+       (pair (str "cleared_at")
+             (optional-timestamp->json (ref (:cleared-at blocker))))
+       (pair (str "cleared_by")
+             (optional-text->json (ref (:cleared-by blocker))))
+       (pair (str "clear_note")
+             (optional-text->json (ref (:clear-note blocker))))))
+
+(defn clear-columns (blocker)
+  (vec (pair (str "cleared_at")
+             (optional-timestamp->json (ref (:cleared-at blocker))))
+       (pair (str "cleared_by")
+             (optional-text->json (ref (:cleared-by blocker))))
+       (pair (str "clear_note")
+             (optional-text->json (ref (:clear-note blocker))))))

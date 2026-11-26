@@ -2,11 +2,12 @@
   "Names each result a ledger call hands back to the CLI.")
 
 (use ledger/api batch cap-result criterion-verdict decision
-                dep ended-session event follow-up
-                graph-source init-report item item-detail
-                item-id ledger-export next-entry readiness
+                dep ended-session event external-blocker
+                follow-up graph-source init-report item
+                item-detail item-id next-entry readiness
                 roadmap)
 
+(use json/value json)
 (use cli/report-replies report-reply)
 (use cli/pr-replies pr-reply)
 
@@ -25,13 +26,14 @@
   (item-added item)
   (item-edited item)
   (item-moved item)
+  (external-blocker-changed external-blocker)
   (criterion-verified criterion-verdict)
   (items-listed (vec item))
   (item-shown item-detail)
   (dep-added dep)
   (dep-removed dep)
   (graph-drawn graph-source)
-  (exported ledger-export)
+  (exported json)
   (proposals-recorded item-id (vec follow-up))
   (proposals-listed item-id (vec follow-up))
   (decision-proposed decision)

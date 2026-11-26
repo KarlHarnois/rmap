@@ -1,0 +1,8 @@
+(module
+  "Holds how many of a roadmap's items are active, and the cap it compares against.")
+
+(export ->capacity capacity)
+
+(defstruct capacity
+  :active int
+  :max-active int)

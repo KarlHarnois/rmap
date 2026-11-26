@@ -1,13 +1,16 @@
 (module
   "Lists items and shows one item with its dependencies and children.")
 
-(use ledger/model dep item item-id snapshot)
+(use ledger/model dep external-blocker item item-id
+                  snapshot)
+
 (use ledger/model/criteria criterion-status)
 (use ledger/model/follow-ups follow-up)
 
 (use ledger/core/index index-of ledger-index
                        with-shown-status)
 
+(use ledger/core/external-blockers external-blockers-of)
 (use ledger/core/snapshot deps-of existing in-scope?)
 (use ledger/sqlite/events ->event-filter)
 (use ledger/sqlite/snapshot load-snapshot)
@@ -32,7 +35,8 @@
   :children (vec item)
   :criterion-statuses (vec criterion-status)
   :proposals (vec follow-up)
-  :pull-request (option pull-request))
+  :pull-request (option pull-request)
+  :external-blockers (vec external-blocker))
 
 (type list-items
   (fn ((ref settings) (option string))
@@ -83,7 +87,9 @@
                          :children (children-of (ref snapshot) (ref index) id)
                          :criterion-statuses statuses
                          :proposals proposals
-                         :pull-request pull-request)))))
+                         :pull-request pull-request
+                         :external-blockers (external-blockers-of (ref snapshot)
+                                                                  id))))))
 
 (type children-of
   (fn ((ref snapshot)

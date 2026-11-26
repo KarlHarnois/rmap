@@ -1,7 +1,8 @@
 (module
   "Builds the graph of a snapshot: the roadmaps in scope, the items a view shows, the items from other roadmaps their edges reach, and the edges.")
 
-(use ledger/model history roadmap snapshot)
+(use ledger/model roadmap snapshot)
+(use ledger/model/graphs history)
 (use ledger/names case-name dep-type-names)
 (use ledger/core/snapshot scope)
 

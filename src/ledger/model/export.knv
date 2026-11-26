@@ -1,8 +1,9 @@
 (module
   "Holds one snapshot of the whole ledger: every record kind the export document lists.")
 
-(use ledger/model ->item-id blockage decision-id dep item
-                  item-id kind roadmap timestamp)
+(use ledger/model ->item-id blockage decision-id dep
+                  external-blocker item item-id kind roadmap
+                  timestamp)
 
 (use ledger/model/criteria criterion-verdict)
 (use json/value json)
@@ -38,6 +39,7 @@
   :export-decision-options (vec decision-option-record)
   :export-decision-option-points (vec json)
   :export-decision-blocks (vec json)
+  :export-external-blockers (vec external-blocker)
   :export-rulings (vec json)
   :export-events (vec event)
   :export-item-proposals (vec json)

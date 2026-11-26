@@ -2,6 +2,7 @@
 (use ledger/model/sessions ->session-start)
 
 (use ledger/model ->decision-block ->decision-id ->dep
+                  ->external-blocker ->external-blocker-id
                   ->item ->item-id ->roadmap ->roadmap-id
                   ->session ->snapshot ->timestamp
                   ->work-session claim dep-type item kind
@@ -9,10 +10,11 @@
                   status)
 
 (export blocks-dep child-of claimed decision-block-on
-        discovered-dep epic-item id-of in-roadmap kinds
-        paused-roadmap-of paused-snapshot-of roadmap-of
-        session-start-named snapshot-of statuses titled
-        with-origin work-item work-session-named)
+        discovered-dep epic-item external-blocker-on id-of
+        in-roadmap kinds paused-roadmap-of
+        paused-snapshot-of roadmap-of session-start-named
+        snapshot-of statuses titled with-origin work-item
+        work-session-named)
 
 (defn epic-item (id) (work-item id kind/epic status/open))
 
@@ -78,6 +80,18 @@
          :on (id-of on)
          :type dep-type/discovered-from))
 
+(defn external-blocker-on (id item text cleared-at)
+  (->external-blocker :id (->external-blocker-id :value (str id))
+                      :item (id-of item)
+                      :text (str text)
+                      :created-at (->timestamp :value (str
+                                                        "2026-01-01T00:00:00Z"))
+                      :created-by (str "manager")
+                      :cleared-at (clone cleared-at)
+                      :cleared-by (map-some cleared-at
+                                    (fn (_) (str "manager")))
+                      :clear-note none))
+
 (defn decision-block-on (decision item status)
   (->decision-block :decision (->decision-id :value (str decision))
                     :item (id-of item)
@@ -95,13 +109,15 @@
   (->snapshot :roadmaps (vec)
               :items items
               :deps deps
-              :decision-blocks (vec)))
+              :decision-blocks (vec)
+              :external-blockers (vec)))
 
 (defn paused-snapshot-of (items deps)
   (->snapshot :roadmaps (vec (paused-roadmap-of "rm-road" "manager"))
               :items items
               :deps deps
-              :decision-blocks (vec)))
+              :decision-blocks (vec)
+              :external-blockers (vec)))
 
 (defn paused-roadmap-of (id manager)
   (assoc (roadmap-of id manager)

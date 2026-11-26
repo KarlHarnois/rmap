@@ -1,4 +1,5 @@
-(use ledger/model ->roadmap-id history kind snapshot status)
+(use ledger/model ->roadmap-id kind snapshot status)
+(use ledger/model/graphs history)
 (use ledger/core/graph/graph ->graph-view diagram-of)
 (use ledger/core/graph/roadmap-level roadmap-rollup)
 (use ledger/core/graph/groups ->group-id)

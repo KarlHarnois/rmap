@@ -2,9 +2,10 @@
 (use ledger/model/reports report-kind)
 
 (use ledger/api ->follow-up-draft ->item-id ->session
-                add-dep add-proposals drop-item
-                export-ledger item-id propose-decision
-                record-report set-max-active settings)
+                add-dep add-external-blocker add-proposals
+                drop-item export-ledger item-id
+                propose-decision record-report
+                set-max-active settings)
 
 (use ledger/model kind status)
 (use ledger/model/pull-requests verdict)
@@ -27,6 +28,9 @@
     (let (open (added-id (ref settings) (item-draft kind/research))
           blocker (added-id (ref settings) (item-draft kind/design)))
       (unwrap-ok (add-dep settings (clone open) (clone blocker)))
+      (unwrap-ok (add-external-blocker settings
+                                       (clone open)
+                                       (str "outside work")))
       (let (decision (unwrap-ok (propose-decision settings
                                                   (assoc (proposal-with-skips
                                                            roadmap-name)
@@ -174,6 +178,7 @@
     (assert (= (len (:export-decision-options document)) 2))
     (assert (> (len (:export-decision-option-points document)) 0))
     (assert (= (len (:export-decision-blocks document)) 1))
+    (assert (= (len (:export-external-blockers document)) 1))
     (assert (= (len (:export-rulings document)) 1))
     (assert (> (len (:export-events document)) 0))
     (assert (= (len (:export-item-proposals document)) 2))

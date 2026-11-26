@@ -1,0 +1,120 @@
+(module
+  "Adds and clears an item's external blockers, each in one transaction with its event.")
+
+(use ledger/model ->external-blocker ->external-blocker-id
+                  external-blocker external-blocker-id
+                  item-id)
+
+(use ledger/core/external-blockers check-external-blocker-add
+                                   check-external-blocker-clear
+                                   check-external-blocker-text)
+
+(use ledger/core/snapshot existing)
+(use ledger/refusal refusal)
+
+(use ledger/sqlite/external-blockers clear-external-blocker-row
+                                     external-blocker-with-id
+                                     insert-external-blocker)
+
+(use ledger/sqlite/generated fresh-id)
+(use ledger/sqlite/snapshot load-snapshot)
+
+(use ledger/operations/transaction in-transaction now record
+                                   settings transaction)
+
+(use ledger/failure failure)
+
+(use ledger/external-blocker-events external-blocker-added
+                                    external-blocker-cleared)
+
+(export add-external-blocker clear-external-blocker)
+
+(type add-external-blocker
+  (fn ((ref settings) item-id string)
+    (result external-blocker failure)))
+
+(defn add-external-blocker (settings item text)
+  (in-transaction settings
+    (fn (transaction)
+      (add-within transaction (ref item) (clone text)))))
+
+(type clear-external-blocker
+  (fn ((ref settings) item-id string (option string))
+    (result external-blocker failure)))
+
+(defn clear-external-blocker (settings item blocker text-note)
+  (in-transaction settings
+    (fn (transaction)
+      (clear-within transaction
+                    (ref item)
+                    blocker
+                    (ref text-note)))))
+
+(type add-within
+  (fn ((ref transaction) (ref item-id) string)
+    (result external-blocker failure)))
+
+(defn add-within (transaction item text)
+  (let-try (snapshot (load-snapshot (ref (:connection transaction)))
+            owner (existing (ref snapshot) item)
+            _ (check-external-blocker-add (ref snapshot) item)
+            _ (check-external-blocker-text (as-str text))
+            id (fresh-id (ref (:connection transaction))))
+    (let (blocker (new-blocker transaction item text id))
+      (let-try (_ (insert-external-blocker (ref (:connection transaction))
+                                           (ref blocker))
+                _ (record transaction
+                          (external-blocker-added (ref owner) (ref blocker))))
+        (ok blocker)))))
+
+(defn new-blocker (transaction item text id)
+  (->external-blocker :id (->external-blocker-id :value id)
+                      :item (clone item)
+                      :text text
+                      :created-at (now transaction)
+                      :created-by (actor-of transaction)
+                      :cleared-at none
+                      :cleared-by none
+                      :clear-note none))
+
+(defn actor-of (transaction)
+  (clone (:actor (:stamp transaction))))
+
+(type clear-within
+  (fn ((ref transaction)
+       (ref item-id)
+       string
+       (ref (option string)))
+    (result external-blocker failure)))
+
+(defn clear-within (transaction item blocker-id-text note)
+  (let (id (->external-blocker-id :value (str blocker-id-text)))
+    (let-try (snapshot (load-snapshot (ref (:connection transaction)))
+              owner (existing (ref snapshot) item)
+              found (existing-blocker transaction (ref id))
+              _ (check-external-blocker-clear (ref found) item))
+      (let (after (cleared-blocker transaction (ref found) note))
+        (let-try (_ (clear-external-blocker-row (ref (:connection transaction))
+                                                (ref after))
+                  _ (record transaction
+                            (external-blocker-cleared (ref owner)
+                                                      (ref found)
+                                                      (ref after))))
+          (ok after))))))
+
+(type existing-blocker
+  (fn ((ref transaction) (ref external-blocker-id))
+    (result external-blocker failure)))
+
+(defn existing-blocker (transaction id)
+  (let-try (found (external-blocker-with-id (ref (:connection transaction))
+                                            id))
+    (match found
+      ((some blocker) (ok blocker))
+      (none (err (failure/refused (refusal/external-blocker-not-found (clone id))))))))
+
+(defn cleared-blocker (transaction blocker note)
+  (assoc (clone blocker)
+         :cleared-at (some (now transaction))
+         :cleared-by (some (actor-of transaction))
+         :clear-note (clone note)))

@@ -1,12 +1,14 @@
-(use ledger/model ->decision-id claim decision-status
-                  dep-type item item-id kind roadmap-pause
-                  snapshot status)
+(use ledger/model ->decision-id ->timestamp claim
+                  decision-status dep-type external-blocker
+                  item item-id kind snapshot status)
 
+(use ledger/model/roadmap-pauses roadmap-pause)
 (use ledger/core/ready readiness-of)
 (use ledger/core/snapshot scope)
 
 (use support/items blocks-dep child-of claimed
-                   decision-block-on epic-item id-of
+                   decision-block-on epic-item
+                   external-blocker-on id-of
                    paused-snapshot-of snapshot-of work-item)
 
 (use support/generated-snapshots generated-snapshot)
@@ -102,6 +104,17 @@
   (let (readiness (readiness-of (ref snapshot) (ref scope/every-roadmap))
         blocked (unwrap (first (:blocked readiness))))
     (clone (:decisions (:blockage (ref blocked))))))
+
+(type with-external
+  (fn ((ref snapshot) (vec external-blocker))
+    snapshot))
+
+(defn with-external (snapshot blockers)
+  (assoc (clone snapshot) :external-blockers blockers))
+
+(defn external-blockage (snapshot)
+  (clone (:blockage (unwrap (first (:blocked (readiness-of (ref snapshot)
+                                                           (ref scope/every-roadmap))))))))
 
 (deftest an-open-unclaimed-item-is-ready
   (assert (= (ready-ids (snapshot-of
@@ -272,3 +285,54 @@
     (assert (empty? (ready-ids snapshot)))
     (assert (= (blocked-by-decisions snapshot)
                (vec (decision-id-of "rm-d1"))))))
+
+(deftest an-uncleared-external-blocker-holds-an-open-item
+  (let (snapshot (with-external (snapshot-of (vec (work-item "rm-0001"
+                                                             kind/build
+                                                             status/open))
+                                             (vec))
+                                (vec (external-blocker-on "rm-x1"
+                                                          "rm-0001"
+                                                          (str "the vendor release")
+                                                          none))))
+    (assert (empty? (ready-ids snapshot)))
+    (assert (= (len (:external-blockers (external-blockage snapshot)))
+               1))))
+
+(deftest a-cleared-external-blocker-releases-its-item
+  (let (snapshot (with-external (snapshot-of (vec (work-item "rm-0001"
+                                                             kind/build
+                                                             status/open))
+                                             (vec))
+                                (vec (external-blocker-on
+                                       "rm-x1" "rm-0001"
+                                       (str "the vendor release")
+                                       (some (->timestamp :value (str "2026-01-02T00:00:00Z")))))))
+    (assert (= (ready-ids snapshot)
+               (vec (str "rm-0001"))))))
+
+(deftest an-epics-external-blocker-holds-its-open-child
+  (let (snapshot (with-external
+                   (snapshot-of
+                     (vec (epic-item "rm-e1")
+                          (child-of (work-item "rm-0001" kind/build status/open)
+                                    "rm-e1"))
+                     (vec))
+                   (vec (external-blocker-on "rm-x1" "rm-e1"
+                                             (str "the vendor release")
+                                             none))))
+    (assert (empty? (ready-ids snapshot)))
+    (assert (= (len (:external-blockers (external-blockage snapshot)))
+               1))))
+
+(deftest an-external-blocker-on-another-item-holds-nothing
+  (let (snapshot (with-external (snapshot-of (vec (work-item "rm-0001"
+                                                             kind/build
+                                                             status/open))
+                                             (vec))
+                                (vec (external-blocker-on "rm-x1"
+                                                          "rm-0002"
+                                                          (str "the vendor release")
+                                                          none))))
+    (assert (= (ready-ids snapshot)
+               (vec (str "rm-0001"))))))
