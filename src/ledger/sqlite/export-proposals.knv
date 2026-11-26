@@ -1,0 +1,98 @@
+(module
+  "Reads every proposal, proposal criterion, proposal dependency and option skip in primary-key order, for `rmap export`.")
+
+(use ledger/model ->decision-id ->item-id)
+
+(use ledger/model/export ->export-item-proposal
+                         ->export-option-skip
+                         ->export-proposal-criterion
+                         ->export-proposal-dep)
+
+(use ledger/names kind-names)
+(use ledger/sqlite/connection query)
+
+(use ledger/sqlite/rows int-cell named-cell
+                        optional-int-cell optional-text-cell
+                        rows->values text-cell)
+
+(export all-item-proposals all-option-skips
+        all-proposal-criteria all-proposal-deps)
+
+(defn all-item-proposals (connection)
+  (let-try (rows (query connection
+                        "SELECT source_item_id, proposal_id, position, title, kind, priority, description, decision_id, decision_option, created_item_id FROM item_proposals ORDER BY source_item_id, proposal_id"
+                        (ref (vec))))
+    (rows->values (ref rows) row->item-proposal)))
+
+(defn all-proposal-criteria (connection)
+  (let-try (rows (query connection
+                        "SELECT source_item_id, proposal_id, position, text FROM item_proposal_criteria ORDER BY source_item_id, proposal_id, position"
+                        (ref (vec))))
+    (rows->values (ref rows) row->proposal-criterion)))
+
+(defn all-proposal-deps (connection)
+  (let-try (rows (query connection
+                        "SELECT source_item_id, proposal_id, position, on_id FROM item_proposal_deps ORDER BY source_item_id, proposal_id, position"
+                        (ref (vec))))
+    (rows->values (ref rows) row->proposal-dep)))
+
+(defn all-option-skips (connection)
+  (let-try (rows (query connection
+                        "SELECT decision_id, option_number, position, proposal_id FROM decision_option_skips ORDER BY decision_id, option_number, position"
+                        (ref (vec))))
+    (rows->values (ref rows) row->option-skip)))
+
+(defn row->item-proposal (row)
+  (let-try (source (text-cell row 0)
+            proposal (text-cell row 1)
+            position (int-cell row 2)
+            title (text-cell row 3)
+            kind (named-cell row 4 kind-names)
+            priority (int-cell row 5)
+            description (text-cell row 6)
+            decision (optional-text-cell row 7)
+            option (optional-int-cell row 8)
+            created (optional-text-cell row 9))
+    (ok (->export-item-proposal
+          :item (->item-id :value source)
+          :proposal proposal
+          :position position
+          :title title
+          :kind kind
+          :priority priority
+          :description description
+          :decision (map-some decision
+                      (fn (value) (->decision-id :value value)))
+          :decision-option (clone option)
+          :created-item (map-some created
+                          (fn (value) (->item-id :value value)))))))
+
+(defn row->proposal-criterion (row)
+  (let-try (source (text-cell row 0)
+            proposal (text-cell row 1)
+            position (int-cell row 2)
+            text (text-cell row 3))
+    (ok (->export-proposal-criterion :item (->item-id :value source)
+                                     :proposal proposal
+                                     :position position
+                                     :text text))))
+
+(defn row->proposal-dep (row)
+  (let-try (source (text-cell row 0)
+            proposal (text-cell row 1)
+            position (int-cell row 2)
+            on (text-cell row 3))
+    (ok (->export-proposal-dep :item (->item-id :value source)
+                               :proposal proposal
+                               :position position
+                               :on-id on))))
+
+(defn row->option-skip (row)
+  (let-try (decision (text-cell row 0)
+            option (int-cell row 1)
+            position (int-cell row 2)
+            proposal (text-cell row 3))
+    (ok (->export-option-skip :decision (->decision-id :value decision)
+                              :option option
+                              :position position
+                              :proposal proposal))))

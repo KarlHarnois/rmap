@@ -11,7 +11,7 @@
                          verify-criterion)
 
 (use support/rmap database-with-roadmap research-id run-rmap
-                  run-rmap-text text-at)
+                  run-rmap-text run-rmap-with-stdin text-at)
 
 (def write-file
   (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
@@ -19,7 +19,10 @@
       (result unit string))))
 
 (def proposal
-  "{\"title\": \"Where do sessions live?\", \"context\": \"Sessions must survive a restart.\", \"options\": [{\"title\": \"Postgres\", \"description\": \"Keep them in the main database.\", \"pros\": [\"One store to run\"], \"cons\": [\"More load\"]}, {\"title\": \"Redis\", \"pros\": [\"Fast\"]}], \"recommendation\": {\"option\": 1, \"reason\": \"Postgres already runs.\"}}")
+  "{\"title\": \"Where do sessions live?\", \"context\": \"Sessions must survive a restart.\", \"options\": [{\"title\": \"Postgres\", \"description\": \"Keep them in the main database.\", \"pros\": [\"One store to run\"], \"cons\": [\"More load\"]}, {\"title\": \"Redis\", \"pros\": [\"Fast\"], \"skips\": [\"p1\"]}], \"recommendation\": {\"option\": 1, \"reason\": \"Postgres already runs.\"}}")
+
+(def proposal-document
+  "{\"proposals\": [{\"id\": \"p1\", \"title\": \"First\", \"kind\": \"build\", \"priority\": 2, \"description\": \"d\", \"criteria\": [\"c\"]}, {\"id\": \"p2\", \"title\": \"Second\", \"kind\": \"build\", \"priority\": 2, \"description\": \"d\", \"criteria\": [\"c\"], \"after\": [\"p1\"]}]}")
 
 (defn export-database (name)
   (let (database (database-with-roadmap name)
@@ -27,6 +30,9 @@
     (claim (clone database) (clone research) "w1")
     (read-first-report (clone database)
                        (report-done (clone database) (clone research) "w1"))
+    (add-proposals (clone database)
+                   (clone research)
+                   (str "m1"))
     (merged-build (clone database))
     (stale-build (clone database))
     (dropped-id (clone database))
@@ -147,6 +153,19 @@
                              (as-str id)
                              "--session" session "--kind"
                              "done" "--text" "found it")))
+    (assert (= (:exit-code reply) 0))
+    reply))
+
+(defn add-proposals (database source session)
+  (let (reply (run-rmap-with-stdin database
+                                   (vec (str "proposal")
+                                        (str "add")
+                                        (str (as-str source))
+                                        (str "--session")
+                                        (str (as-str session))
+                                        (str "--file")
+                                        (str "-"))
+                                   (str proposal-document)))
     (assert (= (:exit-code reply) 0))
     reply))
 
@@ -287,7 +306,11 @@
                          (str "decision_option_points")
                          (str "decision_blocks")
                          (str "rulings")
-                         (str "events"))
+                         (str "events")
+                         (str "item_proposals")
+                         (str "item_proposal_criteria")
+                         (str "item_proposal_deps")
+                         (str "decision_option_skips"))
                     (fn (key)
                       (> (len (listed (copy-of document) (as-str key)))
                          0))))))

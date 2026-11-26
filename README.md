@@ -142,7 +142,7 @@ Commands:
   decision unblock <id> <item>
     Removes an item from what a decision blocks, in any decision status.
   export
-    Prints the whole ledger as one JSON document, with or without --json: every roadmap, item, acceptance criterion, criterion verdict, dependency, session, report, pull request, review, decision, decision option, decision option point, decision block, ruling and event.
+    Prints the whole ledger as one JSON document, with or without --json: every roadmap, item, acceptance criterion, criterion verdict, dependency, session, report, pull request, review, decision, decision option, decision option point, decision block, proposal, proposal criterion, proposal dependency, option skip, ruling and event.
   proposal add <source> --file <path|-> --session <name>
     Records one document of the follow-up items a research or design item's report proposes. Every proposal needs an id, a title, a kind, a priority, a description and at least one acceptance criterion. after names other proposals in the same document or items in the ledger it comes after, and decision links it to one option of a decision the source item raised. The document replaces the source item's proposals, all or nothing, and only the item's live session or the roadmap's manager records them.
     Document:

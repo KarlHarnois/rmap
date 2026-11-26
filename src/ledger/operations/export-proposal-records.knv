@@ -1,0 +1,101 @@
+(module
+  "Turns the export's proposal records into flat JSON objects.")
+
+(use json/value int->json json object text->json)
+(use ledger/json-values optional-id->json)
+
+(use ledger/model/export export-item-proposal
+                         export-option-skip
+                         export-proposal-criterion
+                         export-proposal-dep)
+
+(use ledger/decision-columns optional-decision-id->json)
+(use ledger/names case-name kind-names)
+
+(export item-proposal-records option-skip-records
+        proposal-criterion-records proposal-dep-records)
+
+(type item-proposal-records
+  (fn ((ref (vec export-item-proposal)))
+    (vec json)))
+
+(defn item-proposal-records (records)
+  (collect
+    (map (iter records)
+      (fn (record)
+        (object (vec
+                  (pair (str "item")
+                        (optional-id->json (ref (some (clone (:item record))))))
+                  (pair (str "proposal_id")
+                        (text->json (as-str (:proposal record))))
+                  (pair (str "position")
+                        (int->json (:position record)))
+                  (pair (str "title")
+                        (text->json (as-str (:title record))))
+                  (pair (str "kind")
+                        (text->json (case-name kind-names (:kind record))))
+                  (pair (str "priority")
+                        (int->json (:priority record)))
+                  (pair (str "description")
+                        (text->json (as-str (:description record))))
+                  (pair (str "decision_id")
+                        (optional-decision-id->json (ref (:decision record))))
+                  (pair (str "decision_option")
+                        (optional-int->json (:decision-option record)))
+                  (pair (str "created_item_id")
+                        (optional-id->json (ref (:created-item record))))))))))
+
+(type proposal-criterion-records
+  (fn ((ref (vec export-proposal-criterion)))
+    (vec json)))
+
+(defn proposal-criterion-records (records)
+  (collect (map (iter records)
+             (fn (record)
+               (object (vec (pair (str "item")
+                                  (optional-id->json (ref (some (clone (:item record))))))
+                            (pair (str "proposal_id")
+                                  (text->json (as-str (:proposal record))))
+                            (pair (str "position")
+                                  (int->json (:position record)))
+                            (pair (str "text")
+                                  (text->json (as-str (:text record))))))))))
+
+(type proposal-dep-records
+  (fn ((ref (vec export-proposal-dep)))
+    (vec json)))
+
+(defn proposal-dep-records (records)
+  (collect (map (iter records)
+             (fn (record)
+               (object (vec (pair (str "item")
+                                  (optional-id->json (ref (some (clone (:item record))))))
+                            (pair (str "proposal_id")
+                                  (text->json (as-str (:proposal record))))
+                            (pair (str "position")
+                                  (int->json (:position record)))
+                            (pair (str "on_id")
+                                  (text->json (as-str (:on-id record))))))))))
+
+(type option-skip-records
+  (fn ((ref (vec export-option-skip)))
+    (vec json)))
+
+(defn option-skip-records (records)
+  (collect (map (iter records)
+             (fn (record)
+               (object (vec (pair (str "decision_id")
+                                  (optional-decision-id->json
+                                    (ref (some (clone (:decision record))))))
+                            (pair (str "option_number")
+                                  (int->json (:option record)))
+                            (pair (str "position")
+                                  (int->json (:position record)))
+                            (pair (str "proposal_id")
+                                  (text->json (as-str (:proposal
+                                                        record))))))))))
+
+(defn optional-int->json (number)
+  (match number
+    ((some present) (int->json present))
+    (none json/null)))
