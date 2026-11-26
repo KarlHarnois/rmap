@@ -1,0 +1,87 @@
+(use ledger/core/actions action actor planned-by)
+(use ledger/core/decision-next ->decision-next)
+(use ledger/core/next ->next-item next-entry)
+(use ledger/core/taken-by taken-by)
+(use ledger/model ->decision-id decision-status kind status)
+(use support/items roadmap-of work-item)
+
+(defn item-entry (actions)
+  (next-entry/listed-item
+    (->next-item :item (work-item "rm-0001" kind/build status/in-review)
+                 :roadmap (roadmap-of "rm-road" "manager")
+                 :actions actions)))
+
+(defn decision-entry (actions)
+  (next-entry/listed-decision (->decision-next
+                                :decision (->decision-id :value (str "rm-d1"))
+                                :roadmap (roadmap-of "rm-road" "manager")
+                                :status decision-status/proposed
+                                :title (str "Where?")
+                                :actions actions)))
+
+(defn actions-of (entry)
+  (match entry
+    ((next-entry/listed-item item) (clone (:actions item)))
+    ((next-entry/listed-decision decision)
+     (clone (:actions decision)))))
+
+(defn action-ids (actions)
+  (collect (map (iter actions)
+             (fn (planned) (:action planned)))))
+
+(deftest without-an-actor-every-entry-stays
+  (let (entries (vec (item-entry
+                       (vec (planned-by actor/manager action/review none none)))
+                     (decision-entry (vec (planned-by actor/user
+                                                      action/await-decision
+                                                      none
+                                                      none))))
+        kept (taken-by (ref entries) none))
+    (assert (= (len kept) 2))))
+
+(deftest taken-by-keeps-only-the-chosen-actors-actions
+  (let (entries (vec (item-entry
+                       (vec
+                         (planned-by actor/controller action/review none none)
+                         (planned-by actor/manager action/answer none none))))
+        kept (taken-by (ref entries) (some actor/controller))
+        actions (actions-of (at kept 0)))
+    (assert (= (len kept) 1))
+    (assert (= (action-ids (ref actions))
+               (vec action/review)))
+    (assert (= (:actor (at actions 0)) actor/controller))))
+
+(deftest taken-by-drops-an-entry-with-no-action-for-the-actor
+  (let (entries (vec (item-entry
+                       (vec (planned-by actor/manager action/answer none none)))
+                     (decision-entry (vec (planned-by actor/user
+                                                      action/await-decision
+                                                      none
+                                                      none))))
+        kept (taken-by (ref entries) (some actor/controller)))
+    (assert (empty? kept))))
+
+(deftest taken-by-filters-decision-entries
+  (let (entries (vec (decision-entry
+                       (vec (planned-by actor/manager action/ask none none)
+                            (planned-by actor/user
+                                        action/await-decision
+                                        none none))))
+        kept (taken-by (ref entries) (some actor/manager))
+        actions (actions-of (at kept 0)))
+    (assert (= (len kept) 1))
+    (assert (= (action-ids (ref actions))
+               (vec action/ask)))))
+
+(deftest taken-by-keeps-the-usual-order
+  (let (entries (vec (item-entry
+                       (vec
+                         (planned-by actor/controller action/dispatch none none)
+                         (planned-by actor/controller action/review none none)))
+                     (decision-entry
+                       (vec (planned-by actor/manager action/ask none none))))
+        kept (taken-by (ref entries) (some actor/controller))
+        actions (actions-of (at kept 0)))
+    (assert (= (len kept) 1))
+    (assert (= (action-ids (ref actions))
+               (vec action/dispatch action/review)))))

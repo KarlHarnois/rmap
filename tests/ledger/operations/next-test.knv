@@ -29,7 +29,8 @@
 (defn roadmaps-listed (settings roadmap manager)
   (-> (unwrap-ok (next-actions settings
                                (map-some roadmap str)
-                               (map-some manager session-named)))
+                               (map-some manager session-named)
+                               none))
       iter
       (map entry-roadmap-name)
       collect))
@@ -67,7 +68,7 @@
   (let (settings (ledger-with-two-roadmaps "next-unknown-roadmap"))
     (assert (= (refusal-code-of (next-actions (ref settings)
                                               (some (str "nope"))
-                                              none))
+                                              none none))
                (some (str "roadmap-not-found"))))))
 
 (deftest naming-a-roadmap-lists-only-its-items
@@ -99,7 +100,7 @@
   (let (settings (ledger-with-three-roadmaps "next-reads-only")
         events-before (event-ids (ref settings))
         items-before (unwrap-ok (list-items (ref settings) none))
-        _ (unwrap-ok (next-actions (ref settings) none none)))
+        _ (unwrap-ok (next-actions (ref settings) none none none)))
     (assert (= (event-ids (ref settings)) events-before))
     (assert (= (unwrap-ok (list-items (ref settings) none))
                items-before))))
@@ -110,9 +111,11 @@
     (assert (= (decision-ids-of (unwrap-ok (next-actions (ref settings)
                                                          none
                                                          (some (session-named
-                                                                 "manager")))))
+                                                                 "manager"))
+                                                         none)))
                (vec (clone (:value decision)))))
     (assert (empty? (decision-ids-of (unwrap-ok (next-actions (ref settings)
                                                               none
                                                               (some (session-named
-                                                                      "other-manager")))))))))
+                                                                      "other-manager"))
+                                                              none)))))))

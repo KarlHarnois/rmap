@@ -1,0 +1,21 @@
+(use cli/arguments ->arguments)
+(use cli/next-request next-request)
+(use cli/requests request)
+(use ledger/api actor)
+
+(defn arguments-with (flags)
+  (->arguments :words (vec) :flags flags :switches (vec)))
+
+(deftest next-without-a-taken-by-actor-lists-every-line
+  (assert (= (next-request (arguments-with (vec)))
+             (ok (request/next none none none)))))
+
+(deftest next-reads-its-taken-by-actor
+  (assert (= (next-request (arguments-with (vec (pair (str "taken-by")
+                                                      (str "controller")))))
+             (ok (request/next none none (some actor/controller))))))
+
+(deftest next-refuses-an-unknown-taken-by-actor-and-lists-the-actors
+  (assert (= (next-request (arguments-with (vec (pair (str "taken-by")
+                                                      (str "robot")))))
+             (err (str "--taken-by takes controller|manager|worker|user, got robot")))))

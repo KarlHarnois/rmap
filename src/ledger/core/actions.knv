@@ -57,7 +57,7 @@
     (replan actor/manager)
     (work actor/worker)
     (accept-report actor/manager)
-    (review actor/manager)
+    (review actor/controller)
     (verify actor/controller)
     (send-fixes actor/manager)
     (fix actor/worker)

@@ -329,9 +329,9 @@
   (assert (= (claimed-in status/reported)
              (some (pair action/accept-report (pair actor/manager (worker)))))))
 
-(deftest an-item-in-review-is-reviewed-by-the-manager
+(deftest an-item-in-review-is-reviewed-by-the-controller
   (assert (= (claimed-in status/in-review)
-             (some (pair action/review (pair actor/manager (worker)))))))
+             (some (pair action/review (pair actor/controller (worker)))))))
 
 (deftest a-fixing-item-is-fixed-by-its-session
   (assert (= (claimed-in status/fixing)
@@ -339,7 +339,7 @@
 
 (deftest a-merging-item-without-a-pull-request-goes-back-to-review
   (assert (= (claimed-in status/merging)
-             (some (pair action/review (pair actor/manager (worker)))))))
+             (some (pair action/review (pair actor/controller (worker)))))))
 
 (deftest an-epic-is-not-listed
   (assert (empty? (next-in (snapshot-of (vec (epic-item "rm-0001")
@@ -709,4 +709,4 @@
                         (ref (vec)))
         planned (clone (at (entry-actions (at listed 0)) 0)))
     (assert (= (:action planned) action/review))
-    (assert (= (:actor planned) actor/manager))))
+    (assert (= (:actor planned) actor/controller))))

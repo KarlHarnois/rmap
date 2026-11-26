@@ -1,8 +1,10 @@
 (use json/value array copy-of field json json->int
                 json->items json->text object same?)
 
-(use support/rmap database-with-roadmap reply reported-done
-                  research-id run-rmap text-at)
+(use support/rmap database-with-roadmap error-code
+                  initialized-database reply reported-done
+                  research-id run-rmap run-rmap-text
+                  text-at)
 
 (use support/pr-commands build-id first-sha report-build
                          review-build review-start
@@ -446,7 +448,7 @@
       (assert (= (text-of (ref action) "action")
                  (str "review")))
       (assert (= (text-of (ref action) "actor")
-                 (str "manager")))
+                 (str "controller")))
       (assert (= (text-of (ref action) "session")
                  (str "s1"))))))
 
@@ -475,3 +477,84 @@
                  (str "worker")))
       (assert (= (text-of (ref action) "session")
                  (str "r2"))))))
+
+(deftest an-item-in-review-with-no-live-session-is-listed-for-the-controller
+  (let (database (database-with-roadmap "e2e-next-taken-by-controller")
+        id (build-id (ref database)))
+    (report-build (ref database)
+                  id "done"
+                  (vec "--pr" "1" "--head" first-sha))
+    (let (reply (run-rmap (clone database)
+                          (vec "next" "--taken-by" "controller"))
+          entry (entry-named (ref reply) "item" (clone id))
+          action (action-of entry))
+      (assert (= (len (next-entries (ref reply))) 1))
+      (assert (= (text-of (ref action) "action")
+                 (str "review")))
+      (assert (= (text-of (ref action) "actor")
+                 (str "controller"))))))
+
+(deftest taken-by-manager-lists-only-manager-lines
+  (let (database (database-with-roadmap "e2e-next-taken-by-manager")
+        decision (proposed (clone database)
+                           "e2e-next-taken-by-manager-doc"
+                           (vec)))
+    (let (reply (run-rmap (clone database)
+                          (vec "next" "--taken-by" "manager"))
+          entry (entry-named (ref reply) "decision" (clone decision))
+          action (action-of entry))
+      (assert (= (len (next-entries (ref reply))) 1))
+      (assert (= (text-of (ref action) "action")
+                 (str "ask")))
+      (assert (= (text-of (ref action) "actor")
+                 (str "manager"))))))
+
+(deftest taken-by-keeps-only-that-actors-lines-in-text
+  (let (database (database-with-roadmap "e2e-next-taken-by-text")
+        id (build-id (ref database))
+        decision (proposed (clone database)
+                           "e2e-next-taken-by-text-doc"
+                           (vec)))
+    (report-build (ref database)
+                  id "done"
+                  (vec "--pr" "1" "--head" first-sha))
+    (let (manager-text (:stdout (run-rmap-text (vec "--db"
+                                                    (as-str database)
+                                                    "next"
+                                                    "--taken-by"
+                                                    "manager")))
+          controller-text (:stdout (run-rmap-text (vec "--db"
+                                                       (as-str database)
+                                                       "next"
+                                                       "--taken-by"
+                                                       "controller"))))
+      (assert (contains? manager-text "ask"))
+      (assert (contains? manager-text (as-str decision)))
+      (assert (not (contains? manager-text "review")))
+      (assert (contains? controller-text "review"))
+      (assert (contains? controller-text (as-str id)))
+      (assert (not (contains? controller-text "ask"))))))
+
+(deftest an-unknown-taken-by-actor-exits-two-and-lists-the-actors
+  (let (database (initialized-database "e2e-next-taken-by-unknown")
+        reply (run-rmap (clone database)
+                        (vec "next" "--taken-by" "robot")))
+    (assert (= (:exit-code reply) 2))
+    (assert (= (error-code (ref reply))
+               (str "usage")))
+    (let (message (text-at (ref reply) "error" "message"))
+      (assert (contains? message "controller"))
+      (assert (contains? message "manager"))
+      (assert (contains? message "worker"))
+      (assert (contains? message "user")))))
+
+(deftest the-global-actor-flag-does-not-filter-next
+  (let (database (database-with-roadmap "e2e-next-actor-flag")
+        id (build-id (ref database)))
+    (report-build (ref database)
+                  id "done"
+                  (vec "--pr" "1" "--head" first-sha))
+    (let (reply (run-rmap (clone database) (vec "next" "--actor" "manager"))
+          action (action-of (entry-named (ref reply) "item" (clone id))))
+      (assert (= (text-of (ref action) "actor")
+                 (str "controller"))))))

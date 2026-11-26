@@ -1,0 +1,29 @@
+(module
+  "Builds the request `rmap next` makes from its flags.")
+
+(use ledger/api ->session actor-names case-named)
+(use cli/flag-specs choices)
+(use cli/flags optional-text)
+(use cli/requests request)
+
+(export next-request)
+
+(defn next-request (arguments)
+  (let-try (taken-by (taken-by-of arguments))
+    (ok (request/next (optional-text arguments "roadmap")
+                      (map-some (optional-text arguments "manager")
+                        (fn (name) (->session :name name)))
+                      taken-by))))
+
+(defn taken-by-of (arguments)
+  (match (optional-text arguments "taken-by")
+    ((some text)
+     (map-ok (ok-or (case-named actor-names (as-str text))
+                    (unknown-actor-message (as-str text)))
+             some))
+    (none (ok none))))
+
+(defn unknown-actor-message (text)
+  (str "--taken-by takes "
+       (choices actor-names)
+       ", got " text))
