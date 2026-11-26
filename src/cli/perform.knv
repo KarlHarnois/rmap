@@ -3,11 +3,11 @@
 
 (use ledger/api add-dep add-item advance-item claim-item
                 close-item draw-graph drop-item edit-item
-                end-session init-ledger list-items
-                list-roadmaps new-roadmap next-actions
-                pause-roadmap read-log ready-batch
-                ready-items remove-dep resume-roadmap
-                show-item verify-criterion)
+                end-session export-ledger init-ledger
+                list-items list-roadmaps new-roadmap
+                next-actions pause-roadmap read-log
+                ready-batch ready-items remove-dep
+                resume-roadmap show-item verify-criterion)
 
 (use cli/decision-calls perform-decision)
 (use cli/pr-calls perform-pull-request)
@@ -80,6 +80,8 @@
     ((graph graph)
      (map-ok (draw-graph settings graph)
        (fn (source) (reply/graph-drawn source))))
+    (export (map-ok (export-ledger settings)
+              (fn (document) (reply/exported document))))
     ((decision request) (perform-decision settings request))
     ((report operation) (perform-report settings operation))
     ((pull-request operation)

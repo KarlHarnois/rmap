@@ -1,12 +1,13 @@
-(use ledger/model ->timestamp)
+(use ledger/model/reports report-kind)
+(use ledger/model ->timestamp kind)
 
 (use ledger/api ->advancement ->claim-request ->log-query
                 ->new-item ->report-request ->session
                 ->settings add-item advance-item body-source
                 claim-item clock criteria-input
                 description-input failure-code init-ledger
-                item-id kind kind-change new-roadmap origin
-                read-log record-report report-kind)
+                item-id kind-change new-roadmap origin
+                read-log record-report)
 
 (use support/scratch scratch-database scratch-directory)
 

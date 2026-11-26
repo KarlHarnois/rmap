@@ -1,0 +1,431 @@
+(use json/value copy-of field json json->bool json->entries
+                json->int json->items json->text object
+                parse-json same?)
+
+(use ledger/sqlite/connection open run-batch)
+
+(use support/pr-commands approved-on-first-head build-id
+                         first-sha report-build
+                         review-existing-session
+                         review-start second-sha
+                         verify-criterion)
+
+(use support/rmap database-with-roadmap research-id run-rmap
+                  run-rmap-text text-at)
+
+(def write-file
+  (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
+    (fn ((ref str) (ref str))
+      (result unit string))))
+
+(def proposal
+  "{\"title\": \"Where do sessions live?\", \"context\": \"Sessions must survive a restart.\", \"options\": [{\"title\": \"Postgres\", \"description\": \"Keep them in the main database.\", \"pros\": [\"One store to run\"], \"cons\": [\"More load\"]}, {\"title\": \"Redis\", \"pros\": [\"Fast\"]}], \"recommendation\": {\"option\": 1, \"reason\": \"Postgres already runs.\"}}")
+
+(defn export-database (name)
+  (let (database (database-with-roadmap name)
+        research (research-id (clone database)))
+    (claim (clone database) (clone research) "w1")
+    (read-first-report (clone database)
+                       (report-done (clone database) (clone research) "w1"))
+    (merged-build (clone database))
+    (stale-build (clone database))
+    (dropped-id (clone database))
+    (let (blocked (added-id (clone database) "research")
+          blocker (added-id (clone database) "design")
+          decision-blocked (added-id (clone database) "research"))
+      (assert (= (:exit-code (run-rmap (clone database)
+                                       (vec "dep" "add"
+                                            (as-str blocked)
+                                            (as-str blocker))))
+                 0))
+      (insert-ruling (clone database) (as-str research))
+      (proposed-id (clone database) (clone decision-blocked)))
+    database))
+
+(defn stale-build (database)
+  (let (id (build-id (clone database)))
+    (assert (= (:exit-code (report-build database
+                                         (clone id)
+                                         "done"
+                                         (vec "--pr" "2" "--head" first-sha)))
+               0))
+    (assert (= (:exit-code (review-start database (clone id) "r2"))
+               0))
+    (assert (= (:exit-code
+                 (verify-criterion database (clone id) "r2" 1 first-sha))
+               0))
+    (assert (= (:exit-code (review-existing-session
+                             database
+                             (clone id)
+                             "r2" "approve" first-sha))
+               0))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "pr" "head" (as-str id) second-sha)))
+               0))
+    (assert (= (:exit-code (review-start database (clone id) "r3"))
+               0))
+    (assert (= (:exit-code
+                 (run-rmap (clone database)
+                           (vec "item" "verify"
+                                (as-str id)
+                                "1" "--failed" "--reviewer"
+                                "r3" "--head" second-sha)))
+               0))
+    id))
+
+(defn merged-build (database)
+  (let (id (build-id (clone database)))
+    (approved-on-first-head (clone database) (clone id))
+    (assert (= (:exit-code (run-rmap
+                             (clone database)
+                             (vec "item" "advance" (as-str id) "merging")))
+               0))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "item" "close" (as-str id))))
+               0))
+    id))
+
+(defn insert-ruling (database item)
+  (let (connection (unwrap-ok (open (as-str database))))
+    (unwrap-ok (run-batch (ref connection)
+                          (as-str (str "INSERT INTO rulings (id,item_id,question,choice,reason,supersedes_id,ruled_by,created_at) VALUES ('rm-r001','"
+                                       item
+                                       "','Q?','A','why',NULL,'owner','2026-03-03T00:00:00Z');"))))))
+
+(defn dropped-id (database)
+  (let (id (added-id (clone database) "design"))
+    (assert (= (:exit-code
+                 (run-rmap
+                   (clone database)
+                   (vec "item" "drop" (as-str id) "--reason" "not needed")))
+               0))
+    id))
+
+(defn added-id (database kind)
+  (let (reply (run-rmap (clone database)
+                        (vec "item" "add" "--roadmap" "road"
+                             "--title" "x" "--kind" kind
+                             "--description" "x"
+                             "--criterion" "x")))
+    (assert (= (:exit-code reply) 0))
+    (text-at (ref reply) "item" "id")))
+
+(defn proposed-id (database blocked)
+  (let (reply (run-rmap (clone database)
+                        (vec "decision" "propose"
+                             "--roadmap" "road" "--file"
+                             (as-str (document-file database))
+                             "--blocks"
+                             (as-str blocked))))
+    (assert (= (:exit-code reply) 0))
+    (text-at (ref reply) "decision" "id")))
+
+(defn document-file (database)
+  (let (path (str database ".json"))
+    (unwrap-ok (write-file (as-str path) proposal))
+    path))
+
+(defn read-first-report (database reply)
+  (let (id (recorded-report-id reply))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "report" "read" (as-str (str id)))))
+               0))))
+
+(defn recorded-report-id (reply)
+  (let (report (unwrap (field (:json reply) "report")))
+    (unwrap (json->int (ref (unwrap (field report "id")))))))
+
+(defn claim (database id session)
+  (assert (= (:exit-code
+               (run-rmap (clone database)
+                         (vec "item" "claim" (as-str id) "--session" session)))
+             0)))
+
+(defn report-done (database id session)
+  (let (reply (run-rmap (clone database)
+                        (vec "report"
+                             (as-str id)
+                             "--session" session "--kind"
+                             "done" "--text" "found it")))
+    (assert (= (:exit-code reply) 0))
+    reply))
+
+(defn export-reply (database)
+  (let (reply (run-rmap (clone database) (vec "export")))
+    (assert (= (:exit-code reply) 0))
+    reply))
+
+(defn export-text (database)
+  (let (output (run-rmap-text (vec "--db" (as-str (clone database)) "export")))
+    (assert (= (:code output) 0))
+    (unwrap-ok (parse-json (as-str (:stdout output))))))
+
+(defn event-count (database)
+  (let (reply (run-rmap database (vec "log")))
+    (len (listed (copy-of (:json reply)) "events"))))
+
+(defn listed (document key)
+  (unwrap (json->items (ref (unwrap (at document key))))))
+
+(defn ordered-numbers? (values key)
+  (let (keys (collect (map (iter values)
+                        (fn (value)
+                          (unwrap (json->int (ref (unwrap (at value key))))))))
+        expected (collect (map (iter keys) clone)))
+    (sort-by! expected
+      (fn (value) (clone value)))
+    (= keys expected)))
+
+(defn at (document key) (field document key))
+
+(defn ordered? (values key)
+  (let (keys (text-values values key)
+        expected (collect (map (iter keys) clone)))
+    (sort-by! expected
+      (fn (value) (clone value)))
+    (= keys expected)))
+
+(defn text-values (values key)
+  (collect (map (iter values)
+             (fn (value)
+               (unwrap (json->text (ref (unwrap (at value key)))))))))
+
+(defn without-exported-at (document)
+  (let (kept (vec))
+    (for-each (json->entries (ref document))
+      (fn (entry)
+        (let-match ((pair key value) entry)
+          (when (not= key (str "exported_at"))
+            (push! kept
+                   (pair (clone key) (copy-of value)))))))
+    (object kept)))
+
+(type same-as-pr-show? (fn (string json) bool))
+
+(defn same-as-pr-show? (database record)
+  (let (id (record-text (ref record) "item")
+        shown (:json (run-rmap (clone database)
+                               (vec "pr" "show" (as-str id))))
+        pull-request (unwrap (field (copy-of shown) "pull_request")))
+    (and (same-field? (ref record) (ref pull-request) "approved")
+         (same-field? (ref record) (ref pull-request) "approval"))))
+
+(defn pull-request-with-approval (document wanted)
+  (unwrap (map-some (find (iter (listed (copy-of document) "pull_requests"))
+                      (fn (record)
+                        (= (record-approved? record) wanted)))
+                    copy-of)))
+
+(defn exported-item-blocked-by (document key)
+  (unwrap (map-some (find (iter (listed (copy-of document) "items"))
+                      (fn (record)
+                        (> (len (unwrap (json->items
+                                          (ref (unwrap (field (copy-of record)
+                                                              key))))))
+                           0)))
+                    copy-of)))
+
+(defn blocked-entry-with (ready key)
+  (unwrap (map-some (find (iter (listed (copy-of ready) "blocked"))
+                      (fn (entry)
+                        (> (len (unwrap (json->items
+                                          (ref (unwrap (field (copy-of entry)
+                                                              key))))))
+                           0)))
+                    copy-of)))
+
+(defn ready-record (document)
+  (unwrap (map-some (find (iter (listed (copy-of document) "items"))
+                      (fn (record) (record-ready? record)))
+                    copy-of)))
+
+(type ready-listed?
+  (fn ((ref json) string) bool))
+
+(defn ready-listed? (ready id)
+  (some? (find (iter (listed (copy-of ready) "ready"))
+           (fn (record)
+             (= (record-text record "id") (clone id))))))
+
+(type same-blockage? (fn (json json) bool))
+
+(defn same-blockage? (item blocked)
+  (and (same-field? (ref item) (ref blocked) "paused")
+       (same-field? (ref item) (ref blocked) "blockers")
+       (same-field? (ref item) (ref blocked) "dropped_blockers")
+       (same-field? (ref item) (ref blocked) "blocking_decisions")))
+
+(defn record-text (record key)
+  (unwrap (json->text (ref (unwrap (field (copy-of record) key))))))
+
+(defn record-approved? (record)
+  (unwrap (json->bool (ref (unwrap (field (copy-of record) "approved"))))))
+
+(defn record-ready? (record)
+  (unwrap (json->bool (ref (unwrap (field (copy-of record) "ready"))))))
+
+(defn same-field? (one two key)
+  (same? (ref (unwrap (field (copy-of one) key)))
+         (ref (unwrap (field (copy-of two) key)))))
+
+(deftest the-export-holds-one-of-every-record-kind
+  (let (document (:json (export-reply (export-database "e2e-export-kinds"))))
+    (assert (= (unwrap (json->int (ref (unwrap (at (copy-of document)
+                                                   "schema_version")))))
+               4))
+    (assert (every? (vec (str "roadmaps")
+                         (str "items")
+                         (str "deps")
+                         (str "sessions")
+                         (str "reports")
+                         (str "pull_requests")
+                         (str "reviews")
+                         (str "item_criteria")
+                         (str "criterion_verdicts")
+                         (str "decisions")
+                         (str "decision_options")
+                         (str "decision_option_points")
+                         (str "decision_blocks")
+                         (str "rulings")
+                         (str "events"))
+                    (fn (key)
+                      (> (len (listed (copy-of document) (as-str key)))
+                         0))))))
+
+(deftest the-export-keeps-finished-items
+  (let (document (:json (export-reply (export-database "e2e-export-statuses")))
+        statuses (text-values (listed (copy-of document) "items") "status"))
+    (assert (any? statuses
+              (fn (status)
+                (= status (str "reported")))))
+    (assert (any? statuses
+              (fn (status) (= status (str "dropped")))))
+    (assert (any? statuses
+              (fn (status) (= status (str "merged")))))))
+
+(deftest the-export-is-deterministic-apart-from-its-time
+  (let (database (export-database "e2e-export-deterministic")
+        one (:json (export-reply (clone database)))
+        two (:json (export-reply database)))
+    (assert (some? (at (copy-of one) "exported_at")))
+    (assert (same? (ref (without-exported-at (copy-of one)))
+                   (ref (without-exported-at (copy-of two)))))
+    (assert (ordered? (listed (copy-of one) "items") "id"))
+    (assert (ordered-numbers? (listed (copy-of one) "events") "id"))
+    (assert (ordered? (listed (copy-of one) "decisions") "id"))))
+
+(deftest the-export-prints-json-without-the-json-flag
+  (let (database (export-database "e2e-export-text")
+        plain (:json (export-reply (clone database)))
+        text (export-text database))
+    (assert (same? (ref (without-exported-at (copy-of plain)))
+                   (ref (without-exported-at (copy-of text)))))))
+
+(deftest the-export-records-no-event-and-changes-nothing
+  (let (database (export-database "e2e-export-no-event")
+        before (event-count (clone database)))
+    (export-reply (clone database))
+    (assert (= (event-count database) before))))
+
+(deftest the-export-lists-criteria-away-from-the-item
+  (let (document (:json (export-reply (export-database "e2e-export-criteria")))
+        items (listed (copy-of document) "items")
+        criteria (listed (copy-of document) "item_criteria"))
+    (assert (> (len criteria) 0))
+    (assert (every? criteria
+              (fn (criterion)
+                (and (some? (field (copy-of criterion) "item"))
+                     (some? (field (copy-of criterion) "position"))
+                     (some? (field (copy-of criterion) "text"))))))
+    (assert (every? items
+              (fn (item)
+                (none? (field item "criteria")))))))
+
+(deftest the-export-items-do-not-nest-their-sessions
+  (let (document (:json (export-reply (export-database
+                                        "e2e-export-item-shape")))
+        items (listed (copy-of document) "items"))
+    (assert (every? items
+              (fn (item)
+                (and (none? (field item "session"))
+                     (some? (field item "claimed_by"))))))))
+
+(deftest the-export-lists-a-review-session
+  (let (document (:json (export-reply (export-database
+                                        "e2e-export-review-session")))
+        kinds (text-values (listed (copy-of document) "sessions") "kind"))
+    (assert (any? kinds
+              (fn (kind) (= kind (str "review")))))))
+
+(deftest the-export-matches-pr-show-on-approval
+  (let (database (export-database "e2e-export-approval")
+        document (:json (export-reply (clone database)))
+        approved (pull-request-with-approval document true)
+        stale (pull-request-with-approval document false))
+    (assert (same-as-pr-show? (clone database) approved))
+    (assert (same-as-pr-show? database (copy-of (ref stale))))
+    (let (approval (unwrap (field stale "approval")))
+      (assert (> (len (unwrap (json->items
+                                (ref (unwrap (field approval "stale_heads"))))))
+                 0)))))
+
+(deftest the-export-matches-ready-on-readiness
+  (let (database (export-database "e2e-export-readiness")
+        document (:json (export-reply (clone database)))
+        ready-doc (:json (run-rmap database (vec "ready")))
+        ready (ready-record document)
+        dep-item (exported-item-blocked-by document "blockers")
+        dep-entry (blocked-entry-with ready-doc "blockers")
+        decision-item (exported-item-blocked-by document "blocking_decisions")
+        decision-entry (blocked-entry-with ready-doc "blocking_decisions"))
+    (assert (ready-listed? ready-doc (record-text (ref ready) "id")))
+    (assert (same-blockage? (copy-of (ref dep-item)) dep-entry))
+    (assert (same-blockage? (copy-of (ref decision-item))
+                            decision-entry))
+    (assert (not (record-ready? (ref dep-item))))
+    (assert (not (record-ready? (ref decision-item))))))
+
+(deftest the-export-keeps-every-criterion-verdict
+  (let (database (export-database "e2e-export-verdicts")
+        document (:json (export-reply (clone database)))
+        verdicts (listed (copy-of document) "criterion_verdicts"))
+    (assert (>= (len verdicts) 3))
+    (assert (every? verdicts
+              (fn (verdict)
+                (and (some? (field (copy-of verdict) "id"))
+                     (some? (field (copy-of verdict) "item"))
+                     (some? (field (copy-of verdict) "position"))
+                     (some? (field (copy-of verdict) "verdict"))
+                     (some? (field (copy-of verdict) "reviewer"))
+                     (some? (field (copy-of verdict) "head"))
+                     (some? (field (copy-of verdict) "note"))
+                     (some? (field (copy-of verdict) "created_at"))))))
+    (assert (ordered-numbers? verdicts "id"))
+    (assert (any? verdicts
+              (fn (verdict)
+                (= (json->text (ref (unwrap (field (copy-of verdict)
+                                                   "verdict"))))
+                   (some (str "met"))))))
+    (assert (any? verdicts
+              (fn (verdict)
+                (= (json->text (ref (unwrap (field (copy-of verdict)
+                                                   "verdict"))))
+                   (some (str "failed"))))))))
+
+(deftest the-export-splits-option-points-out-of-options
+  (let (document (:json (export-reply (export-database
+                                        "e2e-export-option-points")))
+        options (listed (copy-of document) "decision_options")
+        points (listed (copy-of document) "decision_option_points"))
+    (assert (> (len points) 0))
+    (assert (every? options
+              (fn (option)
+                (and (none? (field (copy-of option) "pros"))
+                     (none? (field (copy-of option) "cons"))))))
+    (assert (every? points
+              (fn (point)
+                (and (some? (field (copy-of point) "decision_id"))
+                     (some? (field (copy-of point) "number"))
+                     (some? (field (copy-of point) "side"))
+                     (some? (field (copy-of point) "position"))
+                     (some? (field (copy-of point) "text"))))))))

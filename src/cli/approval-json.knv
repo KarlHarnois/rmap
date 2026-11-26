@@ -1,0 +1,36 @@
+(module
+  "Turns a pull request's approval into the JSON fields the CLI prints.")
+
+(use json/value array int->json json text->json)
+(use ledger/api approval session)
+
+(export approval-fields sha->json)
+
+(type approval-fields
+  (fn ((ref approval))
+    (vec (pair string json))))
+
+(defn approval-fields (approval)
+  (vec (pair (str "pr_number")
+             (int->json (:value (:pr-number approval))))
+       (pair (str "head")
+             (sha->json (ref (:sha (:head approval)))))
+       (pair (str "approved_by")
+             (sessions->json (ref (:approved-by approval))))
+       (pair (str "changes_requested")
+             (sessions->json (ref (:changes-requested approval))))
+       (pair (str "stale_heads")
+             (array (collect (map (iter (:stale-heads approval))
+                               (fn (head)
+                                 (sha->json (ref (:sha head))))))))))
+
+(defn sha->json (sha)
+  (text->json (as-str sha)))
+
+(type sessions->json
+  (fn ((ref (vec session))) json))
+
+(defn sessions->json (sessions)
+  (array (collect (map (iter sessions)
+                    (fn (session)
+                      (text->json (as-str (:name session))))))))

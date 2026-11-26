@@ -12,6 +12,7 @@
 
 (defstruct criterion
   :item item-id
+  :position int
   :text string)
 
 (defstruct criterion-status

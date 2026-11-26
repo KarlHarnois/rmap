@@ -1,7 +1,9 @@
+(use ledger/model/reports report-kind)
+
 (use ledger/api ->review-request ->review-start-request
                 ->session ->verify-request criterion-result
-                record-report record-review report-kind
-                start-review verify-criterion)
+                record-report record-review start-review
+                verify-criterion)
 
 (use ledger/model/pull-requests review-kind verdict)
 (use support/report-requests report-as worker-of)

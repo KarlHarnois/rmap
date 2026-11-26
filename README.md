@@ -135,6 +135,8 @@ Commands:
     Makes a proposed decision hold an open item or an unfinished epic of its roadmap; an epic holds all its open children, including ones added later.
   decision unblock <id> <item>
     Removes an item from what a decision blocks, in any decision status.
+  export
+    Prints the whole ledger as one JSON document, with or without --json: every roadmap, item, acceptance criterion, criterion verdict, dependency, session, report, pull request, review, decision, decision option, decision option point, decision block, ruling and event.
   report list [--item <id>] [--unread]
     Lists the reports, oldest first. --item keeps those on one item, --unread those not read yet.
   report show <id>

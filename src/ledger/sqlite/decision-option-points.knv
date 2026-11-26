@@ -1,0 +1,27 @@
+(module
+  "Reads every row of the `decision_option_points` table.")
+
+(use ledger/model ->decision-id ->item-id)
+(use ledger/model/decisions ->decision-option-point)
+(use ledger/sqlite/connection query)
+(use ledger/sqlite/rows int-cell rows->values text-cell)
+
+(export all-option-points)
+
+(defn all-option-points (connection)
+  (let-try (rows (query connection
+                        "SELECT decision_id, option_number, side, position, text FROM decision_option_points ORDER BY decision_id, option_number, side, position"
+                        (ref (vec))))
+    (rows->values (ref rows) row->option-point)))
+
+(defn row->option-point (row)
+  (let-try (decision (text-cell row 0)
+            number (int-cell row 1)
+            side (text-cell row 2)
+            position (int-cell row 3)
+            text (text-cell row 4))
+    (ok (->decision-option-point :point-decision (->decision-id :value decision)
+                                 :point-number number
+                                 :point-side side
+                                 :point-position position
+                                 :point-text text))))

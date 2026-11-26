@@ -1,0 +1,78 @@
+(module
+  "Turns the export's records that no other command prints into JSON objects.")
+
+(use json/value int->json json object text->json)
+(use ledger/json-values optional-text->json)
+(use ledger/model decision-block)
+(use ledger/model/criteria criterion)
+(use ledger/model/rulings ruling)
+
+(export block-records criterion-records option-point-records
+        ruling-records)
+
+(type criterion-records
+  (fn ((ref (vec criterion))) (vec json)))
+
+(defn criterion-records (criteria)
+  (collect (map (iter criteria)
+             (fn (criterion)
+               (object (vec (pair (str "item")
+                                  (text->json (as-str (:value (:item
+                                                                criterion)))))
+                            (pair (str "position")
+                                  (int->json (:position criterion)))
+                            (pair (str "text")
+                                  (text->json (as-str (:text criterion))))))))))
+
+(type block-records
+  (fn ((ref (vec decision-block)))
+    (vec json)))
+
+(defn block-records (blocks)
+  (collect (map (iter blocks)
+             (fn (block)
+               (object
+                 (vec (pair (str "decision_id")
+                            (text->json (as-str (:value (:decision block)))))
+                      (pair (str "item_id")
+                            (text->json (as-str (:value (:item block)))))))))))
+
+(defn option-point-records (points)
+  (collect (map (iter points)
+             (fn (point)
+               (object (vec (pair (str "decision_id")
+                                  (text->json (as-str (:value (:point-decision
+                                                                point)))))
+                            (pair (str "number")
+                                  (int->json (:point-number point)))
+                            (pair (str "side")
+                                  (text->json (as-str (:point-side point))))
+                            (pair (str "position")
+                                  (int->json (:point-position point)))
+                            (pair (str "text")
+                                  (text->json (as-str (:point-text
+                                                        point))))))))))
+
+(type ruling-records
+  (fn ((ref (vec ruling))) (vec json)))
+
+(defn ruling-records (rulings)
+  (collect (map (iter rulings)
+             (fn (ruling)
+               (object (vec (pair (str "id")
+                                  (text->json (as-str (:id ruling))))
+                            (pair (str "item_id")
+                                  (text->json (as-str (:value (:item ruling)))))
+                            (pair (str "question")
+                                  (text->json (as-str (:question ruling))))
+                            (pair (str "choice")
+                                  (text->json (as-str (:choice ruling))))
+                            (pair (str "reason")
+                                  (text->json (as-str (:reason ruling))))
+                            (pair (str "supersedes_id")
+                                  (optional-text->json (ref (:supersedes
+                                                              ruling))))
+                            (pair (str "ruled_by")
+                                  (text->json (as-str (:ruled-by ruling))))
+                            (pair (str "created_at")
+                                  (text->json (as-str (:value (:created-at ruling)))))))))))

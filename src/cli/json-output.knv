@@ -12,7 +12,7 @@
 (use cli/schema-envelope error-envelope)
 (use json/value array int->json json object text->json)
 (use cli/blockage-json blockage-fields)
-(use cli/pr-json approval-fields)
+(use cli/approval-json approval-fields)
 
 (export response->json)
 

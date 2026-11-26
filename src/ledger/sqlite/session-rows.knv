@@ -1,0 +1,52 @@
+(module
+  "Reads every row of the `sessions` table as a stored session record.")
+
+(use ledger/model ->item-id ->timestamp)
+(use ledger/model/sessions ->session-id ->session-record)
+
+(use ledger/names case-named end-reason-names runtime-names
+                  session-kind-names)
+
+(use ledger/sqlite/connection query)
+
+(use ledger/sqlite/rows int-cell named-cell
+                        optional-text-cell rows->values
+                        text-cell)
+
+(export all-sessions)
+
+(defn all-sessions (connection)
+  (let-try (rows (query connection
+                        "SELECT id, name, item_id, kind, runtime, branch, base, started_at, ended_at, end_reason FROM sessions ORDER BY id"
+                        (ref (vec))))
+    (rows->values (ref rows) row->session)))
+
+(defn row->session (row)
+  (let-try (id (int-cell row 0)
+            name (text-cell row 1)
+            item (optional-text-cell row 2)
+            kind (optional-name-cell row 3 session-kind-names)
+            runtime (named-cell row 4 runtime-names)
+            branch (optional-text-cell row 5)
+            base (optional-text-cell row 6)
+            started-at (text-cell row 7)
+            ended-at (optional-text-cell row 8)
+            end-reason (optional-name-cell row 9 end-reason-names))
+    (ok (->session-record :id (->session-id :value id)
+                          :name name
+                          :item (map-some item
+                                  (fn (value) (->item-id :value value)))
+                          :kind kind
+                          :runtime runtime
+                          :branch branch
+                          :base base
+                          :started-at (->timestamp :value started-at)
+                          :ended-at (map-some ended-at
+                                      (fn (value) (->timestamp :value value)))
+                          :end-reason end-reason))))
+
+(defn optional-name-cell (row index names)
+  (let-try (text (optional-text-cell row index))
+    (ok (then-some text
+          (fn (value)
+            (case-named names (as-str value)))))))

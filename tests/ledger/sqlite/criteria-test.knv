@@ -1,5 +1,6 @@
+(use ledger/model kind)
 (use ledger/model/criteria criterion)
-(use ledger/api criteria-input kind)
+(use ledger/api criteria-input)
 (use ledger/operations/transaction connect)
 (use ledger/sqlite/criteria all-criteria replace-criteria)
 (use ledger/sqlite/items all-items)

@@ -1,0 +1,96 @@
+(module
+  "Builds the JSON document `rmap export` prints: every ledger record in one snapshot.")
+
+(use json/value array bool->json copy-of object text->json)
+(use ledger/api session-record->json)
+(use cli/blockage-json blockage-fields)
+(use cli/criterion-verdict-json criterion-verdict->json)
+(use cli/decision-json decision-fields option-record->json)
+
+(use cli/ledger-json dep->json event->json item-fields
+                     roadmap->json)
+
+(use cli/pr-json pull-request-record->json review->json)
+(use cli/report-json report-detail->json)
+(use cli/schema-envelope envelope)
+
+(export export->json)
+
+(defn export->json (document)
+  (envelope
+    (vec
+      (pair (str "exported_at")
+            (text->json (as-str (:value (:exported-at document)))))
+      (list-field "roadmaps"
+                  (ref (:export-roadmaps document))
+                  roadmap->json)
+      (list-field "items"
+                  (ref (:export-items document))
+                  item-record->json)
+      (pair (str "item_criteria")
+            (array (collect (map (iter (:export-criteria document)) copy-of))))
+      (list-field "criterion_verdicts"
+                  (ref (:export-criterion-verdicts document))
+                  criterion-verdict->json)
+      (list-field "deps" (ref (:export-deps document)) dep->json)
+      (list-field "sessions"
+                  (ref (:export-sessions document))
+                  session-record->json)
+      (list-field "reports"
+                  (ref (:export-reports document))
+                  report-detail->json)
+      (list-field "pull_requests"
+                  (ref (:export-pull-requests document))
+                  pull-request-record->json)
+      (list-field "reviews"
+                  (ref (:export-reviews document))
+                  review->json)
+      (list-field "decisions"
+                  (ref (:export-decisions document))
+                  decision-record->json)
+      (list-field "decision_options"
+                  (ref (:export-decision-options document))
+                  option-record->json)
+      (pair (str "decision_option_points")
+            (array (collect (map (iter (:export-decision-option-points
+                                         document))
+                                 copy-of))))
+      (pair (str "decision_blocks")
+            (array (collect (map (iter (:export-decision-blocks document))
+                                 copy-of))))
+      (pair (str "rulings")
+            (array (collect (map (iter (:export-rulings document)) copy-of))))
+      (list-field "events"
+                  (ref (:export-events document))
+                  event->json))))
+
+(defn list-field (name values value->json)
+  (pair (str name)
+        (array (collect (map (iter values) value->json)))))
+
+(defn item-record->json (record)
+  (let (fields (item-fields (ref (:exported-item record))))
+    (push! fields
+           (pair (str "ready")
+                 (bool->json (:item-ready record))))
+    (match (:item-blockage record)
+      ((some blockage)
+       (for-each (blockage-fields blockage)
+         (fn (entry)
+           (push! fields
+                  (pair (clone (first entry))
+                        (copy-of (second entry)))))))
+      (none (push! fields
+                   (pair (str "paused") (bool->json false)))
+            (push! fields
+                   (pair (str "blockers") (array (vec))))
+            (push! fields
+                   (pair (str "dropped_blockers")
+                         (array (vec))))
+            (push! fields
+                   (pair (str "blocking_decisions")
+                         (array (vec))))))
+    (object fields)))
+
+(defn decision-record->json (decision)
+  (object (decision-fields decision)))

@@ -1,4 +1,5 @@
-(use ledger/api add-item description-input kind)
+(use ledger/model kind)
+(use ledger/api add-item description-input)
 (use ledger/sqlite/items all-items)
 (use ledger/operations/transaction connect)
 

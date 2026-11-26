@@ -1,7 +1,8 @@
+(use ledger/model/events event-type)
+
 (use ledger/api ->acceptance accept-decision ask-decision
-                deprecate-decision event-type
-                propose-decision reject-decision
-                show-decision)
+                deprecate-decision propose-decision
+                reject-decision show-decision)
 
 (use ledger/model decision-status)
 

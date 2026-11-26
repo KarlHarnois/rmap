@@ -1,6 +1,8 @@
+(use ledger/model/reports report-kind)
+
 (use ledger/api ->item-id ->report-id ->report-query
                 ->report-request ->session body-source
-                report-kind report-reading)
+                report-reading)
 
 (use cli/invocations invocation parse-invocation)
 (use cli/requests request)

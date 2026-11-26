@@ -1,9 +1,10 @@
 (module
   "Describes each ledger result in plain text.")
 
-(use ledger/api case-name dep ended-session init-outcome
-                init-report session-kind-names)
-
+(use json/value json->source)
+(use ledger/api dep init-outcome init-report)
+(use cli/export-json export->json)
+(use cli/session-ended-text session-ended-text)
 (use cli/replies reply)
 
 (use cli/item-text item-added-text item-edited-text
@@ -57,6 +58,8 @@
     ((reply/dep-removed dep)
      (dep-text dep "no longer comes after"))
     ((reply/graph-drawn graph) (clone (:source graph)))
+    ((reply/exported document)
+     (json->source (ref (export->json document))))
     ((reply/decision-proposed decision)
      (decision-proposed-text (ref decision)))
     ((reply/decision-revised decision)
@@ -77,20 +80,6 @@
     ((reply/pull-request answer) (pr-reply->text answer))
     ((reply/session-ended ended)
      (session-ended-text (ref ended)))))
-
-(type session-ended-text
-  (fn ((ref ended-session)) string))
-
-(defn session-ended-text (ended)
-  (str "Ended "
-       (:name (:session ended))
-       " ("
-       (case-name session-kind-names (:kind ended))
-       ") on "
-       (:value (:id (:item ended)))
-       " as "
-       (:reason ended)
-       "."))
 
 (type init-report-text
   (fn ((ref init-report)) string))

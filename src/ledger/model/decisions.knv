@@ -4,10 +4,11 @@
 (use ledger/model decision-id decision-status item-id
                   roadmap-id timestamp)
 
-(export ->decision ->decision-option ->option-draft
-        ->outcome ->proposal ->recommendation decision
-        decision-option option-draft outcome proposal
-        recommendation)
+(export ->decision ->decision-option ->decision-option-point
+        ->decision-option-record ->option-draft ->outcome
+        ->proposal ->recommendation decision decision-option
+        decision-option-point decision-option-record
+        option-draft outcome proposal recommendation)
 
 (defstruct proposal
   :title string
@@ -49,6 +50,17 @@
   :description string
   :pros (vec string)
   :cons (vec string))
+
+(defstruct decision-option-record
+  :decision decision-id
+  :option decision-option)
+
+(defstruct decision-option-point
+  :point-decision decision-id
+  :point-number int
+  :point-side string
+  :point-position int
+  :point-text string)
 
 (defstruct outcome
   :option (option int)

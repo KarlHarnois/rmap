@@ -1,6 +1,8 @@
+(use ledger/model/reports report-kind)
+
 (use ledger/api ->item-id ->report-id ->report-query
-                list-reports read-report report-kind
-                report-reading show-report)
+                list-reports read-report report-reading
+                show-report)
 
 (use support/ledger claimed refusal-code-of research
                     scratch-ledger)

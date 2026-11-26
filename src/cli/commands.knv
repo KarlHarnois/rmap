@@ -3,6 +3,7 @@
 
 (use cli/item-commands item-routes)
 (use cli/decision-commands decision-routes)
+(use cli/export-commands export-routes)
 (use cli/lifecycle-commands lifecycle-routes)
 (use cli/report-commands report-routes)
 (use cli/pr-commands pr-routes)
@@ -14,6 +15,7 @@
   (let (all (item-routes))
     (for-each (vec (lifecycle-routes)
                    (decision-routes)
+                   (export-routes)
                    (report-routes)
                    (pr-routes)
                    (session-routes))

@@ -1,0 +1,13 @@
+(module
+  "Lists the command that prints the whole ledger.")
+
+(use cli/routes ->route subcommand words)
+
+(export export-routes)
+
+(defn export-routes ()
+  (vec (->route :subcommand subcommand/export
+                :words (words "export")
+                :summary (str "Prints the whole ledger as one JSON document, with or without --json: every roadmap, item, acceptance criterion, criterion verdict, dependency, session, report, pull request, review, decision, decision option, decision option point, decision block, ruling and event.")
+                :operands (vec)
+                :flags (vec))))

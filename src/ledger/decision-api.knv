@@ -3,10 +3,13 @@
 
 (use ledger/model ->decision-id decision-id decision-status)
 
-(use ledger/model/decisions ->option-draft ->proposal
+(use ledger/model/decisions ->decision-option-record
+                            ->option-draft ->proposal
                             ->recommendation decision
-                            decision-option option-draft
-                            outcome proposal recommendation)
+                            decision-option
+                            decision-option-record
+                            option-draft outcome proposal
+                            recommendation)
 
 (use ledger/core/decisions ->decision-revision
                            ->new-decision decision-revision
@@ -35,11 +38,12 @@
 
 (use ledger/names decision-status-names)
 
-(export ->acceptance ->decision-id ->decision-query
-        ->decision-revision ->new-decision ->option-draft
-        ->proposal ->recommendation accept-decision
-        acceptance add-decision-block ask-decision decision
-        decision-id decision-option decision-query
+(export ->acceptance ->decision-id ->decision-option-record
+        ->decision-query ->decision-revision ->new-decision
+        ->option-draft ->proposal ->recommendation
+        accept-decision acceptance add-decision-block
+        ask-decision decision decision-id decision-option
+        decision-option-record decision-query
         decision-revision decision-status
         decision-status-names deprecate-decision
         list-decisions new-decision option-draft

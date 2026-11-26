@@ -1,10 +1,9 @@
 (use json/value copy-of)
 
 (use ledger/api ->session case-name claim-item end-reason
-                end-session event-type-names show-item
-                status)
+                end-session event-type-names show-item)
 
-(use ledger/model claim kind)
+(use ledger/model claim kind status)
 
 (use support/ledger added-id advanced all-events claim-by
                     claimed item-draft refusal-code-of

@@ -1,13 +1,14 @@
 (module
   "Holds what a claim asks for, a live session with its id, and why and when a session ends.")
 
-(use ledger/model item item-id session session-kind
+(use ledger/model item item-id runtime session session-kind
                   timestamp)
 
 (export ->claim-request ->ended-session ->live-session
-        ->session-end ->session-id ->session-start
-        claim-request end-reason ended-session live-session
-        session-end session-id session-start)
+        ->session-end ->session-id ->session-record
+        ->session-start claim-request end-reason
+        ended-session live-session session-end session-id
+        session-record session-start)
 
 (defstruct claim-request
   :session session
@@ -45,3 +46,15 @@
 
 (defstruct session-id
   :value int)
+
+(defstruct session-record
+  :id session-id
+  :name string
+  :item (option item-id)
+  :kind (option session-kind)
+  :runtime runtime
+  :branch (option string)
+  :base (option string)
+  :started-at timestamp
+  :ended-at (option timestamp)
+  :end-reason (option end-reason))

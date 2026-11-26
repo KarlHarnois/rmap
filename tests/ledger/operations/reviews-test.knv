@@ -2,9 +2,9 @@
 
 (use ledger/api ->item-id ->review-start-request ->session
                 claim-item clock record-head record-review
-                settings show-item status)
+                settings show-item)
 
-(use ledger/model ->timestamp claim kind)
+(use ledger/model ->timestamp claim kind status)
 (use ledger/model/pull-requests verdict)
 (use ledger/sqlite/connection open query)
 

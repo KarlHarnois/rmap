@@ -1,0 +1,29 @@
+(use json/value field json->int json->text)
+
+(use ledger/model ->item-id ->timestamp runtime
+                  session-kind)
+
+(use ledger/model/sessions ->session-id ->session-record
+                           end-reason)
+
+(use ledger/session-api session-record->json)
+
+(deftest a-stored-review-session-prints-that-it-ended-abandoned
+  (let (session (->session-record :id (->session-id :value 7)
+                                  :name (str "r1")
+                                  :item (some (->item-id :value (str
+                                                                  "rm-0001")))
+                                  :kind (some session-kind/review)
+                                  :runtime runtime/ringleader
+                                  :branch none
+                                  :base none
+                                  :started-at (->timestamp :value (str "2026-01-01T00:00:00Z"))
+                                  :ended-at (some (->timestamp :value (str "2026-01-02T00:00:00Z")))
+                                  :end-reason (some end-reason/abandoned))
+        value (session-record->json (ref session)))
+    (assert (= (json->int (ref (unwrap (field value "id"))))
+               (some 7)))
+    (assert (= (json->text (ref (unwrap (field value "kind"))))
+               (some (str "review"))))
+    (assert (= (json->text (ref (unwrap (field value "end_reason"))))
+               (some (str "abandoned"))))))
