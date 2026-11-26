@@ -49,6 +49,8 @@
   decision-deprecated
   decision-block-added
   decision-block-removed
+  external-blocker-added
+  external-blocker-cleared
   item-reported
   report-read
   item-reviewed

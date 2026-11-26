@@ -37,6 +37,10 @@
   decision-in-other-roadmap
   decision-block-exists
   decision-block-not-found
+  blank-external-blocker
+  external-blocker-not-found
+  external-blocker-cleared
+  external-blocker-in-other-item
   supersede-target-not-accepted
   decisions-pending
   proposal-incomplete

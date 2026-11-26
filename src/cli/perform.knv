@@ -1,20 +1,23 @@
 (module
   "Runs a parsed request against the ledger and names the reply it gives.")
 
-(use ledger/api add-dep add-item add-proposals advance-item
-                claim-item close-item draw-graph drop-item
-                edit-item end-session export-ledger
-                init-ledger list-items list-proposals
-                list-roadmaps new-roadmap next-actions
-                pause-roadmap read-log ready-batch
-                ready-items remove-dep resume-roadmap
-                set-max-active show-item verify-criterion)
+(use ledger/api add-dep add-external-blocker add-item
+                add-proposals advance-item claim-item
+                clear-external-blocker close-item draw-graph
+                drop-item edit-item end-session
+                export-ledger init-ledger list-items
+                list-proposals list-roadmaps new-roadmap
+                next-actions pause-roadmap read-log
+                ready-batch ready-items remove-dep
+                resume-roadmap set-max-active show-item
+                verify-criterion)
 
 (use cli/decision-calls perform-decision)
 (use cli/pr-calls perform-pull-request)
 (use cli/replies reply)
 (use cli/report-calls perform-report)
 (use cli/requests request)
+(use cli/export-json export->json)
 
 (export perform)
 
@@ -63,6 +66,15 @@
     ((claim id request)
      (map-ok (claim-item settings id request)
        (fn (item) (reply/item-moved item))))
+    ((block-item id external)
+     (map-ok (add-external-blocker settings (clone id) (clone external))
+       (fn (blocker) (reply/external-blocker-changed blocker))))
+    ((unblock-item id external note)
+     (map-ok (clear-external-blocker settings
+                                     (clone id)
+                                     (clone external)
+                                     (clone note))
+             (fn (blocker) (reply/external-blocker-changed blocker))))
     ((verify request)
      (map-ok (verify-criterion settings request)
        (fn (verdict) (reply/criterion-verified verdict))))
@@ -85,7 +97,8 @@
      (map-ok (draw-graph settings graph)
        (fn (source) (reply/graph-drawn source))))
     (export (map-ok (export-ledger settings)
-              (fn (document) (reply/exported document))))
+              (fn (document)
+                (reply/exported (export->json document)))))
     ((decision request) (perform-decision settings request))
     ((proposal-add id session drafts)
      (map-ok (add-proposals settings (clone id) (clone session) drafts)

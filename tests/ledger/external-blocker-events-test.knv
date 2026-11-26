@@ -1,0 +1,84 @@
+(use json/value copy-of field json->entries json->text
+                null?)
+
+(use ledger/model ->timestamp kind status)
+(use ledger/model/events event-type)
+
+(use ledger/external-blocker-events external-blocker-added
+                                    external-blocker-cleared)
+
+(use support/items external-blocker-on work-item)
+
+(defn owner () (work-item "rm-0001" kind/build status/open))
+
+(defn blocker ()
+  (external-blocker-on "rm-x1" "rm-0001"
+                       (str "the release")
+                       none))
+
+(defn columns (payload)
+  (let (names (collect (map (iter (json->entries (ref (changes-of payload))))
+                         (fn (entry) (clone (first entry))))))
+    (sort! names)
+    names))
+
+(defn changes-of (payload)
+  (unwrap (field (ref payload) "changes")))
+
+(defn side (payload column which)
+  (-> (ref (changes-of payload))
+      (field column)
+      unwrap
+      (field which)
+      unwrap))
+
+(deftest an-added-blocker-records-every-column
+  (let (draft (external-blocker-added (ref (owner))
+                                      (ref (blocker)))
+        payload (copy-of (ref (:payload draft))))
+    (assert (= (:type draft) event-type/external-blocker-added))
+    (assert (= (:item-id draft)
+               (some (clone (:item (blocker))))))
+    (assert (= (columns payload)
+               (vec (str "clear_note")
+                    (str "cleared_at")
+                    (str "cleared_by")
+                    (str "created_at")
+                    (str "created_by")
+                    (str "id")
+                    (str "item_id")
+                    (str "text"))))
+    (assert (null? (ref (side payload "cleared_at" "old"))))
+    (assert (= (json->text (ref (side payload "text" "new")))
+               (some (str "the release"))))))
+
+(deftest a-cleared-blocker-records-the-clearing-columns
+  (let (before (blocker)
+        after (assoc (clone before)
+                     :cleared-at (some (->timestamp :value (str "2026-01-02T00:00:00Z")))
+                     :cleared-by (some (str "manager"))
+                     :clear-note (some (str "shipped")))
+        draft (external-blocker-cleared (ref (owner))
+                                        (ref before)
+                                        (ref after))
+        payload (copy-of (ref (:payload draft))))
+    (assert (= (:type draft) event-type/external-blocker-cleared))
+    (assert (= (columns payload)
+               (vec (str "clear_note")
+                    (str "cleared_at")
+                    (str "cleared_by"))))
+    (assert (null? (ref (side payload "cleared_at" "old"))))
+    (assert (= (json->text (ref (side payload "cleared_at" "new")))
+               (some (str "2026-01-02T00:00:00Z"))))))
+
+(deftest a-clearing-without-a-note-records-two-columns
+  (let (before (blocker)
+        after (assoc (clone before)
+                     :cleared-at (some (->timestamp :value (str "2026-01-02T00:00:00Z")))
+                     :cleared-by (some (str "manager")))
+        draft (external-blocker-cleared (ref (owner))
+                                        (ref before)
+                                        (ref after))
+        payload (copy-of (ref (:payload draft))))
+    (assert (= (columns payload)
+               (vec (str "cleared_at") (str "cleared_by"))))))

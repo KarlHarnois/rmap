@@ -11,6 +11,7 @@
 (use cli/item-text item-table optional-id-text)
 (use cli/tables indented table)
 (use cli/pr-text pull-request-text)
+(use cli/external-blocker-text external-blocker-table)
 
 (export item-detail-text)
 
@@ -26,6 +27,7 @@
          (indented (table (detail-rows detail)))
          (description-text (ref (:description item)))
          (criteria-text (ref (:criterion-statuses detail)))
+         (external-blockers-text (ref (:external-blockers detail)))
          (children-text (ref (:children detail)))
          (proposals-section (ref (:proposals detail)))
          (pull-request-section (ref (:pull-request detail))))))
@@ -91,6 +93,12 @@
   (match at
     ((some present) (clone (:value present)))
     (none (str "-"))))
+
+(defn external-blockers-text (blockers)
+  (if (empty? blockers)
+    (str "")
+    (str "\n\nExternal blockers:\n"
+         (indented (external-blocker-table (ref blockers))))))
 
 (defn children-text (children)
   (if (empty? children)

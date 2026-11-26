@@ -1,5 +1,13 @@
 (module
-  "Holds the deliveries part of the ledger's public surface: a worker's reports.")
+  "Holds the delivery part of the ledger's public surface: a worker's reports, a build's pull request, the head it points at, and the reviews that approve it.")
+
+(use ledger/model/pull-requests ->review-request
+                                ->review-start-request
+                                approval head pull-request
+                                recorded-head
+                                recorded-review review
+                                review-request
+                                review-start-request)
 
 (use ledger/model/reports ->report-id ->report-query
                           ->report-request body-source
@@ -7,15 +15,29 @@
                           report-kind report-query
                           report-reading report-request)
 
-(use ledger/operations/reports read-report record-report)
+(use ledger/core/requirements approval-of approved?)
+
+(use ledger/names report-kind-names review-kind-names
+                  verdict-names)
+
+(use ledger/operations/head-records record-head)
+(use ledger/operations/pull-requests show-pull-request)
 
 (use ledger/operations/report-queries list-reports
                                       show-report)
 
-(use ledger/names report-kind-names)
+(use ledger/operations/reports read-report record-report)
+(use ledger/operations/review-starts start-review)
+(use ledger/operations/reviews record-review)
 
 (export ->report-id ->report-query ->report-request
-        body-source list-reports read-report record-report
-        recorded-report report report-id report-kind
+        ->review-request ->review-start-request approval
+        approval-of approved? body-source head list-reports
+        pull-request read-report record-head record-report
+        record-review recorded-head recorded-report
+        recorded-review report report-id report-kind
         report-kind-names report-query report-reading
-        report-request show-report)
+        report-request review review-kind-names
+        review-request review-start-request
+        show-pull-request show-report start-review
+        verdict-names)

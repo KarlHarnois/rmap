@@ -1,13 +1,16 @@
 (module
   "Holds the ledger's values: roadmaps, items, their sessions, dependencies, decisions and blockages.")
 
-(export ->blockage ->cap-result ->capacity ->decision-block
-        ->decision-id ->dep ->item ->item-id ->roadmap
-        ->roadmap-id ->session ->snapshot ->timestamp
-        ->work-session blockage cap-result capacity claim
+(use ledger/model/capacity capacity)
+(use ledger/model/roadmap-pauses roadmap-pause)
+
+(export ->blockage ->decision-block ->decision-id ->dep
+        ->external-blocker ->external-blocker-id ->item
+        ->item-id ->roadmap ->roadmap-id ->session
+        ->snapshot ->timestamp ->work-session blockage claim
         decision-block decision-id decision-status dep
-        dep-type graph-format history item item-id kind
-        origin roadmap roadmap-id roadmap-pause
+        dep-type external-blocker external-blocker-id item
+        item-id kind origin roadmap roadmap-id
         roadmap-status runtime session session-kind snapshot
         status timestamp work-session)
 
@@ -15,7 +18,8 @@
   :roadmaps (vec roadmap)
   :items (vec item)
   :deps (vec dep)
-  :decision-blocks (vec decision-block))
+  :decision-blocks (vec decision-block)
+  :external-blockers (vec external-blocker))
 
 (defstruct decision-block
   :decision decision-id
@@ -23,6 +27,19 @@
   :status decision-status)
 
 (defstruct decision-id
+  :value string)
+
+(defstruct external-blocker
+  :id external-blocker-id
+  :item item-id
+  :text string
+  :created-at timestamp
+  :created-by string
+  :cleared-at (option timestamp)
+  :cleared-by (option string)
+  :clear-note (option string))
+
+(defstruct external-blocker-id
   :value string)
 
 (defenum decision-status
@@ -39,10 +56,6 @@
   :status roadmap-status
   :max-active (option int)
   :created-at timestamp)
-
-(defstruct cap-result
-  :roadmap roadmap
-  :changed-at (option timestamp))
 
 (defenum roadmap-status
   active
@@ -124,26 +137,13 @@
   blocks
   discovered-from)
 
-(defenum graph-format mermaid)
-
-(defenum history
-  without-merged
-  with-merged)
-
 (defstruct blockage
   :pause roadmap-pause
   :blockers (vec item-id)
   :dropped-blockers (vec item-id)
   :decisions (vec decision-id)
-  :capacity (option capacity))
-
-(defstruct capacity
-  :active int
-  :max-active int)
-
-(defenum roadmap-pause
-  not-paused
-  paused)
+  :capacity (option capacity)
+  :external-blockers (vec external-blocker))
 
 (defstruct item-id
   :value string)

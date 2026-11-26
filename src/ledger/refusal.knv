@@ -2,7 +2,8 @@
   "Names each way the ledger refuses a call.")
 
 (use ledger/model blockage decision-id decision-status
-                  item-id kind session status)
+                  external-blocker-id item-id kind session
+                  status)
 
 (use ledger/model/pull-requests head)
 (use ledger/model/reports report-id)
@@ -44,6 +45,10 @@
   (decision-in-other-roadmap item-id)
   (decision-block-exists decision-id item-id)
   (decision-block-not-found decision-id item-id)
+  blank-external-blocker
+  (external-blocker-not-found external-blocker-id)
+  (external-blocker-cleared external-blocker-id)
+  (external-blocker-in-other-item external-blocker-id item-id)
   (supersede-target-not-accepted decision-id)
   (decisions-pending (vec decision-id))
   (proposal-incomplete string)

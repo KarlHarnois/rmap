@@ -1,0 +1,20 @@
+(module
+  "Checks that an item can wait on something: it is open, or an unfinished epic.")
+
+(use ledger/model item kind status)
+(use ledger/refusal refusal)
+(use ledger/core/phases finished?)
+
+(export blockable? check-blockable)
+
+(defn check-blockable (item)
+  (if (blockable? item)
+    (ok (do))
+    (err (refusal/not-blockable (clone (:id item))))))
+
+(type blockable? (fn ((ref item)) bool))
+
+(defn blockable? (item)
+  (if (= (:kind item) kind/epic)
+    (not (finished? (:status item)))
+    (= (:status item) status/open)))

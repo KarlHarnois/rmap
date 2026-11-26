@@ -69,6 +69,10 @@ Commands:
     Removes the dependency between two items.
   graph [--roadmap <name>] [--all] [--level item|epic|roadmap] [--format mermaid]
     Prints the roadmaps, their items and dependencies as a Mermaid flowchart. Merged items show only with --all. --level epic or roadmap draws one node per epic or roadmap.
+  item block <id> --external <text>
+    Records what an open item or an unfinished epic waits on outside the ledger. An epic's blocker holds its open children.
+  item unblock <id> --external <blocker id> [--note <text>]
+    Clears an external blocker the item recorded, with an optional note.
   pause <name>
     Pauses a roadmap: its open items wait, while work already started continues.
   resume <name>
@@ -202,72 +206,76 @@ Exit codes:
   3  The database could not be opened, read or written. The error has the code busy when the wait for the lock timed out, ledger-too-new when a newer rmap migrated the ledger, otherwise database.
 
 Refusal codes:
-  roadmap-not-found              No roadmap has that name.
-  roadmap-exists                 A roadmap already has that name.
-  roadmap-already-paused         A pause changes nothing: the roadmap is already paused.
-  roadmap-not-paused             A resume changes nothing: the roadmap is not paused.
-  max-active-out-of-range        A max active must be at least 1.
-  item-not-found                 No item has that id.
-  item-closed                    A merged, accepted or dropped item is closed.
-  description-required           An item needs a description.
-  criteria-required              An item needs at least one acceptance criterion.
-  blank-criterion                An acceptance criterion cannot be blank.
-  parent-not-epic                The parent is not an epic.
-  parent-in-other-roadmap        The parent belongs to another roadmap.
-  epic-has-parent                An epic cannot have a parent.
-  priority-out-of-range          A priority must be from 0 (highest) to 4 (lowest).
-  epic-status-computed           An epic's status comes from its children, so no command moves it.
-  invalid-kind-change            Only an advance to dispatched can turn an item into a build.
-  invalid-transition             The transition table has no such move for this item.
-  not-ready                      The item is blocked. The error lists whether the roadmap is paused, its capacity, its blockers, its dropped_blockers and its blocking_decisions.
-  cycle                          The dependency would close a cycle of blocks dependencies.
-  dep-exists                     The blocks dependency already exists.
-  dep-not-found                  No such blocks dependency exists.
-  decision-not-found             No decision has that id.
-  decision-frozen                Only a proposed decision can change.
-  decision-incomplete            A proposal needs a title, a context, at least 2 options with titles, and a recommendation that names one of them with a reason.
-  invalid-decision-transition    The transition table has no such move for this decision.
-  option-not-found               The decision has no option with that number.
-  already-asked                  The decision was already put to the owner.
-  not-blockable                  Only an open item or an unfinished epic can wait on a decision.
-  decision-in-other-roadmap      The item belongs to another roadmap than the decision.
-  decision-block-exists          The decision already blocks that item.
-  decision-block-not-found       The decision does not block that item.
-  supersede-target-not-accepted  Only a decision that is accepted, or rejected in the same roadmap, can be superseded.
-  session-busy                   A live session already has that name.
-  session-not-live               No live session has that name.
-  session-not-claimant           The session is not the item's live session.
-  report-empty                   A report needs a body.
-  report-not-found               No report has that id.
-  report-already-read            The report was already read.
-  pr-required                    A done report on a build, or a fixed report on a build with no pull request yet, needs --pr and --head.
-  head-required                  A fixed report on a build needs --head.
-  pr-not-allowed                 Only a done or fixed report on a build takes --pr or --head, and --pr only when the build has no pull request yet.
-  pr-number-taken                Another item already has a pull request with that number.
-  pr-not-found                   The item has no pull request.
-  invalid-head                   A head is a full 40-character commit SHA in lowercase hex.
-  head-not-current               A review names a head other than the pull request's current head in the ledger.
-  head-unchanged                 pr head names the head the pull request is already at.
-  reviewer-is-worker             The reviewer is a work or fix session of the item, live or ended.
-  reviewer-not-fresh             The reviewer already reviewed another head of the same pull request. A new head needs a new reviewer. The error names the reviewer, the head it reviewed and the head it tried.
-  review-not-in-review           A review can start only while the item is in_review.
-  review-already-live            The item already has a live review session.
-  review-session-required        The reviewer has no live review session for this item. Start one with review start.
-  not-approved                   Among each reviewer's latest verdict on the pull request's head, none approves or one asks for changes. The error lists the head, approved_by, changes_requested and stale_heads.
-  criteria-unmet                 A build needs a met verdict on the pull request's current head for every acceptance criterion before it can move to merging. The error lists each criterion without one or with failed.
-  verifier-not-reviewer          The verifier has no live review session for this item. Start one with review start.
-  verifier-is-worker             The verifier is a work or fix session of the item, live or ended.
-  verifier-is-manager            The verifier is the roadmap's manager session.
-  criterion-not-found            The item has no acceptance criterion at that position.
-  verdict-head-required          A criterion verdict on a build needs --head.
-  verdict-head-not-current       The criterion verdict names a head other than the pull request's current head. The error names both heads.
-  decisions-pending              An item cannot close while a decision it raised is proposed or rejected. The error lists those decisions.
-  proposal-incomplete            A proposal needs an id, a title, a description, at least one acceptance criterion, a priority from 0 to 4, and no epic kind when the source belongs to an epic.
-  proposal-duplicate             Two proposals in one document share an id.
-  proposal-target-not-found      A proposal comes after an id that is neither a proposal in the document nor an item in the ledger.
-  proposal-cycle                 The proposals come after each other in a cycle.
-  proposal-source-kind           Only a research or design item records proposals.
-  proposal-writer                Only the source item's live session or the roadmap's manager records its proposals.
-  proposal-decision-not-raised   A proposal links to a decision the source item did not raise.
-  unknown-skip                   A chosen option of an accepted decision skips a proposal id the closing item does not have. The error names the decision, the option and the unknown ids.
+  roadmap-not-found               No roadmap has that name.
+  roadmap-exists                  A roadmap already has that name.
+  roadmap-already-paused          A pause changes nothing: the roadmap is already paused.
+  roadmap-not-paused              A resume changes nothing: the roadmap is not paused.
+  max-active-out-of-range         A max active must be at least 1.
+  item-not-found                  No item has that id.
+  item-closed                     A merged, accepted or dropped item is closed.
+  description-required            An item needs a description.
+  criteria-required               An item needs at least one acceptance criterion.
+  blank-criterion                 An acceptance criterion cannot be blank.
+  parent-not-epic                 The parent is not an epic.
+  parent-in-other-roadmap         The parent belongs to another roadmap.
+  epic-has-parent                 An epic cannot have a parent.
+  priority-out-of-range           A priority must be from 0 (highest) to 4 (lowest).
+  epic-status-computed            An epic's status comes from its children, so no command moves it.
+  invalid-kind-change             Only an advance to dispatched can turn an item into a build.
+  invalid-transition              The transition table has no such move for this item.
+  not-ready                       The item is blocked. The error lists whether the roadmap is paused, its capacity, its blockers, its dropped_blockers, its blocking_decisions and its external_blockers.
+  cycle                           The dependency would close a cycle of blocks dependencies.
+  dep-exists                      The blocks dependency already exists.
+  dep-not-found                   No such blocks dependency exists.
+  decision-not-found              No decision has that id.
+  decision-frozen                 Only a proposed decision can change.
+  decision-incomplete             A proposal needs a title, a context, at least 2 options with titles, and a recommendation that names one of them with a reason.
+  invalid-decision-transition     The transition table has no such move for this decision.
+  option-not-found                The decision has no option with that number.
+  already-asked                   The decision was already put to the owner.
+  not-blockable                   Only an open item or an unfinished epic can take a blocker.
+  decision-in-other-roadmap       The item belongs to another roadmap than the decision.
+  decision-block-exists           The decision already blocks that item.
+  decision-block-not-found        The decision does not block that item.
+  supersede-target-not-accepted   Only a decision that is accepted, or rejected in the same roadmap, can be superseded.
+  session-busy                    A live session already has that name.
+  session-not-live                No live session has that name.
+  session-not-claimant            The session is not the item's live session.
+  report-empty                    A report needs a body.
+  report-not-found                No report has that id.
+  report-already-read             The report was already read.
+  pr-required                     A done report on a build, or a fixed report on a build with no pull request yet, needs --pr and --head.
+  head-required                   A fixed report on a build needs --head.
+  pr-not-allowed                  Only a done or fixed report on a build takes --pr or --head, and --pr only when the build has no pull request yet.
+  pr-number-taken                 Another item already has a pull request with that number.
+  pr-not-found                    The item has no pull request.
+  invalid-head                    A head is a full 40-character commit SHA in lowercase hex.
+  head-not-current                A review names a head other than the pull request's current head in the ledger.
+  head-unchanged                  pr head names the head the pull request is already at.
+  reviewer-is-worker              The reviewer is a work or fix session of the item, live or ended.
+  reviewer-not-fresh              The reviewer already reviewed another head of the same pull request. A new head needs a new reviewer. The error names the reviewer, the head it reviewed and the head it tried.
+  review-not-in-review            A review can start only while the item is in_review.
+  review-already-live             The item already has a live review session.
+  review-session-required         The reviewer has no live review session for this item. Start one with review start.
+  not-approved                    Among each reviewer's latest verdict on the pull request's head, none approves or one asks for changes. The error lists the head, approved_by, changes_requested and stale_heads.
+  criteria-unmet                  A build needs a met verdict on the pull request's current head for every acceptance criterion before it can move to merging. The error lists each criterion without one or with failed.
+  verifier-not-reviewer           The verifier has no live review session for this item. Start one with review start.
+  verifier-is-worker              The verifier is a work or fix session of the item, live or ended.
+  verifier-is-manager             The verifier is the roadmap's manager session.
+  criterion-not-found             The item has no acceptance criterion at that position.
+  verdict-head-required           A criterion verdict on a build needs --head.
+  verdict-head-not-current        The criterion verdict names a head other than the pull request's current head. The error names both heads.
+  decisions-pending               An item cannot close while a decision it raised is proposed or rejected. The error lists those decisions.
+  proposal-incomplete             A proposal needs an id, a title, a description, at least one acceptance criterion, a priority from 0 to 4, and no epic kind when the source belongs to an epic.
+  proposal-duplicate              Two proposals in one document share an id.
+  proposal-target-not-found       A proposal comes after an id that is neither a proposal in the document nor an item in the ledger.
+  proposal-cycle                  The proposals come after each other in a cycle.
+  proposal-source-kind            Only a research or design item records proposals.
+  proposal-writer                 Only the source item's live session or the roadmap's manager records its proposals.
+  proposal-decision-not-raised    A proposal links to a decision the source item did not raise.
+  unknown-skip                    A chosen option of an accepted decision skips a proposal id the closing item does not have. The error names the decision, the option and the unknown ids.
+  blank-external-blocker          An external blocker needs a text.
+  external-blocker-not-found      No external blocker has that id.
+  external-blocker-cleared        The external blocker was already cleared.
+  external-blocker-in-other-item  The external blocker belongs to another item.
 ```

@@ -37,6 +37,13 @@
       (push! lines
              (str "waits on decisions "
                   (decision-ids-text (ref (:decisions blockage))))))
+    (for-each (:external-blockers blockage)
+      (fn (blocker)
+        (push! lines
+               (str "waits on external "
+                    (:value (:id blocker))
+                    ": "
+                    (:text blocker)))))
     (for-each (capacity-lines (:capacity blockage))
       (fn (line) (push! lines (clone line))))
     lines))

@@ -1,0 +1,19 @@
+(use cli/arguments ->arguments)
+(use cli/max-active-requests roadmap-settings-request)
+(use cli/requests request)
+
+(defn request-for (flags)
+  (roadmap-settings-request
+    (->arguments :words (vec) :flags flags :switches (vec))
+    (str "road")))
+
+(deftest a-max-active-flag-builds-a-set-request
+  (assert (= (request-for (vec (pair (str "max-active") (str "2"))))
+             (ok (request/set-max-active (str "road") (some 2))))))
+
+(deftest a-no-max-active-switch-builds-a-clear-request
+  (assert (= (roadmap-settings-request (->arguments :words (vec)
+                                                    :flags (vec)
+                                                    :switches (vec (str "no-max-active")))
+                                       (str "road"))
+             (ok (request/set-max-active (str "road") none)))))

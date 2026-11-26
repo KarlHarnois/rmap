@@ -1,0 +1,8 @@
+(module
+  "Holds whether a roadmap is paused.")
+
+(export roadmap-pause)
+
+(defenum roadmap-pause
+  not-paused
+  paused)

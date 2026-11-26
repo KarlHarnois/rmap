@@ -1,7 +1,8 @@
 (module
   "Holds a zoomed-out graph as data, with the steps both zoomed-out levels share: hiding merged groups, sorting nodes, and keeping the edges a scope draws.")
 
-(use ledger/model history roadmap)
+(use ledger/model roadmap)
+(use ledger/model/graphs history)
 (use ledger/core/graph/node-states node-class)
 
 (use ledger/core/graph/groups group-id rolled-node

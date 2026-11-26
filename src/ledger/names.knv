@@ -7,9 +7,11 @@
 (use ledger/model/reports report-kind)
 (use ledger/model/pull-requests review-kind verdict)
 
-(use ledger/model decision-status dep-type graph-format kind
-                  origin roadmap-status runtime session-kind
+(use ledger/model decision-status dep-type kind origin
+                  roadmap-status runtime session-kind
                   status)
+
+(use ledger/model/graphs graph-format)
 
 (export case-name case-named criterion-result-names
         decision-status-names dep-type-names
@@ -88,6 +90,10 @@
              "decision-block-added")
        (pair event-type/decision-block-removed
              "decision-block-removed")
+       (pair event-type/external-blocker-added
+             "external-blocker-added")
+       (pair event-type/external-blocker-cleared
+             "external-blocker-cleared")
        (pair event-type/item-reported "item-reported")
        (pair event-type/report-read "report-read")
        (pair event-type/item-reviewed "item-reviewed")

@@ -1,0 +1,29 @@
+(module
+  "Describes each external blocker refusal in a sentence and catalogs them.")
+
+(use ledger/refusal-codes refusal-code)
+(use ledger/refusal-description described)
+(use ledger/proposal-refusal-text proposal-refusal-description)
+
+(export external-blocker-refusal-catalog
+        external-blocker-refusal-description)
+
+(defn external-blocker-refusal-catalog ()
+  (collect (map (iter (vec refusal-code/blank-external-blocker
+                           refusal-code/external-blocker-not-found
+                           refusal-code/external-blocker-cleared
+                           refusal-code/external-blocker-in-other-item))
+                external-blocker-refusal-description)))
+
+(defn external-blocker-refusal-description (code)
+  (match code
+    (blank-external-blocker (described "blank-external-blocker"
+                                       "An external blocker needs a text."))
+    (external-blocker-not-found (described "external-blocker-not-found"
+                                           "No external blocker has that id."))
+    (external-blocker-cleared (described
+                                "external-blocker-cleared"
+                                "The external blocker was already cleared."))
+    (external-blocker-in-other-item (described "external-blocker-in-other-item"
+                                               "The external blocker belongs to another item."))
+    (_ (proposal-refusal-description code))))

@@ -1,0 +1,216 @@
+(use json/value copy-of field json->items json->text null?)
+
+(use support/rmap database-with-roadmap error-code run-rmap
+                  run-rmap-text text-at)
+
+(defn research (database)
+  (added-id (clone database)
+            (vec "item" "add" "--roadmap" "road" "--title"
+                 "r" "--kind" "research" "--description"
+                 "a spec" "--criterion" "a criterion")))
+
+(defn epic (database)
+  (added-id (clone database)
+            (vec "item" "add" "--roadmap" "road" "--title"
+                 "e" "--kind" "epic" "--description"
+                 "a spec" "--criterion" "a criterion")))
+
+(defn added-id (database args)
+  (text-at (ref (run-rmap database args)) "item" "id"))
+
+(defn block (database id text)
+  (run-rmap (clone database)
+            (vec "item" "block" (as-str id) "--external" (as-str text))))
+
+(defn blocker-id (reply)
+  (text-at (ref reply) "external_blocker" "id"))
+
+(defn blocked-entry (reply id)
+  (unwrap (map-some (find (iter (entries reply "blocked"))
+                      (fn (entry)
+                        (= (item-id-of entry) (str id))))
+                    copy-of)))
+
+(defn item-id-of (entry)
+  (text-at-entry (unwrap (field (copy-of entry) "item"))
+                 "id"))
+
+(defn entries (reply key)
+  (json-entries (:json reply) key))
+
+(defn json-entries (document key)
+  (unwrap (json->items (unwrap (field document key)))))
+
+(defn text-at-entry (entry key)
+  (unwrap (json->text (ref (unwrap (field (copy-of entry) key))))))
+
+(defn external-blockers (entry)
+  (unwrap (json->items (unwrap (field (copy-of entry) "external_blockers")))))
+
+(defn error-external-blockers (reply)
+  (unwrap (json->items (ref (unwrap (field (unwrap (field (:json reply)
+                                                          "error"))
+                                           "external_blockers"))))))
+
+(defn event-count (database)
+  (len (entries (run-rmap (clone database) (vec "log"))
+                "events")))
+
+(defn cleared? (record)
+  (not (null? (ref (unwrap (field (copy-of record) "cleared_at"))))))
+
+(deftest a-blocked-item-is-not-ready-and-says-what-it-waits-on
+  (let (database (database-with-roadmap "e2e-external-blocked")
+        item (research (clone database))
+        added (block (clone database) item (str "the vendor release"))
+        blocker (blocker-id (ref added))
+        ready (run-rmap (clone database) (vec "ready"))
+        entry (blocked-entry (ref ready) item)
+        blockers (external-blockers entry))
+    (assert (= (:exit-code added) 0))
+    (assert (= (len blockers) 1))
+    (assert (= (text-at-entry (unwrap (first blockers)) "id")
+               (clone blocker)))
+    (assert (= (text-at-entry (unwrap (first blockers)) "text")
+               (str "the vendor release")))
+    (let (claim (run-rmap (clone database)
+                          (vec "item" "claim" (as-str item) "--session" "w1")))
+      (assert (= (:exit-code claim) 1))
+      (assert (= (error-code (ref claim))
+                 (str "not-ready")))
+      (assert (= (len (error-external-blockers (ref claim)))
+                 1)))
+    (let (text (:stdout (run-rmap-text
+                          (vec "--db" (as-str (clone database)) "ready"))))
+      (assert (contains? (as-str text)
+                         (as-str (str "waits on external " blocker)))))))
+
+(deftest clearing-the-blocker-makes-the-item-ready-again
+  (let (database (database-with-roadmap "e2e-external-cleared")
+        item (research (clone database))
+        blocker (blocker-id (ref (block (clone database) item (str "waiting"))))
+        cleared (run-rmap (clone database)
+                          (vec "item" "unblock"
+                               (as-str item)
+                               "--external"
+                               (as-str blocker)
+                               "--note"
+                               "the vendor shipped"))
+        ready (run-rmap (clone database) (vec "ready")))
+    (assert (= (:exit-code cleared) 0))
+    (assert (= (len (entries (ref ready) "ready"))
+               1))))
+
+(deftest a-blocker-on-an-epic-holds-a-child-added-later
+  (let (database (database-with-roadmap "e2e-external-epic")
+        group (epic (clone database))
+        _blocked (block (clone database) group (str "outside work"))
+        child (added-id (clone database)
+                        (vec "item" "add" "--roadmap" "road"
+                             "--title" "c" "--kind" "build"
+                             "--description" "a spec"
+                             "--criterion" "a criterion"
+                             "--parent"
+                             (as-str group)))
+        ready (run-rmap (clone database) (vec "ready"))
+        entry (blocked-entry (ref ready) child))
+    (assert (= (len (external-blockers entry)) 1))))
+
+(deftest item-show-lists-open-and-cleared-blockers
+  (let (database (database-with-roadmap "e2e-external-show")
+        item (research (clone database))
+        _open (blocker-id
+                (ref (block (clone database) item (str "still waiting"))))
+        done (blocker-id (ref
+                           (block (clone database) item (str "already done"))))
+        _cleared (run-rmap (clone database)
+                           (vec "item" "unblock"
+                                (as-str item)
+                                "--external"
+                                (as-str done)))
+        shown (run-rmap (clone database)
+                        (vec "item" "show" (as-str item)))
+        blockers (unwrap (json->items (unwrap (field (:json shown)
+                                                     "external_blockers")))))
+    (assert (= (len blockers) 2))
+    (assert (any? (iter blockers)
+              (fn (record)
+                (= (text-at-entry record "id") (as-str done)))))
+    (assert (any? (iter blockers)
+              (fn (record) (cleared? record))))))
+
+(deftest a-bad-blocker-is-refused-and-writes-nothing
+  (let (database (database-with-roadmap "e2e-external-refusals")
+        item (research (clone database))
+        before (event-count (clone database))
+        blank (block (clone database) item (str "   "))
+        unknown (run-rmap
+                  (clone database)
+                  (vec "item" "unblock" (as-str item) "--external" "rm-ffff"))
+        kept (blocker-id (ref (block (clone database) item (str "kept"))))
+        _cleared (run-rmap (clone database)
+                           (vec "item" "unblock"
+                                (as-str item)
+                                "--external"
+                                (as-str kept)))
+        again (run-rmap (clone database)
+                        (vec "item" "unblock"
+                             (as-str item)
+                             "--external"
+                             (as-str kept))))
+    (assert (= (error-code (ref blank))
+               (str "blank-external-blocker")))
+    (assert (= (error-code (ref unknown))
+               (str "external-blocker-not-found")))
+    (assert (= (error-code (ref again))
+               (str "external-blocker-cleared")))
+    (assert (= (event-count (clone database))
+               (+ before 2)))))
+
+(deftest a-blocker-of-another-item-is-refused
+  (let (database (database-with-roadmap "e2e-external-other-item")
+        item (research (clone database))
+        other (research (clone database))
+        blocker (blocker-id (ref
+                              (block (clone database) other (str "elsewhere"))))
+        refused (run-rmap (clone database)
+                          (vec "item" "unblock"
+                               (as-str item)
+                               "--external"
+                               (as-str blocker))))
+    (assert (= (error-code (ref refused))
+               (str "external-blocker-in-other-item")))))
+
+(deftest the-export-lists-blockers-with-every-column
+  (let (database (database-with-roadmap "e2e-external-export")
+        item (research (clone database))
+        blocker (blocker-id (ref
+                              (block (clone database) item (str "exported"))))
+        _cleared (run-rmap (clone database)
+                           (vec "item" "unblock"
+                                (as-str item)
+                                "--external"
+                                (as-str blocker)
+                                "--note" "done"))
+        exported (:json (run-rmap (clone database) (vec "export")))
+        records (json-entries exported "external_blockers")
+        record (unwrap (first records)))
+    (assert (= (len records) 1))
+    (assert (= (text-at-entry record "id") (as-str blocker)))
+    (assert (= (text-at-entry record "item_id") (as-str item)))
+    (assert (= (text-at-entry record "text") (str "exported")))
+    (assert (some? (field (copy-of record) "created_at")))
+    (assert (some? (field (copy-of record) "created_by")))
+    (assert (cleared? record))
+    (assert (= (text-at-entry record "clear_note") (str "done")))))
+
+(deftest next-waits-instead-of-planning-work
+  (let (database (database-with-roadmap "e2e-external-next")
+        item (research (clone database))
+        _blocked (block (clone database) item (str "outside work"))
+        next (run-rmap (clone database) (vec "next"))
+        entry (unwrap (first (entries (ref next) "next")))
+        actions (unwrap (json->items (unwrap (field (copy-of entry)
+                                                    "actions"))))
+        action (unwrap (first actions)))
+    (assert (= (text-at-entry action "action") (str "wait")))))

@@ -1,9 +1,11 @@
 (use ledger/refusal refusal)
 (use ledger/refusal-messages refusal->message)
 
-(use ledger/model ->blockage ->decision-id ->item-id
-                  ->session decision-status roadmap-pause)
+(use ledger/model ->blockage ->decision-id
+                  ->external-blocker-id ->item-id ->session
+                  decision-status)
 
+(use ledger/model/roadmap-pauses roadmap-pause)
 (use ledger/model/criteria ->criterion-gap criterion-result)
 
 (deftest a-priority-below-zero-message-names-the-range-and-the-value
@@ -39,7 +41,7 @@
 
 (deftest a-not-blockable-message-names-the-item
   (assert (= (refusal->message (refusal/not-blockable (->item-id :value (str "rm-0003"))))
-             (str "only an open item or an unfinished epic can wait on a decision, and rm-0003 is not one"))))
+             (str "only an open item or an unfinished epic can take a blocker, and rm-0003 is not one"))))
 
 (deftest an-invalid-decision-transition-message-names-both-states
   (assert (= (refusal->message (refusal/invalid-decision-transition
@@ -59,6 +61,27 @@
                                                                               "rm-0002"))))
              (str "the decision rm-0002 is already asked"))))
 
+(deftest a-blank-external-blocker-message-says-it-needs-a-text
+  (assert (= (refusal->message refusal/blank-external-blocker)
+             (str "an external blocker needs a text"))))
+
+(deftest a-missing-external-blocker-message-names-the-id
+  (assert (= (refusal->message (refusal/external-blocker-not-found (->external-blocker-id
+                                                                     :value (str
+                                                                              "rm-x001"))))
+             (str "no external blocker has the id rm-x001"))))
+
+(deftest a-cleared-external-blocker-message-names-the-id
+  (assert (= (refusal->message (refusal/external-blocker-cleared (->external-blocker-id
+                                                                   :value (str "rm-x001"))))
+             (str "the external blocker rm-x001 is already cleared"))))
+
+(deftest an-external-blocker-of-another-item-message-names-both
+  (assert (= (refusal->message (refusal/external-blocker-in-other-item
+                                 (->external-blocker-id :value (str "rm-x001"))
+                                 (->item-id :value (str "rm-0001"))))
+             (str "the external blocker rm-x001 belongs to another item than rm-0001"))))
+
 (deftest a-not-ready-message-names-the-blocking-decisions
   (assert (= (refusal->message (refusal/not-ready
                                  (->blockage :pause roadmap-pause/not-paused
@@ -66,7 +89,8 @@
                                              :dropped-blockers (vec)
                                              :decisions (vec (->decision-id
                                                                :value (str "rm-d1")))
-                                             :capacity none)))
+                                             :capacity none
+                                             :external-blockers (vec))))
              (str "the item is not ready; it waits on decisions rm-d1"))))
 
 (deftest a-block-exists-message-names-both-ids

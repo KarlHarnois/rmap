@@ -1,10 +1,10 @@
-(use ledger/model ->blockage ->capacity ->item-id
-                  roadmap-pause)
-
+(use ledger/model ->blockage ->item-id)
+(use ledger/model/capacity ->capacity)
+(use ledger/model/roadmap-pauses roadmap-pause)
 (use ledger/model kind status)
 (use ledger/core/ready ->blocked-item ->readiness)
 (use cli/readiness-text blockage-lines readiness-text)
-(use support/items work-item)
+(use support/items external-blocker-on work-item)
 
 (defn id-of (text)
   (->item-id :value (str text)))
@@ -14,7 +14,8 @@
                                               :blockers (vec (id-of "rm-0001"))
                                               :dropped-blockers (vec (id-of "rm-0002"))
                                               :decisions (vec)
-                                              :capacity none)))
+                                              :capacity none
+                                              :external-blockers (vec))))
              (vec (str "waits on rm-0001")
                   (str "waits on dropped rm-0002")))))
 
@@ -23,17 +24,19 @@
                                               :blockers (vec)
                                               :dropped-blockers (vec)
                                               :decisions (vec)
-                                              :capacity none)))
+                                              :capacity none
+                                              :external-blockers (vec))))
              (vec (str "paused")))))
 
 (deftest a-full-roadmap-gets-a-capacity-line
-  (assert (= (blockage-lines
-               (ref (->blockage :pause roadmap-pause/not-paused
-                                :blockers (vec)
-                                :dropped-blockers (vec)
-                                :decisions (vec)
-                                :capacity (some (->capacity :active 3
-                                                            :max-active 3)))))
+  (assert (= (blockage-lines (ref (->blockage :pause roadmap-pause/not-paused
+                                              :blockers (vec)
+                                              :dropped-blockers (vec)
+                                              :decisions (vec)
+                                              :capacity (some (->capacity
+                                                                :active 3
+                                                                :max-active 3))
+                                              :external-blockers (vec))))
              (vec (str "at capacity: 3 of 3 active")))))
 
 (deftest a-blockage-without-reasons-has-no-lines
@@ -42,7 +45,8 @@
                                          :blockers (vec)
                                          :dropped-blockers (vec)
                                          :decisions (vec)
-                                         :capacity none))))))
+                                         :capacity none
+                                         :external-blockers (vec)))))))
 
 (deftest with-nothing-ready-the-blocked-section-follows-the-notice
   (assert
@@ -56,5 +60,19 @@
                                                                   "rm-0001"))
                                                  :dropped-blockers (vec)
                                                  :decisions (vec)
-                                                 :capacity none)))))
+                                                 :capacity none
+                                                 :external-blockers (vec))))))
        (str "Nothing is ready.\n\nBlocked:\n  rm-0002  work\n    waits on rm-0001"))))
+
+(deftest an-external-blocker-gets-a-line-with-its-id-and-text
+  (assert (= (blockage-lines (ref (->blockage :pause roadmap-pause/not-paused
+                                              :blockers (vec)
+                                              :dropped-blockers (vec)
+                                              :decisions (vec)
+                                              :capacity none
+                                              :external-blockers (vec (external-blocker-on
+                                                                        "rm-x1"
+                                                                        "rm-0001"
+                                                                        (str "the release")
+                                                                        none)))))
+             (vec (str "waits on external rm-x1: the release")))))

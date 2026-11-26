@@ -28,6 +28,7 @@
 (use ledger/failure failure)
 (use ledger/sqlite/connection connection)
 (use ledger/sqlite/decision-blocks all-blocks)
+(use ledger/sqlite/external-blockers all-external-blockers)
 (use ledger/sqlite/decision-option-points all-option-points)
 (use ledger/sqlite/decisions decisions-matching)
 (use ledger/sqlite/criteria all-criteria)
@@ -88,6 +89,7 @@
             decisions (decisions-matching connection any-decision)
             option-points (all-option-points connection)
             blocks (all-blocks connection)
+            external-blockers (all-external-blockers connection)
             rulings (all-rulings connection)
             events (events-matching connection every-event)
             item-proposals (all-item-proposals connection)
@@ -100,7 +102,8 @@
           whole (->snapshot :roadmaps (clone roadmaps)
                             :items (clone items)
                             :deps (clone deps)
-                            :decision-blocks (clone blocks))
+                            :decision-blocks (clone blocks)
+                            :external-blockers (clone external-blockers))
           readiness (readiness-of (ref whole) (ref scope/every-roadmap)))
       (ok (->ledger-export
             :exported-at (clone at)
@@ -117,6 +120,7 @@
             :export-decision-options (option-records (ref ordered-decisions))
             :export-decision-option-points (option-point-records (ref option-points))
             :export-decision-blocks (block-records (ref blocks))
+            :export-external-blockers external-blockers
             :export-rulings (ruling-records (ref rulings))
             :export-events events
             :export-item-proposals (item-proposal-records item-proposals)

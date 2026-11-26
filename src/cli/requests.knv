@@ -13,7 +13,6 @@
                 verify-request)
 
 (use cli/item-flags item-edit-of new-item-of)
-(use cli/max-active-flags max-active-change-of)
 (use cli/report-requests report-operation)
 (use cli/pr-requests pr-operation)
 
@@ -26,7 +25,7 @@
 (export add-item-request advance-request claim-request
         drop-request edit-item-request graph-request
         log-request new-roadmap-request ready-request
-        request roadmap-settings-request text->id)
+        request text->id)
 
 (defenum request
   init
@@ -45,6 +44,8 @@
   (list-items (option string))
   (show-item item-id)
   (edit-item item-id item-edit)
+  (block-item item-id string)
+  (unblock-item item-id string (option string))
   (claim item-id claim-request)
   (advance item-id advancement)
   (close item-id)
@@ -64,10 +65,6 @@
 (defn new-roadmap-request (arguments name)
   (let-try (manager (required-text arguments "manager"))
     (ok (request/new-roadmap name (->session :name manager)))))
-
-(defn roadmap-settings-request (arguments name)
-  (map-ok (max-active-change-of arguments)
-    (fn (change) (request/set-max-active name change))))
 
 (defn ready-request (arguments)
   (let-try (limit (optional-number arguments "limit"))

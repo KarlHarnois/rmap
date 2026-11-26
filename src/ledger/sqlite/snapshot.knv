@@ -1,11 +1,12 @@
 (module
-  "Loads a snapshot of the whole ledger: items, dependencies and decision blocks.")
+  "Loads a snapshot of the whole ledger: items, dependencies, decision blocks and external blockers.")
 
 (use ledger/model ->snapshot)
 (use ledger/sqlite/items all-items)
 (use ledger/sqlite/deps all-deps)
 (use ledger/sqlite/roadmaps all-roadmaps)
 (use ledger/sqlite/decision-blocks all-blocks)
+(use ledger/sqlite/external-blockers all-external-blockers)
 
 (export load-snapshot)
 
@@ -13,8 +14,10 @@
   (let-try (roadmaps (all-roadmaps connection)
             items (all-items connection)
             deps (all-deps connection)
-            decision-blocks (all-blocks connection))
+            decision-blocks (all-blocks connection)
+            external-blockers (all-external-blockers connection))
     (ok (->snapshot :roadmaps roadmaps
                     :items items
                     :deps deps
-                    :decision-blocks decision-blocks))))
+                    :decision-blocks decision-blocks
+                    :external-blockers external-blockers))))

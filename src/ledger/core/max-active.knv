@@ -1,9 +1,8 @@
 (module
   "Decides the max active cap: checks a new cap and says whether a roadmap is at it.")
 
-(use ledger/model ->capacity capacity item kind roadmap
-                  roadmap-id snapshot)
-
+(use ledger/model/capacity ->capacity capacity)
+(use ledger/model item kind roadmap roadmap-id snapshot)
 (use ledger/core/phases active?)
 (use ledger/refusal refusal)
 

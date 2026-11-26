@@ -1,11 +1,11 @@
 (module
   "Checks the items a decision names: the item that raised it, and the items it blocks, which are open items or unfinished epics.")
 
-(use ledger/model item kind roadmap-id status)
+(use ledger/model item roadmap-id)
 (use ledger/refusal refusal)
+(use ledger/core/blockable check-blockable)
 (use ledger/core/snapshot existing)
 (use ledger/core/index index-of with-shown-status)
-(use ledger/core/phases finished?)
 
 (export check-block check-blocks check-raising-item)
 
@@ -30,16 +30,7 @@
 (defn check-block (snapshot statuses roadmap-id id)
   (let-try (found (existing snapshot id)
             _ (check-same-roadmap (ref found) roadmap-id))
-    (if (blockable? (ref (with-shown-status statuses (ref found))))
-      (ok (do))
-      (err (refusal/not-blockable (clone id))))))
-
-(type blockable? (fn ((ref item)) bool))
-
-(defn blockable? (item)
-  (if (= (:kind item) kind/epic)
-    (not (finished? (:status item)))
-    (= (:status item) status/open)))
+    (check-blockable (with-shown-status statuses (ref found)))))
 
 (type check-same-roadmap
   (fn ((ref item) (ref roadmap-id))

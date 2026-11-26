@@ -1,0 +1,17 @@
+(use ledger/model kind)
+(use ledger/operations/transaction connect)
+(use ledger/sqlite/external-blockers insert-external-blocker)
+(use ledger/sqlite/generated id-taken?)
+(use support/items external-blocker-on)
+(use support/ledger added-id item-draft scratch-ledger)
+
+(deftest an-external-blocker-id-counts-as-taken
+  (let (settings (scratch-ledger "blocker-id-taken")
+        item (added-id (ref settings) (item-draft kind/research))
+        connection (unwrap-ok (connect (ref settings)))
+        blocker (external-blocker-on "rm-z001"
+                                     (:value item)
+                                     (str "the release")
+                                     none))
+    (unwrap-ok (insert-external-blocker (ref connection) (ref blocker)))
+    (assert (unwrap-ok (id-taken? (ref connection) (str "rm-z001"))))))

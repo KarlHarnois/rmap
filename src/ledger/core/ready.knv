@@ -2,14 +2,16 @@
   "Computes which items can start and what blocks the others.")
 
 (use ledger/model ->blockage blockage claim item item-id
-                  kind roadmap-pause roadmap-status snapshot
-                  status)
+                  kind roadmap-status snapshot status)
+
+(use ledger/model/roadmap-pauses roadmap-pause)
 
 (use ledger/core/index delivered-id? index-of indexed-status
                        ledger-index)
 
 (use ledger/core/snapshot blocked-by in-scope?)
 (use ledger/core/decision-blocks blocking-decisions)
+(use ledger/core/external-blockers blocking-external-blockers)
 (use ledger/core/max-active capacity-of)
 (use ledger/core/order ordered)
 
@@ -63,6 +65,7 @@
        (empty? (:blockers blockage))
        (empty? (:dropped-blockers blockage))
        (empty? (:decisions blockage))
+       (empty? (:external-blockers blockage))
        (none? (:capacity blockage))))
 
 (type blockage-of
@@ -81,7 +84,8 @@
                                                   (fn (id) (dropped? index id)))
                                                 clone))
                 :decisions (blocking-decisions snapshot item)
-                :capacity (capacity-of snapshot item))))
+                :capacity (capacity-of snapshot item)
+                :external-blockers (blocking-external-blockers snapshot item))))
 
 (defn pause-of (snapshot item)
   (if (paused-roadmap? snapshot item)

@@ -1,4 +1,5 @@
-(use ledger/model ->roadmap-id history)
+(use ledger/model ->roadmap-id)
+(use ledger/model/graphs history)
 (use ledger/core/graph/graph ->graph-view diagram-of)
 (use ledger/core/graph/mermaid/mermaid diagram->mermaid)
 (use ledger/core/snapshot scope)

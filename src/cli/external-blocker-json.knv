@@ -1,0 +1,40 @@
+(module
+  "Turns an external blocker into the JSON objects the CLI prints.")
+
+(use json/value json object text->json)
+
+(use ledger/api external-blocker optional-text->json
+                optional-timestamp->json)
+
+(export blocking-external-blocker->json
+        external-blocker->json)
+
+(type external-blocker->json
+  (fn ((ref external-blocker)) json))
+
+(defn external-blocker->json (blocker)
+  (object (vec (pair (str "id")
+                     (text->json (as-str (:value (:id blocker)))))
+               (pair (str "item_id")
+                     (text->json (as-str (:value (:item blocker)))))
+               (pair (str "text")
+                     (text->json (as-str (:text blocker))))
+               (pair (str "created_at")
+                     (text->json (as-str (:value (:created-at blocker)))))
+               (pair (str "created_by")
+                     (text->json (as-str (:created-by blocker))))
+               (pair (str "cleared_at")
+                     (optional-timestamp->json (ref (:cleared-at blocker))))
+               (pair (str "cleared_by")
+                     (optional-text->json (ref (:cleared-by blocker))))
+               (pair (str "clear_note")
+                     (optional-text->json (ref (:clear-note blocker)))))))
+
+(type blocking-external-blocker->json
+  (fn ((ref external-blocker)) json))
+
+(defn blocking-external-blocker->json (blocker)
+  (object (vec (pair (str "id")
+                     (text->json (as-str (:value (:id blocker)))))
+               (pair (str "text")
+                     (text->json (as-str (:text blocker)))))))

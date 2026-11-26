@@ -1,8 +1,6 @@
 (module
   "Holds the ledger's own settings, its initialization and the roadmap collection.")
 
-(use ledger/operations/database-path default-database-path)
-
 (use ledger/operations/init init-ledger init-outcome
                             init-outcome-names init-report)
 
@@ -14,6 +12,8 @@
 
 (use ledger/operations/transaction ->settings clock
                                    settings)
+
+(use ledger/operations/database-path default-database-path)
 
 (export ->settings clock default-database-path init-ledger
         init-outcome init-outcome-names init-report

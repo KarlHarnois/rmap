@@ -1,0 +1,132 @@
+(use ledger/model ->external-blocker-id ->timestamp kind
+                  status)
+
+(use ledger/core/external-blockers blocking-external-blockers
+                                   check-external-blocker-add
+                                   check-external-blocker-clear
+                                   check-external-blocker-text
+                                   external-blockers-of)
+
+(use ledger/refusal refusal)
+
+(use support/items child-of epic-item external-blocker-on
+                   id-of snapshot-of work-item)
+
+(defn cleared (text)
+  (some (->timestamp :value (str text))))
+
+(defn blocked-snapshot (blockers)
+  (assoc (snapshot-of (vec (open-item)) (vec))
+         :external-blockers blockers))
+
+(defn open-item ()
+  (work-item "rm-0001" kind/build status/open))
+
+(deftest an-uncleared-blocker-on-the-item-holds-it
+  (assert (= (len (blocking-external-blockers
+                    (ref (blocked-snapshot (vec (external-blocker-on "rm-x1"
+                                                                     "rm-0001"
+                                                                     (str "the release")
+                                                                     none))))
+                    (ref (open-item))))
+             1)))
+
+(deftest a-cleared-blocker-does-not-hold-its-item
+  (assert (empty? (blocking-external-blockers
+                    (ref (blocked-snapshot (vec (external-blocker-on "rm-x1"
+                                                                     "rm-0001"
+                                                                     (str "the release")
+                                                                     (cleared "2026-01-02T00:00:00Z")))))
+                    (ref (open-item))))))
+
+(deftest a-blocker-on-an-epic-holds-its-child
+  (let (child (child-of (open-item) "rm-e1")
+        snapshot (assoc (snapshot-of (vec (epic-item "rm-e1") (clone child))
+                                     (vec))
+                        :external-blockers (vec (external-blocker-on "rm-x1"
+                                                                     "rm-e1"
+                                                                     (str "the release")
+                                                                     none))))
+    (assert (= (len (blocking-external-blockers (ref snapshot) (ref child)))
+               1))))
+
+(deftest a-blocker-on-another-item-holds-nothing
+  (assert (empty? (blocking-external-blockers
+                    (ref (blocked-snapshot (vec (external-blocker-on "rm-x1"
+                                                                     "rm-0002"
+                                                                     (str "the release")
+                                                                     none))))
+                    (ref (open-item))))))
+
+(deftest blocking-blockers-are-ordered-by-id
+  (let (blockers (blocking-external-blockers (ref (blocked-snapshot (vec (external-blocker-on
+                                                                           "rm-x2"
+                                                                           "rm-0001"
+                                                                           (str "second")
+                                                                           none)
+                                                                         (external-blocker-on
+                                                                           "rm-x1"
+                                                                           "rm-0001"
+                                                                           (str "first")
+                                                                           none))))
+                                             (ref (open-item))))
+    (assert (= (collect (map (iter blockers)
+                          (fn (blocker)
+                            (clone (:value (:id blocker))))))
+               (vec (str "rm-x1") (str "rm-x2"))))))
+
+(deftest listing-blockers-keeps-cleared-ones
+  (assert (= (len (external-blockers-of (ref (blocked-snapshot (vec (external-blocker-on
+                                                                      "rm-x1"
+                                                                      "rm-0001"
+                                                                      (str "the release")
+                                                                      (cleared "2026-01-02T00:00:00Z")))))
+                                        (ref (id-of "rm-0001"))))
+             1)))
+
+(deftest an-open-item-can-take-a-blocker
+  (assert (ok? (check-external-blocker-add (ref (snapshot-of (vec (open-item))
+                                                             (vec)))
+                                           (ref (id-of "rm-0001"))))))
+
+(deftest a-claimed-item-cannot-take-a-blocker
+  (let (snapshot (snapshot-of (vec (assoc (open-item)
+                                          :status status/dispatched))
+                              (vec)))
+    (assert (= (unwrap-err (check-external-blocker-add (ref snapshot)
+                                                       (ref (id-of "rm-0001"))))
+               (refusal/not-blockable (id-of "rm-0001"))))))
+
+(deftest a-finished-epic-cannot-take-a-blocker
+  (let (snapshot (snapshot-of
+                   (vec (epic-item "rm-e1")
+                        (child-of (work-item "rm-0001" kind/build status/merged)
+                                  "rm-e1"))
+                   (vec)))
+    (assert (= (unwrap-err (check-external-blocker-add (ref snapshot)
+                                                       (ref (id-of "rm-e1"))))
+               (refusal/not-blockable (id-of "rm-e1"))))))
+
+(deftest a-blank-blocker-text-is-refused
+  (assert (= (unwrap-err (check-external-blocker-text "  "))
+             refusal/blank-external-blocker)))
+
+(deftest a-blocker-can-be-cleared-once
+  (let (blocker (external-blocker-on "rm-x1" "rm-0001"
+                                     (str "the release")
+                                     (cleared "2026-01-02T00:00:00Z")))
+    (assert
+      (= (unwrap-err (check-external-blocker-clear (ref blocker)
+                                                   (ref (id-of "rm-0001"))))
+         (refusal/external-blocker-cleared (->external-blocker-id :value (str "rm-x1")))))))
+
+(deftest a-blocker-of-another-item-cannot-be-cleared
+  (let (blocker (external-blocker-on "rm-x1" "rm-0002"
+                                     (str "the release")
+                                     none))
+    (assert (= (unwrap-err (check-external-blocker-clear (ref blocker)
+                                                         (ref (id-of
+                                                                "rm-0001"))))
+               (refusal/external-blocker-in-other-item (->external-blocker-id
+                                                         :value (str "rm-x1"))
+                                                       (id-of "rm-0001"))))))

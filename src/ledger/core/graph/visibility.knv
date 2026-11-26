@@ -1,7 +1,8 @@
 (module
   "Decides which items and dependencies a graph shows: dropped items never, merged and accepted items only with their history.")
 
-(use ledger/model dep history item item-id status)
+(use ledger/model dep item item-id status)
+(use ledger/model/graphs history)
 
 (export visible-deps visible-items visible?)
 

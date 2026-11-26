@@ -1,6 +1,7 @@
 (module
   "Lists each command the CLI accepts.")
 
+(use cli/block-commands block-routes)
 (use cli/item-commands item-routes)
 (use cli/decision-commands decision-routes)
 (use cli/export-commands export-routes)
@@ -14,6 +15,8 @@
 
 (defn routes ()
   (let (all (item-routes))
+    (for-each (block-routes)
+      (fn (route) (push! all (clone route))))
     (for-each (vec (lifecycle-routes)
                    (decision-routes)
                    (export-routes)

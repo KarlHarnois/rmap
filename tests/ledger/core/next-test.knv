@@ -1,6 +1,8 @@
 (use ledger/model ->decision-id ->item-id ->roadmap-id
                   ->session ->timestamp decision-status item
-                  kind roadmap-pause session-kind status)
+                  kind session-kind status)
+
+(use ledger/model/roadmap-pauses roadmap-pause)
 
 (use ledger/model/criteria ->criterion-verdict
                            ->criterion-verdict-id

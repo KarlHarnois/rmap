@@ -1,0 +1,72 @@
+(module
+  "Describes external blockers in plain text.")
+
+(use ledger/api external-blocker timestamp)
+(use cli/tables headed table)
+
+(export external-blocker-changed-text
+        external-blocker-table)
+
+(defn external-blocker-changed-text (blocker)
+  (match (:cleared-at blocker)
+    (none (str "Added external blocker "
+               (:value (:id blocker))
+               " on "
+               (:value (:item blocker))
+               ": "
+               (:text blocker)))
+    ((some _)
+     (str "Cleared external blocker "
+          (:value (:id blocker))
+          " on "
+          (:value (:item blocker))
+          "."))))
+
+(type external-blocker-table
+  (fn ((ref (vec external-blocker)))
+    string))
+
+(defn external-blocker-table (blockers)
+  (let (rows (headed (vec (str "ID")
+                          (str "TEXT")
+                          (str "CLEARED"))))
+    (for-each blockers
+      (fn (blocker)
+        (push! rows (external-blocker-cells blocker))))
+    (table rows)))
+
+(type external-blocker-cells
+  (fn ((ref external-blocker))
+    (vec string)))
+
+(defn external-blocker-cells (blocker)
+  (vec (clone (:value (:id blocker)))
+       (clone (:text blocker))
+       (cleared-text (ref (:cleared-at blocker))
+                     (ref (:cleared-by blocker))
+                     (ref (:clear-note blocker)))))
+
+(type cleared-text
+  (fn ((ref (option timestamp))
+       (ref (option string))
+       (ref (option string)))
+    string))
+
+(defn cleared-text (at by note)
+  (match at
+    (none (str "-"))
+    ((some present)
+     (str (:value present)
+          " by "
+          (actor-text by)
+          (note-text note)))))
+
+(defn actor-text (by)
+  (match by
+    ((some name) (clone name))
+    (none (str "-"))))
+
+(defn note-text (note)
+  (match note
+    ((some text) (str ": " text))
+    (none (str ""))))

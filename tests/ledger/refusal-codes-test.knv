@@ -1,7 +1,8 @@
-(use ledger/model ->blockage ->decision-id ->item-id
-                  ->session decision-status kind
-                  roadmap-pause status)
+(use ledger/model ->blockage ->decision-id
+                  ->external-blocker-id ->item-id ->session
+                  decision-status kind status)
 
+(use ledger/model/roadmap-pauses roadmap-pause)
 (use ledger/model/reports ->report-id)
 (use ledger/model/criteria ->criterion-gap criterion-result)
 (use ledger/refusal refusal)
@@ -33,7 +34,8 @@
                                       :blockers (vec)
                                       :dropped-blockers (vec)
                                       :decisions (vec)
-                                      :capacity none))
+                                      :capacity none
+                                      :external-blockers (vec)))
        (refusal/cycle (sample-id) (sample-id))
        (refusal/dep-exists (sample-id) (sample-id))
        (refusal/dep-not-found (sample-id) (sample-id))
@@ -52,6 +54,11 @@
                                       (sample-id))
        (refusal/decision-block-not-found (sample-decision-id)
                                          (sample-id))
+       refusal/blank-external-blocker
+       (refusal/external-blocker-not-found (sample-blocker-id))
+       (refusal/external-blocker-cleared (sample-blocker-id))
+       (refusal/external-blocker-in-other-item (sample-blocker-id)
+                                               (sample-id))
        (refusal/supersede-target-not-accepted (sample-decision-id))
        (refusal/decisions-pending (vec (sample-decision-id)))
        (refusal/proposal-incomplete (str "a problem"))
@@ -116,6 +123,9 @@
               :approved-by (vec)
               :changes-requested (vec)
               :stale-heads (vec)))
+
+(defn sample-blocker-id ()
+  (->external-blocker-id :value (str "rm-x001")))
 
 (defn sample-decision-id ()
   (->decision-id :value (str "rm-0002")))

@@ -1,7 +1,8 @@
 (module
   "Draws a graph at epic level: one node per epic and per item with no epic, inside its roadmap's subgraph.")
 
-(use ledger/model history roadmap-id)
+(use ledger/model roadmap-id)
+(use ledger/model/graphs history)
 (use ledger/core/snapshot scope)
 (use ledger/core/graph/diagram diagram)
 

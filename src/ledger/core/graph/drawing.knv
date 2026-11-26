@@ -1,7 +1,7 @@
 (module
   "Builds the graph a level draws: the item graph as it is, or the item graph with every item rolled up to its epic or roadmap.")
 
-(use ledger/model history)
+(use ledger/model/graphs history)
 (use ledger/core/snapshot scope)
 (use ledger/core/graph/graph ->graph-view diagram-of)
 (use ledger/core/graph/diagram diagram)

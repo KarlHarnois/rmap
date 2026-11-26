@@ -38,11 +38,18 @@
     (dropped-id (clone database))
     (let (blocked (added-id (clone database) "research")
           blocker (added-id (clone database) "design")
-          decision-blocked (added-id (clone database) "research"))
+          decision-blocked (added-id (clone database) "research")
+          waiting (added-id (clone database) "research"))
       (assert (= (:exit-code (run-rmap (clone database)
                                        (vec "dep" "add"
                                             (as-str blocked)
                                             (as-str blocker))))
+                 0))
+      (assert (= (:exit-code (run-rmap (clone database)
+                                       (vec "item" "block"
+                                            (as-str waiting)
+                                            "--external"
+                                            "outside work")))
                  0))
       (insert-ruling (clone database) (as-str research))
       (proposed-id (clone database) (clone decision-blocked)))
@@ -272,7 +279,8 @@
   (and (same-field? (ref item) (ref blocked) "paused")
        (same-field? (ref item) (ref blocked) "blockers")
        (same-field? (ref item) (ref blocked) "dropped_blockers")
-       (same-field? (ref item) (ref blocked) "blocking_decisions")))
+       (same-field? (ref item) (ref blocked) "blocking_decisions")
+       (same-field? (ref item) (ref blocked) "external_blockers")))
 
 (defn record-text (record key)
   (unwrap (json->text (ref (unwrap (field (copy-of record) key))))))
@@ -309,6 +317,7 @@
                          (str "decision_options")
                          (str "decision_option_points")
                          (str "decision_blocks")
+                         (str "external_blockers")
                          (str "rulings")
                          (str "events")
                          (str "item_proposals")

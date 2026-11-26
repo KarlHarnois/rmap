@@ -1,12 +1,12 @@
 (module
-  "Asks the database for the values it generates: fresh ids for items, roadmaps, decisions and rulings and the current time.")
+  "Asks the database for the values it generates: fresh ids for items, roadmaps, decisions, rulings and external blockers, and the current time.")
 
 (use ledger/sqlite/values text->sql)
 (use ledger/model ->timestamp)
 (use ledger/sqlite/connection database-failure query)
 (use ledger/sqlite/rows single-row text-cell)
 
-(export database-now fresh-id)
+(export database-now fresh-id id-taken?)
 
 (def id-attempts 1000)
 
@@ -28,15 +28,15 @@
             text (text-cell row 0))
     (ok (->timestamp :value text))))
 
+(defn id-taken? (connection candidate)
+  (let-try (rows (query connection
+                        "SELECT id FROM items WHERE id = ?1 UNION SELECT id FROM roadmaps WHERE id = ?1 UNION SELECT id FROM decisions WHERE id = ?1 UNION SELECT id FROM rulings WHERE id = ?1 UNION SELECT id FROM external_blockers WHERE id = ?1"
+                        (ref (vec (text->sql candidate)))))
+    (ok (not (empty? rows)))))
+
 (defn random-id (connection)
   (let-try (rows (query connection
                         "SELECT 'rm-' || lower(hex(randomblob(2)))"
                         (ref (vec)))
             row (single-row (ref rows)))
     (text-cell row 0)))
-
-(defn id-taken? (connection candidate)
-  (let-try (rows (query connection
-                        "SELECT id FROM items WHERE id = ?1 UNION SELECT id FROM roadmaps WHERE id = ?1 UNION SELECT id FROM decisions WHERE id = ?1 UNION SELECT id FROM rulings WHERE id = ?1"
-                        (ref (vec (text->sql candidate)))))
-    (ok (not (empty? rows)))))
