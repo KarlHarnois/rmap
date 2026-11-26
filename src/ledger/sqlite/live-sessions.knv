@@ -1,5 +1,5 @@
 (module
-  "Reads live sessions: the live review session of an item, the live review session a named reviewer started on it, and any live session by name.")
+  "Reads live sessions: every live review session, the live review session of an item, the live review session a named reviewer started on it, and any live session by name.")
 
 (use ledger/model ->item-id ->session item-id session)
 
@@ -16,7 +16,14 @@
                         text-cell)
 
 (export live-review-session live-review-session-id
-        live-session-named)
+        live-review-sessions live-session-named)
+
+(defn live-review-sessions (connection)
+  (let-try (rows (query connection
+                        "SELECT id, name, item_id, kind FROM sessions WHERE kind = 'review' AND ended_at IS NULL ORDER BY id"
+                        (ref (vec)))
+            lives (rows->values (ref rows) row->live-session))
+    (ok lives)))
 
 (type live-review-session
   (fn ((ref connection) (ref item-id))

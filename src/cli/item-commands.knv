@@ -38,7 +38,7 @@
                             (optional "limit" "<whole number, at least 1>")))
        (->route :subcommand subcommand/next
                 :words (words "next")
-                :summary (str "Lists the next action for each open item and proposed decision, and who takes it: an agent asks an unanswered decision, the user answers an asked one, and a rejected decision that holds an item sends it back for a replan. A manager with no roadmaps gives an empty list, not an error.")
+                :summary (str "Lists the next action for each open item and proposed decision, and who takes it: an agent asks an unanswered decision, the user answers an asked one, and a rejected decision that holds an item sends it back for a replan. A build's review step follows its pull request's current head: review when a reviewer must start, review with the live review session's name when one is live, send-fixes for the agent when a reviewer asked for changes on that head, and verify when the head is approved but acceptance criteria still need verdicts. A manager with no roadmaps gives an empty list, not an error.")
                 :operands (vec)
                 :flags (vec (optional "roadmap" "<name>")
                             (optional "manager" "<session>")))

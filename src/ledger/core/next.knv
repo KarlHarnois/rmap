@@ -6,6 +6,7 @@
 (use ledger/model/reports report)
 (use ledger/model/criteria criterion-verdict)
 (use ledger/model/pull-requests pull-request)
+(use ledger/model/sessions live-session)
 (use ledger/core/actions next-action)
 (use ledger/core/report-actions with-reports)
 (use ledger/core/ready readiness-of)
@@ -33,7 +34,8 @@
 (defstruct deliveries
   :reports (vec report)
   :pull-requests (vec pull-request)
-  :criterion-verdicts (vec criterion-verdict))
+  :criterion-verdicts (vec criterion-verdict)
+  :live-reviews (vec live-session))
 
 (type next-of
   (fn ((ref snapshot)
@@ -95,4 +97,5 @@
                          (status-actions readiness snapshot
                                          (ref (:pull-requests deliveries))
                                          (ref (:criterion-verdicts deliveries))
+                                         (ref (:live-reviews deliveries))
                                          item)))

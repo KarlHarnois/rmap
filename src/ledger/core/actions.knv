@@ -1,10 +1,10 @@
 (module
-  "Names each next action, the actor who takes it, and builds an action with the actor the table gives.")
+  "Names each next action, the actor the table gives it, and builds an action.")
 
 (use ledger/model blockage session)
 (use ledger/model/reports report-id)
 
-(export action actor actor-of next-action planned
+(export action actor actor-of next-action planned planned-by
         planned-for-report)
 
 (defstruct next-action
@@ -24,6 +24,7 @@
   accept-report
   review
   verify
+  send-fixes
   fix
   merge
   answer)
@@ -39,8 +40,11 @@
   (assoc (planned action session none) :report (some report)))
 
 (defn planned (action session reasons)
+  (planned-by (actor-of action) action session reasons))
+
+(defn planned-by (actor action session reasons)
   (->next-action :action action
-                 :actor (actor-of action)
+                 :actor actor
                  :session session
                  :reasons reasons
                  :report none))
@@ -56,6 +60,7 @@
     (accept-report actor/agent)
     (review actor/agent)
     (verify actor/manager)
+    (send-fixes actor/agent)
     (fix actor/worker)
     (merge actor/controller)
     (answer actor/agent)))

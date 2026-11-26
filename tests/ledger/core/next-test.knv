@@ -1,6 +1,6 @@
 (use ledger/model ->decision-id ->item-id ->roadmap-id
                   ->session ->timestamp decision-status item
-                  kind roadmap-pause status)
+                  kind roadmap-pause session-kind status)
 
 (use ledger/model/criteria ->criterion-verdict
                            ->criterion-verdict-id
@@ -8,7 +8,7 @@
 
 (use ledger/core/actions action actor actor-of)
 (use ledger/core/next ->deliveries next-entry next-of)
-(use ledger/model/sessions ->session-id)
+(use ledger/model/sessions ->live-session ->session-id)
 
 (use ledger/model/pull-requests ->head ->pr-number
                                 ->pull-request ->review
@@ -33,6 +33,8 @@
 (def seed-count 300)
 
 (def sha "1111111111111111111111111111111111111111")
+
+(def next-sha "2222222222222222222222222222222222222222")
 
 (defn worker ()
   (some (->session :name (str "worker"))))
@@ -76,7 +78,8 @@
 (defn reports-only (reports)
   (->deliveries :reports reports
                 :pull-requests (vec)
-                :criterion-verdicts (vec)))
+                :criterion-verdicts (vec)
+                :live-reviews (vec)))
 
 (defn ids-of (listed)
   (collect (map (filter (iter listed) item-listed?)
@@ -165,25 +168,39 @@
   (build-action status/in-review verdict))
 
 (defn build-action (status verdict)
-  (let (listed (next-of (ref (alone (claimed
-                                      (work-item "rm-0001" kind/build status))))
-                        (ref (vec (road)))
-                        (ref (->deliveries :reports (vec)
-                                           :pull-requests (vec (pull-request-with
-                                                                 verdict))
-                                           :criterion-verdicts (vec)))
-                        (ref (vec))))
-    (clone (at (entry-actions (at listed 0)) 0))))
+  (build-action-with-live status verdict (vec)))
+
+(defn build-action-with-live (status verdict live-reviews)
+  (first-action-of (listed-for (claimed (work-item "rm-0001" kind/build status))
+                               verdict
+                               (vec)
+                               live-reviews)))
+
+(defn first-action-of (listed)
+  (clone (at (entry-actions (at listed 0)) 0)))
+
+(defn listed-for (item verdict verdicts live-reviews)
+  (next-of (ref (alone item))
+           (ref (vec (road)))
+           (ref (->deliveries :reports (vec)
+                              :pull-requests (vec (pull-request-with verdict))
+                              :criterion-verdicts verdicts
+                              :live-reviews live-reviews))
+           (ref (vec))))
 
 (defn approved-deliveries ()
   (->deliveries :reports (vec)
                 :pull-requests (vec (pull-request-with verdict/approve))
-                :criterion-verdicts (vec)))
+                :criterion-verdicts (vec)
+                :live-reviews (vec)))
 
 (defn pull-request-with (verdict)
+  (pull-request-with-review sha sha verdict))
+
+(defn pull-request-with-review (head review-head verdict)
   (->pull-request :item (->item-id :value (str "rm-0001"))
                   :pr-number (->pr-number :value 12)
-                  :head (->head :sha (str sha))
+                  :head (->head :sha (str head))
                   :opened-at (->timestamp :value (str "2026-01-02T00:00:00Z"))
                   :reviews (vec (->review :id (->review-id :value 1)
                                           :item (->item-id :value (str
@@ -191,9 +208,15 @@
                                           :session-id (->session-id :value 2)
                                           :reviewer (->session :name (str "r1"))
                                           :kind review-kind/behavior
-                                          :head (->head :sha (str sha))
+                                          :head (->head :sha (str review-head))
                                           :verdict verdict
                                           :created-at (->timestamp :value (str "2026-01-03T00:00:00Z"))))))
+
+(defn live-review (reviewer)
+  (->live-session :id (->session-id :value 9)
+                  :session (->session :name (str reviewer))
+                  :item (->item-id :value (str "rm-0001"))
+                  :kind session-kind/review))
 
 (defn item-entry-for (listed id)
   (clone (unwrap (find (iter listed)
@@ -238,17 +261,18 @@
              (ref (vec decision)))))
 
 (defn approved-action (verdicts)
-  (clone (at (entry-actions (at (approved-with-verdicts verdicts) 0))
-             0)))
+  (first-action-of (approved-with-verdicts verdicts)))
 
 (defn approved-with-verdicts (verdicts)
-  (next-of (ref (alone (criterion-build)))
-           (ref (vec (road)))
-           (ref (->deliveries :reports (vec)
-                              :pull-requests (vec (pull-request-with
-                                                    verdict/approve))
-                              :criterion-verdicts verdicts))
-           (ref (vec))))
+  (listed-for (criterion-build)
+              verdict/approve verdicts
+              (vec)))
+
+(defn approved-actions-with-live (verdicts live-reviews)
+  (entry-actions (at (listed-for (criterion-build)
+                                 verdict/approve verdicts
+                                 live-reviews)
+                     0)))
 
 (defn criterion-verdict-on (position result sha)
   (->criterion-verdict :id (->criterion-verdict-id :value 1)
@@ -430,18 +454,19 @@
     (assert (= (:action planned) action/merge))
     (assert (= (:actor planned) actor/controller))))
 
-(deftest a-build-with-changes-asked-stays-in-review
-  (assert (= (:action (in-review-action verdict/changes))
-             action/review)))
+(deftest a-build-with-changes-asked-is-sent-to-fixes
+  (let (planned (in-review-action verdict/changes))
+    (assert (= (:action planned) action/send-fixes))
+    (assert (= (:actor planned) actor/agent))))
 
 (deftest an-approved-merging-build-is-merged-by-the-controller
   (let (planned (build-action status/merging verdict/approve))
     (assert (= (:action planned) action/merge))
     (assert (= (:actor planned) actor/controller))))
 
-(deftest a-merging-build-with-changes-asked-is-listed-for-review
+(deftest a-merging-build-with-changes-asked-is-sent-to-fixes
   (assert (= (:action (build-action status/merging verdict/changes))
-             action/review)))
+             action/send-fixes)))
 
 (deftest a-proposed-decision-is-listed-before-the-roadmaps-items
   (let (snapshot (snapshot-of (vec (work-item "rm-0001" kind/build status/open))
@@ -646,8 +671,42 @@
              action/merge)))
 
 (deftest an-approved-build-with-a-verdict-on-an-old-head-is-verified
-  (assert (= (:action (approved-action (vec (criterion-verdict-on
-                                              1
-                                              criterion-result/met
-                                              "2222222222222222222222222222222222222222"))))
+  (assert (= (:action
+               (approved-action
+                 (vec (criterion-verdict-on 1 criterion-result/met next-sha))))
              action/verify)))
+
+(deftest a-live-review-session-is-reviewed-by-that-worker
+  (let (planned (build-action-with-live status/in-review
+                                        verdict/changes
+                                        (vec (live-review "r1"))))
+    (assert (= (:action planned) action/review))
+    (assert (= (:actor planned) actor/worker))
+    (assert (= (:session planned)
+               (some (->session :name (str "r1")))))))
+
+(deftest a-live-review-session-on-a-build-waiting-for-verdicts-is-reviewed-by-that-worker
+  (let (actions (approved-actions-with-live (vec)
+                                            (vec (live-review "r1"))))
+    (assert (= (len actions) 1))
+    (assert (= (:action (at actions 0)) action/review))
+    (assert (= (:actor (at actions 0)) actor/worker))
+    (assert (= (:session (at actions 0))
+               (some (->session :name (str "r1")))))))
+
+(deftest a-new-head-after-changes-is-reviewed-again
+  (let (listed (next-of (ref (alone (claimed (work-item "rm-0001"
+                                                        kind/build
+                                                        status/in-review))))
+                        (ref (vec (road)))
+                        (ref (->deliveries :reports (vec)
+                                           :pull-requests (vec (pull-request-with-review
+                                                                 next-sha
+                                                                 sha
+                                                                 verdict/changes))
+                                           :criterion-verdicts (vec)
+                                           :live-reviews (vec)))
+                        (ref (vec)))
+        planned (clone (at (entry-actions (at listed 0)) 0)))
+    (assert (= (:action planned) action/review))
+    (assert (= (:actor planned) actor/agent))))

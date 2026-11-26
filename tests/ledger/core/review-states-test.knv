@@ -1,0 +1,145 @@
+(use ledger/model ->item-id ->session ->timestamp kind
+                  session-kind status)
+
+(use ledger/model/criteria ->criterion-verdict
+                           ->criterion-verdict-id
+                           criterion-result)
+
+(use ledger/model/pull-requests ->head ->pr-number
+                                ->pull-request ->review
+                                ->review-id review-kind
+                                verdict)
+
+(use ledger/model/sessions ->live-session ->session-id)
+(use ledger/core/review-states review-step review-step-of)
+(use support/items work-item)
+
+(def first-sha "1111111111111111111111111111111111111111")
+
+(def second-sha "2222222222222222222222222222222222222222")
+
+(defn step-of (pull-request verdicts live-reviews)
+  (review-step-of (ref pull-request)
+                  (ref verdicts)
+                  (ref live-reviews)
+                  (build-item)))
+
+(defn review (reviewer verdict sha)
+  (->review :id (->review-id :value 1)
+            :item (this-item)
+            :session-id (->session-id :value 2)
+            :reviewer (->session :name (str reviewer))
+            :kind review-kind/behavior
+            :head (->head :sha (str sha))
+            :verdict verdict
+            :created-at (->timestamp :value (str "2026-01-03T00:00:00Z"))))
+
+(defn pull-request-with (sha reviews)
+  (->pull-request :item (this-item)
+                  :pr-number (->pr-number :value 12)
+                  :head (->head :sha (str sha))
+                  :opened-at (->timestamp :value (str "2026-01-02T00:00:00Z"))
+                  :reviews reviews))
+
+(defn verdict-on (result sha)
+  (->criterion-verdict :id (->criterion-verdict-id :value 1)
+                       :item (this-item)
+                       :position 1
+                       :verdict result
+                       :note none
+                       :reviewer (->session :name (str "r1"))
+                       :head (some (->head :sha (str sha)))
+                       :created-at (->timestamp :value (str "2026-01-03T00:00:00Z"))))
+
+(defn live-review (reviewer)
+  (->live-session :id (->session-id :value 9)
+                  :session (->session :name (str reviewer))
+                  :item (this-item)
+                  :kind session-kind/review))
+
+(defn this-item ()
+  (->item-id :value (str "rm-0001")))
+
+(defn build-item ()
+  (assoc (work-item "rm-0001" kind/build status/in-review)
+         :criteria (vec (str "a criterion"))))
+
+(deftest a-build-without-a-pull-request-starts-a-review
+  (assert (= (step-of none (vec) (vec))
+             review-step/start-review)))
+
+(deftest a-pull-request-without-reviews-starts-a-review
+  (assert (= (step-of (some (pull-request-with first-sha (vec)))
+                      (vec)
+                      (vec))
+             review-step/start-review)))
+
+(deftest changes-on-the-current-head-sends-the-build-to-fixes
+  (assert (= (step-of (some (pull-request-with
+                              first-sha
+                              (vec (review "r1" verdict/changes first-sha))))
+                      (vec)
+                      (vec))
+             review-step/send-fixes)))
+
+(deftest changes-on-an-old-head-start-a-review-of-the-new-head
+  (assert (= (step-of (some (pull-request-with
+                              first-sha
+                              (vec (review "r1" verdict/changes second-sha))))
+                      (vec)
+                      (vec))
+             review-step/start-review)))
+
+(deftest an-approval-without-verdicts-verifies-the-criteria
+  (assert (= (step-of (some (pull-request-with
+                              first-sha
+                              (vec (review "r1" verdict/approve first-sha))))
+                      (vec)
+                      (vec))
+             review-step/verify)))
+
+(deftest an-approval-with-a-met-verdict-on-the-head-merges
+  (assert (= (step-of (some (pull-request-with
+                              first-sha
+                              (vec (review "r1" verdict/approve first-sha))))
+                      (vec (verdict-on criterion-result/met first-sha))
+                      (vec))
+             review-step/merge)))
+
+(deftest an-approval-with-a-verdict-on-an-old-head-verifies-again
+  (assert (= (step-of (some (pull-request-with
+                              first-sha
+                              (vec (review "r1" verdict/approve first-sha))))
+                      (vec (verdict-on criterion-result/met second-sha))
+                      (vec))
+             review-step/verify)))
+
+(deftest a-live-review-session-is-review-by-that-session
+  (assert (= (step-of (some (pull-request-with first-sha (vec)))
+                      (vec)
+                      (vec (live-review "r1")))
+             (review-step/live-review (->session :name (str "r1"))))))
+
+(deftest a-live-review-session-wins-over-an-approval-waiting-for-verdicts
+  (assert (= (step-of (some (pull-request-with
+                              first-sha
+                              (vec (review "r1" verdict/approve first-sha))))
+                      (vec)
+                      (vec (live-review "r2")))
+             (review-step/live-review (->session :name (str "r2"))))))
+
+(deftest a-live-review-session-wins-over-changes-on-the-head
+  (assert (= (step-of (some (pull-request-with
+                              first-sha
+                              (vec (review "r1" verdict/changes first-sha))))
+                      (vec)
+                      (vec (live-review "r2")))
+             (review-step/live-review (->session :name (str "r2"))))))
+
+(deftest another-items-live-review-session-does-not-count
+  (let (other (assoc (live-review "r1")
+                     :item (->item-id :value (str "rm-0002"))))
+    (assert (= (step-of (some (pull-request-with first-sha (vec)))
+                        (vec)
+                        (vec other))
+               review-step/start-review))))

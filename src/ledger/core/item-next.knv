@@ -3,39 +3,37 @@
 
 (use ledger/model claim item item-id snapshot status)
 (use ledger/model/criteria criterion-verdict)
-(use ledger/model/pull-requests head pull-request)
-(use ledger/core/criterion-merge criteria-met?)
-(use ledger/core/actions action next-action planned)
+(use ledger/model/pull-requests pull-request)
+(use ledger/model/sessions live-session)
+
+(use ledger/core/actions action actor next-action planned
+                         planned-by)
+
 (use ledger/core/pull-requests pull-request-of)
 (use ledger/core/ready readiness ready-in?)
-(use ledger/core/requirements approval-of approved?)
+(use ledger/core/review-states review-step review-step-of)
 (use ledger/core/decision-actions blocked-only-by-rejected?)
 
 (export status-actions)
-
-(defenum review-state
-  ready
-  needs-review
-  needs-verdicts)
 
 (type status-actions
   (fn ((ref readiness)
        (ref snapshot)
        (ref (vec pull-request))
        (ref (vec criterion-verdict))
+       (ref (vec live-session))
        (ref item))
     (vec next-action)))
 
-(defn status-actions (readiness snapshot pull-requests verdicts item)
+(defn status-actions (readiness snapshot pull-requests
+                                verdicts live-reviews item)
   (match (:status item)
     (open (open-actions readiness snapshot item))
     (dispatched (claimed-actions action/work item))
     (reported (claimed-actions action/accept-report item))
-    (in-review (claimed-actions (review-or-merge pull-requests verdicts item)
-                                item))
+    (in-review (review-actions pull-requests verdicts live-reviews item))
     (fixing (claimed-actions action/fix item))
-    (merging (claimed-actions (review-or-merge pull-requests verdicts item)
-                              item))
+    (merging (review-actions pull-requests verdicts live-reviews item))
     (merged (vec))
     (accepted (vec))
     (dropped (vec))))
@@ -69,6 +67,23 @@
       (planned action/replan none (some (clone blockage)))
       (planned action/wait none (some (clone blockage))))))
 
+(type review-actions
+  (fn ((ref (vec pull-request))
+       (ref (vec criterion-verdict))
+       (ref (vec live-session))
+       (ref item))
+    (vec next-action)))
+
+(defn review-actions (pull-requests verdicts live-reviews item)
+  (match (review-step-of (pull-request-of pull-requests (ref (:id item)))
+                         verdicts live-reviews item)
+    (merge (claimed-actions action/merge item))
+    ((live-review reviewer)
+     (vec (planned-by actor/worker action/review (some reviewer) none)))
+    (send-fixes (claimed-actions action/send-fixes item))
+    (start-review (claimed-actions action/review item))
+    (verify (claimed-actions action/verify item))))
+
 (defn claimed-actions (action item)
   (vec (planned action
                 (claimant (ref (:claim item)))
@@ -78,40 +93,3 @@
   (match claim
     ((claimed-by session) (some (clone (:session session))))
     (unclaimed none)))
-
-(type review-or-merge
-  (fn ((ref (vec pull-request))
-       (ref (vec criterion-verdict))
-       (ref item))
-    action))
-
-(defn review-or-merge (pull-requests verdicts item)
-  (let (pull-request (pull-request-of pull-requests (ref (:id item))))
-    (match (review-state (ref pull-request) verdicts item)
-      (ready action/merge)
-      (needs-review action/review)
-      (needs-verdicts action/verify))))
-
-(defn review-state (pull-request verdicts item)
-  (if (approved-pull-request? pull-request)
-    (criteria-state pull-request verdicts item)
-    review-state/needs-review))
-
-(defn criteria-state (pull-request verdicts item)
-  (let (head (pull-request-head pull-request))
-    (if (criteria-met? item verdicts (ref head))
-      review-state/ready review-state/needs-verdicts)))
-
-(type pull-request-head
-  (fn ((ref (option pull-request)))
-    (option head)))
-
-(defn pull-request-head (pull-request)
-  (match pull-request
-    ((some present) (some (clone (:head present))))
-    (none none)))
-
-(defn approved-pull-request? (pull-request)
-  (match pull-request
-    ((some present) (approved? (ref (approval-of present))))
-    (none false)))

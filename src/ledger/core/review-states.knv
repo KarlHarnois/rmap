@@ -1,0 +1,76 @@
+(module
+  "Works out which step a build's review needs from the reviews on its pull request's current head, its live review session, and its acceptance criteria.")
+
+(use ledger/model item item-id session)
+(use ledger/model/criteria criterion-verdict)
+(use ledger/model/pull-requests pull-request)
+(use ledger/model/sessions live-session)
+(use ledger/core/criterion-merge criteria-met?)
+(use ledger/core/requirements approval-of)
+
+(export review-step review-step-of)
+
+(defenum review-step
+  merge
+  (live-review session)
+  send-fixes
+  start-review
+  verify)
+
+(defenum approval-state
+  approved
+  changes
+  pending)
+
+(type review-step-of
+  (fn ((ref (option pull-request))
+       (ref (vec criterion-verdict))
+       (ref (vec live-session))
+       (ref item))
+    review-step))
+
+(defn review-step-of (pull-request verdicts live-reviews item)
+  (match (live-review-of live-reviews (ref (:id item)))
+    ((some live)
+     (review-step/live-review (clone (:session live))))
+    (none (pull-request-step pull-request verdicts item))))
+
+(type live-review-of
+  (fn ((ref (vec live-session)) (ref item-id))
+    (option live-session)))
+
+(defn live-review-of (live-reviews id)
+  (map-some (find (iter live-reviews)
+              (fn (live) (= (ref (:item live)) id)))
+            clone))
+
+(defn pull-request-step (pull-request verdicts item)
+  (match pull-request
+    ((some present)
+     (present-pull-request-step present verdicts item))
+    (none review-step/start-review)))
+
+(defn present-pull-request-step (pull-request verdicts item)
+  (match (approval-state (approval-of pull-request))
+    (approved (criteria-step pull-request verdicts item))
+    (changes review-step/send-fixes)
+    (pending review-step/start-review)))
+
+(defn approval-state (approval)
+  (cond
+    ((not (empty? (:changes-requested approval)))
+     approval-state/changes)
+    ((not (empty? (:approved-by approval)))
+     approval-state/approved)
+    (else approval-state/pending)))
+
+(type criteria-step
+  (fn ((ref pull-request)
+       (ref (vec criterion-verdict))
+       (ref item))
+    review-step))
+
+(defn criteria-step (pull-request verdicts item)
+  (if (criteria-met? item verdicts
+                     (ref (some (clone (:head pull-request)))))
+    review-step/merge review-step/verify))

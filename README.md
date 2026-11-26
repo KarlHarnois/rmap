@@ -42,7 +42,7 @@ Commands:
   ready [--roadmap <name>] [--limit <whole number, at least 1>]
     Lists the items that can start, and what holds back the others. With --limit, picks up to that many ready items.
   next [--roadmap <name>] [--manager <session>]
-    Lists the next action for each open item and proposed decision, and who takes it: an agent asks an unanswered decision, the user answers an asked one, and a rejected decision that holds an item sends it back for a replan. A manager with no roadmaps gives an empty list, not an error.
+    Lists the next action for each open item and proposed decision, and who takes it: an agent asks an unanswered decision, the user answers an asked one, and a rejected decision that holds an item sends it back for a replan. A build's review step follows its pull request's current head: review when a reviewer must start, review with the live review session's name when one is live, send-fixes for the agent when a reviewer asked for changes on that head, and verify when the head is approved but acceptance criteria still need verdicts. A manager with no roadmaps gives an empty list, not an error.
   log [--item <id>] [--decision <id>] [--since <event id>]
     Prints the events, for one item, for one decision or after one event id when given.
   item add --roadmap <name> --title <text> [--description <text>] [--description-file <path|->] [--criterion <text>] [--criteria-file <path|->] --kind epic|research|design|build [--parent <epic id>] [--after <ids, comma-separated>] [--from <id>] [--origin planned|user-bug|follow-up] [--priority <0 (highest) to 4 (lowest), default 2>]
