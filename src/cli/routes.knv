@@ -52,6 +52,10 @@
   decision-deprecate
   decision-block
   decision-unblock
+  ruling-add
+  ruling-list
+  ruling-show
+  settled
   proposal-add
   proposal-list
   (report report-command)

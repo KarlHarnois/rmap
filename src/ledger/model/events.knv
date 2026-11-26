@@ -58,4 +58,5 @@
   head-recorded
   review-started
   session-ended
-  proposals-recorded)
+  proposals-recorded
+  ruling-recorded)

@@ -1,0 +1,32 @@
+(module
+  "Maps a ruling route and its arguments to the invocation the CLI runs.")
+
+(use cli/arguments operand)
+(use cli/invocation invocation)
+(use cli/ledger-calls ledger-call-of)
+(use cli/requests request)
+(use cli/routes subcommand)
+
+(use cli/ruling-requests ruling-add-request
+                         ruling-list-request
+                         ruling-show-request
+                         settled-request)
+
+(export ruling-invocation-of)
+
+(defn ruling-invocation-of (route arguments)
+  (match (:subcommand route)
+    (subcommand/ruling-add (on-ruling arguments (ruling-add-request arguments)))
+    (subcommand/ruling-list (on-ruling arguments
+                                       (ruling-list-request arguments)))
+    (subcommand/ruling-show (on-ruling arguments
+                                       (ok (ruling-show-request
+                                             (operand arguments route 0)))))
+    (subcommand/settled (on-ruling arguments (settled-request arguments)))
+    (_ (err (str "not a ruling command")))))
+
+(defn on-ruling (arguments requested)
+  (map-ok requested
+    (fn (ruling)
+      (invocation/on-ledger (ledger-call-of arguments
+                                            (request/ruling ruling))))))

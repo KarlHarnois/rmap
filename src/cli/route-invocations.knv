@@ -3,6 +3,7 @@
 
 (use cli/invocation invocation)
 (use cli/decision-invocations decision-invocation-of)
+(use cli/ruling-invocations ruling-invocation-of)
 (use cli/proposal-document-call proposal-add-document-call)
 (use cli/route-ledger on-ledger)
 (use cli/routes subcommand)
@@ -116,6 +117,10 @@
     (subcommand/decision-deprecate (decision-invocation-of route arguments))
     (subcommand/decision-block (decision-invocation-of route arguments))
     (subcommand/decision-unblock (decision-invocation-of route arguments))
+    (subcommand/ruling-add (ruling-invocation-of route arguments))
+    (subcommand/ruling-list (ruling-invocation-of route arguments))
+    (subcommand/ruling-show (ruling-invocation-of route arguments))
+    (subcommand/settled (ruling-invocation-of route arguments))
     ((subcommand/report command)
      (report-invocation arguments route command))
     (subcommand/review-start (review-start-invocation arguments route))

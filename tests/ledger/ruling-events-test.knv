@@ -1,0 +1,60 @@
+(use json/value copy-of field json->entries json->text
+                null?)
+
+(use ledger/model/events event-type)
+(use ledger/ruling-events ruling-recorded)
+(use support/items id-of)
+(use support/rulings sample-ruling)
+
+(defn side (column which)
+  (-> (ref (changes))
+      (field column)
+      unwrap
+      (field which)
+      unwrap))
+
+(defn changes ()
+  (unwrap (field (ref (payload)) "changes")))
+
+(defn payload ()
+  (let (draft (ruling-recorded (ref (sample-ruling none))))
+    (copy-of (ref (:payload draft)))))
+
+(deftest a-ruling-records-every-column-as-inserted
+  (let (names (collect (map (iter (json->entries (ref (changes))))
+                         (fn (entry) (clone (first entry))))))
+    (sort! names)
+    (assert (= names
+               (vec (str "choice")
+                    (str "created_at")
+                    (str "id")
+                    (str "item_id")
+                    (str "question")
+                    (str "reason")
+                    (str "ruled_by")
+                    (str "supersedes_id"))))
+    (for-each names
+      (fn (column)
+        (assert (null? (ref (side (as-str column) "old"))))))))
+
+(deftest a-ruling-records-its-values
+  (assert (= (json->text (ref (side "id" "new")))
+             (some (str "rm-r001"))))
+  (assert (= (json->text (ref (side "item_id" "new")))
+             (some (str "rm-0001"))))
+  (assert (= (json->text (ref (side "question" "new")))
+             (some (str "Which store?"))))
+  (assert (= (json->text (ref (side "choice" "new")))
+             (some (str "Postgres"))))
+  (assert (= (json->text (ref (side "reason" "new")))
+             (some (str "It already runs"))))
+  (assert (= (json->text (ref (side "ruled_by" "new")))
+             (some (str "owner"))))
+  (assert (null? (ref (side "supersedes_id" "new")))))
+
+(deftest a-ruling-event-names-the-rulings-item-and-no-decision
+  (let (draft (ruling-recorded (ref (sample-ruling none))))
+    (assert (= (:type draft) event-type/ruling-recorded))
+    (assert (= (:item-id draft)
+               (some (id-of "rm-0001"))))
+    (assert (none? (:decision-id draft)))))

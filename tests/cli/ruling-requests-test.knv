@@ -1,0 +1,82 @@
+(use ledger/model ->item-id)
+(use ledger/model/rulings ->ruling-id)
+(use ledger/core/rulings ruling-visibility)
+(use cli/arguments ->arguments arguments)
+
+(use cli/ruling-requests ruling-add-request
+                         ruling-list-request ruling-request
+                         ruling-show-request
+                         settled-request)
+
+(type arguments-with
+  (fn ((ref (vec (pair (ref str) (ref str)))))
+    arguments))
+
+(defn arguments-with (flags)
+  (->arguments :words (vec)
+               :flags (collect (map (iter flags)
+                                 (fn (entry)
+                                   (let-match ((pair key value) (deref entry))
+                                     (pair (str key) (str value))))))
+               :switches (vec)))
+
+(defn switched (switches)
+  (->arguments :words (vec)
+               :flags (vec)
+               :switches (collect (map (iter switches) str))))
+
+(deftest a-ruling-add-reads-its-fields
+  (match (unwrap-ok (ruling-add-request
+                      (ref (arguments-with (vec (pair "item" "rm-0001")
+                                                (pair "question" "Which store?")
+                                                (pair "choice" "Postgres")
+                                                (pair "reason" "It runs")
+                                                (pair "supersedes"
+                                                      "rm-0002"))))))
+    ((ruling-request/add item question choice reason supersedes)
+     (assert (= item (->item-id :value (str "rm-0001"))))
+     (assert (= question (str "Which store?")))
+     (assert (= choice (str "Postgres")))
+     (assert (= reason (str "It runs")))
+     (assert (= supersedes (some (str "rm-0002")))))
+    (_ (assert false))))
+
+(deftest a-ruling-add-needs-its-question
+  (assert (= (unwrap-err (ruling-add-request (ref (arguments-with (vec (pair
+                                                                         "item"
+                                                                         "rm-0001"))))))
+             (str "--question is required"))))
+
+(deftest the-ruling-list-defaults-to-live-rulings
+  (match (unwrap-ok (ruling-list-request (ref (arguments-with (vec)))))
+    ((ruling-request/list roadmap item visibility)
+     (assert (= visibility ruling-visibility/live))
+     (assert (none? roadmap))
+     (assert (none? item)))
+    (_ (assert false))))
+
+(deftest the-ruling-list-reads-all-and-narrows
+  (match (unwrap-ok (ruling-list-request
+                      (ref (arguments-with (vec (pair "roadmap" "road")
+                                                (pair "item" "rm-0001"))))))
+    ((ruling-request/list roadmap item _)
+     (assert (= roadmap (some (str "road"))))
+     (assert (= item
+                (some (->item-id :value (str "rm-0001"))))))
+    (_ (assert false)))
+  (match (unwrap-ok (ruling-list-request (ref (switched (vec "all")))))
+    ((ruling-request/list _ _ visibility)
+     (assert (= visibility ruling-visibility/all)))
+    (_ (assert false))))
+
+(deftest a-ruling-show-names-one-ruling
+  (match (ruling-show-request (str "rm-0001"))
+    ((ruling-request/show id) (assert (= id (str "rm-0001"))))
+    (_ (assert false))))
+
+(deftest settled-reads-its-roadmap
+  (match (unwrap-ok (settled-request (ref (arguments-with
+                                            (vec (pair "roadmap" "road"))))))
+    ((ruling-request/settled roadmap)
+     (assert (= roadmap (some (str "road")))))
+    (_ (assert false))))

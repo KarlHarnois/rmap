@@ -1,0 +1,77 @@
+(module
+  "Describes rulings in plain text: a sentence when one is recorded, its detail, and a table of rulings.")
+
+(use ledger/api ruling)
+(use cli/tables headed indented table)
+
+(export ruling-detail-text ruling-recorded-text
+        rulings-text)
+
+(type ruling-recorded-text
+  (fn ((ref ruling)) string))
+
+(defn ruling-recorded-text (ruling)
+  (str "Recorded "
+       (:id ruling)
+       ": "
+       (:question ruling)
+       " -> "
+       (:choice ruling)))
+
+(type ruling-detail-text
+  (fn ((ref ruling)) string))
+
+(defn ruling-detail-text (ruling)
+  (join (vec (str (:id ruling) "  " (:question ruling))
+             (indented (table (detail-rows ruling))))
+        "\n"))
+
+(defn rulings-text (rulings)
+  (if (empty? rulings)
+    (str "No rulings.")
+    (ruling-table rulings)))
+
+(type detail-rows
+  (fn ((ref ruling)) (vec (vec string))))
+
+(defn detail-rows (ruling)
+  (vec (detail-row "item"
+                   (clone (:value (:item ruling))))
+       (detail-row "roadmap"
+                   (clone (:value (:roadmap-id ruling))))
+       (detail-row "choice" (clone (:choice ruling)))
+       (detail-row "reason" (clone (:reason ruling)))
+       (detail-row "supersedes"
+                   (optional-text-text (ref (:supersedes ruling))))
+       (detail-row "superseded by"
+                   (optional-text-text (ref (:superseded-by ruling))))
+       (detail-row "ruled by" (clone (:ruled-by ruling)))
+       (detail-row "created"
+                   (clone (:value (:created-at ruling))))))
+
+(defn detail-row (label value)
+  (vec (str label) value))
+
+(type ruling-table
+  (fn ((ref (vec ruling))) string))
+
+(defn ruling-table (rulings)
+  (let (rows (headed (vec "ID" "ITEM" "QUESTION" "CHOICE")))
+    (for-each rulings
+      (fn (ruling)
+        (push! rows (ruling-cells ruling))))
+    (table rows)))
+
+(type ruling-cells
+  (fn ((ref ruling)) (vec string)))
+
+(defn ruling-cells (ruling)
+  (vec (clone (:id ruling))
+       (clone (:value (:item ruling)))
+       (clone (:question ruling))
+       (clone (:choice ruling))))
+
+(defn optional-text-text (optional)
+  (match optional
+    ((some text) (clone text))
+    (none (str "-"))))

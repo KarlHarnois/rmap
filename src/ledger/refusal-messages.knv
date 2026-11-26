@@ -113,6 +113,10 @@
      (str "only an accepted decision, or a rejected one in the same roadmap, can be superseded, and "
           (:value id)
           " is neither"))
+    ((ruling-not-found id)
+     (str "no ruling has the id " (:value id)))
+    ((ruling-superseded id)
+     (str "the ruling " (:value id) " is already superseded"))
     ((session-busy session)
      (str "a live session is already named " (:name session)))
     ((session-not-live session)

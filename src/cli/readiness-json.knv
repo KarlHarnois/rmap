@@ -1,0 +1,23 @@
+(module
+  "Wraps the ready listing and the batch pick in the JSON object the CLI prints.")
+
+(use json/value array)
+(use cli/ledger-json blocked->json item->json)
+(use cli/schema-envelope envelope)
+
+(export batch-envelope readiness-envelope)
+
+(defn readiness-envelope (readiness)
+  (envelope (vec (pair (str "ready")
+                       (array (collect (map (iter (:ready readiness))
+                                            item->json))))
+                 (pair (str "blocked")
+                       (array (collect (map (iter (:blocked readiness))
+                                            blocked->json)))))))
+
+(defn batch-envelope (batch)
+  (envelope
+    (vec (pair (str "picked")
+               (array (collect (map (iter (:picked batch)) item->json))))
+         (pair (str "blocked")
+               (array (collect (map (iter (:blocked batch)) blocked->json)))))))

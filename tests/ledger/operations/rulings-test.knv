@@ -1,0 +1,151 @@
+(use ledger/model ->item-id)
+(use ledger/model/events event-type)
+(use ledger/model/rulings ruling)
+
+(use ledger/api add-ruling list-rulings show-item
+                show-ruling)
+
+(use ledger/core/rulings ruling-visibility)
+
+(use support/ledger all-events ledger-with-two-roadmaps
+                    other-roadmap-name refusal-code-of
+                    research research-in roadmap-name
+                    scratch-ledger)
+
+(use support/rulings added-ruling superseding-ruling)
+
+(type ids
+  (fn ((ref (vec ruling))) (vec string)))
+
+(defn ids (rulings)
+  (collect (map (iter rulings)
+             (fn (ruling) (clone (:id ruling))))))
+
+(deftest a-ruling-records-its-item-question-choice-and-reason
+  (let (settings (scratch-ledger "ruling-add")
+        item (research (ref settings))
+        detail (unwrap-ok (show-item (ref settings) (clone item)))
+        made (added-ruling (ref settings) (clone item)))
+    (assert (= (:item made) item))
+    (assert (= (:roadmap-id made)
+               (:roadmap-id (:item detail))))
+    (assert (= (:question made) (str "Which store?")))
+    (assert (= (:choice made) (str "Postgres")))
+    (assert (= (:reason made) (str "It already runs")))
+    (assert (= (:ruled-by made) (str "tester")))
+    (assert (none? (:supersedes made)))
+    (assert (none? (:superseded-by made)))))
+
+(deftest a-ruling-records-one-event-on-its-item
+  (let (settings (scratch-ledger "ruling-event")
+        item (research (ref settings))
+        before (len (unwrap-ok (all-events (ref settings))))
+        _made (added-ruling (ref settings) (clone item))
+        events (unwrap-ok (all-events (ref settings)))
+        event (unwrap (last events)))
+    (assert (= (len events) (inc before)))
+    (assert (= (:type event) event-type/ruling-recorded))
+    (assert (= (:item-id event) (some item)))
+    (assert (none? (:decision-id event)))))
+
+(deftest a-ruling-on-a-missing-item-is-refused
+  (let (settings (scratch-ledger "ruling-no-item"))
+    (assert (= (refusal-code-of (add-ruling (ref settings)
+                                            (->item-id :value (str "rm-ffff"))
+                                            "q" "c" "r"
+                                            none))
+               (some (str "item-not-found"))))))
+
+(deftest superseding-records-both-links
+  (let (settings (scratch-ledger "ruling-supersede")
+        item (research (ref settings))
+        target (added-ruling (ref settings) (clone item))
+        successor (superseding-ruling (ref settings)
+                                      (clone item)
+                                      (as-str (clone (:id target)))))
+    (assert (= (:supersedes successor)
+               (some (clone (:id target)))))
+    (assert (= (:superseded-by (unwrap-ok (show-ruling (ref settings)
+                                                       (as-str (clone (:id target))))))
+               (some (clone (:id successor)))))))
+
+(deftest superseding-a-missing-ruling-is-refused
+  (let (settings (scratch-ledger "ruling-supersede-missing")
+        item (research (ref settings)))
+    (assert (= (refusal-code-of (add-ruling (ref settings)
+                                            (clone item)
+                                            "q" "c" "r"
+                                            (some (str "rm-ffff"))))
+               (some (str "ruling-not-found"))))))
+
+(deftest superseding-a-superseded-ruling-is-refused
+  (let (settings (scratch-ledger "ruling-supersede-twice")
+        item (research (ref settings))
+        target (added-ruling (ref settings) (clone item))
+        _ (superseding-ruling (ref settings)
+                              (clone item)
+                              (clone (:id target))))
+    (assert (= (refusal-code-of (add-ruling (ref settings)
+                                            (clone item)
+                                            "q" "c" "r"
+                                            (some (clone (:id target)))))
+               (some (str "ruling-superseded"))))))
+
+(deftest the-list-hides-superseded-rulings-unless-all
+  (let (settings (scratch-ledger "ruling-list")
+        item (research (ref settings))
+        target (added-ruling (ref settings) (clone item))
+        successor (superseding-ruling (ref settings)
+                                      (clone item)
+                                      (clone (:id target)))
+        live (unwrap-ok (list-rulings (ref settings)
+                                      none none
+                                      ruling-visibility/live))
+        all (unwrap-ok (list-rulings (ref settings)
+                                     none none
+                                     ruling-visibility/all)))
+    (assert (= (ids (ref live))
+               (vec (clone (:id successor)))))
+    (assert (= (ids (ref all))
+               (vec (clone (:id target))
+                    (clone (:id successor)))))))
+
+(deftest the-list-narrows-to-a-roadmap-and-an-item
+  (let (settings (ledger-with-two-roadmaps "ruling-list-narrow")
+        here (research (ref settings))
+        elsewhere (research-in (ref settings) other-roadmap-name)
+        made (added-ruling (ref settings) (clone here))
+        _ (added-ruling (ref settings) (clone elsewhere))
+        by-roadmap (unwrap-ok (list-rulings (ref settings)
+                                            (some (str roadmap-name))
+                                            none
+                                            ruling-visibility/live))
+        by-item (unwrap-ok (list-rulings (ref settings)
+                                         none
+                                         (some (clone here))
+                                         ruling-visibility/live)))
+    (assert (= (ids (ref by-roadmap))
+               (vec (clone (:id made)))))
+    (assert (= (ids (ref by-item))
+               (vec (clone (:id made)))))))
+
+(deftest listing-an-unknown-roadmap-is-refused
+  (let (settings (scratch-ledger "ruling-list-no-roadmap"))
+    (assert (= (refusal-code-of (list-rulings (ref settings)
+                                              (some (str "nowhere"))
+                                              none
+                                              ruling-visibility/live))
+               (some (str "roadmap-not-found"))))))
+
+(deftest listing-an-unknown-item-is-refused
+  (let (settings (scratch-ledger "ruling-list-no-item"))
+    (assert (= (refusal-code-of (list-rulings (ref settings)
+                                              none
+                                              (some (->item-id :value (str "rm-ffff")))
+                                              ruling-visibility/live))
+               (some (str "item-not-found"))))))
+
+(deftest showing-a-missing-ruling-is-refused
+  (let (settings (scratch-ledger "ruling-show-missing"))
+    (assert (= (refusal-code-of (show-ruling (ref settings) "rm-ffff"))
+               (some (str "ruling-not-found"))))))

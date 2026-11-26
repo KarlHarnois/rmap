@@ -1,0 +1,35 @@
+(module
+  "Lists the commands that record and read rulings, and what is settled.")
+
+(use cli/flag-specs boolean-flag optional required)
+(use cli/routes ->route operands subcommand words)
+
+(export ruling-routes)
+
+(defn ruling-routes ()
+  (vec (->route :subcommand subcommand/ruling-add
+                :words (words "ruling add")
+                :summary (str "Records a ruling: the question, the choice made without asking the owner, and why. Rulings never change; --supersedes names the ruling this one corrects, and a ruling takes at most one successor.")
+                :operands (vec)
+                :flags (vec (required "item" "<id>")
+                            (required "question" "<text>")
+                            (required "choice" "<text>")
+                            (required "reason" "<text>")
+                            (optional "supersedes" "<ruling id>")))
+       (->route :subcommand subcommand/ruling-list
+                :words (words "ruling list")
+                :summary (str "Lists the rulings, oldest first. Superseded rulings show only with --all.")
+                :operands (vec)
+                :flags (vec (optional "roadmap" "<name>")
+                            (optional "item" "<id>")
+                            (boolean-flag "all")))
+       (->route :subcommand subcommand/ruling-show
+                :words (words "ruling show")
+                :summary (str "Shows one ruling.")
+                :operands (operands (vec "id"))
+                :flags (vec))
+       (->route :subcommand subcommand/settled
+                :words (words "settled")
+                :summary (str "Lists the accepted decisions and the rulings nothing supersedes, for every roadmap by default. Read it before proposing anything.")
+                :operands (vec)
+                :flags (vec (optional "roadmap" "<name>")))))

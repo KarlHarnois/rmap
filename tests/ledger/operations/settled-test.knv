@@ -1,0 +1,66 @@
+(use ledger/model decision-id)
+(use ledger/model/decisions decision)
+(use ledger/model/rulings ruling)
+(use ledger/api read-settled)
+(use support/decisions mark-status proposed-id)
+
+(use support/ledger ledger-with-two-roadmaps
+                    other-roadmap-name refusal-code-of
+                    research research-in roadmap-name)
+
+(use support/rulings added-ruling superseding-ruling)
+
+(type decision-ids
+  (fn ((ref (vec decision)))
+    (vec decision-id)))
+
+(defn decision-ids (decisions)
+  (collect (map (iter decisions)
+             (fn (decision) (clone (:id decision))))))
+
+(type ruling-ids
+  (fn ((ref (vec ruling))) (vec string)))
+
+(defn ruling-ids (rulings)
+  (collect (map (iter rulings)
+             (fn (ruling) (clone (:id ruling))))))
+
+(deftest settled-holds-accepted-decisions-and-live-rulings
+  (let (settings (ledger-with-two-roadmaps "settled-default")
+        accepted (proposed-id (ref settings))
+        proposed (proposed-id (ref settings))
+        item (research (ref settings))
+        target (added-ruling (ref settings) (clone item))
+        successor (superseding-ruling (ref settings)
+                                      (clone item)
+                                      (clone (:id target)))
+        elsewhere (research-in (ref settings) other-roadmap-name)
+        other (added-ruling (ref settings) (clone elsewhere))
+        _ (mark-status (ref settings) (ref accepted) "accepted")
+        settled (unwrap-ok (read-settled (ref settings) none)))
+    (assert (= (decision-ids (:decisions settled))
+               (vec (clone accepted))))
+    (assert (= (ruling-ids (:rulings settled))
+               (vec (clone (:id successor))
+                    (clone (:id other)))))
+    (assert (not (contains? (decision-ids (:decisions settled))
+                            (clone proposed))))))
+
+(deftest settled-narrows-to-a-roadmap
+  (let (settings (ledger-with-two-roadmaps "settled-roadmap")
+        accepted (proposed-id (ref settings))
+        item (research (ref settings))
+        _ (added-ruling (ref settings) (clone item))
+        elsewhere (research-in (ref settings) other-roadmap-name)
+        _ (added-ruling (ref settings) (clone elsewhere))
+        _ (mark-status (ref settings) (ref accepted) "accepted")
+        settled (unwrap-ok (read-settled (ref settings)
+                                         (some (str roadmap-name)))))
+    (assert (= (len (:decisions settled)) 1))
+    (assert (= (len (:rulings settled)) 1))))
+
+(deftest settled-refuses-an-unknown-roadmap
+  (let (settings (ledger-with-two-roadmaps "settled-no-roadmap"))
+    (assert (= (refusal-code-of (read-settled (ref settings)
+                                              (some (str "nowhere"))))
+               (some (str "roadmap-not-found"))))))

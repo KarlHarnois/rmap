@@ -1,0 +1,46 @@
+(module
+  "Turns optional ledger ids, timestamps and text into the JSON values the CLI prints.")
+
+(use json/value array json text->json)
+(use ledger/api decision-id item-id timestamp)
+
+(export ids->json optional-decision-id->json
+        optional-id->json optional-text->json
+        optional-timestamp->json)
+
+(type ids->json
+  (fn ((ref (vec item-id))) json))
+
+(defn ids->json (ids)
+  (array (collect (map (iter ids)
+                    (fn (id)
+                      (text->json (as-str (:value id))))))))
+
+(type optional-id->json
+  (fn ((ref (option item-id))) json))
+
+(defn optional-id->json (optional)
+  (match optional
+    ((some id) (text->json (as-str (:value id))))
+    (none json/null)))
+
+(type optional-decision-id->json
+  (fn ((ref (option decision-id))) json))
+
+(defn optional-decision-id->json (optional)
+  (match optional
+    ((some id) (text->json (as-str (:value id))))
+    (none json/null)))
+
+(defn optional-text->json (optional)
+  (match optional
+    ((some text) (text->json (as-str text)))
+    (none json/null)))
+
+(type optional-timestamp->json
+  (fn ((ref (option timestamp))) json))
+
+(defn optional-timestamp->json (optional)
+  (match optional
+    ((some at) (text->json (as-str (:value at))))
+    (none json/null)))

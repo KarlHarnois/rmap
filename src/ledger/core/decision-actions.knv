@@ -32,6 +32,10 @@
     actions
     (raised-actions readiness decisions item actions)))
 
+(type blocked-only-by-rejected?
+  (fn ((ref snapshot) (ref blockage))
+    bool))
+
 (defn blocked-only-by-rejected? (snapshot blockage)
   (and (not (empty? (:decisions blockage)))
        (empty? (:blockers blockage))

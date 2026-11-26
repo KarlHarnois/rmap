@@ -29,10 +29,9 @@
                          decision-status-names
                          deprecate-decision list-decisions
                          new-decision
-                         optional-decision-id->json
-                         options->json outcome proposal
-                         propose-decision recommendation
-                         reject-decision
+
+                         outcome proposal propose-decision
+                         recommendation reject-decision
                          remove-decision-block
                          revise-decision show-decision
                          supersedes-change)
@@ -65,15 +64,14 @@
                   graph-format graph-format-names
                   graph-level graph-level-names
                   graph-request graph-source history
-                  ids->json init-ledger init-outcome-names
-                  init-report item item-detail item-edit
-                  item-id kind-change kind-names list-items
+                  init-ledger init-outcome-names init-report
+                  item item-detail item-edit item-id
+                  kind-change kind-names list-items
                   list-proposals list-roadmaps log-query
                   new-item new-roadmap next-actions
-                  next-entry next-item optional-id->json
-                  optional-text->json
-                  optional-timestamp->json origin
-                  origin-names pause-roadmap
+                  next-entry next-item
+
+                  origin origin-names pause-roadmap
                   pull-request-refusal read-log readiness
                   ready-batch ready-items refusal
                   refusal-catalog refusal-description
@@ -87,6 +85,10 @@
 
 (use ledger/ledger-api default-database-path)
 
+(use ledger/ruling-api add-ruling list-rulings read-settled
+                       ruling ruling-visibility settled
+                       show-ruling)
+
 (export ->acceptance ->advancement ->claim-request
         ->decision-id ->decision-query ->decision-revision
         ->follow-up-decision ->follow-up-draft
@@ -98,15 +100,16 @@
         ->verify-request abandoned accept-decision
         acceptance action-names actor actor-names
         add-decision-block add-dep add-external-blocker
-        add-item add-proposals advance-item advancement
-        approval approval-of approved? ask-decision batch
-        batch-size batch-size-of blocked-item body-source
-        cap-result case-name case-named claim claim-item
-        claim-request clear-external-blocker clock
-        close-item criteria-input criterion-gap
-        criterion-result criterion-result-names
-        criterion-status criterion-verdict database-problem
-        decision decision-id decision-next decision-option
+        add-item add-proposals add-ruling advance-item
+        advancement approval approval-of approved?
+        ask-decision batch batch-size batch-size-of
+        blocked-item body-source cap-result case-name
+        case-named claim claim-item claim-request
+        clear-external-blocker clock close-item
+        criteria-input criterion-gap criterion-result
+        criterion-result-names criterion-status
+        criterion-verdict database-problem decision
+        decision-id decision-next decision-option
         decision-option-record decision-query
         decision-revision decision-status-names
         default-database-path dep dep-type-names
@@ -117,32 +120,30 @@
         failure-message follow-up follow-up-decision
         follow-up-draft graph-format graph-format-names
         graph-level graph-level-names graph-request
-        graph-source history ids->json init-ledger
-        init-outcome-names init-report item item-detail
-        item-edit item-id kind-change kind-names
-        list-decisions list-items list-proposals
-        list-reports list-roadmaps log-query new-decision
-        new-item new-roadmap next-actions next-entry
-        next-item optional-decision-id->json
-        optional-id->json optional-text->json
-        optional-timestamp->json options->json origin
-        origin-names outcome pause-roadmap proposal
+        graph-source history init-ledger init-outcome-names
+        init-report item item-detail item-edit item-id
+        kind-change kind-names list-decisions list-items
+        list-proposals list-reports list-roadmaps
+        list-rulings log-query new-decision new-item
+        new-roadmap next-actions next-entry next-item
+
+        origin origin-names outcome pause-roadmap proposal
         propose-decision pull-request pull-request-refusal
-        read-log read-report readiness ready-batch
-        ready-items recommendation record-head record-report
-        record-review recorded-head recorded-report
-        recorded-review refusal refusal-catalog
-        refusal-description reject-decision
+        read-log read-report read-settled readiness
+        ready-batch ready-items recommendation record-head
+        record-report record-review recorded-head
+        recorded-report recorded-review refusal
+        refusal-catalog refusal-description reject-decision
         remove-decision-block remove-dep report report-id
         report-kind-names report-query report-reading
         report-request resume-roadmap review
         review-kind-names review-request
         review-start-request revise-decision roadmap
         roadmap-id roadmap-pause roadmap-status
-        roadmap-status-names runtime-names session
-        session-kind-names session-record->json
-        set-max-active settings show-decision show-item
-        show-pull-request show-report start-review
-        status-names supersedes-change timestamp
-        verdict-names verify-criterion verify-request
-        work-session)
+        roadmap-status-names ruling ruling-visibility
+        runtime-names session session-kind-names
+        session-record->json set-max-active settings settled
+        show-decision show-item show-pull-request
+        show-report show-ruling start-review status-names
+        supersedes-change timestamp verdict-names
+        verify-criterion verify-request work-session)

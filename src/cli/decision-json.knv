@@ -5,10 +5,12 @@
 (use cli/schema-envelope envelope)
 
 (use ledger/api case-name decision decision-option-record
-                decision-status-names ids->json
-                optional-decision-id->json optional-id->json
-                optional-text->json optional-timestamp->json
-                options->json outcome recommendation)
+                decision-status-names outcome
+                recommendation)
+
+(use cli/json-values ids->json optional-decision-id->json
+                     optional-id->json optional-text->json
+                     optional-timestamp->json)
 
 (export decision->json decision-envelope decision-fields
         decisions-envelope option-record->json)
@@ -86,6 +88,26 @@
   (object (vec (field "option" (int->json (:option recommendation)))
                (field "reason"
                       (text->json (as-str (:reason recommendation)))))))
+
+(defn options->json (options)
+  (array (collect (map (iter options) option->json))))
+
+(defn option->json (option)
+  (object (vec (field "number" (int->json (:number option)))
+               (field "title"
+                      (text->json (as-str (:title option))))
+               (field "description"
+                      (text->json (as-str (:description option))))
+               (field "pros"
+                      (texts->json (ref (:pros option))))
+               (field "cons"
+                      (texts->json (ref (:cons option))))
+               (field "skips"
+                      (texts->json (ref (:skips option)))))))
+
+(defn texts->json (texts)
+  (array (collect (map (iter texts)
+                    (fn (text) (text->json (as-str text)))))))
 
 (defn field (key value)
   (pair (str key) value))

@@ -41,6 +41,8 @@
                            refusal-code/decision-block-exists
                            refusal-code/decision-block-not-found
                            refusal-code/supersede-target-not-accepted
+                           refusal-code/ruling-not-found
+                           refusal-code/ruling-superseded
                            refusal-code/session-busy
                            refusal-code/session-not-live
                            refusal-code/session-not-claimant
@@ -119,6 +121,9 @@
                                 "The decision does not block that item."))
     (supersede-target-not-accepted (described "supersede-target-not-accepted"
                                               "Only a decision that is accepted, or rejected in the same roadmap, can be superseded."))
+    (ruling-not-found (described "ruling-not-found" "No ruling has that id."))
+    (ruling-superseded (described "ruling-superseded"
+                                  "The ruling was already superseded, and a ruling has one successor at most."))
     (session-busy (described "session-busy"
                              "A live session already has that name."))
     (session-not-live (described "session-not-live"

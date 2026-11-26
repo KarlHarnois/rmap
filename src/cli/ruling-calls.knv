@@ -1,0 +1,29 @@
+(module
+  "Calls the ledger for each ruling request and names the reply it gives.")
+
+(use ledger/api add-ruling list-rulings read-settled
+                show-ruling)
+
+(use cli/replies reply)
+(use cli/ruling-requests ruling-request)
+
+(export perform-ruling)
+
+(defn perform-ruling (settings request)
+  (match request
+    ((ruling-request/add item question choice reason supersedes)
+     (map-ok (add-ruling settings item
+                         (as-str question)
+                         (as-str choice)
+                         (as-str reason)
+                         supersedes)
+             (fn (ruling) (reply/ruling-recorded ruling))))
+    ((ruling-request/list roadmap item visibility)
+     (map-ok (list-rulings settings roadmap item visibility)
+       (fn (rulings) (reply/rulings-listed rulings))))
+    ((ruling-request/show id)
+     (map-ok (show-ruling settings (as-str id))
+       (fn (ruling) (reply/ruling-shown ruling))))
+    ((ruling-request/settled roadmap)
+     (map-ok (read-settled settings roadmap)
+       (fn (settled) (reply/settled settled))))))

@@ -5,6 +5,7 @@
                   external-blocker-id item-id kind session
                   status)
 
+(use ledger/model/rulings ruling-id)
 (use ledger/model/pull-requests head)
 (use ledger/model/reports report-id)
 (use ledger/model/criteria criterion-gap)
@@ -51,6 +52,8 @@
   (external-blocker-in-other-item external-blocker-id item-id)
   (supersede-target-not-accepted decision-id)
   (decisions-pending (vec decision-id))
+  (ruling-not-found ruling-id)
+  (ruling-superseded ruling-id)
   (proposal-incomplete string)
   (proposal-duplicate string)
   (proposal-target-not-found string)

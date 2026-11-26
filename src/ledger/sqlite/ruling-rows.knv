@@ -1,0 +1,39 @@
+(module
+  "Selects rulings with their item's roadmap and their successor, and turns each row into a ruling.")
+
+(use ledger/model ->item-id ->roadmap-id ->timestamp)
+(use ledger/model/rulings ->ruling ruling)
+(use ledger/sqlite/connection database-error)
+(use ledger/sqlite/rows optional-text-cell text-cell)
+(use ledger/sqlite/values sql-value)
+
+(export row->ruling selected-columns)
+
+(def selected-columns
+  "SELECT r.id, r.item_id, i.roadmap_id, r.question, r.choice, r.reason, r.supersedes_id, (SELECT s.id FROM rulings s WHERE s.supersedes_id = r.id) AS superseded_by, r.ruled_by, r.created_at FROM rulings r JOIN items i ON i.id = r.item_id")
+
+(type row->ruling
+  (fn ((ref (vec sql-value)))
+    (result ruling database-error)))
+
+(defn row->ruling (row)
+  (let-try (id (text-cell row 0)
+            item (text-cell row 1)
+            roadmap (text-cell row 2)
+            question (text-cell row 3)
+            choice (text-cell row 4)
+            reason (text-cell row 5)
+            supersedes (optional-text-cell row 6)
+            superseded-by (optional-text-cell row 7)
+            ruled-by (text-cell row 8)
+            created-at (text-cell row 9))
+    (ok (->ruling :id id
+                  :item (->item-id :value item)
+                  :roadmap-id (->roadmap-id :value roadmap)
+                  :question question
+                  :choice choice
+                  :reason reason
+                  :supersedes supersedes
+                  :superseded-by superseded-by
+                  :ruled-by ruled-by
+                  :created-at (->timestamp :value created-at)))))

@@ -11,13 +11,11 @@
                   roadmap-status runtime session-kind
                   status)
 
-(use ledger/model/graphs graph-format)
-
 (export case-name case-named criterion-result-names
         decision-status-names dep-type-names
-        end-reason-names event-type-names graph-format-names
-        kind-names origin-names report-kind-names
-        review-kind-names roadmap-status-names runtime-names
+        end-reason-names event-type-names kind-names
+        origin-names report-kind-names review-kind-names
+        roadmap-status-names runtime-names
         session-kind-names status-names verdict-names)
 
 (def roadmap-status-names
@@ -101,7 +99,8 @@
        (pair event-type/head-recorded "head-recorded")
        (pair event-type/review-started "review-started")
        (pair event-type/session-ended "session-ended")
-       (pair event-type/proposals-recorded "proposals-recorded")))
+       (pair event-type/proposals-recorded "proposals-recorded")
+       (pair event-type/ruling-recorded "ruling-recorded")))
 
 (def report-kind-names
   (vec (pair report-kind/done "done")
@@ -126,9 +125,6 @@
        (pair decision-status/rejected "rejected")
        (pair decision-status/deprecated "deprecated")
        (pair decision-status/superseded "superseded")))
-
-(def graph-format-names
-  (vec (pair graph-format/mermaid "mermaid")))
 
 (defn case-name (names value)
   (-> names iter

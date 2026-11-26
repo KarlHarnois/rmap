@@ -63,14 +63,15 @@
                              follow-up-draft
                              proposal-submission)
 
-(use ledger/model/graphs graph-format history)
+(use ledger/model/graphs graph-format graph-format-names
+                         history)
+
 (use ledger/model/roadmap-pauses roadmap-pause)
 (use ledger/model/sessions ->claim-request claim-request)
 
 (use ledger/names case-name case-named
                   criterion-result-names dep-type-names
-                  event-type-names graph-format-names
-                  kind-names origin-names
+                  event-type-names kind-names origin-names
                   roadmap-status-names runtime-names
                   session-kind-names status-names)
 

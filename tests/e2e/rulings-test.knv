@@ -1,0 +1,222 @@
+(use json/value copy-of field json->entries json->items
+                json->text null?)
+
+(use support/rmap database-with-roadmap error-code reply
+                  run-rmap run-rmap-text text-at)
+
+(use support/scratch scratch-database)
+
+(def write-file
+  (rust "std::fs::write({0}, {1}).map_err(|failure| failure.to_string())"
+    (fn ((ref str) (ref str))
+      (result unit string))))
+
+(def proposal
+  "{\"title\": \"Where do sessions live?\", \"context\": \"Sessions must survive a restart.\", \"options\": [{\"title\": \"Postgres\"}, {\"title\": \"Redis\"}], \"recommendation\": {\"option\": 1, \"reason\": \"Postgres already runs.\"}}")
+
+(defn design-id (database)
+  (text-at (run-rmap (clone database)
+                     (vec "item" "add" "--roadmap" "road"
+                          "--title" "d" "--kind" "design"
+                          "--description" "a spec"
+                          "--criterion" "a criterion"))
+           "item" "id"))
+
+(defn document-file (name)
+  (let (path (str (scratch-database name) ".json"))
+    (unwrap-ok (write-file (as-str path) proposal))
+    path))
+
+(type ruled (fn (string string) string))
+
+(defn ruled (database item)
+  (let (reply (rule (clone database)
+                    (clone item)
+                    "Which store?" "Postgres" "It runs"
+                    (vec)))
+    (assert (= (:exit-code reply) 0))
+    (text-at (ref reply) "ruling" "id")))
+
+(type rule
+  (fn (string string
+              (ref str)
+              (ref str)
+              (ref str)
+              (ref (vec (ref str))))
+    reply))
+
+(defn rule (database item question choice reason extra)
+  (let (args (vec (str "ruling")
+                  (str "add")
+                  (str "--item")
+                  (clone item)
+                  (str "--question")
+                  (str question)
+                  (str "--choice")
+                  (str choice)
+                  (str "--reason")
+                  (str reason)
+                  (str "--actor")
+                  (str "owner")))
+    (for-each extra
+      (fn (arg) (push! args (str arg))))
+    (run-rmap (clone database) args)))
+
+(defn ruling-field (reply key)
+  (-> (:json reply)
+      (field "ruling")
+      unwrap
+      (field key)
+      unwrap))
+
+(defn ids (reply key)
+  (collect (map (iter (unwrap (json->items (ref (unwrap (field (ref (:json
+                                                                      reply))
+                                                               key))))))
+                (fn (record)
+                  (unwrap (json->text (ref (unwrap (field record "id")))))))))
+
+(deftest a-ruling-records-its-item-question-choice-and-reason
+  (let (database (database-with-roadmap "e2e-ruling-add")
+        item (design-id (ref database))
+        reply (rule (clone database)
+                    (clone item)
+                    "Which store?" "Postgres" "It runs"
+                    (vec)))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (json->text (ref (ruling-field reply "item_id")))
+               (some item)))
+    (assert (= (json->text (ref (ruling-field reply "question")))
+               (some (str "Which store?"))))
+    (assert (= (json->text (ref (ruling-field reply "choice")))
+               (some (str "Postgres"))))
+    (assert (= (json->text (ref (ruling-field reply "reason")))
+               (some (str "It runs"))))
+    (assert (= (json->text (ref (ruling-field reply "ruled_by")))
+               (some (str "owner"))))
+    (assert (null? (ref (ruling-field reply "supersedes"))))))
+
+(deftest a-ruling-on-a-missing-item-is-refused
+  (let (database (database-with-roadmap "e2e-ruling-no-item")
+        reply (rule (clone database)
+                    (str "rm-ffff")
+                    "q" "c" "r"
+                    (vec)))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "item-not-found")))))
+
+(deftest superseding-links-the-rulings-and-refuses-a-second-successor
+  (let (database (database-with-roadmap "e2e-ruling-supersede")
+        item (design-id (ref database))
+        target (ruled (clone database) (clone item))
+        successor (rule (clone database)
+                        (clone item)
+                        "Which store?" "SQLite" "Simpler"
+                        (vec "--supersedes" (as-str target)))
+        second (rule (clone database)
+                     item "Which store?" "MySQL" "Familiar"
+                     (vec "--supersedes" (as-str target))))
+    (assert (= (:exit-code successor) 0))
+    (assert (= (json->text (ref (ruling-field successor "supersedes")))
+               (some (clone target))))
+    (assert (= (:exit-code second) 1))
+    (assert (= (error-code (ref second))
+               (str "ruling-superseded")))))
+
+(deftest superseding-a-missing-ruling-is-refused
+  (let (database (database-with-roadmap "e2e-ruling-no-target")
+        item (design-id (ref database))
+        reply (rule (clone database)
+                    (clone item)
+                    "q" "c" "r"
+                    (vec "--supersedes" "rm-ffff")))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "ruling-not-found")))))
+
+(deftest the-list-hides-superseded-rulings-unless-all
+  (let (database (database-with-roadmap "e2e-ruling-list")
+        item (design-id (ref database))
+        target (ruled (clone database) (clone item))
+        successor (rule (clone database)
+                        (clone item)
+                        "Which store?" "SQLite" "Simpler"
+                        (vec "--supersedes" (as-str target)))
+        live (run-rmap (clone database) (vec "ruling" "list"))
+        all (run-rmap (clone database) (vec "ruling" "list" "--all")))
+    (assert (= (:exit-code live) 0))
+    (assert (= (ids (ref live) "rulings")
+               (vec (text-at (ref successor) "ruling" "id"))))
+    (assert (= (len (ids (ref all) "rulings")) 2))))
+
+(deftest the-list-prints-a-table
+  (let (database (database-with-roadmap "e2e-ruling-list-text")
+        item (design-id (ref database))
+        _ (ruled (clone database) (clone item))
+        output (run-rmap-text (vec "--db" (as-str database) "ruling" "list")))
+    (assert (= (:code output) 0))
+    (assert (contains? (:stdout output)
+                       "ID       ITEM     QUESTION      CHOICE"))
+    (assert (contains? (:stdout output) "Which store?"))))
+
+(deftest showing-a-missing-ruling-is-refused
+  (let (database (database-with-roadmap "e2e-ruling-show-missing")
+        reply (run-rmap (clone database) (vec "ruling" "show" "rm-ffff")))
+    (assert (= (:exit-code reply) 1))
+    (assert (= (error-code (ref reply))
+               (str "ruling-not-found")))))
+
+(deftest settled-holds-the-accepted-decisions-and-live-rulings
+  (let (database (database-with-roadmap "e2e-ruling-settled")
+        item (design-id (ref database))
+        proposed (run-rmap (clone database)
+                           (vec "decision" "propose"
+                                "--roadmap" "road" "--item"
+                                (as-str item)
+                                "--file"
+                                (as-str (document-file
+                                          "e2e-ruling-settled-doc"))))
+        id (text-at (ref proposed) "decision" "id")
+        _ (assert (= (:exit-code
+                       (run-rmap (clone database)
+                                 (vec
+                                   "decision" "accept"
+                                   (as-str id)
+                                   "--option" "1"
+                                   "--justification" "Yes."
+                                   "--consequences" "Do it."
+                                   "--actor" "owner")))
+                     0))
+        target (ruled (clone database) (clone item))
+        successor (rule (clone database)
+                        (clone item)
+                        "Which store?" "SQLite" "Simpler"
+                        (vec "--supersedes" (as-str target)))
+        reply (run-rmap (clone database) (vec "settled")))
+    (assert (= (:exit-code reply) 0))
+    (assert (= (ids (ref reply) "decisions")
+               (vec id)))
+    (assert (= (ids (ref reply) "rulings")
+               (vec (text-at (ref successor) "ruling" "id"))))))
+
+(deftest the-export-keeps-every-ruling-column
+  (let (database (database-with-roadmap "e2e-ruling-export")
+        item (design-id (ref database))
+        _ (ruled (clone database) (clone item))
+        reply (run-rmap (clone database) (vec "export"))
+        rulings (unwrap (json->items (ref (unwrap (field (ref (:json reply))
+                                                         "rulings")))))
+        record (copy-of (unwrap (first rulings)))
+        columns (collect (map (iter (json->entries (ref record)))
+                           (fn (entry) (clone (first entry))))))
+    (sort! columns)
+    (assert (= columns
+               (vec (str "choice")
+                    (str "created_at")
+                    (str "id")
+                    (str "item_id")
+                    (str "question")
+                    (str "reason")
+                    (str "ruled_by")
+                    (str "supersedes_id"))))))

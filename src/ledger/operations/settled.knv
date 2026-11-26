@@ -1,0 +1,48 @@
+(module
+  "Reads what agents must know is settled: accepted decisions and rulings nothing supersedes.")
+
+(use ledger/model decision-status)
+(use ledger/model/decisions decision)
+(use ledger/model/rulings ruling)
+
+(use ledger/core/rulings ->settled-query ruling-visibility
+                         settled-query)
+
+(use ledger/operations/lookups optional-roadmap-id)
+(use ledger/operations/transaction in-read-transaction)
+(use ledger/sqlite/connection connection)
+
+(use ledger/sqlite/decisions ->decision-filter
+                             decisions-matching)
+
+(use ledger/sqlite/rulings ->ruling-filter rulings-matching)
+(use ledger/failure failure)
+
+(export ->settled read-settled settled)
+
+(defstruct settled
+  :decisions (vec decision)
+  :rulings (vec ruling))
+
+(defn read-settled (settings roadmap)
+  (in-read-transaction settings
+    (fn (transaction)
+      (settled-within (ref (:connection transaction))
+                      (->settled-query :roadmap (clone roadmap))))))
+
+(type settled-within
+  (fn ((ref connection) (ref settled-query))
+    (result settled failure)))
+
+(defn settled-within (connection query)
+  (let-try (roadmap-id (optional-roadmap-id connection (ref (:roadmap query)))
+            decisions (decisions-matching connection
+                                          (->decision-filter :roadmap-id (clone roadmap-id)
+                                                             :status (some decision-status/accepted)
+                                                             :item none))
+            rulings (rulings-matching connection
+                                      (->ruling-filter
+                                        :roadmap-id roadmap-id
+                                        :item none
+                                        :visibility ruling-visibility/live)))
+    (ok (->settled :decisions decisions :rulings rulings))))

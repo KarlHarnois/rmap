@@ -1,0 +1,19 @@
+(module
+  "Describes what is settled in plain text: the accepted decisions and the live rulings.")
+
+(use ledger/api settled)
+(use cli/decision-text decisions-text)
+(use cli/ruling-text rulings-text)
+(use cli/tables indented)
+
+(export settled-text)
+
+(type settled-text
+  (fn ((ref settled)) string))
+
+(defn settled-text (settled)
+  (join (vec (str "Decisions:\n"
+                  (indented (decisions-text (:decisions settled))))
+             (str "Rulings:\n"
+                  (indented (rulings-text (:rulings settled)))))
+        "\n\n"))
