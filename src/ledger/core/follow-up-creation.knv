@@ -1,0 +1,115 @@
+(module
+  "Turns the proposals an item applies into the items and dependencies they create.")
+
+(use ledger/model ->dep ->item ->item-id claim dep dep-type
+                  item item-id origin status timestamp)
+
+(use ledger/model/follow-ups follow-up)
+
+(export ->close-application ->created-follow-up
+        application-deps close-application created-follow-up
+        item-for-follow-up)
+
+(defstruct close-application
+  :source item-id
+  :proposal-ids (vec string)
+  :created (vec created-follow-up)
+  :deps (vec dep))
+
+(defstruct created-follow-up
+  :follow-up follow-up
+  :item item)
+
+(type item-for-follow-up
+  (fn ((ref item) (ref follow-up) item-id timestamp)
+    item))
+
+(defn item-for-follow-up (source follow-up id created-at)
+  (->item :id (clone id)
+          :roadmap-id (clone (:roadmap-id source))
+          :roadmap-name (clone (:roadmap-name source))
+          :parent (clone (:parent source))
+          :title (clone (:title follow-up))
+          :description (some (clone (:description follow-up)))
+          :criteria (clone (:criteria follow-up))
+          :kind (:kind follow-up)
+          :status status/open
+          :origin origin/follow-up
+          :priority (:priority follow-up)
+          :claim claim/unclaimed
+          :created-at (clone created-at)
+          :closed-at none))
+
+(defn application-deps (source proposal-ids created)
+  (loop (index 0
+         deps (vec))
+    (if (< index (len created))
+      (recur (inc index)
+             (entry-deps source proposal-ids
+                         (at created index)
+                         created
+                         (ref deps)))
+      deps)))
+
+(defn entry-deps (source proposal-ids entry created deps)
+  (loop (index 0
+         own (vec (discovered-dep source
+                                  (ref (:id (:item entry))))))
+    (if (< index
+           (len (:after (:follow-up entry))))
+      (recur (inc index)
+             (append-all (ref own)
+                         (ref (after-deps (ref (:id (:item entry)))
+                                          (at (:after (:follow-up entry)) index)
+                                          proposal-ids
+                                          created))))
+      (append-all deps (ref own)))))
+
+(type discovered-dep
+  (fn ((ref item) (ref item-id)) dep))
+
+(defn discovered-dep (source owner)
+  (->dep :item (clone owner)
+         :on (clone (:id source))
+         :type dep-type/discovered-from))
+
+(defn after-deps (owner after proposal-ids created)
+  (if (contains? proposal-ids (clone after))
+    (created-after-deps owner after created)
+    (existing-after-deps owner after)))
+
+(defn existing-after-deps (owner after)
+  (let (existing (->item-id :value (clone after)))
+    (vec (blocks-dep owner (ref existing)))))
+
+(defn created-after-deps (owner id created)
+  (match (created-item-of created id)
+    ((some on) (vec (blocks-dep owner on)))
+    (none (vec))))
+
+(defn blocks-dep (owner on)
+  (->dep :item (clone owner)
+         :on (clone on)
+         :type dep-type/blocks))
+
+(type created-item-of
+  (fn ((ref (vec created-follow-up))
+       (ref string))
+    (option item-id)))
+
+(defn created-item-of (created id)
+  (-> created iter
+      (find (fn (entry)
+              (= (ref (:id (:follow-up entry))) id)))
+      (map-some (fn (entry) (clone (:id (:item entry)))))))
+
+(defn append-all (items extra)
+  (loop (index 0
+         all (clone items))
+    (if (< index (len extra))
+      (recur (inc index)
+             (appended all (clone (at extra index))))
+      all)))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))

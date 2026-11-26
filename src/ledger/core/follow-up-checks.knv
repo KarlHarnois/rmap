@@ -1,0 +1,146 @@
+(module
+  "Checks who records a source item's proposals and whether each proposal is complete enough to become an item.")
+
+(use ledger/model claim item item-id kind session)
+(use ledger/model/decisions decision)
+(use ledger/model/follow-ups follow-up-draft)
+(use ledger/refusal refusal)
+(use ledger/core/criteria check-criteria)
+(use ledger/core/follow-up-after-checks check-after-each)
+(use ledger/core/priorities check-priority)
+(use ledger/core/phases finished?)
+
+(export check-decision-raised-by check-drafts check-source
+        check-writer)
+
+(type check-source
+  (fn ((ref item)) (result unit refusal)))
+
+(defn check-source (item)
+  (cond
+    ((= (:kind item) kind/research) (check-open item))
+    ((= (:kind item) kind/design) (check-open item))
+    (else (err (refusal/proposal-source-kind (clone (:id item))
+                                             (:kind item))))))
+
+(type check-writer
+  (fn ((ref item) (ref session) (ref session))
+    (result unit refusal)))
+
+(defn check-writer (item manager writer)
+  (cond
+    ((claimed-by? (ref (:claim item)) writer) (ok (do)))
+    ((= manager writer) (ok (do)))
+    (else (err (refusal/proposal-writer (clone writer)
+                                        (clone (:id item)))))))
+
+(type check-drafts
+  (fn ((ref (vec follow-up-draft))
+       (option item-id))
+    (result unit refusal)))
+
+(defn check-drafts (drafts parent)
+  (let-try (_ (check-each drafts)
+            _ (check-ids drafts)
+            _ (check-after-each drafts))
+    (check-epic-placement drafts (ref parent))))
+
+(type check-decision-raised-by
+  (fn ((ref item) (ref decision))
+    (result unit refusal)))
+
+(defn check-decision-raised-by (source decision)
+  (if (= (:item decision)
+         (some (clone (:id source))))
+    (ok (do))
+    (err (refusal/proposal-decision-not-raised (clone (:id decision))
+                                               (clone (:id source))))))
+
+(type check-open
+  (fn ((ref item)) (result unit refusal)))
+
+(defn check-open (item)
+  (if (finished? (:status item))
+    (err (refusal/item-closed (clone (:id item))))
+    (ok (do))))
+
+(type claimed-by?
+  (fn ((ref claim) (ref session)) bool))
+
+(defn claimed-by? (claim writer)
+  (match claim
+    ((claimed-by live) (= (ref (:session live)) writer))
+    (unclaimed false)))
+
+(defn check-each (drafts)
+  (loop (index 0)
+    (if (< index (len drafts))
+      (let-try (_ (check-draft (at drafts index)))
+        (recur (inc index)))
+      (ok (do)))))
+
+(type check-draft
+  (fn ((ref follow-up-draft))
+    (result unit refusal)))
+
+(defn check-draft (draft)
+  (cond
+    ((blank? (ref (:id draft)))
+     (err (refusal/proposal-incomplete (str "a proposal has an empty id"))))
+    ((blank? (ref (:title draft)))
+     (err (refusal/proposal-incomplete
+            (str "the proposal " (:id draft) " has an empty title"))))
+    ((blank? (ref (:description draft)))
+     (err (refusal/proposal-incomplete (str "the proposal "
+                                            (:id draft)
+                                            " has an empty description"))))
+    (else (check-content draft))))
+
+(type check-content
+  (fn ((ref follow-up-draft))
+    (result unit refusal)))
+
+(defn check-content (draft)
+  (let-try (_ (check-criteria (ref (:criteria draft))))
+    (check-priority (:priority draft))))
+
+(defn check-ids (drafts)
+  (match (find (iter drafts)
+           (fn (draft) (repeated? drafts draft)))
+    ((some draft)
+     (err (refusal/proposal-duplicate (clone (:id draft)))))
+    (none (ok (do)))))
+
+(type repeated?
+  (fn ((ref (vec follow-up-draft))
+       (ref follow-up-draft))
+    bool))
+
+(defn repeated? (drafts draft)
+  (> (count (filter (iter drafts)
+              (fn (other)
+                (= (ref (:id other)) (ref (:id draft))))))
+     1))
+
+(defn check-epic-placement (drafts parent)
+  (match parent
+    ((some _) (check-no-epics drafts))
+    (none (ok (do)))))
+
+(defn check-no-epics (drafts)
+  (match (find (iter drafts)
+           (fn (draft) (epic? draft)))
+    ((some draft)
+     (err (refusal/proposal-incomplete (str "the proposal "
+                                            (:id draft)
+                                            " cannot be an epic because the source item belongs to an epic"))))
+    (none (ok (do)))))
+
+(type epic?
+  (fn ((ref follow-up-draft)) bool))
+
+(defn epic? (draft)
+  (= (:kind draft) kind/epic))
+
+(defn blank? (text)
+  (empty? (trim (as-str text))))

@@ -2,9 +2,9 @@
   "Names each result a ledger call hands back to the CLI.")
 
 (use ledger/api batch criterion-verdict decision dep
-                ended-session event graph-source init-report
-                item item-detail ledger-export next-entry
-                readiness roadmap)
+                ended-session event follow-up graph-source
+                init-report item item-detail item-id
+                ledger-export next-entry readiness roadmap)
 
 (use cli/report-replies report-reply)
 (use cli/pr-replies pr-reply)
@@ -30,6 +30,8 @@
   (dep-removed dep)
   (graph-drawn graph-source)
   (exported ledger-export)
+  (proposals-recorded item-id (vec follow-up))
+  (proposals-listed item-id (vec follow-up))
   (decision-proposed decision)
   (decision-revised decision)
   (decision-shown decision)

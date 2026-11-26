@@ -1,0 +1,70 @@
+(use ledger/model kind status)
+(use ledger/refusal refusal)
+
+(use ledger/core/follow-up-resolution check-cycles
+                                      resolve-drafts)
+
+(use support/follow-ups draft with-draft-after)
+(use support/items work-item)
+
+(defn resolved-drafts (drafts)
+  (unwrap-ok (resolve-drafts (ref drafts)
+                             (ref (existing-items)))))
+
+(defn existing-items ()
+  (vec (work-item "rm-1" kind/build status/open)))
+
+(defn refusal-of (outcome)
+  (match outcome
+    ((err refused) (some (clone refused)))
+    ((ok _) none)))
+
+(defn cycling-drafts ()
+  (vec (with-draft-after (draft (str "p1"))
+                         (vec (str "p2")))
+       (with-draft-after (draft (str "p2"))
+                         (vec (str "p1")))))
+
+(defn self-after-drafts ()
+  (vec (with-draft-after (draft (str "p1"))
+                         (vec (str "p1")))))
+
+(defn chained-drafts ()
+  (vec (with-draft-after (draft (str "p1"))
+                         (vec (str "p2")))
+       (with-draft-after (draft (str "p2"))
+                         (vec (str "p3")))
+       (draft (str "p3"))))
+
+(deftest a-draft-comes-after-proposals-and-items
+  (let (drafts (vec (draft (str "p1"))
+                    (with-draft-after (draft (str "p2"))
+                                      (vec (str "p1") (str "rm-1"))))
+        resolved (resolved-drafts drafts))
+    (assert (= (:after (unwrap (get resolved 1)))
+               (vec (str "p1") (str "rm-1"))))))
+
+(deftest an-after-that-names-nothing-is-refused
+  (let (drafts (vec (with-draft-after (draft (str "p1"))
+                                      (vec (str "nowhere")))))
+    (assert (match (refusal-of (resolve-drafts (ref drafts)
+                                               (ref (existing-items))))
+              ((some (refusal/proposal-target-not-found id))
+               (= id (str "nowhere")))
+              (_ false)))))
+
+(deftest a-cycle-of-proposals-is-refused
+  (let (resolved (resolved-drafts (cycling-drafts)))
+    (assert (match (refusal-of (check-cycles (ref resolved)))
+              ((some (refusal/proposal-cycle _)) true)
+              (_ false)))))
+
+(deftest a-self-after-is-a-cycle
+  (let (resolved (resolved-drafts (self-after-drafts)))
+    (assert (match (refusal-of (check-cycles (ref resolved)))
+              ((some (refusal/proposal-cycle id)) (= id (str "p1")))
+              (_ false)))))
+
+(deftest a-chain-of-proposals-has-no-cycle
+  (let (resolved (resolved-drafts (chained-drafts)))
+    (assert (ok? (check-cycles (ref resolved))))))

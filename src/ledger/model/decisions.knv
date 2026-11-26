@@ -20,7 +20,8 @@
   :title string
   :description string
   :pros (vec string)
-  :cons (vec string))
+  :cons (vec string)
+  :skips (vec string))
 
 (defstruct recommendation
   :option int
@@ -49,7 +50,8 @@
   :title string
   :description string
   :pros (vec string)
-  :cons (vec string))
+  :cons (vec string)
+  :skips (vec string))
 
 (defstruct decision-option-record
   :decision decision-id

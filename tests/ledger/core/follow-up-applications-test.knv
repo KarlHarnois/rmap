@@ -1,0 +1,82 @@
+(use ledger/model ->decision-id ->timestamp decision-status)
+(use ledger/model/decisions ->outcome decision)
+(use ledger/model/follow-ups follow-up)
+
+(use ledger/core/follow-up-applications applicable
+                                        pending-decisions)
+
+(use support/decisions sample-decision)
+(use support/follow-ups follow-up-for linked-follow-up)
+
+(defn decision-with-id (id option skips)
+  (with-skips (assoc (chosen option)
+                     :id (->decision-id :value (str id)))
+              skips))
+
+(defn candidate-follow-ups ()
+  (vec (follow-up-for "p1")
+       (linked-follow-up (str "p2") (str "rm-d1") 2)
+       (linked-follow-up (str "p3") (str "rm-d1") 1)
+       (follow-up-for "p4")))
+
+(type all-ids
+  (fn ((ref (vec follow-up)))
+    (vec string)))
+
+(defn all-ids (follow-ups)
+  (collect (map (iter follow-ups)
+             (fn (follow-up) (clone (:id follow-up))))))
+
+(defn chosen (option)
+  (let (decision (sample-decision decision-status/accepted))
+    (assoc decision :outcome (some (outcome-of option)))))
+
+(type with-skips
+  (fn ((ref decision) (ref (vec string)))
+    decision))
+
+(defn with-skips (decision ids)
+  (let (options (:options decision)
+        first-option (assoc (clone (unwrap (get options 0)))
+                            :skips (vec))
+        second-option (assoc (clone (unwrap (get options 1)))
+                             :skips (collect (map (iter ids)
+                                               (fn (id) (str id))))))
+    (assoc (clone decision)
+           :options (vec first-option second-option))))
+
+(defn outcome-of (option)
+  (->outcome :option (some option)
+             :justification (str "because")
+             :consequences none
+             :decided-by (str "owner")
+             :decided-at (->timestamp :value (str "2026-01-02T00:00:00Z"))))
+
+(deftest proposed-and-rejected-decisions-are-pending
+  (let (decisions (vec (sample-decision decision-status/proposed)
+                       (sample-decision decision-status/rejected)
+                       (sample-decision decision-status/accepted)))
+    (assert (= (len (pending-decisions (ref decisions)))
+               2))))
+
+(deftest an-accepted-decision-is-not-pending
+  (let (decisions (vec (chosen 1)))
+    (assert (empty? (pending-decisions (ref decisions))))))
+
+(deftest the-chosen-option-selects-linked-proposals
+  (let (follow-ups (candidate-follow-ups)
+        decisions (vec (decision-with-id "rm-d1" 2 (vec))))
+    (assert (= (all-ids (applicable (ref follow-ups) (ref decisions)))
+               (vec (str "p1") (str "p2") (str "p4"))))))
+
+(deftest a-chosen-option-skips-the-proposals-it-lists
+  (let (follow-ups (candidate-follow-ups)
+        decisions (vec (decision-with-id "rm-d1" 2 (vec (str "p4")))))
+    (assert (= (all-ids (applicable (ref follow-ups) (ref decisions)))
+               (vec (str "p1") (str "p2"))))))
+
+(deftest an-unanswered-decision-applies-only-the-unconditional-proposals
+  (let (follow-ups (candidate-follow-ups)
+        decisions (vec (sample-decision decision-status/proposed)))
+    (assert (= (all-ids (applicable (ref follow-ups) (ref decisions)))
+               (vec (str "p1") (str "p4"))))))

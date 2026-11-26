@@ -3,8 +3,7 @@
 
 (use ledger/core/ready readiness-of)
 (use ledger/core/snapshot scope)
-(use ledger/model ->snapshot item roadmap timestamp)
-(use ledger/model/pull-requests pull-request)
+(use ledger/model ->snapshot timestamp)
 (use ledger/model/export ->ledger-export ledger-export)
 
 (use ledger/operations/export-facts export-items
@@ -15,8 +14,12 @@
                                       option-point-records
                                       ruling-records)
 
-(use ledger/model/decisions ->decision-option-record
-                            decision decision-option-record)
+(use ledger/model/decisions ->decision-option-record)
+
+(use ledger/operations/export-order decision-key item-key
+                                    option-records ordered
+                                    pull-request-key
+                                    roadmap-key)
 
 (use ledger/model/reports ->report-query report-reading)
 (use ledger/sqlite/decisions ->decision-filter)
@@ -31,6 +34,17 @@
 (use ledger/sqlite/criterion-verdicts all-criterion-verdicts)
 (use ledger/sqlite/deps all-deps)
 (use ledger/sqlite/events events-matching)
+
+(use ledger/sqlite/export-proposals all-item-proposals
+                                    all-option-skips
+                                    all-proposal-criteria
+                                    all-proposal-deps)
+
+(use ledger/operations/export-proposal-records item-proposal-records
+                                               option-skip-records
+                                               proposal-criterion-records
+                                               proposal-dep-records)
+
 (use ledger/sqlite/items all-items)
 (use ledger/sqlite/pull-requests all-pull-requests)
 (use ledger/sqlite/reports reports-matching)
@@ -75,7 +89,11 @@
             option-points (all-option-points connection)
             blocks (all-blocks connection)
             rulings (all-rulings connection)
-            events (events-matching connection every-event))
+            events (events-matching connection every-event)
+            item-proposals (all-item-proposals connection)
+            proposal-criteria (all-proposal-criteria connection)
+            proposal-deps (all-proposal-deps connection)
+            option-skips (all-option-skips connection))
     (let (ordered-decisions (ordered decisions decision-key)
           ordered-items (ordered items item-key)
           ordered-pull-requests (ordered pull-requests pull-request-key)
@@ -100,47 +118,9 @@
             :export-decision-option-points (option-point-records (ref option-points))
             :export-decision-blocks (block-records (ref blocks))
             :export-rulings (ruling-records (ref rulings))
-            :export-events events)))))
-
-(defn ordered (values key)
-  (let (all (collect (map (iter values) clone)))
-    (sort-by! all key)
-    all))
-
-(type roadmap-key
-  (fn ((ref roadmap)) string))
-
-(defn roadmap-key (roadmap)
-  (clone (:value (:id roadmap))))
-
-(type pull-request-key
-  (fn ((ref pull-request)) string))
-
-(defn pull-request-key (pull-request)
-  (clone (:value (:item pull-request))))
-
-(type item-key (fn ((ref item)) string))
-
-(defn item-key (item)
-  (clone (:value (:id item))))
-
-(type decision-key
-  (fn ((ref decision)) string))
-
-(defn decision-key (decision)
-  (clone (:value (:id decision))))
-
-(type option-records
-  (fn ((ref (vec decision)))
-    (vec decision-option-record)))
-
-(defn option-records (decisions)
-  (let (records (vec))
-    (for-each decisions
-      (fn (decision)
-        (for-each (:options decision)
-          (fn (option)
-            (push! records
-                   (->decision-option-record :decision (clone (:id decision))
-                                             :option (clone option)))))))
-    records))
+            :export-events events
+            :export-item-proposals (item-proposal-records item-proposals)
+            :export-proposal-criteria (proposal-criterion-records
+                                        proposal-criteria)
+            :export-proposal-deps (proposal-dep-records proposal-deps)
+            :export-option-skips (option-skip-records option-skips))))))

@@ -1,0 +1,20 @@
+(module
+  "Lists the commands that record and read a research or design item's follow-up proposals.")
+
+(use cli/flag-specs required)
+(use cli/routes ->route operands subcommand words)
+
+(export proposal-routes)
+
+(defn proposal-routes ()
+  (vec (->route :subcommand subcommand/proposal-add
+                :words (words "proposal add")
+                :summary (str "Records one document of the follow-up items a research or design item's report proposes. Every proposal needs an id, a title, a kind, a priority, a description and at least one acceptance criterion. after names other proposals in the same document or items in the ledger it comes after, and decision links it to one option of a decision the source item raised. The document replaces the source item's proposals, all or nothing, and only the item's live session or the roadmap's manager records them.")
+                :operands (operands (vec "source"))
+                :flags (vec (required "file" "<path|->")
+                            (required "session" "<name>")))
+       (->route :subcommand subcommand/proposal-list
+                :words (words "proposal list")
+                :summary (str "Lists the follow-up proposals a research or design item's report makes, and the items each became once the item closed.")
+                :operands (operands (vec "source"))
+                :flags (vec))))

@@ -1,0 +1,55 @@
+(module
+  "Orders the export's records by their primary key and builds the flat decision option records.")
+
+(use ledger/model item roadmap)
+
+(use ledger/model/decisions ->decision-option-record
+                            decision decision-option-record)
+
+(use ledger/model/pull-requests pull-request)
+
+(export decision-key item-key option-records ordered
+        pull-request-key roadmap-key)
+
+(defn ordered (values key)
+  (let (all (collect (map (iter values) clone)))
+    (sort-by! all key)
+    all))
+
+(type roadmap-key
+  (fn ((ref roadmap)) string))
+
+(defn roadmap-key (roadmap)
+  (clone (:value (:id roadmap))))
+
+(type pull-request-key
+  (fn ((ref pull-request)) string))
+
+(defn pull-request-key (pull-request)
+  (clone (:value (:item pull-request))))
+
+(type item-key (fn ((ref item)) string))
+
+(defn item-key (item)
+  (clone (:value (:id item))))
+
+(type decision-key
+  (fn ((ref decision)) string))
+
+(defn decision-key (decision)
+  (clone (:value (:id decision))))
+
+(type option-records
+  (fn ((ref (vec decision)))
+    (vec decision-option-record)))
+
+(defn option-records (decisions)
+  (let (records (vec))
+    (for-each decisions
+      (fn (decision)
+        (for-each (:options decision)
+          (fn (option)
+            (push! records
+                   (->decision-option-record :decision (clone (:id decision))
+                                             :option (clone option)))))))
+    records))

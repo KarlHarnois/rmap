@@ -1,7 +1,9 @@
 (module
   "Holds one snapshot of the whole ledger: every record kind the export document lists.")
 
-(use ledger/model blockage dep item roadmap timestamp)
+(use ledger/model ->item-id blockage decision-id dep item
+                  item-id kind roadmap timestamp)
+
 (use ledger/model/criteria criterion-verdict)
 (use json/value json)
 (use ledger/model/events event)
@@ -13,8 +15,13 @@
 
 (use ledger/model/reports report)
 
-(export ->export-item ->export-pull-request ->ledger-export
-        export-item export-pull-request ledger-export)
+(export ->export-item ->export-item-proposal
+        ->export-option-skip ->export-proposal-criterion
+        ->export-proposal-dep ->export-pull-request
+        ->ledger-export export-item export-item-proposal
+        export-option-skip export-proposal-criterion
+        export-proposal-dep export-pull-request
+        ledger-export)
 
 (defstruct ledger-export
   :exported-at timestamp
@@ -32,7 +39,11 @@
   :export-decision-option-points (vec json)
   :export-decision-blocks (vec json)
   :export-rulings (vec json)
-  :export-events (vec event))
+  :export-events (vec event)
+  :export-item-proposals (vec json)
+  :export-proposal-criteria (vec json)
+  :export-proposal-deps (vec json)
+  :export-option-skips (vec json))
 
 (defstruct export-item
   :exported-item item
@@ -43,3 +54,33 @@
   :exported-pull-request pull-request
   :request-approved bool
   :request-approval approval)
+
+(defstruct export-item-proposal
+  :item item-id
+  :proposal string
+  :position int
+  :title string
+  :kind kind
+  :priority int
+  :description string
+  :decision (option decision-id)
+  :decision-option (option int)
+  :created-item (option item-id))
+
+(defstruct export-proposal-criterion
+  :item item-id
+  :proposal string
+  :position int
+  :text string)
+
+(defstruct export-proposal-dep
+  :item item-id
+  :proposal string
+  :position int
+  :on-id string)
+
+(defstruct export-option-skip
+  :decision decision-id
+  :option int
+  :position int
+  :proposal string)

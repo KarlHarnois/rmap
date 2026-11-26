@@ -3,6 +3,7 @@
 
 (use cli/invocation invocation)
 (use cli/decision-invocations decision-invocation-of)
+(use cli/proposal-document-call proposal-add-document-call)
 (use cli/route-ledger on-ledger)
 (use cli/routes subcommand)
 (use cli/arguments operand)
@@ -83,6 +84,14 @@
                                         (text->id (operand arguments route 0))
                                         (text->id
                                           (operand arguments route 1))))))
+    (subcommand/proposal-add
+      (map-ok (proposal-add-document-call arguments
+                                          (operand arguments route 0))
+              (fn (call) (invocation/on-proposal-document call))))
+    (subcommand/proposal-list (on-ledger
+                                arguments
+                                (ok (request/proposal-list
+                                      (text->id (operand arguments route 0))))))
     (subcommand/decision-propose (decision-invocation-of route arguments))
     (subcommand/decision-revise (decision-invocation-of route arguments))
     (subcommand/decision-show (decision-invocation-of route arguments))

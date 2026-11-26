@@ -7,12 +7,27 @@
                   roadmap-pause roadmap-status session
                   status timestamp work-session)
 
+(use ledger/model/events event)
+(use ledger/model/sessions ->claim-request claim-request)
+
+(use ledger/failure-api database-problem failure
+                        failure-code failure-message
+                        pull-request-refusal refusal
+                        refusal-catalog refusal-description)
+
 (use ledger/json-values ids->json optional-id->json
                         optional-text->json
                         optional-timestamp->json)
 
 (use ledger/export-api decision-option-record export-ledger
                        ledger-export)
+
+(use ledger/ledger-api ->settings clock
+                       default-database-path init-ledger
+                       init-outcome-names init-report
+                       list-roadmaps new-roadmap
+                       pause-roadmap resume-roadmap
+                       settings)
 
 (use ledger/action-names action-names actor-names)
 
@@ -26,16 +41,22 @@
                   roadmap-status-names runtime-names
                   session-kind-names status-names)
 
-(export ->item-id ->session abandoned action-names
-        actor-names blockage case-name case-named claim
-        criterion-result-names decision-option-record dep
+(export ->claim-request ->item-id ->session ->settings
+        abandoned action-names actor-names blockage
+        case-name case-named claim claim-request clock
+        criterion-result-names database-problem
+        decision-option-record default-database-path dep
         dep-type dep-type-names end-reason end-session
-        ended-session event-type-names export-ledger
-        graph-format graph-format-names history ids->json
-        item item-id kind kind-names ledger-export
+        ended-session event event-type-names export-ledger
+        failure failure-code failure-message graph-format
+        graph-format-names history ids->json init-ledger
+        init-outcome-names init-report item item-id kind
+        kind-names ledger-export list-roadmaps new-roadmap
         optional-id->json optional-text->json
-        optional-timestamp->json origin origin-names roadmap
-        roadmap-id roadmap-pause roadmap-status
+        optional-timestamp->json origin origin-names
+        pause-roadmap pull-request-refusal refusal
+        refusal-catalog refusal-description resume-roadmap
+        roadmap roadmap-id roadmap-pause roadmap-status
         roadmap-status-names runtime-names session
-        session-kind-names session-record->json status
-        status-names timestamp work-session)
+        session-kind-names session-record->json settings
+        status status-names timestamp work-session)

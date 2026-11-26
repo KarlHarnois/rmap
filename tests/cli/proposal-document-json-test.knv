@@ -1,0 +1,44 @@
+(use json/value parse-json)
+
+(use cli/proposal-document-json json->proposal-drafts
+                                proposal-add-document-shape)
+
+(use ledger/model kind)
+
+(def full-document
+  "{\"proposals\": [{\"id\": \"p1\", \"title\": \"Add a cache\", \"kind\": \"build\", \"priority\": 1, \"description\": \"Cache the lookup.\", \"criteria\": [\"WHEN it runs, rmap SHALL cache\"], \"after\": [\"rm-0001\"], \"decision\": {\"id\": \"rm-d001\", \"option\": 2}}, {\"id\": \"p2\", \"title\": \"Add metrics\", \"kind\": \"research\", \"priority\": 3, \"description\": \"Measure it.\", \"criteria\": [\"WHEN it runs, rmap SHALL measure\"]}]}")
+
+(defn drafts-of (text)
+  (json->proposal-drafts (ref (unwrap-ok (parse-json text)))))
+
+(deftest a-document-gives-every-proposal-and-field
+  (let (drafts (unwrap-ok (drafts-of full-document))
+        first (unwrap (get drafts 0))
+        second (unwrap (get drafts 1)))
+    (assert (= (len drafts) 2))
+    (assert (= (:id first) (str "p1")))
+    (assert (= (:kind first) kind/build))
+    (assert (= (:priority first) 1))
+    (assert (= (:criteria first)
+               (vec (str "WHEN it runs, rmap SHALL cache"))))
+    (assert (= (:after first) (vec (str "rm-0001"))))
+    (assert (= (:option (unwrap (clone (:decision first))))
+               2))
+    (assert (= (:kind second) kind/research))
+    (assert (= (:after second) (vec)))))
+
+(deftest the-document-shape-is-read-as-a-document
+  (assert (ok? (json->proposal-drafts (ref (proposal-add-document-shape))))))
+
+(deftest a-document-without-proposals-is-refused
+  (assert (= (unwrap-err (json->proposal-drafts (ref (unwrap-ok (parse-json
+                                                                  "{}")))))
+             (str "the proposal document needs \"proposals\" as a list"))))
+
+(deftest an-unknown-kind-names-the-proposal
+  (assert (starts-with? (as-str (unwrap-err (drafts-of "{\"proposals\": [{\"id\": \"p1\", \"title\": \"t\", \"kind\": \"ship\", \"priority\": 2, \"description\": \"d\", \"criteria\": [\"c\"]}]}")))
+                        (as-str (str "proposal 1 needs \"kind\"")))))
+
+(deftest criteria-that-are-not-a-list-are-refused
+  (assert (starts-with? (as-str (unwrap-err (drafts-of "{\"proposals\": [{\"id\": \"p1\", \"title\": \"t\", \"kind\": \"build\", \"priority\": 2, \"description\": \"d\", \"criteria\": \"c\"}]}")))
+                        (as-str (str "proposal 1 gives \"criteria\"")))))

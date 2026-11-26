@@ -121,4 +121,5 @@
   (->option-draft :title (clone (:title option))
                   :description (clone (:description option))
                   :pros (clone (:pros option))
-                  :cons (clone (:cons option))))
+                  :cons (clone (:cons option))
+                  :skips (clone (:skips option))))

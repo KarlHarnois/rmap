@@ -1,0 +1,51 @@
+(module
+  "Describes recording a source item's proposals and the items a close applies, as event context.")
+
+(use json/value array json object text->json)
+(use ledger/model item)
+(use ledger/model/follow-ups follow-up)
+
+(use ledger/model/events ->event-draft event-draft
+                         event-type)
+
+(use ledger/changes payload-with-changes)
+
+(export close-context proposals-recorded)
+
+(type proposals-recorded
+  (fn ((ref item) (ref (vec follow-up)))
+    event-draft))
+
+(defn proposals-recorded (source follow-ups)
+  (->event-draft :roadmap-id (some (clone (:roadmap-id source)))
+                 :item-id (some (clone (:id source)))
+                 :decision-id none
+                 :type event-type/proposals-recorded
+                 :payload (payload-with-changes (vec)
+                                                (vec (pair (str "proposals")
+                                                           (proposal-ids
+                                                             follow-ups))))))
+
+(defn close-context (application)
+  (match application
+    ((some present) (application-context present))
+    (none (vec))))
+
+(type proposal-ids
+  (fn ((ref (vec follow-up))) json))
+
+(defn proposal-ids (follow-ups)
+  (array (collect (map (iter follow-ups)
+                    (fn (follow-up)
+                      (text->json (as-str (:id follow-up))))))))
+
+(defn application-context (application)
+  (vec (pair (str "proposals")
+             (array (collect (map (iter (:created application))
+                                  created-json))))))
+
+(defn created-json (entry)
+  (object (vec (pair (str "proposal")
+                     (text->json (as-str (:id (:follow-up entry)))))
+               (pair (str "item")
+                     (text->json (as-str (:value (:id (:item entry)))))))))

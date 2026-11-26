@@ -11,7 +11,7 @@
 (use ledger/core/head-records new-head-change)
 (use ledger/core/snapshot existing)
 (use ledger/pull-request-events head-recorded)
-(use ledger/operations/moves applied write-move)
+(use ledger/operations/move-writes applied write-move)
 
 (use ledger/operations/pull-requests changed-pull-request
                                      pull-request-for

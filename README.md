@@ -87,6 +87,9 @@ Commands:
             "pros": [
               "<text>"
             ],
+            "skips": [
+              "<proposal id>"
+            ],
             "title": "<text>"
           }
         ],
@@ -109,6 +112,9 @@ Commands:
             "description": "<text, may be left out>",
             "pros": [
               "<text>"
+            ],
+            "skips": [
+              "<proposal id>"
             ],
             "title": "<text>"
           }
@@ -136,7 +142,33 @@ Commands:
   decision unblock <id> <item>
     Removes an item from what a decision blocks, in any decision status.
   export
-    Prints the whole ledger as one JSON document, with or without --json: every roadmap, item, acceptance criterion, criterion verdict, dependency, session, report, pull request, review, decision, decision option, decision option point, decision block, ruling and event.
+    Prints the whole ledger as one JSON document, with or without --json: every roadmap, item, acceptance criterion, criterion verdict, dependency, session, report, pull request, review, decision, decision option, decision option point, decision block, proposal, proposal criterion, proposal dependency, option skip, ruling and event.
+  proposal add <source> --file <path|-> --session <name>
+    Records one document of the follow-up items a research or design item's report proposes. Every proposal needs an id, a title, a kind, a priority, a description and at least one acceptance criterion. after names other proposals in the same document or items in the ledger it comes after, and decision links it to one option of a decision the source item raised. The document replaces the source item's proposals, all or nothing, and only the item's live session or the roadmap's manager records them.
+    Document:
+      {
+        "proposals": [
+          {
+            "after": [
+              "<proposal id or item id>"
+            ],
+            "criteria": [
+              "<text>"
+            ],
+            "decision": {
+              "id": "<decision id>",
+              "option": 1
+            },
+            "description": "<text>",
+            "id": "<text>",
+            "kind": "build",
+            "priority": 2,
+            "title": "<text>"
+          }
+        ]
+      }
+  proposal list <source>
+    Lists the follow-up proposals a research or design item's report makes, and the items each became once the item closed.
   report list [--item <id>] [--unread]
     Lists the reports, oldest first. --item keeps those on one item, --unread those not read yet.
   report show <id>
@@ -226,4 +258,13 @@ Refusal codes:
   criterion-not-found            The item has no acceptance criterion at that position.
   verdict-head-required          A criterion verdict on a build needs --head.
   verdict-head-not-current       The criterion verdict names a head other than the pull request's current head. The error names both heads.
+  decisions-pending              An item cannot close while a decision it raised is proposed or rejected. The error lists those decisions.
+  proposal-incomplete            A proposal needs an id, a title, a description, at least one acceptance criterion, a priority from 0 to 4, and no epic kind when the source belongs to an epic.
+  proposal-duplicate             Two proposals in one document share an id.
+  proposal-target-not-found      A proposal comes after an id that is neither a proposal in the document nor an item in the ledger.
+  proposal-cycle                 The proposals come after each other in a cycle.
+  proposal-source-kind           Only a research or design item records proposals.
+  proposal-writer                Only the source item's live session or the roadmap's manager records its proposals.
+  proposal-decision-not-raised   A proposal links to a decision the source item did not raise.
+  unknown-skip                   A chosen option of an accepted decision skips a proposal id the closing item does not have. The error names the decision, the option and the unknown ids.
 ```

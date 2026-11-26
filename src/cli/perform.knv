@@ -1,13 +1,14 @@
 (module
   "Runs a parsed request against the ledger and names the reply it gives.")
 
-(use ledger/api add-dep add-item advance-item claim-item
-                close-item draw-graph drop-item edit-item
-                end-session export-ledger init-ledger
-                list-items list-roadmaps new-roadmap
-                next-actions pause-roadmap read-log
-                ready-batch ready-items remove-dep
-                resume-roadmap show-item verify-criterion)
+(use ledger/api add-dep add-item add-proposals advance-item
+                claim-item close-item draw-graph drop-item
+                edit-item end-session export-ledger
+                init-ledger list-items list-proposals
+                list-roadmaps new-roadmap next-actions
+                pause-roadmap read-log ready-batch
+                ready-items remove-dep resume-roadmap
+                show-item verify-criterion)
 
 (use cli/decision-calls perform-decision)
 (use cli/pr-calls perform-pull-request)
@@ -83,6 +84,14 @@
     (export (map-ok (export-ledger settings)
               (fn (document) (reply/exported document))))
     ((decision request) (perform-decision settings request))
+    ((proposal-add id session drafts)
+     (map-ok (add-proposals settings (clone id) (clone session) drafts)
+       (fn (follow-ups)
+         (reply/proposals-recorded (clone id) follow-ups))))
+    ((proposal-list id)
+     (map-ok (list-proposals settings (clone id))
+       (fn (follow-ups)
+         (reply/proposals-listed (clone id) follow-ups))))
     ((report operation) (perform-report settings operation))
     ((pull-request operation)
      (perform-pull-request settings operation))

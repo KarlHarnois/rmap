@@ -3,8 +3,9 @@
 
 (use ledger/api case-name criterion-gap criterion-result
                 criterion-result-names database-problem
-                failure failure-code failure-message
-                pull-request-refusal refusal session)
+                decision-id failure failure-code
+                failure-message pull-request-refusal refusal
+                session)
 
 (use cli/responses response)
 (use cli/help command-help-document help-document)
@@ -55,6 +56,14 @@
 (defn refusal-fields (refusal)
   (match refusal
     ((refusal/not-ready blockage) (blockage-fields blockage))
+    ((refusal/decisions-pending ids)
+     (vec (pair (str "decisions") (decision-ids->json ids))))
+    ((refusal/unknown-skip decision option skips)
+     (vec (pair (str "decision")
+                (text->json (as-str (:value decision))))
+          (pair (str "option") (int->json option))
+          (pair (str "skips")
+                (array (collect (map (iter skips) text->json))))))
     ((refusal/pull-request (pull-request-refusal/reviewer-is-worker reviewer))
      (vec (pair (str "reviewer")
                 (text->json (as-str (:name reviewer))))))
@@ -93,6 +102,14 @@
 (defn verifier-fields (reviewer)
   (vec (pair (str "verifier")
              (text->json (as-str (:name reviewer))))))
+
+(type decision-ids->json
+  (fn ((ref (vec decision-id))) json))
+
+(defn decision-ids->json (ids)
+  (array (collect (map (iter ids)
+                    (fn (id)
+                      (text->json (as-str (:value id))))))))
 
 (defn criterion-gap-fields (gaps)
   (vec (pair (str "criteria")

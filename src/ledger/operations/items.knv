@@ -3,6 +3,7 @@
 
 (use ledger/model dep item item-id snapshot)
 (use ledger/model/criteria criterion-status)
+(use ledger/model/follow-ups follow-up)
 
 (use ledger/core/index index-of ledger-index
                        with-shown-status)
@@ -11,6 +12,7 @@
 (use ledger/sqlite/events ->event-filter)
 (use ledger/sqlite/snapshot load-snapshot)
 (use ledger/sqlite/criterion-verdicts criterion-verdicts-for)
+(use ledger/sqlite/follow-ups follow-ups-of)
 (use ledger/core/criterion-statuses criterion-statuses)
 
 (use ledger/operations/transaction in-read-transaction
@@ -29,6 +31,7 @@
   :deps (vec dep)
   :children (vec item)
   :criterion-statuses (vec criterion-status)
+  :proposals (vec follow-up)
   :pull-request (option pull-request))
 
 (type list-items
@@ -71,13 +74,15 @@
   (let-try (snapshot (load-snapshot connection)
             item (existing (ref snapshot) id)
             pull-request (pull-request-for connection id)
-            verdicts (criterion-verdicts-for connection id))
+            verdicts (criterion-verdicts-for connection id)
+            proposals (follow-ups-of connection id))
     (let (index (index-of (ref snapshot))
           statuses (criterion-statuses (ref item) (ref verdicts)))
       (ok (->item-detail :item (with-shown-status (ref index) (ref item))
                          :deps (deps-of (ref snapshot) id)
                          :children (children-of (ref snapshot) (ref index) id)
                          :criterion-statuses statuses
+                         :proposals proposals
                          :pull-request pull-request)))))
 
 (type children-of

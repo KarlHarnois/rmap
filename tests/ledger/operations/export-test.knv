@@ -1,8 +1,10 @@
-(use json/value copy-of field json->int json->text)
+(use json/value copy-of field json->int json->text null?)
 (use ledger/model/reports report-kind)
 
-(use ledger/api add-dep drop-item export-ledger item-id
-                propose-decision record-report settings)
+(use ledger/api ->follow-up-draft ->item-id ->session
+                add-dep add-proposals drop-item
+                export-ledger item-id propose-decision
+                record-report settings)
 
 (use ledger/model kind status)
 (use ledger/model/pull-requests verdict)
@@ -25,11 +27,43 @@
     (let (open (added-id (ref settings) (item-draft kind/research))
           blocker (added-id (ref settings) (item-draft kind/design)))
       (unwrap-ok (add-dep settings (clone open) (clone blocker)))
-      (unwrap-ok (propose-decision settings
-                                   (assoc (proposal-in roadmap-name)
-                                          :blocks (vec (clone open)))))
-      (insert-ruling (ref settings) (ref reported))
+      (let (decision (unwrap-ok (propose-decision settings
+                                                  (assoc (proposal-with-skips
+                                                           roadmap-name)
+                                                         :blocks (vec (clone open))))))
+        (add-proposals settings
+                       (clone reported)
+                       (->session :name (str "manager"))
+                       (vec (->follow-up-draft :id (str "p1")
+                                               :title (str "first")
+                                               :kind kind/build
+                                               :priority 2
+                                               :description (str "d")
+                                               :criteria (vec (str "c"))
+                                               :after (vec)
+                                               :decision none)
+                            (->follow-up-draft :id (str "p2")
+                                               :title (str "second")
+                                               :kind kind/build
+                                               :priority 2
+                                               :description (str "d")
+                                               :criteria (vec (str "c"))
+                                               :after (vec (str "p1"))
+                                               :decision none)))
+        (insert-ruling (ref settings) (ref reported))
+        decision)
       settings)))
+
+(defn proposal-with-skips (roadmap)
+  (let (request (proposal-in roadmap)
+        proposal (clone (:proposal request))
+        options (:options proposal))
+    (assoc request
+           :proposal (assoc proposal
+                            :options (vec (clone (unwrap (get options 0)))
+                                          (assoc (clone (unwrap (get options
+                                                                     1)))
+                                                 :skips (vec (str "p1"))))))))
 
 (defn reported-research (settings)
   (let (id (claimed settings (research settings)))
@@ -71,6 +105,14 @@
       (fn (value) (clone value)))
     (= keys expected)))
 
+(defn ordered-json-text? (values key)
+  (let (keys (collect (map (iter values)
+                        (fn (value) (json-text-value value key))))
+        expected (collect (map (iter keys) clone)))
+    (sort-by! expected
+      (fn (value) (clone value)))
+    (= keys expected)))
+
 (defn ordered-numbers? (values key)
   (let (keys (collect (map (iter values)
                         (fn (value)
@@ -80,6 +122,35 @@
     (sort-by! expected
       (fn (value) (clone value)))
     (= keys expected)))
+
+(defn proposal-references-resolve? (document items decisions proposal-ids)
+  (and
+    (every? (:export-item-proposals document)
+      (fn (record)
+        (and (holds? items (json-text-value record "item"))
+             (or (null-text? (ref (unwrap (field (copy-of record)
+                                                 "decision_id"))))
+                 (holds? decisions (json-text-value record "decision_id"))))))
+    (every? (:export-proposal-criteria document)
+      (fn (record)
+        (and (holds? items (json-text-value record "item"))
+             (holds? proposal-ids (json-text-value record "proposal_id")))))
+    (every? (:export-proposal-deps document)
+      (fn (record)
+        (and (holds? items (json-text-value record "item"))
+             (holds? proposal-ids (json-text-value record "proposal_id"))
+             (or (holds? proposal-ids (json-text-value record "on_id"))
+                 (holds? items (json-text-value record "on_id"))))))
+    (every? (:export-option-skips document)
+      (fn (record)
+        (and (holds? decisions (json-text-value record "decision_id"))
+             (holds? proposal-ids (json-text-value record "proposal_id")))))))
+
+(defn null-text? (value)
+  (null? (ref value)))
+
+(defn json-text-value (record key)
+  (unwrap (json->text (ref (unwrap (field (copy-of record) key))))))
 
 (type holds?
   (where ((a partial-eq))
@@ -104,7 +175,11 @@
     (assert (> (len (:export-decision-option-points document)) 0))
     (assert (= (len (:export-decision-blocks document)) 1))
     (assert (= (len (:export-rulings document)) 1))
-    (assert (> (len (:export-events document)) 0))))
+    (assert (> (len (:export-events document)) 0))
+    (assert (= (len (:export-item-proposals document)) 2))
+    (assert (= (len (:export-proposal-criteria document)) 2))
+    (assert (= (len (:export-proposal-deps document)) 1))
+    (assert (= (len (:export-option-skips document)) 1))))
 
 (deftest the-snapshot-keeps-finished-and-dropped-items
   (let (settings (export-fixture "export-statuses")
@@ -129,7 +204,15 @@
                 (clone (:value (:id (:exported-item item)))))))
     (assert (ordered? (:export-decision-options document)
               (fn (record) (:number (:option record)))))
-    (assert (ordered? (:export-events document) :id))))
+    (assert (ordered? (:export-events document) :id))
+    (assert (ordered-json-text? (:export-item-proposals document)
+                                "proposal_id"))
+    (assert (ordered-numbers? (:export-proposal-criteria document)
+                              "position"))
+    (assert (ordered-json-text? (:export-proposal-deps document)
+                                "proposal_id"))
+    (assert (ordered-numbers? (:export-option-skips document)
+                              "position"))))
 
 (deftest every-reference-in-the-snapshot-resolves
   (let (settings (export-fixture "export-references")
@@ -147,7 +230,10 @@
                              (fn (decision)
                                (clone (:value (:id decision))))))
         option-numbers (collect (map (iter (:export-decision-options document))
-                                  (fn (record) (:number (:option record))))))
+                                  (fn (record) (:number (:option record)))))
+        proposal-ids (collect (map (iter (:export-item-proposals document))
+                                (fn (record)
+                                  (json-text-value record "proposal_id")))))
     (assert (every? (:export-items document)
               (fn (record)
                 (holds? roadmaps
@@ -191,21 +277,14 @@
                         (clone (:value (:decision record)))))))
     (assert (every? (:export-decision-blocks document)
               (fn (block)
-                (and (holds? decisions
-                             (unwrap (json->text (ref (unwrap (field (copy-of
-                                                                       block)
-                                                                     "decision_id"))))))
-                     (holds? items
-                             (unwrap (json->text (ref (unwrap (field (copy-of
-                                                                       block)
-                                                                     "item_id"))))))))))
+                (and (holds? decisions (json-text-value block "decision_id"))
+                     (holds? items (json-text-value block "item_id"))))))
     (assert (every? (:export-rulings document)
               (fn (ruling)
-                (holds? items
-                        (unwrap (json->text (ref (unwrap (field
-                                                           (copy-of ruling)
-                                                           "item_id")))))))))
-    (assert (holds? option-numbers 1))))
+                (holds? items (json-text-value ruling "item_id")))))
+    (assert (holds? option-numbers 1))
+    (assert (proposal-references-resolve?
+              document items decisions proposal-ids))))
 
 (deftest the-snapshot-records-no-event
   (let (settings (export-fixture "export-no-event")

@@ -43,18 +43,31 @@
                              draw-graph graph-request
                              graph-source)
 
+(use ledger/model/follow-ups ->follow-up-decision
+                             ->follow-up-draft
+                             ->proposal-submission follow-up
+                             follow-up-decision
+                             follow-up-draft
+                             proposal-submission)
+
+(use ledger/operations/follow-ups add-proposals
+                                  list-proposals)
+
 (export ->advancement ->criterion-gap ->criterion-status
-        ->criterion-verdict ->graph-request ->graph-source
+        ->criterion-verdict ->follow-up-decision
+        ->follow-up-draft ->graph-request ->graph-source
         ->item-edit ->log-query ->new-item ->verify-request
-        action actor add-dep add-item advance-item
-        advancement batch batch-size batch-size-of blockage
-        blocked-item claim-item close-item criteria-input
-        criterion-gap criterion-result criterion-status
-        criterion-verdict decision-next description-input
-        draw-graph drop-item edit-item graph-level
-        graph-level-names graph-request graph-source
-        item-detail item-edit kind-change list-items
-        log-query new-item next-action next-actions
-        next-entry next-item read-log readiness ready-batch
-        ready-items remove-dep show-item verify-criterion
-        verify-request)
+        action actor add-dep add-item add-proposals
+        advance-item advancement batch batch-size
+        batch-size-of blockage blocked-item claim-item
+        close-item criteria-input criterion-gap
+        criterion-result criterion-status criterion-verdict
+        decision-next description-input draw-graph drop-item
+        edit-item follow-up follow-up-decision
+        follow-up-draft graph-level graph-level-names
+        graph-request graph-source item-detail item-edit
+        kind-change list-items list-proposals log-query
+        new-item next-action next-actions next-entry
+        next-item proposal-submission read-log readiness
+        ready-batch ready-items remove-dep show-item
+        verify-criterion verify-request)

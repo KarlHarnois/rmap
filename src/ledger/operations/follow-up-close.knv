@@ -1,0 +1,106 @@
+(module
+  "Plans the items a closing research or design item's proposals become, and refuses a close while a decision it raised is open.")
+
+(use ledger/model ->item-id item kind)
+(use ledger/model/follow-ups follow-up)
+
+(use ledger/core/follow-up-applications applicable
+                                        pending-decisions)
+
+(use ledger/core/follow-up-skips check-skips)
+
+(use ledger/core/follow-up-creation ->close-application
+                                    ->created-follow-up
+                                    application-deps
+                                    close-application
+                                    created-follow-up
+                                    item-for-follow-up)
+
+(use ledger/sqlite/follow-ups follow-ups-of)
+(use ledger/sqlite/raised-decisions decisions-raised-by)
+(use ledger/sqlite/generated fresh-id)
+(use ledger/refusal refusal)
+(use ledger/operations/transaction now transaction)
+(use ledger/failure failure)
+
+(export prepare-close)
+
+(type prepare-close
+  (fn ((ref transaction) (ref item))
+    (result (option close-application) failure)))
+
+(defn prepare-close (transaction item)
+  (cond
+    ((= (:kind item) kind/research)
+     (prepare-reporting-close transaction item))
+    ((= (:kind item) kind/design)
+     (prepare-reporting-close transaction item))
+    (else (ok none))))
+
+(type prepare-reporting-close
+  (fn ((ref transaction) (ref item))
+    (result (option close-application) failure)))
+
+(defn prepare-reporting-close (transaction item)
+  (let (connection (ref (:connection transaction)))
+    (let-try (follow-ups (follow-ups-of connection (ref (:id item)))
+              decisions (decisions-raised-by connection (ref (:id item)))
+              _ (refuse-pending (ref decisions))
+              _ (check-skips (ref follow-ups) (ref decisions)))
+      (plan-application transaction item
+                        (ref follow-ups)
+                        (ref decisions)))))
+
+(defn refuse-pending (decisions)
+  (let (pending (pending-decisions decisions))
+    (if (empty? pending)
+      (ok (do))
+      (err (refusal/decisions-pending pending)))))
+
+(defn plan-application (transaction source follow-ups decisions)
+  (let (chosen (applicable follow-ups (ref decisions)))
+    (if (empty? chosen)
+      (ok none)
+      (allocate transaction source
+                (ref chosen)
+                (ref (proposal-ids follow-ups))))))
+
+(type proposal-ids
+  (fn ((ref (vec follow-up)))
+    (vec string)))
+
+(defn proposal-ids (follow-ups)
+  (collect (map (iter follow-ups)
+             (fn (follow-up) (clone (:id follow-up))))))
+
+(defn allocate (transaction source chosen proposal-ids)
+  (loop (index 0
+         created (vec))
+    (if (< index (len chosen))
+      (let-try (entry (created-entry transaction source (at chosen index)))
+        (recur (inc index) (appended created entry)))
+      (ok (some
+            (->close-application
+              :source (clone (:id source))
+              :proposal-ids (clone proposal-ids)
+              :created (clone created)
+              :deps (application-deps source proposal-ids (ref created))))))))
+
+(type created-entry
+  (fn ((ref transaction)
+       (ref item)
+       (ref follow-up))
+    (result created-follow-up failure)))
+
+(defn created-entry (transaction source follow-up)
+  (let-try (id (fresh-id (ref (:connection transaction))))
+    (let (item (item-for-follow-up source follow-up
+                                   (->item-id :value id)
+                                   (now transaction)))
+      (ok (->created-follow-up :follow-up (assoc (clone follow-up)
+                                                 :created-item (some (clone (:id
+                                                                              item))))
+                               :item item)))))
+
+(defn appended (items extra)
+  (let (all items) (push! all extra) all))

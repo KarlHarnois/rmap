@@ -1,28 +1,28 @@
 (module
   "Claims, advances, closes and drops items, each in one transaction.")
 
-(use ledger/model item item-id timestamp)
+(use ledger/model item item-id)
 
 (use ledger/model/sessions ->session-start claim-request
                            session-start)
 
-(use ledger/move-events ->applied-move applied-move
-                        item-moved)
+(use ledger/move-events applied-move
+                        item-moved-with-context)
 
-(use ledger/core/move advancement->move move moved
-                      session-change-of)
-
+(use ledger/core/move advancement->move move)
 (use ledger/core/transitions approved-move)
 (use ledger/core/requirements check-requirements)
+(use ledger/core/follow-up-creation close-application)
+(use ledger/operations/follow-up-close prepare-close)
+(use ledger/operations/follow-up-writes write-close-application)
+(use ledger/follow-up-events close-context)
 (use ledger/operations/pull-requests pull-request-for)
+(use ledger/operations/move-writes applied write-move)
 
 (use ledger/operations/review-sessions end-live-review-session
                                        superseded-review-end)
 
 (use ledger/sqlite/criterion-verdicts criterion-verdicts-for)
-(use ledger/sqlite/items update-item)
-(use ledger/sqlite/sessions end-session start-session)
-(use ledger/core/session-changes session-change)
 (use git/branches default-branch)
 (use ledger/sqlite/snapshot load-snapshot)
 
@@ -32,8 +32,7 @@
 (use ledger/failure failure)
 (use ledger/core/snapshot existing)
 
-(export advance-item applied claim-item close-item drop-item
-        write-move write-session-change)
+(export advance-item claim-item close-item drop-item)
 
 (defn claim-item (settings id request)
   (perform-move settings id
@@ -49,37 +48,6 @@
 
 (defn drop-item (settings id reason)
   (perform-move settings id (move/drop reason)))
-
-(type applied
-  (fn ((ref item) move timestamp) applied-move))
-
-(defn applied (item move now)
-  (let (change (session-change-of item (ref move) (ref now)))
-    (->applied-move :before (clone item)
-                    :after (moved item
-                                  (ref move)
-                                  (ref change)
-                                  (ref now))
-                    :move move
-                    :session-change change)))
-
-(type write-move
-  (fn ((ref transaction) (ref applied-move))
-    (result unit failure)))
-
-(defn write-move (transaction applied)
-  (let (connection (ref (:connection transaction)))
-    (let-try (_ (update-item connection (ref (:after applied)))
-              _ (write-session-change connection
-                                      (ref (:id (:after applied)))
-                                      (ref (:session-change applied))))
-      (ok (do)))))
-
-(defn write-session-change (connection item change)
-  (match change
-    ((started session) (start-session connection item session))
-    ((ended end) (end-session connection item end))
-    (kept (ok 0))))
 
 (type session-start-of
   (fn ((ref settings) (ref claim-request))
@@ -120,23 +88,35 @@
             _ (check-requirements (ref item)
                                   (ref move)
                                   (ref pull-request)
-                                  (ref verdicts)))
+                                  (ref verdicts))
+            application (close-application-for transaction
+                                               (ref item)
+                                               (clone move)))
     (store-move transaction
-                (applied (ref item) move (now transaction)))))
+                (applied (ref item) move (now transaction))
+                application)))
+
+(defn close-application-for (transaction item move)
+  (if (= move move/close)
+    (prepare-close transaction item)
+    (ok none)))
 
 (type store-move
-  (fn ((ref transaction) applied-move)
+  (fn ((ref transaction) applied-move (option close-application))
     (result item failure)))
 
-(defn store-move (transaction applied)
+(defn store-move (transaction applied application)
   (let (connection (ref (:connection transaction)))
     (let-try (review-end (end-review-for-move connection
                                               (ref (:id (:after applied)))
                                               (:move applied)
                                               (now transaction))
               _ (write-move transaction (ref applied))
+              _ (write-close-application transaction (ref application))
               _ (record transaction
-                        (item-moved (ref applied) (ref review-end))))
+                        (item-moved-with-context (ref applied)
+                                                 (ref review-end)
+                                                 (ref (close-context (ref application))))))
       (ok (clone (:after applied))))))
 
 (defn end-review-for-move (connection item move now)

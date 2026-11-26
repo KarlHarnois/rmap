@@ -4,7 +4,7 @@
 (use ledger/api refusal-catalog)
 (use cli/routes route)
 (use cli/commands routes)
-(use cli/decision-commands route-document)
+(use cli/route-documents route-document)
 (use json/value json->pretty-source)
 
 (use cli/exit-codes exit-code->meaning exit-code->number

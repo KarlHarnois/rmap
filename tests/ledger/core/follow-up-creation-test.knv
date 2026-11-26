@@ -1,0 +1,99 @@
+(use ledger/model ->item-id ->timestamp dep dep-type kind
+                  origin status)
+
+(use ledger/core/follow-up-creation ->created-follow-up
+                                    application-deps
+                                    item-for-follow-up)
+
+(use support/follow-ups follow-up-for with-after)
+(use support/items id-of work-item)
+
+(defn created (id item-id after-ids)
+  (->created-follow-up :follow-up (with-after (follow-up-for id)
+                                              (ref after-ids))
+                       :item (created-item item-id)))
+
+(defn created-item (id)
+  (item-for-follow-up (ref (source))
+                      (ref (follow-up-for id))
+                      (->item-id :value (str id))
+                      (->timestamp :value (str "2026-02-01T00:00:00Z"))))
+
+(defn source ()
+  (assoc (work-item "rm-s" kind/research status/reported)
+         :roadmap-name (str "road")))
+
+(type dep-on
+  (fn ((ref (vec dep)) (ref string) dep-type)
+    (vec dep)))
+
+(defn dep-on (deps on type)
+  (collect (map (filter (iter deps)
+                  (fn (dep)
+                    (and (= (:type dep) type)
+                         (= (ref (:on dep)) (id-of on)))))
+                clone)))
+
+(type dep-exists?
+  (fn ((ref (vec dep))
+       (ref string)
+       (ref string)
+       dep-type)
+    bool))
+
+(defn dep-exists? (deps item on type)
+  (any? (iter deps)
+    (fn (dep)
+      (and (= (ref (:item dep)) (id-of item))
+           (= (ref (:on dep)) (id-of on))
+           (= (:type dep) type)))))
+
+(deftest a-created-item-takes-the-proposal-and-the-source-roadmap
+  (let (follow-up (follow-up-for "p1")
+        item (item-for-follow-up (ref (source))
+                                 (ref follow-up)
+                                 (->item-id :value (str "rm-new"))
+                                 (->timestamp :value (str "2026-02-01T00:00:00Z"))))
+    (assert (= (:value (:id item)) (str "rm-new")))
+    (assert (= (:roadmap-name item) (str "road")))
+    (assert (= (:kind item) kind/build))
+    (assert (= (:origin item) origin/follow-up))
+    (assert (= (:status item) status/open))
+    (assert (= (:description item)
+               (some (str "a proposal"))))
+    (assert (= (:criteria item)
+               (vec (str "a criterion"))))))
+
+(deftest a-created-proposal-comes-after-its-source-and-what-it-named
+  (let (entries (vec (created "p1" "rm-a" (vec (str "rm-x")))
+                     (created "p2" "rm-b"
+                              (vec (str "p1") (str "rm-x"))))
+        deps (application-deps (ref (source))
+                               (ref (vec (str "p1") (str "p2")))
+                               (ref entries)))
+    (assert (= (len deps) 5))
+    (assert (= (len (dep-on deps (str "rm-s") dep-type/discovered-from))
+               2))
+    (assert (dep-exists? (ref deps)
+                         (str "rm-a")
+                         (str "rm-x")
+                         dep-type/blocks))
+    (assert (dep-exists? (ref deps)
+                         (str "rm-b")
+                         (str "rm-a")
+                         dep-type/blocks))
+    (assert (dep-exists? (ref deps)
+                         (str "rm-b")
+                         (str "rm-x")
+                         dep-type/blocks))))
+
+(deftest an-after-proposal-that-is-not-applied-is-dropped
+  (let (entries (vec (created "p1" "rm-a" (vec (str "p2"))))
+        deps (application-deps (ref (source))
+                               (ref (vec (str "p1") (str "p2")))
+                               (ref entries)))
+    (assert (= (len deps) 1))
+    (assert (not (dep-exists? (ref deps)
+                              (str "rm-a")
+                              (str "p2")
+                              dep-type/blocks)))))

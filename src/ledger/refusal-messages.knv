@@ -8,6 +8,7 @@
                   status-names)
 
 (use ledger/criterion-refusal-messages criterion-refusal->message)
+(use ledger/proposal-refusal-messages proposal-refusal->message)
 (use ledger/refusal-details not-ready-message)
 
 (export refusal->message)
@@ -125,4 +126,5 @@
     ((verdict-head-not-current _ _)
      (criterion-refusal->message failure))
     ((pull-request refused)
-     (pull-request-refusal->message refused))))
+     (pull-request-refusal->message refused))
+    (_ (proposal-refusal->message failure))))

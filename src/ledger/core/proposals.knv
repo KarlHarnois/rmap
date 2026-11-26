@@ -62,4 +62,5 @@
                      :title (clone (:title draft))
                      :description (clone (:description draft))
                      :pros (clone (:pros draft))
-                     :cons (clone (:cons draft))))
+                     :cons (clone (:cons draft))
+                     :skips (clone (:skips draft))))

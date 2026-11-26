@@ -1,6 +1,6 @@
 (use ledger/model ->blockage ->decision-id ->item-id
-                  ->session decision-status roadmap-pause
-                  status)
+                  ->session decision-status kind
+                  roadmap-pause status)
 
 (use ledger/model/reports ->report-id)
 (use ledger/model/criteria ->criterion-gap criterion-result)
@@ -51,6 +51,19 @@
        (refusal/decision-block-not-found (sample-decision-id)
                                          (sample-id))
        (refusal/supersede-target-not-accepted (sample-decision-id))
+       (refusal/decisions-pending (vec (sample-decision-id)))
+       (refusal/proposal-incomplete (str "a problem"))
+       (refusal/proposal-duplicate (str "p1"))
+       (refusal/proposal-target-not-found (str "p1"))
+       (refusal/proposal-cycle (str "p1"))
+       (refusal/proposal-source-kind (sample-id) kind/build)
+       (refusal/proposal-writer (->session :name (str "s1"))
+                                (sample-id))
+       (refusal/proposal-decision-not-raised (sample-decision-id)
+                                             (sample-id))
+       (refusal/unknown-skip (sample-decision-id)
+                             2
+                             (vec (str "ghost")))
        (refusal/session-busy (->session :name (str "s1")))
        (refusal/session-not-live (->session :name (str "s1")))
        (refusal/session-not-claimant (->session :name (str "s1"))

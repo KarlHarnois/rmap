@@ -2,6 +2,7 @@
   "Names what the command line asks for: help, help for some commands, or a call to the ledger.")
 
 (use cli/ledger-calls document-call ledger-call)
+(use cli/proposal-document-call proposal-document-call)
 (use cli/routes route)
 
 (export invocation)
@@ -10,4 +11,5 @@
   help
   (command-help (vec route))
   (on-ledger ledger-call)
-  (on-document document-call))
+  (on-document document-call)
+  (on-proposal-document proposal-document-call))

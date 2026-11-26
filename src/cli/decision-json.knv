@@ -1,7 +1,8 @@
 (module
   "Turns decisions into the JSON objects the CLI prints.")
 
-(use json/value int->json json object text->json)
+(use json/value array int->json json object text->json)
+(use cli/schema-envelope envelope)
 
 (use ledger/api case-name decision decision-option-record
                 decision-status-names ids->json
@@ -9,7 +10,17 @@
                 optional-text->json optional-timestamp->json
                 options->json outcome recommendation)
 
-(export decision->json decision-fields option-record->json)
+(export decision->json decision-envelope decision-fields
+        decisions-envelope option-record->json)
+
+(defn decision-envelope (decision)
+  (envelope (vec (pair (str "decision")
+                       (decision->json (ref decision))))))
+
+(defn decisions-envelope (decisions)
+  (envelope (vec (pair (str "decisions")
+                       (array (collect (map (iter decisions)
+                                            decision->json)))))))
 
 (defn decision->json (decision)
   (let (fields (decision-fields decision))

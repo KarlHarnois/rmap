@@ -5,8 +5,8 @@
                 ->graph-request ->item-id ->log-query
                 ->session ->verify-request advancement
                 batch-size batch-size-of case-named
-                claim-request end-reason graph-format
-                graph-format-names graph-level
+                claim-request end-reason follow-up-draft
+                graph-format graph-format-names graph-level
                 graph-level-names graph-request history
                 item-edit item-id kind-change log-query
                 new-item session status-names
@@ -51,6 +51,8 @@
   (graph graph-request)
   export
   (decision decision-request)
+  (proposal-add item-id session (vec follow-up-draft))
+  (proposal-list item-id)
   (report report-operation)
   (pull-request pr-operation)
   (end-session session end-reason))

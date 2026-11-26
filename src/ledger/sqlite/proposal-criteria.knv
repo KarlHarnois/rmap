@@ -1,0 +1,64 @@
+(module
+  "Reads and writes the criteria of a source item's proposals, in `item_proposal_criteria`.")
+
+(use ledger/sqlite/values int->sql text->sql)
+(use ledger/model item-id)
+(use ledger/model/follow-ups follow-up)
+
+(use ledger/sqlite/connection connection database-error
+                              execute query)
+
+(use ledger/sqlite/rows rows->values text-cell)
+
+(export criteria-of criterion-line insert-criteria
+        row->criterion-line texts-for)
+
+(defstruct criterion-line
+  :proposal string
+  :text string)
+
+(type criteria-of
+  (fn ((ref connection) (ref item-id))
+    (result (vec criterion-line) database-error)))
+
+(defn criteria-of (connection source)
+  (let-try (rows (query connection
+                        "SELECT proposal_id, text FROM item_proposal_criteria WHERE source_item_id = ?1 ORDER BY proposal_id, position"
+                        (ref (vec (text->sql (as-str (:value source)))))))
+    (rows->values (ref rows) row->criterion-line)))
+
+(defn row->criterion-line (row)
+  (let-try (proposal (text-cell row 0)
+            text (text-cell row 1))
+    (ok (->criterion-line :proposal proposal :text text))))
+
+(type texts-for
+  (fn ((ref (vec criterion-line))
+       (ref string))
+    (vec string)))
+
+(defn texts-for (criteria id)
+  (collect (map (filter (iter criteria)
+                  (fn (line)
+                    (= (ref (:proposal line)) id)))
+                (fn (line) (clone (:text line))))))
+
+(type insert-criteria
+  (fn ((ref connection)
+       (ref item-id)
+       (ref follow-up))
+    (result unit database-error)))
+
+(defn insert-criteria (connection source follow-up)
+  (loop (index 0)
+    (if (< index (len (:criteria follow-up)))
+      (let-try (_ (execute connection
+                           "INSERT INTO item_proposal_criteria (source_item_id, proposal_id, position, text) VALUES (?1, ?2, ?3, ?4)"
+                           (ref (vec (text->sql (as-str (:value source)))
+                                     (text->sql (as-str (:id follow-up)))
+                                     (int->sql index)
+                                     (text->sql (as-str (at (:criteria
+                                                              follow-up)
+                                                            index)))))))
+        (recur (inc index)))
+      (ok (do)))))

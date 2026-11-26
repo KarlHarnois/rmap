@@ -1,0 +1,125 @@
+(module
+  "Describes follow-up proposals in plain text.")
+
+(use ledger/api case-name follow-up follow-up-decision
+                item-id kind-names)
+
+(use cli/tables indented)
+
+(export proposals-list-text proposals-recorded-text
+        proposals-section)
+
+(type proposals-recorded-text
+  (fn (item-id (ref (vec follow-up)))
+    string))
+
+(defn proposals-recorded-text (id follow-ups)
+  (str "Recorded "
+       (len follow-ups)
+       (counted-noun (len follow-ups))
+       " for "
+       (:value id)
+       "."
+       (proposals-section follow-ups)))
+
+(type proposals-list-text
+  (fn (item-id (ref (vec follow-up)))
+    string))
+
+(defn proposals-list-text (id follow-ups)
+  (if (empty? follow-ups)
+    (str "No proposals for " (:value id) ".")
+    (str "Proposals for "
+         (:value id)
+         ":"
+         (proposals-section follow-ups))))
+
+(defn proposals-section (follow-ups)
+  (if (empty? follow-ups)
+    (str "")
+    (str "\n\nProposals:\n"
+         (indented (join (collect (map (iter follow-ups) proposal-text))
+                         "\n")))))
+
+(defn counted-noun (count)
+  (if (= count 1)
+    (str " proposal")
+    (str " proposals")))
+
+(type proposal-text
+  (fn ((ref follow-up)) string))
+
+(defn proposal-text (follow-up)
+  (str (:id follow-up)
+       "  "
+       (:title follow-up)
+       "\n"
+       (indented (proposal-detail follow-up))))
+
+(type proposal-detail
+  (fn ((ref follow-up)) string))
+
+(defn proposal-detail (follow-up)
+  (let (lines (vec (str "kind "
+                        (case-name kind-names (:kind follow-up))
+                        ", priority "
+                        (:priority follow-up))
+                   (description-line follow-up)
+                   (criteria-line follow-up)))
+    (push-option! lines (after-line follow-up))
+    (push-option! lines
+                  (decision-line (ref (:decision follow-up))))
+    (push-option! lines
+                  (item-line (ref (:created-item follow-up))))
+    (join lines "\n")))
+
+(type description-line
+  (fn ((ref follow-up)) string))
+
+(defn description-line (follow-up)
+  (str "description: " (:description follow-up)))
+
+(type criteria-line
+  (fn ((ref follow-up)) string))
+
+(defn criteria-line (follow-up)
+  (str "criteria: "
+       (join (collect (map (iter (:criteria follow-up)) as-str))
+             "; ")))
+
+(type after-line
+  (fn ((ref follow-up)) (option string)))
+
+(defn after-line (follow-up)
+  (if (empty? (:after follow-up))
+    none
+    (some (str "after: "
+               (join (collect (map (iter (:after follow-up)) as-str))
+                     ", ")))))
+
+(type decision-line
+  (fn ((ref (option follow-up-decision)))
+    (option string)))
+
+(defn decision-line (decision)
+  (match decision
+    ((some link)
+     (some (str "decision: "
+                (:value (:decision link))
+                " option "
+                (:option link))))
+    (none none)))
+
+(type item-line
+  (fn ((ref (option item-id)))
+    (option string)))
+
+(defn item-line (created)
+  (match created
+    ((some id) (some (str "item: " (:value id))))
+    (none none)))
+
+(defn push-option! (lines line)
+  (match line
+    ((some text) (push! lines text))
+    (none (do))))

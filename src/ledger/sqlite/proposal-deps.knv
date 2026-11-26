@@ -1,0 +1,74 @@
+(module
+  "Reads and writes what each proposal comes after, in `item_proposal_deps`.")
+
+(use ledger/sqlite/values int->sql text->sql)
+(use ledger/model item-id)
+(use ledger/model/follow-ups follow-up)
+
+(use ledger/sqlite/connection connection database-error
+                              execute query)
+
+(use ledger/sqlite/rows rows->values text-cell)
+
+(export dep-line deps-of insert-deps row->dep-line
+        targets-for)
+
+(defstruct dep-line
+  :proposal string
+  :target string)
+
+(type deps-of
+  (fn ((ref connection) (ref item-id))
+    (result (vec dep-line) database-error)))
+
+(defn deps-of (connection source)
+  (let-try (rows (query connection
+                        "SELECT proposal_id, on_id FROM item_proposal_deps WHERE source_item_id = ?1 ORDER BY proposal_id, position"
+                        (ref (vec (text->sql (as-str (:value source)))))))
+    (rows->values (ref rows) row->dep-line)))
+
+(defn row->dep-line (row)
+  (let-try (proposal (text-cell row 0)
+            target (text-cell row 1))
+    (ok (->dep-line :proposal proposal :target target))))
+
+(type targets-for
+  (fn ((ref (vec dep-line)) (ref string))
+    (vec string)))
+
+(defn targets-for (deps id)
+  (collect (map (filter (iter deps)
+                  (fn (line)
+                    (= (ref (:proposal line)) id)))
+                (fn (line) (clone (:target line))))))
+
+(type insert-deps
+  (fn ((ref connection)
+       (ref item-id)
+       (ref follow-up))
+    (result unit database-error)))
+
+(defn insert-deps (connection source follow-up)
+  (loop (index 0)
+    (if (< index (len (:after follow-up)))
+      (let-try (_ (insert-dep connection source follow-up
+                              (at (:after follow-up) index)
+                              index))
+        (recur (inc index)))
+      (ok (do)))))
+
+(type insert-dep
+  (fn ((ref connection)
+       (ref item-id)
+       (ref follow-up)
+       (ref string)
+       int)
+    (result int database-error)))
+
+(defn insert-dep (connection source follow-up dep position)
+  (execute connection
+           "INSERT INTO item_proposal_deps (source_item_id, proposal_id, position, on_id) VALUES (?1, ?2, ?3, ?4)"
+           (ref (vec (text->sql (as-str (:value source)))
+                     (text->sql (as-str (:id follow-up)))
+                     (int->sql position)
+                     (text->sql (as-str dep))))))

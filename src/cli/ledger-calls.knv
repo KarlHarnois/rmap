@@ -8,8 +8,9 @@
 (use cli/decision-requests document-source pending-decision
                            with-proposal)
 
-(export document-call document-call->ledger-call
-        document-call-of ledger-call ledger-call-of)
+(export ->ledger-call document-call
+        document-call->ledger-call document-call-of
+        ledger-call ledger-call-of)
 
 (defstruct ledger-call
   :database (option string)
