@@ -4,15 +4,20 @@
 (deftest each-action-has-the-actor-the-actions-table-gives
   (assert (= (actor-of action/dispatch) actor/controller))
   (assert (= (actor-of action/wait) actor/controller))
+  (assert (= (actor-of action/ask) actor/manager))
+  (assert (= (actor-of action/await-decision) actor/user))
+  (assert (= (actor-of action/replan) actor/manager))
   (assert (= (actor-of action/work) actor/worker))
-  (assert (= (actor-of action/accept-report) actor/agent))
-  (assert (= (actor-of action/review) actor/agent))
-  (assert (= (actor-of action/send-fixes) actor/agent))
+  (assert (= (actor-of action/accept-report) actor/manager))
+  (assert (= (actor-of action/review) actor/manager))
+  (assert (= (actor-of action/verify) actor/controller))
+  (assert (= (actor-of action/send-fixes) actor/manager))
   (assert (= (actor-of action/fix) actor/worker))
-  (assert (= (actor-of action/merge) actor/controller)))
+  (assert (= (actor-of action/merge) actor/controller))
+  (assert (= (actor-of action/answer) actor/manager)))
 
 (deftest a-planned-action-takes-its-actor-from-the-table
-  (assert (= (:actor (planned action/review none none)) actor/agent)))
+  (assert (= (:actor (planned action/review none none)) actor/manager)))
 
 (deftest a-planned-action-can-name-the-actor-that-takes-it
   (assert (= (:actor (planned-by actor/worker action/review none none))

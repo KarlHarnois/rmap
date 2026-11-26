@@ -325,13 +325,13 @@
   (assert (= (claimed-in status/dispatched)
              (some (pair action/work (pair actor/worker (worker)))))))
 
-(deftest a-reported-item-has-its-report-accepted-by-the-agent
+(deftest a-reported-item-has-its-report-accepted-by-the-manager
   (assert (= (claimed-in status/reported)
-             (some (pair action/accept-report (pair actor/agent (worker)))))))
+             (some (pair action/accept-report (pair actor/manager (worker)))))))
 
-(deftest an-item-in-review-is-reviewed-by-the-agent
+(deftest an-item-in-review-is-reviewed-by-the-manager
   (assert (= (claimed-in status/in-review)
-             (some (pair action/review (pair actor/agent (worker)))))))
+             (some (pair action/review (pair actor/manager (worker)))))))
 
 (deftest a-fixing-item-is-fixed-by-its-session
   (assert (= (claimed-in status/fixing)
@@ -339,7 +339,7 @@
 
 (deftest a-merging-item-without-a-pull-request-goes-back-to-review
   (assert (= (claimed-in status/merging)
-             (some (pair action/review (pair actor/agent (worker)))))))
+             (some (pair action/review (pair actor/manager (worker)))))))
 
 (deftest an-epic-is-not-listed
   (assert (empty? (next-in (snapshot-of (vec (epic-item "rm-0001")
@@ -434,7 +434,7 @@
                           (fn (planned) (:action planned))))
                (vec action/work action/answer)))
     (assert (= (:actor (at (entry-actions (at listed 0)) 1))
-               actor/agent))))
+               actor/manager))))
 
 (deftest an-unread-done-report-names-its-id-on-accept-report
   (let (listed (next-of (ref (alone (claimed (work-item "rm-0001"
@@ -457,7 +457,7 @@
 (deftest a-build-with-changes-asked-is-sent-to-fixes
   (let (planned (in-review-action verdict/changes))
     (assert (= (:action planned) action/send-fixes))
-    (assert (= (:actor planned) actor/agent))))
+    (assert (= (:actor planned) actor/manager))))
 
 (deftest an-approved-merging-build-is-merged-by-the-controller
   (let (planned (build-action status/merging verdict/approve))
@@ -514,7 +514,7 @@
     (assert (= (:action (clone (unwrap (first (entry-actions entry)))))
                action/replan))
     (assert (= (:actor (clone (unwrap (first (entry-actions entry)))))
-               actor/agent))))
+               actor/manager))))
 
 (deftest an-item-that-raised-a-rejected-decision-replans
   (let (item (claimed (work-item "rm-0001" kind/design status/reported))
@@ -659,10 +659,10 @@
                           (fn (id) (clone (:value id)))))
                (vec (str "rm-0002"))))))
 
-(deftest an-approved-build-without-verdicts-is-verified-by-the-manager
+(deftest an-approved-build-without-verdicts-is-verified-by-the-controller
   (let (planned (approved-action (vec)))
     (assert (= (:action planned) action/verify))
-    (assert (= (:actor planned) actor/manager))))
+    (assert (= (:actor planned) actor/controller))))
 
 (deftest an-approved-build-with-met-verdicts-merges
   (assert (= (:action (approved-action
@@ -709,4 +709,4 @@
                         (ref (vec)))
         planned (clone (at (entry-actions (at listed 0)) 0)))
     (assert (= (:action planned) action/review))
-    (assert (= (:actor planned) actor/agent))))
+    (assert (= (:actor planned) actor/manager))))
