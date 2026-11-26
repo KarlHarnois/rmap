@@ -19,6 +19,8 @@
 (use cli/decision-requests decision-request
                            text->decision-id)
 
+(use cli/ruling-requests ruling-request)
+
 (use cli/flags optional-choice optional-number optional-text
                required-text switch-on?)
 
@@ -56,6 +58,7 @@
   (graph graph-request)
   export
   (decision decision-request)
+  (ruling ruling-request)
   (proposal-add item-id session (vec follow-up-draft))
   (proposal-list item-id)
   (report report-operation)

@@ -31,6 +31,11 @@
 (use cli/report-text report-reply->text)
 (use cli/pr-text pr-reply->text)
 
+(use cli/ruling-text ruling-detail-text ruling-recorded-text
+                     rulings-text)
+
+(use cli/settled-text settled-text)
+
 (use cli/decision-text decision-accepted-text
                        decision-asked-text
                        decision-deprecated-text
@@ -91,6 +96,13 @@
      (decision-rejected-text (ref decision)))
     ((reply/decision-deprecated decision)
      (decision-deprecated-text (ref decision)))
+    ((reply/ruling-recorded ruling)
+     (ruling-recorded-text (ref ruling)))
+    ((reply/ruling-shown ruling)
+     (ruling-detail-text (ref ruling)))
+    ((reply/rulings-listed rulings)
+     (rulings-text (ref rulings)))
+    ((reply/settled settled) (settled-text (ref settled)))
     ((reply/reported answer) (report-reply->text answer))
     ((reply/pull-request answer) (pr-reply->text answer))
     ((reply/session-ended ended)

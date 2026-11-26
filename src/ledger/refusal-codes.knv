@@ -43,6 +43,8 @@
   external-blocker-in-other-item
   supersede-target-not-accepted
   decisions-pending
+  ruling-not-found
+  ruling-superseded
   proposal-incomplete
   proposal-duplicate
   proposal-target-not-found

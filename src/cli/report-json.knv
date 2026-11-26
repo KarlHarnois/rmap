@@ -2,10 +2,8 @@
   "Turns reports into the JSON objects the CLI prints: a summary in a list, and the body beside it when one report is shown or recorded.")
 
 (use json/value array int->json json object text->json)
-
-(use ledger/api case-name optional-timestamp->json report
-                report-kind-names)
-
+(use ledger/api case-name report report-kind-names)
+(use cli/json-values optional-timestamp->json)
 (use cli/report-replies report-reply)
 (use cli/ledger-json item->json)
 (use cli/pr-json optional-pull-request->json)

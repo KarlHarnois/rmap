@@ -1,16 +1,21 @@
 (module
   "Holds the ledger's rulings: a question, the choice made, why, and who ruled.")
 
-(use ledger/model item-id timestamp)
+(use ledger/model item-id roadmap-id timestamp)
 
-(export ->ruling ruling)
+(export ->ruling ->ruling-id ruling ruling-id)
 
 (defstruct ruling
   :id string
   :item item-id
+  :roadmap-id roadmap-id
   :question string
   :choice string
   :reason string
   :supersedes (option string)
+  :superseded-by (option string)
   :ruled-by string
   :created-at timestamp)
+
+(defstruct ruling-id
+  :value string)

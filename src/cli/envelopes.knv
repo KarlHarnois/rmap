@@ -8,11 +8,14 @@
 
 (use cli/replies reply)
 
-(use cli/ledger-json blocked->json dep->json event->json
-                     item->json roadmap->json)
+(use cli/ledger-json dep->json event->json item->json
+                     roadmap->json)
 
 (use cli/next-json next-entry->json)
+(use cli/readiness-json batch-envelope readiness-envelope)
 (use cli/decision-json decision-envelope decisions-envelope)
+(use cli/ruling-json ruling-envelope rulings-envelope)
+(use cli/settled-json settled-envelope)
 (use cli/report-json report-reply-fields)
 (use cli/pr-json pr-reply-fields)
 (use cli/criterion-verdict-json criterion-verdict->json)
@@ -75,6 +78,10 @@
      (decision-envelope decision))
     ((reply/decision-deprecated decision)
      (decision-envelope decision))
+    ((reply/ruling-recorded ruling) (ruling-envelope ruling))
+    ((reply/ruling-shown ruling) (ruling-envelope ruling))
+    ((reply/rulings-listed rulings) (rulings-envelope rulings))
+    ((reply/settled settled) (settled-envelope settled))
     ((reply/reported answer)
      (envelope (report-reply-fields answer)))
     ((reply/pull-request answer)
@@ -130,18 +137,3 @@
 
 (defn dep-envelope (dep)
   (envelope (vec (pair (str "dep") (dep->json (ref dep))))))
-
-(defn readiness-envelope (readiness)
-  (envelope (vec (pair (str "ready")
-                       (array (collect (map (iter (:ready readiness))
-                                            item->json))))
-                 (pair (str "blocked")
-                       (array (collect (map (iter (:blocked readiness))
-                                            blocked->json)))))))
-
-(defn batch-envelope (batch)
-  (envelope
-    (vec (pair (str "picked")
-               (array (collect (map (iter (:picked batch)) item->json))))
-         (pair (str "blocked")
-               (array (collect (map (iter (:blocked batch)) blocked->json)))))))

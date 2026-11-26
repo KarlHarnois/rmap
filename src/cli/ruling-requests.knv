@@ -1,0 +1,50 @@
+(module
+  "Names each ruling request the CLI can make and builds it from the command line.")
+
+(use ledger/api ->item-id item-id ruling-visibility)
+(use cli/arguments arguments)
+(use cli/flags optional-text required-text switch-on?)
+
+(export ruling-add-request ruling-list-request
+        ruling-request ruling-show-request settled-request)
+
+(defenum ruling-request
+  (add item-id string string string (option string))
+  (list (option string) (option item-id) ruling-visibility)
+  (show string)
+  (settled (option string)))
+
+(defn ruling-add-request (arguments)
+  (let-try (item (required-text arguments "item")
+            question (required-text arguments "question")
+            choice (required-text arguments "choice")
+            reason (required-text arguments "reason"))
+    (ok (ruling-request/add (text->item-id item)
+                            question choice reason
+                            (optional-text arguments "supersedes")))))
+
+(type ruling-list-request
+  (fn ((ref arguments))
+    (result ruling-request string)))
+
+(defn ruling-list-request (arguments)
+  (ok (ruling-request/list (optional-text arguments "roadmap")
+                           (map-some (optional-text arguments "item")
+                                     text->item-id)
+                           (visibility-of arguments))))
+
+(defn ruling-show-request (id)
+  (ruling-request/show (str id)))
+
+(type settled-request
+  (fn ((ref arguments))
+    (result ruling-request string)))
+
+(defn settled-request (arguments)
+  (ok (ruling-request/settled (optional-text arguments "roadmap"))))
+
+(defn visibility-of (arguments)
+  (if (switch-on? arguments "all")
+    ruling-visibility/all ruling-visibility/live))
+
+(defn text->item-id (text) (->item-id :value text))

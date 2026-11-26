@@ -4,6 +4,7 @@
 
 (use ledger/model/roadmap-pauses roadmap-pause)
 (use ledger/model/reports ->report-id)
+(use ledger/model/rulings ->ruling-id)
 (use ledger/model/criteria ->criterion-gap criterion-result)
 (use ledger/refusal refusal)
 (use ledger/pull-request-refusals pull-request-refusal)
@@ -61,6 +62,8 @@
                                                (sample-id))
        (refusal/supersede-target-not-accepted (sample-decision-id))
        (refusal/decisions-pending (vec (sample-decision-id)))
+       (refusal/ruling-not-found (sample-ruling-id))
+       (refusal/ruling-superseded (sample-ruling-id))
        (refusal/proposal-incomplete (str "a problem"))
        (refusal/proposal-duplicate (str "p1"))
        (refusal/proposal-target-not-found (str "p1"))
@@ -126,6 +129,9 @@
 
 (defn sample-blocker-id ()
   (->external-blocker-id :value (str "rm-x001")))
+
+(defn sample-ruling-id ()
+  (->ruling-id :value (str "rm-r001")))
 
 (defn sample-decision-id ()
   (->decision-id :value (str "rm-0002")))

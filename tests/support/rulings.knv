@@ -1,0 +1,44 @@
+(use ledger/api add-ruling)
+(use ledger/model ->roadmap-id ->timestamp)
+(use ledger/model/rulings ->ruling ->ruling-id)
+(use ledger/core/rulings ->ruling-query ->settled-query)
+(use support/items id-of)
+
+(export added-ruling ruling-id-of sample-ruling
+        sample-ruling-query sample-settled-query
+        superseding-ruling)
+
+(defn ruling-id-of (text)
+  (->ruling-id :value (str text)))
+
+(defn sample-ruling (supersedes)
+  (->ruling :id (str "rm-r001")
+            :item (id-of "rm-0001")
+            :roadmap-id (->roadmap-id :value (str "rm-road"))
+            :question (str "Which store?")
+            :choice (str "Postgres")
+            :reason (str "It already runs")
+            :supersedes supersedes
+            :superseded-by none
+            :ruled-by (str "owner")
+            :created-at (->timestamp :value (str "2026-01-01T00:00:00Z"))))
+
+(defn added-ruling (settings item)
+  (unwrap-ok (add-ruling settings
+                         (clone item)
+                         "Which store?" "Postgres"
+                         "It already runs" none)))
+
+(defn superseding-ruling (settings item target)
+  (unwrap-ok (add-ruling settings
+                         (clone item)
+                         "Which store?" "SQLite" "Simpler"
+                         (some (str target)))))
+
+(defn sample-ruling-query (visibility)
+  (->ruling-query :roadmap none
+                  :item none
+                  :visibility visibility))
+
+(defn sample-settled-query ()
+  (->settled-query :roadmap none))

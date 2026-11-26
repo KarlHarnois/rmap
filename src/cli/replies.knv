@@ -2,10 +2,11 @@
   "Names each result a ledger call hands back to the CLI.")
 
 (use ledger/api batch cap-result criterion-verdict decision
+(use ledger/api batch cap-result criterion-verdict decision
                 dep ended-session event external-blocker
                 follow-up graph-source init-report item
                 item-detail item-id next-entry readiness
-                roadmap)
+                roadmap ruling settled)
 
 (use json/value json)
 (use cli/report-replies report-reply)
@@ -44,6 +45,10 @@
   (decision-accepted decision)
   (decision-rejected decision)
   (decision-deprecated decision)
+  (ruling-recorded ruling)
+  (ruling-shown ruling)
+  (rulings-listed (vec ruling))
+  (settled settled)
   (reported report-reply)
   (pull-request pr-reply)
   (session-ended ended-session))

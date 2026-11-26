@@ -1,0 +1,57 @@
+(use json/value field json->int json->items json->text
+                null?)
+
+(use cli/ruling-json ruling->json ruling-envelope
+                     rulings-envelope)
+
+(use support/rulings sample-ruling)
+
+(defn text-at (value key)
+  (json->text (ref (unwrap (field value key)))))
+
+(defn linked-ruling ()
+  (assoc (sample-ruling (some (str "rm-r000")))
+         :superseded-by (some (str "rm-r002"))))
+
+(deftest a-ruling-json-names-every-field
+  (let (value (ruling->json (ref (linked-ruling))))
+    (assert (= (text-at (ref value) "id")
+               (some (str "rm-r001"))))
+    (assert (= (text-at (ref value) "item_id")
+               (some (str "rm-0001"))))
+    (assert (= (text-at (ref value) "roadmap_id")
+               (some (str "rm-road"))))
+    (assert (= (text-at (ref value) "question")
+               (some (str "Which store?"))))
+    (assert (= (text-at (ref value) "choice")
+               (some (str "Postgres"))))
+    (assert (= (text-at (ref value) "reason")
+               (some (str "It already runs"))))
+    (assert (= (text-at (ref value) "supersedes")
+               (some (str "rm-r000"))))
+    (assert (= (text-at (ref value) "superseded_by")
+               (some (str "rm-r002"))))
+    (assert (= (text-at (ref value) "ruled_by")
+               (some (str "owner"))))
+    (assert (= (text-at (ref value) "created_at")
+               (some (str "2026-01-01T00:00:00Z"))))))
+
+(deftest an-unlinked-ruling-has-null-links
+  (let (value (ruling->json (ref (sample-ruling none))))
+    (assert (null? (ref (unwrap (field (ref value) "supersedes")))))
+    (assert (null? (ref (unwrap (field (ref value) "superseded_by")))))))
+
+(deftest a-single-ruling-envelope-wraps-it-under-ruling
+  (let (document (ruling-envelope (ref (sample-ruling none))))
+    (assert (= (json->int (ref (unwrap (field (ref document)
+                                              "schema_version"))))
+               (some 4)))
+    (assert (= (text-at (ref (unwrap (field (ref document) "ruling")))
+                        "id")
+               (some (str "rm-r001"))))))
+
+(deftest a-ruling-list-envelope-holds-each-ruling
+  (let (document (rulings-envelope (vec (sample-ruling none))))
+    (assert (= (len (unwrap (json->items (ref (unwrap (field (ref document)
+                                                             "rulings"))))))
+               1))))

@@ -13,6 +13,7 @@
                 verify-criterion)
 
 (use cli/decision-calls perform-decision)
+(use cli/ruling-calls perform-ruling)
 (use cli/pr-calls perform-pull-request)
 (use cli/replies reply)
 (use cli/report-calls perform-report)
@@ -100,6 +101,7 @@
               (fn (document)
                 (reply/exported (export->json document)))))
     ((decision request) (perform-decision settings request))
+    ((ruling request) (perform-ruling settings request))
     ((proposal-add id session drafts)
      (map-ok (add-proposals settings (clone id) (clone session) drafts)
        (fn (follow-ups)

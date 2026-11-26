@@ -1,0 +1,45 @@
+(module
+  "Turns rulings into the JSON objects the CLI prints.")
+
+(use json/value array json object text->json)
+(use ledger/api ruling)
+(use cli/json-values optional-text->json)
+(use cli/schema-envelope envelope)
+
+(export ruling->json ruling-envelope rulings-envelope)
+
+(defn ruling-envelope (ruling)
+  (envelope (vec (pair (str "ruling")
+                       (ruling->json (ref ruling))))))
+
+(defn rulings-envelope (rulings)
+  (envelope (vec (pair (str "rulings")
+                       (array (collect (map (iter rulings) ruling->json)))))))
+
+(type ruling->json
+  (fn ((ref ruling)) json))
+
+(defn ruling->json (ruling)
+  (object (vec (field "id"
+                      (text->json (as-str (:id ruling))))
+               (field "item_id"
+                      (text->json (as-str (:value (:item ruling)))))
+               (field "roadmap_id"
+                      (text->json (as-str (:value (:roadmap-id ruling)))))
+               (field "question"
+                      (text->json (as-str (:question ruling))))
+               (field "choice"
+                      (text->json (as-str (:choice ruling))))
+               (field "reason"
+                      (text->json (as-str (:reason ruling))))
+               (field "supersedes"
+                      (optional-text->json (ref (:supersedes ruling))))
+               (field "superseded_by"
+                      (optional-text->json (ref (:superseded-by ruling))))
+               (field "ruled_by"
+                      (text->json (as-str (:ruled-by ruling))))
+               (field "created_at"
+                      (text->json (as-str (:value (:created-at ruling))))))))
+
+(defn field (key value)
+  (pair (str key) value))

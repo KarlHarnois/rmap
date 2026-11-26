@@ -2,9 +2,10 @@
   "Turns an external blocker into the JSON objects the CLI prints.")
 
 (use json/value json object text->json)
+(use ledger/api external-blocker)
 
-(use ledger/api external-blocker optional-text->json
-                optional-timestamp->json)
+(use cli/json-values optional-text->json
+                     optional-timestamp->json)
 
 (export blocking-external-blocker->json
         external-blocker->json)

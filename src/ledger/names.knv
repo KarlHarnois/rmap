@@ -101,7 +101,8 @@
        (pair event-type/head-recorded "head-recorded")
        (pair event-type/review-started "review-started")
        (pair event-type/session-ended "session-ended")
-       (pair event-type/proposals-recorded "proposals-recorded")))
+       (pair event-type/proposals-recorded "proposals-recorded")
+       (pair event-type/ruling-recorded "ruling-recorded")))
 
 (def report-kind-names
   (vec (pair report-kind/done "done")

@@ -3,9 +3,10 @@
 
 (use json/value json object text->json)
 
-(use ledger/api case-name claim optional-text->json
-                runtime-names session-kind-names
-                work-session)
+(use ledger/api case-name claim runtime-names
+                session-kind-names work-session)
+
+(use cli/json-values optional-text->json)
 
 (export claim->json claim->session-json session->json)
 

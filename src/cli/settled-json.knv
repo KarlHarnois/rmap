@@ -1,0 +1,21 @@
+(module
+  "Turns what is settled into the JSON object the CLI prints.")
+
+(use json/value array json)
+(use ledger/api settled)
+(use cli/decision-json decision->json)
+(use cli/ruling-json ruling->json)
+(use cli/schema-envelope envelope)
+
+(export settled-envelope)
+
+(type settled-envelope
+  (fn ((ref settled)) json))
+
+(defn settled-envelope (settled)
+  (envelope (vec (pair (str "decisions")
+                       (array (collect (map (iter (:decisions settled))
+                                            decision->json))))
+                 (pair (str "rulings")
+                       (array (collect (map (iter (:rulings settled))
+                                            ruling->json)))))))

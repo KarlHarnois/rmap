@@ -1,0 +1,125 @@
+(module
+  "Records a ruling in one transaction with its event, and lists and shows rulings.")
+
+(use ledger/model item-id)
+(use ledger/model/rulings ->ruling ->ruling-id ruling)
+
+(use ledger/core/rulings ->new-ruling ->ruling-query
+                         ->ruling-stamp check-not-superseded
+                         new-ruling ruling-from ruling-query
+                         ruling-visibility)
+
+(use ledger/operations/lookups existing-item existing-ruling
+                               optional-roadmap-id)
+
+(use ledger/operations/transaction in-read-transaction
+                                   in-transaction now record
+                                   settings transaction)
+
+(use ledger/ruling-events ruling-recorded)
+(use ledger/sqlite/connection connection)
+(use ledger/sqlite/generated fresh-id)
+
+(use ledger/sqlite/rulings ->ruling-filter insert-ruling
+                           rulings-matching successor-of)
+
+(use ledger/failure failure)
+
+(export add-ruling list-rulings show-ruling)
+
+(type add-ruling
+  (fn ((ref settings)
+       item-id
+       (ref str)
+       (ref str)
+       (ref str)
+       (ref (option string)))
+    (result ruling failure)))
+
+(defn add-ruling (settings item question choice reason supersedes)
+  (in-transaction settings
+    (fn (transaction)
+      (store-ruling transaction
+                    (->new-ruling :item (clone item)
+                                  :question (str question)
+                                  :choice (str choice)
+                                  :reason (str reason)
+                                  :supersedes (map-some (clone supersedes)
+                                                        text->ruling-id))))))
+
+(type list-rulings
+  (fn ((ref settings)
+       (option string)
+       (option item-id)
+       ruling-visibility)
+    (result (vec ruling) failure)))
+
+(defn list-rulings (settings roadmap item visibility)
+  (in-read-transaction settings
+    (fn (transaction)
+      (rulings-within (ref (:connection transaction))
+                      (->ruling-query :roadmap (clone roadmap)
+                                      :item (clone item)
+                                      :visibility visibility)))))
+
+(type show-ruling
+  (fn ((ref settings) (ref str))
+    (result ruling failure)))
+
+(defn show-ruling (settings id)
+  (in-read-transaction settings
+    (fn (transaction)
+      (existing-ruling (ref (:connection transaction))
+                       (->ruling-id :value (str id))))))
+
+(type store-ruling
+  (fn ((ref transaction) (ref new-ruling))
+    (result ruling failure)))
+
+(defn store-ruling (transaction request)
+  (let (connection (ref (:connection transaction)))
+    (let-try (item (existing-item connection (ref (:item request)))
+              _ (check-supersedes connection (ref (:supersedes request)))
+              id (fresh-id connection))
+      (let (ruling (ruling-from request
+                                (->ruling-stamp :id (->ruling-id :value id)
+                                                :roadmap-id (clone (:roadmap-id
+                                                                     item))
+                                                :ruled-by (clone (:actor (:stamp
+                                                                           transaction)))
+                                                :created-at (now transaction))))
+        (let-try (_ (insert-ruling connection (ref ruling))
+                  _ (record transaction (ruling-recorded (ref ruling))))
+          (ok ruling))))))
+
+(defn check-supersedes (connection target)
+  (match target
+    ((some id)
+     (let-try (found (existing-ruling connection id)
+               successor (successor-of connection id))
+       (map-err (check-not-superseded (ref found) successor)
+         (fn (refused) (failure/refused refused)))))
+    (none (ok (do)))))
+
+(type rulings-within
+  (fn ((ref connection) (ref ruling-query))
+    (result (vec ruling) failure)))
+
+(defn rulings-within (connection query)
+  (let-try (roadmap-id (optional-roadmap-id connection (ref (:roadmap query)))
+            _ (check-item connection (ref (:item query)))
+            rulings (rulings-matching connection
+                                      (->ruling-filter
+                                        :roadmap-id roadmap-id
+                                        :item (clone (:item query))
+                                        :visibility (:visibility query))))
+    (ok rulings)))
+
+(defn check-item (connection item)
+  (match item
+    ((some id)
+     (map-ok (existing-item connection (ref id))
+       (fn (_) (do))))
+    (none (ok (do)))))
+
+(defn text->ruling-id (text) (->ruling-id :value text))

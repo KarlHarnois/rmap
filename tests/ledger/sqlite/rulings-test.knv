@@ -1,0 +1,91 @@
+(use ledger/core/rulings ruling-visibility)
+(use ledger/operations/transaction connect)
+
+(use ledger/sqlite/rulings ->ruling-filter ruling-with-id
+                           rulings-matching successor-of)
+
+(use support/ledger research scratch-ledger)
+(use ledger/api show-item)
+
+(use support/rulings added-ruling ruling-id-of
+                     superseding-ruling)
+
+(defn connection-for (settings)
+  (unwrap-ok (connect (ref settings))))
+
+(defn filter-with (visibility)
+  (->ruling-filter :roadmap-id none
+                   :item none
+                   :visibility visibility))
+
+(deftest a-ruling-is-read-by-id
+  (let (settings (scratch-ledger "sqlite-ruling-show")
+        item (research (ref settings))
+        made (added-ruling (ref settings) (clone item))
+        connection (connection-for (ref settings))
+        found (unwrap (unwrap-ok (ruling-with-id (ref connection)
+                                                 (ruling-id-of (clone (:id made)))))))
+    (assert (= found made))))
+
+(deftest a-missing-ruling-reads-as-none
+  (let (settings (scratch-ledger "sqlite-ruling-missing")
+        connection (connection-for (ref settings)))
+    (assert (none? (unwrap-ok (ruling-with-id (ref connection)
+                                              (ruling-id-of "rm-ffff")))))))
+
+(deftest the-live-filter-hides-a-superseded-ruling
+  (let (settings (scratch-ledger "sqlite-ruling-live")
+        item (research (ref settings))
+        target (added-ruling (ref settings) (clone item))
+        successor (superseding-ruling (ref settings)
+                                      (clone item)
+                                      (clone (:id target)))
+        connection (connection-for (ref settings))
+        live (unwrap-ok (rulings-matching (ref connection)
+                                          (ref (filter-with
+                                                 ruling-visibility/live))))
+        all (unwrap-ok (rulings-matching (ref connection)
+                                         (ref (filter-with
+                                                ruling-visibility/all)))))
+    (assert (= (collect (map (iter live)
+                          (fn (ruling) (clone (:id ruling)))))
+               (vec (clone (:id successor)))))
+    (assert (= (len all) 2))))
+
+(deftest the-filter-narrows-to-a-roadmap-and-an-item
+  (let (settings (scratch-ledger "sqlite-ruling-narrow")
+        item (research (ref settings))
+        detail (unwrap-ok (show-item (ref settings) (clone item)))
+        made (added-ruling (ref settings) (clone item))
+        connection (connection-for (ref settings))
+        by-roadmap (unwrap-ok (rulings-matching
+                                (ref connection)
+                                (ref (->ruling-filter
+                                       :roadmap-id (some (clone (:roadmap-id (:item
+                                                                               detail))))
+                                       :item none
+                                       :visibility ruling-visibility/live))))
+        by-item (unwrap-ok (rulings-matching
+                             (ref connection)
+                             (ref (->ruling-filter
+                                    :roadmap-id none
+                                    :item (some (clone item))
+                                    :visibility ruling-visibility/live)))))
+    (assert (= (len by-roadmap) 1))
+    (assert (= (:id (unwrap (first by-roadmap)))
+               (clone (:id made))))
+    (assert (= (len by-item) 1))))
+
+(deftest a-superseded-ruling-names-its-successor
+  (let (settings (scratch-ledger "sqlite-ruling-successor")
+        item (research (ref settings))
+        target (added-ruling (ref settings) (clone item))
+        successor (superseding-ruling (ref settings)
+                                      (clone item)
+                                      (clone (:id target)))
+        connection (connection-for (ref settings)))
+    (assert (= (unwrap-ok (successor-of (ref connection)
+                                        (ruling-id-of (clone (:id target)))))
+               (some (ruling-id-of (clone (:id successor))))))
+    (assert (none? (unwrap-ok (successor-of (ref connection)
+                                            (ruling-id-of (clone (:id successor)))))))))

@@ -1,35 +1,107 @@
 (module
-  "Reads the `rulings` table.")
+  "Reads and writes the `rulings` table: the rulings a roadmap or an item narrows to, one ruling, and the ruling that supersedes one.")
 
-(use ledger/model ->item-id ->timestamp)
-(use ledger/model/rulings ->ruling)
-(use ledger/sqlite/connection query)
+(use ledger/sqlite/values optional-text->sql sql-value
+                          text->sql)
 
-(use ledger/sqlite/rows optional-text-cell rows->values
-                        text-cell)
+(use ledger/model ->item-id ->roadmap-id item-id roadmap-id)
 
-(export all-rulings)
+(use ledger/model/rulings ->ruling ->ruling-id ruling
+                          ruling-id)
+
+(use ledger/core/rulings ruling-visibility)
+
+(use ledger/sqlite/connection connection database-error
+                              execute query)
+
+(use ledger/sqlite/rows rows->values text-cell)
+(use ledger/sqlite/ruling-rows row->ruling selected-columns)
+
+(export ->ruling-filter all-rulings insert-ruling
+        ruling-filter ruling-with-id rulings-matching
+        successor-of)
+
+(defstruct ruling-filter
+  :roadmap-id (option roadmap-id)
+  :item (option item-id)
+  :visibility ruling-visibility)
 
 (defn all-rulings (connection)
   (let-try (rows (query connection
-                        "SELECT id, item_id, question, choice, reason, supersedes_id, ruled_by, created_at FROM rulings ORDER BY id"
+                        (as-str (str selected-columns " ORDER BY r.id"))
                         (ref (vec))))
     (rows->values (ref rows) row->ruling)))
 
-(defn row->ruling (row)
-  (let-try (id (text-cell row 0)
-            item (text-cell row 1)
-            question (text-cell row 2)
-            choice (text-cell row 3)
-            reason (text-cell row 4)
-            supersedes (optional-text-cell row 5)
-            ruled-by (text-cell row 6)
-            created-at (text-cell row 7))
-    (ok (->ruling :id id
-                  :item (->item-id :value item)
-                  :question question
-                  :choice choice
-                  :reason reason
-                  :supersedes supersedes
-                  :ruled-by ruled-by
-                  :created-at (->timestamp :value created-at)))))
+(defn ruling-with-id (connection id)
+  (let-try (rows (query connection
+                        (as-str (str selected-columns " WHERE r.id = ?1"))
+                        (ref (vec (ruling-id->sql id))))
+            rulings (rows->values (ref rows) row->ruling))
+    (ok (map-some (first rulings) clone))))
+
+(defn rulings-matching (connection filter)
+  (let-try (rows (query connection
+                        (as-str (str selected-columns
+                                     " WHERE "
+                                     (filter->where filter)
+                                     " ORDER BY r.created_at, r.rowid"))
+                        (ref (filter->row filter))))
+    (rows->values (ref rows) row->ruling)))
+
+(defn successor-of (connection id)
+  (let-try (rows (query
+                   connection
+                   "SELECT id FROM rulings WHERE supersedes_id = ?1 LIMIT 1"
+                   (ref (vec (ruling-id->sql id)))))
+    (match (first rows)
+      ((some row) (map-ok (row->ruling-id row) some))
+      (none (ok none)))))
+
+(type insert-ruling
+  (fn ((ref connection) (ref ruling))
+    (result int database-error)))
+
+(defn insert-ruling (connection ruling)
+  (execute connection
+           "INSERT INTO rulings (id, item_id, question, choice, reason, supersedes_id, ruled_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
+           (ref (vec (text->sql (as-str (:id ruling)))
+                     (text->sql (as-str (:value (:item ruling))))
+                     (text->sql (as-str (:question ruling)))
+                     (text->sql (as-str (:choice ruling)))
+                     (text->sql (as-str (:reason ruling)))
+                     (optional-text->sql (ref (:supersedes ruling)))
+                     (text->sql (as-str (:ruled-by ruling)))
+                     (text->sql (as-str (:value (:created-at ruling))))))))
+
+(type filter->where
+  (fn ((ref ruling-filter)) string))
+
+(defn filter->where (filter)
+  (str " (?1 IS NULL OR i.roadmap_id = ?1)"
+       " AND (?2 IS NULL OR r.item_id = ?2)" " AND "
+       (visibility->condition (:visibility filter))))
+
+(defn visibility->condition (visibility)
+  (match visibility
+    (live (str "NOT EXISTS (SELECT 1 FROM rulings s WHERE s.supersedes_id = r.id)"))
+    (all (str "1 = 1"))))
+
+(type filter->row
+  (fn ((ref ruling-filter))
+    (vec sql-value)))
+
+(defn filter->row (filter)
+  (vec (optional-text->sql (map-some (clone (:roadmap-id filter))
+                             (fn (id) (clone (:value id)))))
+       (optional-text->sql (map-some (clone (:item filter))
+                             (fn (id) (clone (:value id)))))))
+
+(type ruling-id->sql
+  (fn ((ref ruling-id)) sql-value))
+
+(defn ruling-id->sql (id)
+  (text->sql (as-str (:value id))))
+
+(defn row->ruling-id (row)
+  (let-try (id (text-cell row 0))
+    (ok (->ruling-id :value id))))

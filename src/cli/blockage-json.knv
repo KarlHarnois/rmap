@@ -4,8 +4,9 @@
 (use json/value array bool->json int->json json object
                 text->json)
 
-(use ledger/api decision-id ids->json roadmap-pause)
+(use ledger/api decision-id roadmap-pause)
 (use cli/external-blocker-json blocking-external-blocker->json)
+(use cli/json-values ids->json)
 
 (export blockage-fields)
 

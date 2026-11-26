@@ -1,0 +1,24 @@
+(module
+  "Describes the event that records a new ruling.")
+
+(use ledger/changes inserted-columns payload-with-changes)
+
+(use ledger/model/events ->event-draft event-draft
+                         event-type)
+
+(use ledger/model/rulings ruling)
+(use ledger/ruling-columns ruling->columns)
+
+(export ruling-recorded)
+
+(type ruling-recorded
+  (fn ((ref ruling)) event-draft))
+
+(defn ruling-recorded (ruling)
+  (->event-draft :roadmap-id (some (clone (:roadmap-id ruling)))
+                 :item-id (some (clone (:item ruling)))
+                 :decision-id none
+                 :type event-type/ruling-recorded
+                 :payload (payload-with-changes (ref (inserted-columns (ref (ruling->columns
+                                                                              ruling))))
+                                                (vec))))

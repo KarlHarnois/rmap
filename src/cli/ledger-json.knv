@@ -8,10 +8,12 @@
 
 (use ledger/api case-name dep dep-type-names event
                 event-type-names item item-id kind-names
-                optional-decision-id->json optional-id->json
-                optional-text->json origin-names roadmap
-                roadmap-id roadmap-status-names status-names
-                timestamp)
+                origin-names roadmap roadmap-id
+                roadmap-status-names status-names timestamp)
+
+(use cli/json-values optional-decision-id->json
+                     optional-id->json optional-text->json
+                     optional-timestamp->json)
 
 (use cli/blockage-json blockage-fields)
 
@@ -132,11 +134,6 @@
 
 (defn roadmap-id->json (id)
   (text->json (as-str (:value id))))
-
-(defn optional-timestamp->json (at)
-  (match at
-    ((some present) (timestamp->json present))
-    (none json/null)))
 
 (type timestamp->json
   (fn ((ref timestamp)) json))

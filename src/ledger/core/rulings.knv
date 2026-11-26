@@ -1,0 +1,67 @@
+(module
+  "Names the requests that record or read rulings, checks a ruling is not superseded twice, and builds the ruling a request records.")
+
+(use ledger/model item-id roadmap-id timestamp)
+
+(use ledger/model/rulings ->ruling ->ruling-id ruling
+                          ruling-id)
+
+(use ledger/refusal refusal)
+
+(export ->new-ruling ->ruling-query ->ruling-stamp
+        ->settled-query check-not-superseded new-ruling
+        ruling-from ruling-query ruling-stamp
+        ruling-visibility settled-query)
+
+(defstruct new-ruling
+  :item item-id
+  :question string
+  :choice string
+  :reason string
+  :supersedes (option ruling-id))
+
+(defstruct ruling-stamp
+  :id ruling-id
+  :roadmap-id roadmap-id
+  :ruled-by string
+  :created-at timestamp)
+
+(defstruct ruling-query
+  :roadmap (option string)
+  :item (option item-id)
+  :visibility ruling-visibility)
+
+(defenum ruling-visibility
+  live
+  all)
+
+(defstruct settled-query
+  :roadmap (option string))
+
+(type ruling-from
+  (fn ((ref new-ruling) (ref ruling-stamp))
+    ruling))
+
+(defn ruling-from (request stamp)
+  (->ruling :id (clone (:value (:id stamp)))
+            :item (clone (:item request))
+            :roadmap-id (clone (:roadmap-id stamp))
+            :question (clone (:question request))
+            :choice (clone (:choice request))
+            :reason (clone (:reason request))
+            :supersedes (map-some (clone (:supersedes request))
+                          (fn (id) (clone (:value id))))
+            :superseded-by none
+            :ruled-by (clone (:ruled-by stamp))
+            :created-at (clone (:created-at stamp))))
+
+(type check-not-superseded
+  (fn ((ref ruling) (ref (option ruling-id)))
+    (result unit refusal)))
+
+(defn check-not-superseded (target successor)
+  (match successor
+    ((some _)
+     (err (refusal/ruling-superseded (->ruling-id :value (clone (:id
+                                                                  target))))))
+    (none (ok (do)))))

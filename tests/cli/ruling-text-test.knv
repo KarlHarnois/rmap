@@ -1,0 +1,35 @@
+(use ledger/model/rulings ->ruling-id)
+
+(use cli/ruling-text ruling-detail-text ruling-recorded-text
+                     rulings-text)
+
+(use support/rulings sample-ruling)
+
+(defn lines (texts) (join texts "\n"))
+
+(deftest recording-a-ruling-names-it-and-its-choice
+  (assert (= (ruling-recorded-text (ref (sample-ruling none)))
+             (str "Recorded rm-r001: Which store? -> Postgres"))))
+
+(deftest no-rulings-print-a-sentence
+  (assert (= (rulings-text (ref (vec)))
+             (str "No rulings."))))
+
+(deftest the-ruling-list-shows-id-item-question-and-choice
+  (assert (= (rulings-text (ref (vec (sample-ruling none))))
+             (lines (vec "ID       ITEM     QUESTION      CHOICE"
+                         "rm-r001  rm-0001  Which store?  Postgres")))))
+
+(deftest a-ruling-detail-shows-each-field
+  (let (linked (assoc (sample-ruling (some (str "rm-r000")))
+                      :superseded-by (some (str "rm-r002"))))
+    (assert (= (ruling-detail-text (ref linked))
+               (lines (vec "rm-r001  Which store?"
+                           "  item           rm-0001"
+                           "  roadmap        rm-road"
+                           "  choice         Postgres"
+                           "  reason         It already runs"
+                           "  supersedes     rm-r000"
+                           "  superseded by  rm-r002"
+                           "  ruled by       owner"
+                           "  created        2026-01-01T00:00:00Z"))))))

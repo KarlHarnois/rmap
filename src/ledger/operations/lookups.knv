@@ -1,18 +1,23 @@
 (module
-  "Finds a roadmap or a decision the caller named, or refuses when none exists.")
+  "Finds a roadmap, a decision, a ruling or an item the caller named, or refuses when none exists.")
 
-(use ledger/model decision-id roadmap roadmap-id)
+(use ledger/model decision-id item-id roadmap roadmap-id)
 (use ledger/model/decisions decision)
+(use ledger/model/rulings ruling ruling-id)
 (use ledger/refusal refusal)
-(use ledger/core/snapshot scope)
+(use ledger/core/snapshot existing scope)
 (use ledger/sqlite/connection connection)
 (use ledger/sqlite/roadmaps roadmap-named)
 (use ledger/sqlite/decisions decision-with-id)
 (use ledger/sqlite/reports report-with-id)
+(use ledger/sqlite/rulings ruling-with-id)
+(use ledger/sqlite/snapshot load-snapshot)
 (use ledger/model/reports report report-id)
+(use ledger/model item)
 (use ledger/failure failure)
 
-(export existing-decision existing-report roadmap-id-named
+(export existing-decision existing-item existing-report
+        existing-ruling optional-roadmap-id roadmap-id-named
         roadmap-required scope-named)
 
 (defn scope-named (connection name)
@@ -41,6 +46,31 @@
     (match found
       ((some decision) (ok decision))
       (none (err (failure/refused (refusal/decision-not-found (clone id))))))))
+
+(defn optional-roadmap-id (connection name)
+  (match name
+    ((some present)
+     (map-ok (roadmap-id-named connection (as-str present)) some))
+    (none (ok none))))
+
+(type existing-item
+  (fn ((ref connection) (ref item-id))
+    (result item failure)))
+
+(defn existing-item (connection id)
+  (let-try (snapshot (load-snapshot connection)
+            found (existing (ref snapshot) id))
+    (ok found)))
+
+(type existing-ruling
+  (fn ((ref connection) (ref ruling-id))
+    (result ruling failure)))
+
+(defn existing-ruling (connection id)
+  (let-try (found (ruling-with-id connection id))
+    (match found
+      ((some ruling) (ok (clone ruling)))
+      (none (err (failure/refused (refusal/ruling-not-found (clone id))))))))
 
 (type existing-report
   (fn ((ref connection) (ref report-id))

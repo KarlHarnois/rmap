@@ -1,0 +1,42 @@
+(use ledger/model ->roadmap-id ->timestamp)
+
+(use ledger/core/rulings ->new-ruling ->ruling-stamp
+                         check-not-superseded ruling-from)
+
+(use ledger/refusal refusal)
+(use support/items id-of)
+(use support/rulings ruling-id-of sample-ruling)
+
+(defn request (supersedes)
+  (->new-ruling :item (id-of "rm-0001")
+                :question (str "Which store?")
+                :choice (str "Postgres")
+                :reason (str "It already runs")
+                :supersedes supersedes))
+
+(defn stamp ()
+  (->ruling-stamp :id (ruling-id-of "rm-r001")
+                  :roadmap-id (->roadmap-id :value (str "rm-road"))
+                  :ruled-by (str "owner")
+                  :created-at (->timestamp :value (str
+                                                    "2026-01-01T00:00:00Z"))))
+
+(deftest a-request-and-stamp-make-an-unsuperseded-ruling
+  (let (made (ruling-from (ref (request none))
+                          (ref (stamp))))
+    (assert (= made (sample-ruling none)))))
+
+(deftest a-ruling-keeps-the-ruling-it-supersedes
+  (let (target (ruling-id-of "rm-r000")
+        made (ruling-from (ref (request (some (clone target))))
+                          (ref (stamp))))
+    (assert (= (:supersedes made)
+               (some (clone (:value target)))))))
+
+(deftest a-ruling-with-no-successor-can-be-superseded
+  (assert (ok? (check-not-superseded (ref (sample-ruling none)) none))))
+
+(deftest a-ruling-with-a-successor-cannot-be-superseded-again
+  (assert (= (unwrap-err (check-not-superseded (ref (sample-ruling none))
+                                               (some (ruling-id-of "rm-r002"))))
+             (refusal/ruling-superseded (ruling-id-of "rm-r001")))))

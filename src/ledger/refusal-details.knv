@@ -1,9 +1,12 @@
 (module
   "Gives the detail sentences a refusal carries beyond its one-line message.")
 
-(use ledger/model decision-id external-blocker)
+(use ledger/model blockage decision-id external-blocker)
 
 (export not-ready-message)
+
+(type not-ready-message
+  (fn ((ref blockage)) string))
 
 (defn not-ready-message (blockage)
   (let (reasons (vec))

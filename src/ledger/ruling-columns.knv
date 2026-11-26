@@ -1,0 +1,33 @@
+(module
+  "Turns the columns of a ruling into JSON values, as events record them.")
+
+(use json/value json text->json)
+(use ledger/model/rulings ruling)
+(use ledger/json-values optional-text->json)
+
+(export ruling->columns)
+
+(type ruling->columns
+  (fn ((ref ruling))
+    (vec (pair string json))))
+
+(defn ruling->columns (ruling)
+  (vec (column "id"
+               (text->json (as-str (:id ruling))))
+       (column "item_id"
+               (text->json (as-str (:value (:item ruling)))))
+       (column "question"
+               (text->json (as-str (:question ruling))))
+       (column "choice"
+               (text->json (as-str (:choice ruling))))
+       (column "reason"
+               (text->json (as-str (:reason ruling))))
+       (column "supersedes_id"
+               (optional-text->json (ref (:supersedes ruling))))
+       (column "ruled_by"
+               (text->json (as-str (:ruled-by ruling))))
+       (column "created_at"
+               (text->json (as-str (:value (:created-at ruling)))))))
+
+(defn column (name value)
+  (pair (str name) value))
