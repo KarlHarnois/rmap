@@ -72,7 +72,7 @@
                      ->follow-up-decision ->follow-up-draft
                      ->graph-request ->graph-source
                      ->item-edit ->log-query ->new-item
-                     ->verify-request add-dep add-item
+                     ->verify-request actor add-dep add-item
                      add-proposals advance-item advancement
                      batch batch-size batch-size-of
                      blocked-item claim-item close-item
@@ -100,7 +100,7 @@
         ->report-request ->review-request
         ->review-start-request ->session ->settings
         ->verify-request abandoned accept-decision
-        acceptance action-names actor-names
+        acceptance action-names actor actor-names
         add-decision-block add-dep add-item add-proposals
         advance-item advancement approval approval-of
         approved? ask-decision batch batch-size

@@ -66,7 +66,13 @@
                          (ledger-call-of
                            (vec "next" "--roadmap" "road" "--manager" "m1"))))
              (request/next (some (str "road"))
-                           (some (->session :name (str "m1")))))))
+                           (some (->session :name (str "m1")))
+                           none))))
+
+(deftest the-global-actor-does-not-filter-next
+  (let (call (unwrap (ledger-call-of (vec "next" "--actor" "manager"))))
+    (assert (= (:actor call) (some (str "manager"))))
+    (assert (= (:request call) (request/next none none none)))))
 
 (deftest an-unknown-command-is-refused
   (assert (refused-with? (vec "frobnicate") "unknown command")))

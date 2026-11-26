@@ -2,7 +2,9 @@
   "Reads the next actions for each open item. It changes nothing.")
 
 (use ledger/model session)
+(use ledger/core/actions actor)
 (use ledger/core/next ->deliveries next-entry next-of)
+(use ledger/core/taken-by taken-by)
 (use ledger/core/selection selected-roadmaps)
 (use ledger/sqlite/roadmaps all-roadmaps)
 (use ledger/sqlite/snapshot load-snapshot)
@@ -27,17 +29,19 @@
 (type next-actions
   (fn ((ref settings)
        (option string)
-       (option session))
+       (option session)
+       (option actor))
     (result (vec next-entry) failure)))
 
-(defn next-actions (settings roadmap manager)
+(defn next-actions (settings roadmap manager actor-filter)
   (in-read-transaction settings
     (fn (transaction)
       (next-within (ref (:connection transaction))
                    (ref roadmap)
-                   (ref manager)))))
+                   (ref manager)
+                   actor-filter))))
 
-(defn next-within (connection roadmap manager)
+(defn next-within (connection roadmap manager actor-filter)
   (let-try (scope (scope-named connection roadmap)
             roadmaps (all-roadmaps connection)
             snapshot (load-snapshot connection)
@@ -53,10 +57,13 @@
                                                  :roadmap-id none
                                                  :status none
                                                  :item none))))
-    (ok (next-of (ref snapshot)
-                 (ref (selected-roadmaps (ref roadmaps) (ref scope) manager))
-                 (ref (->deliveries :reports unread
-                                    :pull-requests pull-requests
-                                    :criterion-verdicts verdicts
-                                    :live-reviews live-reviews))
-                 (ref decisions)))))
+    (ok (taken-by (ref (next-of (ref snapshot)
+                                (ref (selected-roadmaps (ref roadmaps)
+                                                        (ref scope)
+                                                        manager))
+                                (ref (->deliveries :reports unread
+                                                   :pull-requests pull-requests
+                                                   :criterion-verdicts verdicts
+                                                   :live-reviews live-reviews))
+                                (ref decisions)))
+                  actor-filter))))

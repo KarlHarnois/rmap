@@ -3,7 +3,7 @@
 
 (use ledger/api ->advancement ->claim-request
                 ->graph-request ->item-id ->log-query
-                ->session ->verify-request advancement
+                ->session ->verify-request actor advancement
                 batch-size batch-size-of case-named
                 claim-request end-reason follow-up-draft
                 graph-format graph-format-names graph-level
@@ -25,9 +25,8 @@
 
 (export add-item-request advance-request claim-request
         drop-request edit-item-request graph-request
-        log-request new-roadmap-request next-request
-        ready-request request roadmap-settings-request
-        text->id)
+        log-request new-roadmap-request ready-request
+        request roadmap-settings-request text->id)
 
 (defenum request
   init
@@ -37,7 +36,9 @@
   (resume string)
   (set-max-active string (option int))
   (ready (option string))
-  (next (option string) (option session))
+  (next (option string)
+        (option session)
+        (option actor))
   (ready-batch (option string) batch-size)
   (log log-query)
   (add-item string new-item)
@@ -82,11 +83,6 @@
                        :decision (map-some (optional-text arguments "decision")
                                            text->decision-id)
                        :after-id (unwrap-or since 0))))))
-
-(defn next-request (arguments)
-  (request/next (optional-text arguments "roadmap")
-                (map-some (optional-text arguments "manager")
-                  (fn (name) (->session :name name)))))
 
 (defn add-item-request (arguments)
   (let-try (roadmap (required-text arguments "roadmap")

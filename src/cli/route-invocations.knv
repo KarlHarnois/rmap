@@ -13,9 +13,10 @@
                   claim-request drop-request
                   edit-item-request graph-request
                   log-request new-roadmap-request
-                  next-request ready-request request
+                  ready-request request
                   roadmap-settings-request text->id)
 
+(use cli/next-request next-request)
 (use cli/verify-request verify-request-of)
 
 (use cli/operation-invocations pr-invocation
@@ -44,7 +45,7 @@
                                          arguments
                                          (operand arguments route 0))))
     (subcommand/ready (on-ledger arguments (ready-request arguments)))
-    (subcommand/next (on-ledger arguments (ok (next-request arguments))))
+    (subcommand/next (on-ledger arguments (next-request arguments)))
     (subcommand/log (on-ledger arguments (log-request arguments)))
     (subcommand/item-add (on-ledger arguments (add-item-request arguments)))
     (subcommand/item-list

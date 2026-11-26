@@ -1,8 +1,9 @@
 (module
   "Lists the commands that work on roadmaps and their items.")
 
-(use ledger/api graph-format-names graph-level-names
-                kind-names origin-names status-names)
+(use ledger/api actor-names graph-format-names
+                graph-level-names kind-names origin-names
+                status-names)
 
 (use cli/flag-specs boolean-flag choices optional required)
 (use cli/routes ->route operands subcommand words)
@@ -38,10 +39,11 @@
                             (optional "limit" "<whole number, at least 1>")))
        (->route :subcommand subcommand/next
                 :words (words "next")
-                :summary (str "Lists the next action for each open item and proposed decision, and who takes it. Each actor names a role. The controller takes the mechanical steps, which a person, the manager session or a program may take. The manager takes the judgment steps. The worker does the work, the fixes and the live review. The user is the owner. Until a controller runs, the manager takes controller actions. The manager asks an unanswered decision, the user answers an asked one, and a rejected decision that holds an item sends it back for a replan. A build's review step follows its pull request's current head: review when a reviewer must start, review with the live review session's name when one is live, send-fixes for the manager when a reviewer asked for changes on that head, and verify when the head is approved but acceptance criteria still need verdicts. A manager with no roadmaps gives an empty list, not an error.")
+                :summary (str "Lists the next action for each open item and proposed decision, and who takes it. Each actor names a role. The controller takes the mechanical steps, which a person, the manager session or a program may take. The manager takes the judgment steps. The worker does the work, the fixes and the live review. The user is the owner. Until a controller runs, the manager takes controller actions. The manager asks an unanswered decision, the user answers an asked one, and a rejected decision that holds an item sends it back for a replan. A build's review step follows its pull request's current head: review when a reviewer must start, review with the live review session's name when one is live, send-fixes for the manager when a reviewer asked for changes on that head, and verify when the head is approved but acceptance criteria still need verdicts. With --taken-by, it keeps only the lines that actor takes. A manager with no roadmaps gives an empty list, not an error.")
                 :operands (vec)
                 :flags (vec (optional "roadmap" "<name>")
-                            (optional "manager" "<session>")))
+                            (optional "manager" "<session>")
+                            (optional "taken-by" (choices actor-names))))
        (->route :subcommand subcommand/log
                 :words (words "log")
                 :summary (str "Prints the events, for one item, for one decision or after one event id when given.")

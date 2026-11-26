@@ -40,7 +40,7 @@
       unwrap json->text unwrap))
 
 (defn entry-for (settings id)
-  (-> (unwrap-ok (next-actions settings none none))
+  (-> (unwrap-ok (next-actions settings none none none))
       iter
       (find (fn (entry) (item-entry? entry id)))
       (then-some (fn (entry) (item-of-entry entry)))))
