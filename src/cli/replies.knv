@@ -2,7 +2,6 @@
   "Names each result a ledger call hands back to the CLI.")
 
 (use ledger/api batch cap-result criterion-verdict decision
-(use ledger/api batch cap-result criterion-verdict decision
                 dep ended-session event external-blocker
                 follow-up graph-source init-report item
                 item-detail item-id next-entry readiness

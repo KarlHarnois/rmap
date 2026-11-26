@@ -1,7 +1,10 @@
 (module
   "Holds how a graph is written and how much history it shows.")
 
-(export graph-format history)
+(export graph-format graph-format-names history)
+
+(def graph-format-names
+  (vec (pair graph-format/mermaid "mermaid")))
 
 (defenum graph-format mermaid)
 

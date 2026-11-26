@@ -147,6 +147,14 @@ Commands:
     Makes a proposed decision hold an open item or an unfinished epic of its roadmap; an epic holds all its open children, including ones added later.
   decision unblock <id> <item>
     Removes an item from what a decision blocks, in any decision status.
+  ruling add --item <id> --question <text> --choice <text> --reason <text> [--supersedes <ruling id>]
+    Records a ruling: the question, the choice made without asking the owner, and why. Rulings never change; --supersedes names the ruling this one corrects, and a ruling takes at most one successor.
+  ruling list [--roadmap <name>] [--item <id>] [--all]
+    Lists the rulings, oldest first. Superseded rulings show only with --all.
+  ruling show <id>
+    Shows one ruling.
+  settled [--roadmap <name>]
+    Lists the accepted decisions and the rulings nothing supersedes, for every roadmap by default. Read it before proposing anything.
   export
     Prints the whole ledger as one JSON document, with or without --json: every roadmap, item, acceptance criterion, criterion verdict, dependency, session, report, pull request, review, decision, decision option, decision option point, decision block, proposal, proposal criterion, proposal dependency, option skip, ruling and event.
   proposal add <source> --file <path|-> --session <name>
@@ -238,6 +246,8 @@ Refusal codes:
   decision-block-exists           The decision already blocks that item.
   decision-block-not-found        The decision does not block that item.
   supersede-target-not-accepted   Only a decision that is accepted, or rejected in the same roadmap, can be superseded.
+  ruling-not-found                No ruling has that id.
+  ruling-superseded               The ruling was already superseded, and a ruling has one successor at most.
   session-busy                    A live session already has that name.
   session-not-live                No live session has that name.
   session-not-claimant            The session is not the item's live session.
