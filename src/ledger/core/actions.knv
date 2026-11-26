@@ -31,9 +31,8 @@
 
 (defenum actor
   controller
-  agent
-  worker
   manager
+  worker
   user)
 
 (defn planned-for-report (action session report)
@@ -53,14 +52,14 @@
   (match action
     (dispatch actor/controller)
     (wait actor/controller)
-    (ask actor/agent)
+    (ask actor/manager)
     (await-decision actor/user)
-    (replan actor/agent)
+    (replan actor/manager)
     (work actor/worker)
-    (accept-report actor/agent)
-    (review actor/agent)
-    (verify actor/manager)
-    (send-fixes actor/agent)
+    (accept-report actor/manager)
+    (review actor/manager)
+    (verify actor/controller)
+    (send-fixes actor/manager)
     (fix actor/worker)
     (merge actor/controller)
-    (answer actor/agent)))
+    (answer actor/manager)))

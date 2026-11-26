@@ -59,13 +59,13 @@
     (assert (= (text-at (ref value) "title")
                (some (str "Where do sessions live?"))))))
 
-(deftest an-unasked-decision-asks-an-agent
+(deftest an-unasked-decision-asks-the-manager
   (let (action (first-action (ref (next-entry->json (decision-entry
                                                       action/ask)))))
     (assert (= (text-at (ref action) "action")
                (some (str "ask"))))
     (assert (= (text-at (ref action) "actor")
-               (some (str "agent"))))))
+               (some (str "manager"))))))
 
 (deftest an-asked-decision-awaits-the-user
   (let (action (first-action (ref (next-entry->json (decision-entry

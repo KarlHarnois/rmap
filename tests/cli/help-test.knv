@@ -72,6 +72,18 @@
   (assert (contains? (as-str (command-summary "next"))
                      "A manager with no roadmaps gives an empty list")))
 
+(deftest next-names-each-actor-as-a-role
+  (let (summary (as-str (command-summary "next")))
+    (assert (contains? summary "Each actor names a role"))
+    (assert (not (contains? summary "agent")))
+    (assert (contains? summary
+                       "The controller takes the mechanical steps"))
+    (assert (contains? summary "The manager takes the judgment steps"))
+    (assert (contains? summary "The worker does the work"))
+    (assert (contains? summary "The user is the owner"))
+    (assert (contains? summary
+                       "Until a controller runs, the manager takes controller actions"))))
+
 (deftest command-help-describes-only-the-given-commands
   (let (next-routes (collect (filter (map (iter (routes)) clone)
                                (fn (route)

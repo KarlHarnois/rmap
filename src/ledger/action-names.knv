@@ -22,7 +22,6 @@
 
 (def actor-names
   (vec (pair actor/controller "controller")
-       (pair actor/agent "agent")
-       (pair actor/worker "worker")
        (pair actor/manager "manager")
+       (pair actor/worker "worker")
        (pair actor/user "user")))

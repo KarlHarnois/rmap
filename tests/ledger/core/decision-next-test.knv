@@ -79,7 +79,7 @@
                                       "2026-01-01T00:00:00Z")))
     (assert (empty? (decision-entries (ref road) (ref decisions))))))
 
-(deftest an-unasked-decision-asks-the-agent
+(deftest an-unasked-decision-asks-the-manager
   (let (road (roadmap-of "rm-road" "manager")
         decisions (vec (decision-with "rm-d1"
                                       decision-status/proposed

@@ -245,7 +245,7 @@
     (assert (= (text-of (ref asked) "action")
                (str "ask")))
     (assert (= (text-of (ref asked) "actor")
-               (str "agent")))
+               (str "manager")))
     (assert (= (text-of (ref waiting) "action")
                (str "wait")))
     (assert (= (blocking-decisions waiting)
@@ -290,7 +290,7 @@
     (assert (= (text-of (ref replan) "action")
                (str "replan")))
     (assert (= (text-of (ref replan) "actor")
-               (str "agent")))))
+               (str "manager")))))
 
 (deftest a-rejected-raised-decision-replans-the-design
   (let (database (database-with-roadmap "e2e-next-raised-replan")
@@ -307,7 +307,7 @@
     (assert (= (text-of (ref replan) "action")
                (str "replan")))
     (assert (= (text-of (ref replan) "actor")
-               (str "agent")))))
+               (str "manager")))))
 
 (deftest a-proposed-decision-raised-by-a-reported-design-waits-on-it
   (let (database (database-with-roadmap "e2e-next-raised-wait")
@@ -426,7 +426,7 @@
       (assert (= (text-of (ref action) "action")
                  (str "send-fixes")))
       (assert (= (text-of (ref action) "actor")
-                 (str "agent")))
+                 (str "manager")))
       (assert (= (text-of (ref action) "session")
                  (str "s1"))))))
 
@@ -446,7 +446,7 @@
       (assert (= (text-of (ref action) "action")
                  (str "review")))
       (assert (= (text-of (ref action) "actor")
-                 (str "agent")))
+                 (str "manager")))
       (assert (= (text-of (ref action) "session")
                  (str "s1"))))))
 
@@ -459,9 +459,11 @@
     (assert (= (:exit-code
                  (review-build (ref database) id "r1" "approve" first-sha))
                0))
-    (assert (= (text-of (ref (listed-action (ref database) id))
-                        "action")
-               (str "verify")))
+    (let (action (listed-action (ref database) id))
+      (assert (= (text-of (ref action) "action")
+                 (str "verify")))
+      (assert (= (text-of (ref action) "actor")
+                 (str "controller"))))
     (assert (= (:exit-code (review-start (ref database) id "r2"))
                0))
     (let (actions (actions-listed (ref database) id)

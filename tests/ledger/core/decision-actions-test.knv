@@ -79,7 +79,7 @@
                                           (ref decisions)
                                           (one-action action/accept-report))))
     (assert (= (:action planned) action/replan))
-    (assert (= (:actor planned) actor/agent))))
+    (assert (= (:actor planned) actor/manager))))
 
 (deftest a-merging-build-waits-on-a-proposed-decision-it-raised
   (let (item (merging-build)

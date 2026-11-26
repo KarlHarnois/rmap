@@ -71,7 +71,7 @@
     (assert (= (report-ids actions)
                (vec none (some 2) (some 4))))))
 
-(deftest the-answer-goes-to-the-agent
+(deftest the-answer-goes-to-the-manager
   (let (actions (with-reports
                   (vec)
                   (ref (vec (report-on 2 "rm-0001" report-kind/question)))

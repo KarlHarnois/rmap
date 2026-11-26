@@ -118,7 +118,7 @@
                                                              "reports"))))))
                0))))
 
-(deftest next-asks-the-agent-to-answer-an-unread-question
+(deftest next-asks-the-manager-to-answer-an-unread-question
   (let (database (database-with-roadmap "e2e-report-next-answer")
         item (claimed-research (ref database))
         id (report-id-of
@@ -129,7 +129,7 @@
     (assert (= (action-text (at actions 1) "action")
                (some (str "answer"))))
     (assert (= (action-text (at actions 1) "actor")
-               (some (str "agent"))))
+               (some (str "manager"))))
     (assert (= (action-report (at actions 1))
                (some id)))))
 
