@@ -1,7 +1,7 @@
 (module
   "Reads and writes the `roadmaps` table.")
 
-(use ledger/sqlite/values text->sql)
+(use ledger/sqlite/values optional-int->sql text->sql)
 
 (use ledger/model ->roadmap ->roadmap-id ->session
                   ->timestamp roadmap)
@@ -11,13 +11,14 @@
 (use ledger/sqlite/connection connection database-error
                               execute query)
 
-(use ledger/sqlite/rows named-cell rows->values text-cell)
+(use ledger/sqlite/rows named-cell optional-int-cell
+                        rows->values text-cell)
 
 (export all-roadmaps insert-roadmap roadmap-named
-        update-roadmap-status)
+        update-roadmap-max-active update-roadmap-status)
 
 (def columns
-  "id, name, manager_session, status, created_at")
+  "id, name, manager_session, status, max_active, created_at")
 
 (type insert-roadmap
   (fn ((ref connection) (ref roadmap))
@@ -26,13 +27,24 @@
 (defn insert-roadmap (connection roadmap)
   (execute connection
            (as-str (str "INSERT INTO roadmaps (" columns
-                        ") VALUES (?1, ?2, ?3, ?4, ?5)"))
+                        ") VALUES (?1, ?2, ?3, ?4, ?5, ?6)"))
            (ref (vec (text->sql (as-str (:value (:id roadmap))))
                      (text->sql (as-str (:name roadmap)))
                      (text->sql (as-str (:name (:manager roadmap))))
                      (text->sql (case-name roadmap-status-names
                                            (:status roadmap)))
+                     (optional-int->sql (clone (:max-active roadmap)))
                      (text->sql (as-str (:value (:created-at roadmap))))))))
+
+(type update-roadmap-max-active
+  (fn ((ref connection) (ref roadmap))
+    (result int database-error)))
+
+(defn update-roadmap-max-active (connection roadmap)
+  (execute connection
+           "UPDATE roadmaps SET max_active = ?2 WHERE id = ?1"
+           (ref (vec (text->sql (as-str (:value (:id roadmap))))
+                     (optional-int->sql (clone (:max-active roadmap)))))))
 
 (type update-roadmap-status
   (fn ((ref connection) (ref roadmap))
@@ -68,9 +80,11 @@
             name (text-cell row 1)
             manager (text-cell row 2)
             status (named-cell row 3 roadmap-status-names)
-            created-at (text-cell row 4))
+            max-active (optional-int-cell row 4)
+            created-at (text-cell row 5))
     (ok (->roadmap :id (->roadmap-id :value id)
                    :name name
                    :manager (->session :name manager)
                    :status status
+                   :max-active max-active
                    :created-at (->timestamp :value created-at)))))

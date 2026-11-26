@@ -9,6 +9,7 @@
 (use ledger/operations/roadmap-lifecycle pause-roadmap
                                          resume-roadmap)
 
+(use ledger/operations/roadmap-settings set-max-active)
 (use ledger/operations/roadmaps list-roadmaps new-roadmap)
 
 (use ledger/operations/transaction ->settings clock
@@ -17,4 +18,4 @@
 (export ->settings clock default-database-path init-ledger
         init-outcome init-outcome-names init-report
         list-roadmaps new-roadmap pause-roadmap
-        resume-roadmap settings)
+        resume-roadmap set-max-active settings)

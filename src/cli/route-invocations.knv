@@ -14,15 +14,14 @@
                   edit-item-request graph-request
                   log-request new-roadmap-request
                   next-request ready-request request
-                  text->id)
+                  roadmap-settings-request text->id)
 
 (use cli/verify-request verify-request-of)
-(use cli/report-requests report-operation-of)
 
-(use cli/pr-requests pr-operation-of
-                     start-review-operation-of)
-
-(use cli/session-requests session-end-request)
+(use cli/operation-invocations pr-invocation
+                               report-invocation
+                               review-start-invocation
+                               session-invocation)
 
 (export invocation-of)
 
@@ -40,6 +39,10 @@
     (subcommand/resume (on-ledger arguments
                                   (ok (request/resume
                                         (operand arguments route 0)))))
+    (subcommand/roadmap-set (on-ledger arguments
+                                       (roadmap-settings-request
+                                         arguments
+                                         (operand arguments route 0))))
     (subcommand/ready (on-ledger arguments (ready-request arguments)))
     (subcommand/next (on-ledger arguments (ok (next-request arguments))))
     (subcommand/log (on-ledger arguments (log-request arguments)))
@@ -103,16 +106,9 @@
     (subcommand/decision-block (decision-invocation-of route arguments))
     (subcommand/decision-unblock (decision-invocation-of route arguments))
     ((subcommand/report command)
-     (on-ledger arguments
-                (map-ok (report-operation-of arguments route command)
-                  (fn (operation) (request/report operation)))))
-    (subcommand/review-start
-      (on-ledger arguments
-                 (map-ok (start-review-operation-of arguments route)
-                   (fn (operation) (request/pull-request operation)))))
+     (report-invocation arguments route command))
+    (subcommand/review-start (review-start-invocation arguments route))
     ((subcommand/pull-request command)
-     (on-ledger arguments
-                (map-ok (pr-operation-of arguments route command)
-                  (fn (operation) (request/pull-request operation)))))
+     (pr-invocation arguments route command))
     ((subcommand/session command)
-     (on-ledger arguments (session-end-request arguments route)))))
+     (session-invocation arguments route command))))

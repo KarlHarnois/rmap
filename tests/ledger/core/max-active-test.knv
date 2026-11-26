@@ -1,0 +1,101 @@
+(use ledger/model ->capacity kind status)
+(use ledger/core/max-active check-max-active)
+(use ledger/core/ready readiness-of)
+(use ledger/core/snapshot scope)
+(use ledger/refusal refusal)
+
+(use support/items epic-item roadmap-of snapshot-of
+                   work-item)
+
+(defn capped-snapshot (items cap)
+  (assoc (snapshot-of items (vec))
+         :roadmaps (vec (assoc (roadmap-of "rm-road" "manager")
+                               :max-active cap))))
+
+(defn blocked-capacity (snapshot)
+  (map-some (first (:blocked (readiness-in snapshot)))
+    (fn (held)
+      (clone (:capacity (:blockage held))))))
+
+(defn readiness-in (snapshot)
+  (readiness-of (ref snapshot) (ref scope/every-roadmap)))
+
+(deftest a-roadmap-without-a-cap-does-not-hold-work-back
+  (let (snapshot (assoc (snapshot-of
+                          (vec
+                            (work-item "rm-0001" kind/build status/dispatched)
+                            (work-item "rm-0002" kind/build status/dispatched)
+                            (work-item "rm-0003" kind/build status/open))
+                          (vec))
+                        :roadmaps (vec (roadmap-of "rm-road" "manager"))))
+    (assert (= (len (:ready (readiness-in snapshot)))
+               1))
+    (assert (= (blocked-capacity snapshot) none))))
+
+(deftest a-full-roadmap-holds-its-other-startable-items-back
+  (let (snapshot (capped-snapshot
+                   (vec (work-item "rm-0001" kind/build status/dispatched)
+                        (work-item "rm-0002" kind/build status/reported)
+                        (work-item "rm-0003" kind/build status/open))
+                   (some 2)))
+    (assert (empty? (:ready (readiness-in snapshot))))
+    (assert (= (blocked-capacity snapshot)
+               (some (some (->capacity :active 2 :max-active 2)))))))
+
+(deftest a-roadmap-below-its-cap-keeps-its-items-ready
+  (let (snapshot (capped-snapshot
+                   (vec (work-item "rm-0001" kind/build status/dispatched)
+                        (work-item "rm-0002" kind/build status/open))
+                   (some 2)))
+    (assert (= (len (:ready (readiness-in snapshot)))
+               1))
+    (assert (= (blocked-capacity snapshot) none))))
+
+(deftest every-active-status-counts-and-over-capacity-reports-the-real-count
+  (let (snapshot (capped-snapshot
+                   (vec (work-item "rm-0001" kind/build status/dispatched)
+                        (work-item "rm-0002" kind/build status/in-review)
+                        (work-item "rm-0003" kind/build status/fixing)
+                        (work-item "rm-0004" kind/build status/merging)
+                        (work-item "rm-0005" kind/build status/open))
+                   (some 2)))
+    (assert (= (blocked-capacity snapshot)
+               (some (some (->capacity :active 4 :max-active 2)))))))
+
+(deftest an-epic-never-counts-as-active
+  (let (snapshot (capped-snapshot
+                   (vec (assoc (epic-item "rm-0001") :status status/dispatched)
+                        (work-item "rm-0002" kind/build status/open))
+                   (some 1)))
+    (assert (= (len (:ready (readiness-in snapshot)))
+               1))
+    (assert (= (blocked-capacity snapshot) none))))
+
+(deftest finishing-an-item-frees-the-roadmap-again
+  (let (full (capped-snapshot
+               (vec (work-item "rm-0001" kind/research status/reported)
+                    (work-item "rm-0002" kind/build status/open))
+               (some 1))
+        freed (capped-snapshot
+                (vec (work-item "rm-0001" kind/research status/accepted)
+                     (work-item "rm-0002" kind/build status/open))
+                (some 1)))
+    (assert (= (blocked-capacity full)
+               (some (some (->capacity :active 1 :max-active 1)))))
+    (assert (= (len (:ready (readiness-in freed)))
+               1))
+    (assert (= (blocked-capacity freed) none))))
+
+(deftest a-cap-below-one-is-refused
+  (match (check-max-active (some 0))
+    ((err (refusal/max-active-out-of-range count))
+     (assert (= count 0)))
+    ((err _) (assert false))
+    ((ok _) (assert false)))
+  (match (check-max-active (some -2))
+    ((err (refusal/max-active-out-of-range count))
+     (assert (= count -2)))
+    ((err _) (assert false))
+    ((ok _) (assert false)))
+  (assert (ok? (check-max-active (some 1))))
+  (assert (ok? (check-max-active none))))

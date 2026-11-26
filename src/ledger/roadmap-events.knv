@@ -1,7 +1,7 @@
 (module
-  "Describes a roadmap status change as an event to record.")
+  "Describes a roadmap change as an event to record.")
 
-(use json/value json text->json)
+(use json/value int->json json text->json)
 (use ledger/model roadmap)
 
 (use ledger/model/events ->event-draft event-draft
@@ -10,7 +10,7 @@
 (use ledger/names case-name roadmap-status-names)
 (use ledger/changes payload-with-changes updated)
 
-(export roadmap-status-changed)
+(export roadmap-max-active-changed roadmap-status-changed)
 
 (type roadmap-status-changed
   (fn ((ref roadmap) (ref roadmap) event-type)
@@ -26,6 +26,29 @@
                                                (status-json before)
                                                (status-json after))))
                             (vec))))
+
+(type roadmap-max-active-changed
+  (fn ((ref roadmap) (ref roadmap))
+    event-draft))
+
+(defn roadmap-max-active-changed (before after)
+  (->event-draft :roadmap-id (some (clone (:id after)))
+                 :item-id none
+                 :decision-id none
+                 :type event-type/roadmap-max-active-changed
+                 :payload (payload-with-changes
+                            (ref (vec (updated "max_active"
+                                               (max-active-json before)
+                                               (max-active-json after))))
+                            (vec))))
+
+(type max-active-json
+  (fn ((ref roadmap)) json))
+
+(defn max-active-json (roadmap)
+  (match (:max-active roadmap)
+    ((some count) (int->json count))
+    (none json/null)))
 
 (type status-json
   (fn ((ref roadmap)) json))

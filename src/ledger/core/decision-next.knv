@@ -32,7 +32,8 @@
   (->blockage :pause (:pause blockage)
               :blockers (clone (:blockers blockage))
               :dropped-blockers (clone (:dropped-blockers blockage))
-              :decisions (merged-ids (ref (:decisions blockage)) raised)))
+              :decisions (merged-ids (ref (:decisions blockage)) raised)
+              :capacity none))
 
 (type proposed-in
   (fn ((ref roadmap) (ref (vec decision)))

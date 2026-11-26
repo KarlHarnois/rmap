@@ -105,7 +105,8 @@
   (->blockage :pause roadmap-pause/not-paused
               :blockers (vec)
               :dropped-blockers (vec)
-              :decisions (vec)))
+              :decisions (vec)
+              :capacity none))
 
 (defn rejected-in? (snapshot id)
   (= (decision-status-in snapshot id)

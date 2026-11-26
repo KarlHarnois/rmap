@@ -1,9 +1,10 @@
 (module
   "Holds the ledger's values: roadmaps, items, their sessions, dependencies, decisions and blockages.")
 
-(export ->blockage ->decision-block ->decision-id ->dep
-        ->item ->item-id ->roadmap ->roadmap-id ->session
-        ->snapshot ->timestamp ->work-session blockage claim
+(export ->blockage ->cap-result ->capacity ->decision-block
+        ->decision-id ->dep ->item ->item-id ->roadmap
+        ->roadmap-id ->session ->snapshot ->timestamp
+        ->work-session blockage cap-result capacity claim
         decision-block decision-id decision-status dep
         dep-type graph-format history item item-id kind
         origin roadmap roadmap-id roadmap-pause
@@ -36,7 +37,12 @@
   :name string
   :manager session
   :status roadmap-status
+  :max-active (option int)
   :created-at timestamp)
+
+(defstruct cap-result
+  :roadmap roadmap
+  :changed-at (option timestamp))
 
 (defenum roadmap-status
   active
@@ -128,7 +134,12 @@
   :pause roadmap-pause
   :blockers (vec item-id)
   :dropped-blockers (vec item-id)
-  :decisions (vec decision-id))
+  :decisions (vec decision-id)
+  :capacity (option capacity))
+
+(defstruct capacity
+  :active int
+  :max-active int)
 
 (defenum roadmap-pause
   not-paused

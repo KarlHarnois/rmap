@@ -8,7 +8,7 @@
                 list-roadmaps new-roadmap next-actions
                 pause-roadmap read-log ready-batch
                 ready-items remove-dep resume-roadmap
-                show-item verify-criterion)
+                set-max-active show-item verify-criterion)
 
 (use cli/decision-calls perform-decision)
 (use cli/pr-calls perform-pull-request)
@@ -33,6 +33,9 @@
     ((resume name)
      (map-ok (resume-roadmap settings name)
        (fn (roadmap) (reply/roadmap-status-changed roadmap))))
+    ((set-max-active name change)
+     (map-ok (set-max-active settings name change)
+       (fn (roadmap) (reply/roadmap-max-active-changed roadmap))))
     ((ready roadmap)
      (map-ok (ready-items settings roadmap)
        (fn (readiness) (reply/readiness-checked readiness))))

@@ -1,0 +1,22 @@
+(module
+  "Reads the max active change a roadmap set command asks for.")
+
+(use cli/flags optional-number switch-on?)
+
+(export max-active-change-of)
+
+(defn max-active-change-of (arguments)
+  (let-try (number (optional-number arguments "max-active"))
+    (match number
+      ((some count) (limited-change arguments count))
+      (none (cleared-change arguments)))))
+
+(defn limited-change (arguments count)
+  (if (switch-on? arguments "no-max-active")
+    (err (str "--max-active and --no-max-active cannot be given together"))
+    (ok (some count))))
+
+(defn cleared-change (arguments)
+  (if (switch-on? arguments "no-max-active")
+    (ok none)
+    (err (str "roadmap set needs --max-active or --no-max-active"))))

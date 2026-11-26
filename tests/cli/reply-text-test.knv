@@ -33,8 +33,9 @@
                                    :name (str "website")
                                    :manager (->session :name (str "m1"))
                                    :status roadmap-status/active
+                                   :max-active none
                                    :created-at (->timestamp :value (str "2026-01-01T00:00:00Z"))))))
-             (str "ID       NAME     STATUS  MANAGER  CREATED\nrm-0a0a  website  active  m1       2026-01-01T00:00:00Z"))))
+             (str "ID       NAME     STATUS  MAX ACTIVE  MANAGER  CREATED\nrm-0a0a  website  active  -           m1       2026-01-01T00:00:00Z"))))
 
 (deftest a-graph-prints-its-raw-source
   (assert (= (reply->text (reply/graph-drawn (->graph-source

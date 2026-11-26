@@ -13,6 +13,7 @@
                            refusal-code/roadmap-exists
                            refusal-code/roadmap-already-paused
                            refusal-code/roadmap-not-paused
+                           refusal-code/max-active-out-of-range
                            refusal-code/item-not-found
                            refusal-code/item-closed
                            refusal-code/description-required
@@ -59,6 +60,8 @@
                                        "A pause changes nothing: the roadmap is already paused."))
     (roadmap-not-paused (described "roadmap-not-paused"
                                    "A resume changes nothing: the roadmap is not paused."))
+    (max-active-out-of-range (described "max-active-out-of-range"
+                                        "A max active must be at least 1."))
     (item-not-found (described "item-not-found" "No item has that id."))
     (item-closed (described "item-closed"
                             "A merged, accepted or dropped item is closed."))
@@ -84,7 +87,7 @@
     (invalid-transition (described "invalid-transition"
                                    "The transition table has no such move for this item."))
     (not-ready (described "not-ready"
-                          "The item is blocked. The error lists whether the roadmap is paused, its blockers, its dropped_blockers and its blocking_decisions."))
+                          "The item is blocked. The error lists whether the roadmap is paused, its capacity, its blockers, its dropped_blockers and its blocking_decisions."))
     (cycle (described
              "cycle"
              "The dependency would close a cycle of blocks dependencies."))

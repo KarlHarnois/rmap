@@ -1,20 +1,39 @@
 (module
   "Turns a blockage into the JSON fields the CLI prints.")
 
-(use json/value array bool->json json text->json)
+(use json/value array bool->json int->json json object
+                text->json)
+
 (use ledger/api decision-id ids->json roadmap-pause)
 
 (export blockage-fields)
 
 (defn blockage-fields (blockage)
-  (vec (pair (str "paused")
-             (bool->json (paused? blockage)))
-       (pair (str "blockers")
-             (ids->json (ref (:blockers blockage))))
-       (pair (str "dropped_blockers")
-             (ids->json (ref (:dropped-blockers blockage))))
-       (pair (str "blocking_decisions")
-             (decision-ids->json (ref (:decisions blockage))))))
+  (with-capacity (vec (pair (str "paused")
+                            (bool->json (paused? blockage)))
+                      (pair (str "blockers")
+                            (ids->json (ref (:blockers blockage))))
+                      (pair (str "dropped_blockers")
+                            (ids->json (ref (:dropped-blockers blockage))))
+                      (pair (str "blocking_decisions")
+                            (decision-ids->json (ref (:decisions blockage)))))
+                 (:capacity blockage)))
+
+(defn with-capacity (fields capacity)
+  (match capacity
+    ((some present)
+     (appended fields
+               (pair (str "capacity") (capacity->json present))))
+    (none fields)))
+
+(defn capacity->json (capacity)
+  (object (vec (pair (str "active")
+                     (int->json (:active capacity)))
+               (pair (str "max_active")
+                     (int->json (:max-active capacity))))))
+
+(defn appended (fields field)
+  (let (all fields) (push! all field) all))
 
 (type decision-ids->json
   (fn ((ref (vec decision-id))) json))

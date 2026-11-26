@@ -4,7 +4,7 @@
 (use ledger/api ->follow-up-draft ->item-id ->session
                 add-dep add-proposals drop-item
                 export-ledger item-id propose-decision
-                record-report settings)
+                record-report set-max-active settings)
 
 (use ledger/model kind status)
 (use ledger/model/pull-requests verdict)
@@ -347,3 +347,27 @@
                               (clone (:value (:pr-number (:exported-pull-request
                                                            record)))))))
                  (vec 2 1))))))
+
+(deftest the-snapshot-carries-the-cap-on-items-and-roadmaps
+  (let (settings (scratch-ledger "export-cap")
+        _first (claimed (ref settings)
+                        (research (ref settings)))
+        _second (claimed (ref settings)
+                         (research (ref settings)))
+        open (added-id (ref settings) (item-draft kind/research)))
+    (unwrap-ok (set-max-active (ref settings)
+                               (str roadmap-name)
+                               (some 2)))
+    (let (document (unwrap-ok (export-ledger (ref settings)))
+          held (clone (unwrap (find (iter (:export-items document))
+                                (fn (record)
+                                  (= (:id (:exported-item record)) open)))))
+          roadmap (unwrap (first (:export-roadmaps document))))
+      (assert (not (:item-ready held)))
+      (match (:item-blockage held)
+        ((some blockage)
+         (let (capacity (unwrap (:capacity blockage)))
+           (assert (= (:active capacity) 2))
+           (assert (= (:max-active capacity) 2))))
+        (none (assert false)))
+      (assert (= (:max-active roadmap) (some 2))))))

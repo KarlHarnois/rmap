@@ -1,7 +1,7 @@
 (module
   "Finds a roadmap or a decision the caller named, or refuses when none exists.")
 
-(use ledger/model decision-id roadmap-id)
+(use ledger/model decision-id roadmap roadmap-id)
 (use ledger/model/decisions decision)
 (use ledger/refusal refusal)
 (use ledger/core/snapshot scope)
@@ -13,7 +13,7 @@
 (use ledger/failure failure)
 
 (export existing-decision existing-report roadmap-id-named
-        scope-named)
+        roadmap-required scope-named)
 
 (defn scope-named (connection name)
   (match name
@@ -51,3 +51,13 @@
     (match found
       ((some report) (ok report))
       (none (err (failure/refused (refusal/report-not-found (clone id))))))))
+
+(type roadmap-required
+  (fn ((ref connection) (ref str))
+    (result roadmap failure)))
+
+(defn roadmap-required (connection name)
+  (let-try (found (roadmap-named connection name))
+    (match found
+      ((some roadmap) (ok roadmap))
+      (none (err (failure/refused (refusal/roadmap-not-found (str name))))))))

@@ -4,8 +4,8 @@
 (export array bool->json copy-of field float->json int->json
         json json->bool json->entries json->float json->int
         json->items json->pretty-source json->source
-        json->text json-error null? object parse-json same?
-        text->json)
+        json->text json-error null? object
+        optional-int->json parse-json same? text->json)
 
 (rust-type json-number "serde_json::Number")
 
@@ -120,3 +120,8 @@
 (defn parse-json (text)
   (map-err (parse-raw text)
     (fn (message) (->json-error :cause message))))
+
+(defn optional-int->json (number)
+  (match number
+    ((some present) (int->json present))
+    (none json/null)))

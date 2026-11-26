@@ -16,6 +16,7 @@
   (roadmap-exists string)
   (roadmap-already-paused string)
   (roadmap-not-paused string)
+  (max-active-out-of-range int)
   (item-not-found item-id)
   (item-closed item-id)
   description-required

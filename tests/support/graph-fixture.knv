@@ -34,6 +34,7 @@
   (->roadmap :id (->roadmap-id :value (str id))
              :name (str name)
              :manager (->session :name (str "manager"))
+             :max-active none
              :status roadmap-status/active
              :created-at (->timestamp :value (str "2026-01-01T00:00:00Z"))))
 

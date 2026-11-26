@@ -58,7 +58,8 @@
   (->blockage :pause roadmap-pause/not-paused
               :blockers (vec)
               :dropped-blockers (vec)
-              :decisions (vec (->decision-id :value (str "rm-d1")))))
+              :decisions (vec (->decision-id :value (str "rm-d1")))
+              :capacity none))
 
 (deftest a-reported-design-waits-on-a-proposed-decision-it-raised
   (let (item (reported-design)

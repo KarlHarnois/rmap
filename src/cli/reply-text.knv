@@ -21,6 +21,7 @@
 (use cli/criterion-verdict-text criterion-verified-text)
 
 (use cli/roadmap-text roadmap-created-text
+                      roadmap-max-active-changed-text
                       roadmap-status-text roadmaps-text)
 
 (use cli/readiness-text readiness-text)
@@ -48,6 +49,8 @@
      (roadmap-created-text roadmap))
     ((reply/roadmap-status-changed roadmap)
      (roadmap-status-text roadmap))
+    ((reply/roadmap-max-active-changed roadmap)
+     (roadmap-max-active-changed-text roadmap))
     ((reply/roadmaps-listed roadmaps) (roadmaps-text roadmaps))
     ((reply/readiness-checked readiness)
      (readiness-text readiness))

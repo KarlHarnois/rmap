@@ -5,11 +5,8 @@
 (use ledger/model/events event-type)
 (use ledger/refusal refusal)
 (use ledger/roadmap-events roadmap-status-changed)
-(use ledger/sqlite/connection connection)
-
-(use ledger/sqlite/roadmaps roadmap-named
-                            update-roadmap-status)
-
+(use ledger/sqlite/roadmaps update-roadmap-status)
+(use ledger/operations/lookups roadmap-required)
 (use ledger/operations/transaction in-transaction record)
 (use ledger/failure failure)
 
@@ -76,13 +73,3 @@
     (ok (do))
     (err (failure/refused (refusal/roadmap-not-paused (clone (:name
                                                                roadmap)))))))
-
-(type roadmap-required
-  (fn ((ref connection) (ref str))
-    (result roadmap failure)))
-
-(defn roadmap-required (connection name)
-  (let-try (found (roadmap-named connection name))
-    (match found
-      ((some roadmap) (ok roadmap))
-      (none (err (failure/refused (refusal/roadmap-not-found (str name))))))))

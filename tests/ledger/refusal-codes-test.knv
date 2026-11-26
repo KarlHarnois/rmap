@@ -17,6 +17,7 @@
        (refusal/roadmap-exists (str "road"))
        (refusal/roadmap-already-paused (str "road"))
        (refusal/roadmap-not-paused (str "road"))
+       (refusal/max-active-out-of-range 0)
        (refusal/item-not-found (sample-id))
        (refusal/item-closed (sample-id))
        refusal/description-required
@@ -31,7 +32,8 @@
        (refusal/not-ready (->blockage :pause roadmap-pause/not-paused
                                       :blockers (vec)
                                       :dropped-blockers (vec)
-                                      :decisions (vec)))
+                                      :decisions (vec)
+                                      :capacity none))
        (refusal/cycle (sample-id) (sample-id))
        (refusal/dep-exists (sample-id) (sample-id))
        (refusal/dep-not-found (sample-id) (sample-id))

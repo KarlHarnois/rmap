@@ -22,6 +22,8 @@
      (str "the roadmap " name " is already paused"))
     ((roadmap-not-paused name)
      (str "the roadmap " name " is not paused"))
+    ((max-active-out-of-range count)
+     (str "a max active must be at least 1, got " count))
     ((item-not-found id)
      (str "no item has the id " (:value id)))
     ((item-closed id)

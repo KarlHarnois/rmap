@@ -108,6 +108,7 @@
                                                  :name (str "road")
                                                  :manager (->session :name (str "m1"))
                                                  :status roadmap-status/active
+                                                 :max-active none
                                                  :created-at (->timestamp
                                                                :value (str "t0")))))))))
     (assert (= (columns payload)

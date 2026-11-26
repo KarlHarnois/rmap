@@ -1,0 +1,155 @@
+(use json/value field json json->int)
+
+(use ledger/api claim-item close-item failure item-id
+                list-roadmaps readiness ready-items refusal
+                set-max-active)
+
+(use ledger/model capacity)
+(use ledger/model/events event event-type)
+
+(use support/ledger all-events claim-by claimed
+                    refusal-code-of reported research
+                    roadmap-name scratch-ledger)
+
+(defn stored-cap (settings)
+  (:max-active (roadmap-in settings)))
+
+(defn roadmap-in (settings)
+  (clone (unwrap (find (iter (unwrap-ok (list-roadmaps settings)))
+                   (fn (roadmap)
+                     (= (:name roadmap) (str roadmap-name)))))))
+
+(defn cap-events (settings)
+  (collect (map (filter (iter (unwrap-ok (all-events settings)))
+                  (fn (event)
+                    (= (:type event) event-type/roadmap-max-active-changed)))
+                (fn (event)
+                  (pair (json->int (change-value event "old"))
+                        (json->int (change-value event "new")))))))
+
+(type change-value
+  (fn ((ref event) (ref str)) json))
+
+(defn change-value (event which)
+  (-> (field (:payload event) "changes")
+      unwrap
+      (field "max_active")
+      unwrap
+      (field which)
+      unwrap))
+
+(defn readiness-in (settings)
+  (unwrap-ok (ready-items settings (some (str roadmap-name)))))
+
+(type blocked-capacity
+  (fn ((ref readiness)) capacity))
+
+(defn blocked-capacity (readiness)
+  (-> (unwrap (first (:blocked readiness)))
+      (:blockage)
+      (:capacity)
+      unwrap))
+
+(type worker-of
+  (fn ((ref item-id)) string))
+
+(defn worker-of (id)
+  (str "worker-" (:value id)))
+
+(deftest setting-and-clearing-the-cap-persists
+  (let (settings (scratch-ledger "max-active-setting"))
+    (assert (= (stored-cap (ref settings)) none))
+    (assert (ok? (set-max-active (ref settings)
+                                 (str roadmap-name)
+                                 (some 2))))
+    (assert (= (stored-cap (ref settings)) (some 2)))
+    (assert (ok? (set-max-active (ref settings) (str roadmap-name) none)))
+    (assert (= (stored-cap (ref settings)) none))))
+
+(deftest each-cap-change-records-one-event-with-old-and-new
+  (let (settings (scratch-ledger "max-active-events"))
+    (unwrap-ok (set-max-active (ref settings)
+                               (str roadmap-name)
+                               (some 2)))
+    (unwrap-ok (set-max-active (ref settings)
+                               (str roadmap-name)
+                               (some 3)))
+    (let (events (cap-events (ref settings)))
+      (assert (= (len events) 2))
+      (assert (= (first (at events 0)) none))
+      (assert (= (second (at events 0)) (some 2)))
+      (assert (= (first (at events 1)) (some 2)))
+      (assert (= (second (at events 1)) (some 3))))))
+
+(deftest a-cap-below-one-is-refused-and-writes-nothing
+  (let (settings (scratch-ledger "max-active-refusal"))
+    (assert (= (refusal-code-of (set-max-active (ref settings)
+                                                (str roadmap-name)
+                                                (some 0)))
+               (some (str "max-active-out-of-range"))))
+    (assert (= (stored-cap (ref settings)) none))
+    (assert (empty? (cap-events (ref settings))))))
+
+(deftest an-unknown-roadmap-is-refused
+  (let (settings (scratch-ledger "max-active-unknown"))
+    (assert (= (refusal-code-of (set-max-active (ref settings)
+                                                (str "nope")
+                                                (some 1)))
+               (some (str "roadmap-not-found"))))))
+
+(deftest a-full-roadmap-refuses-a-claim-and-writes-nothing
+  (let (settings (scratch-ledger "max-active-claim")
+        first (claimed (ref settings)
+                       (research (ref settings)))
+        _second (claimed (ref settings)
+                         (research (ref settings)))
+        third (research (ref settings)))
+    (unwrap-ok (set-max-active (ref settings)
+                               (str roadmap-name)
+                               (some 2)))
+    (let (readiness (readiness-in (ref settings)))
+      (assert (empty? (:ready readiness)))
+      (assert (= (len (:blocked readiness)) 1))
+      (assert (= (:active (blocked-capacity readiness)) 2)))
+    (let (events-before (len (unwrap-ok (all-events settings))))
+      (match (claim-item (ref settings)
+                         (clone third)
+                         (claim-by (worker-of third)))
+        ((err (failure/refused (refusal/not-ready blockage)))
+         (assert (= (:active (unwrap (:capacity blockage)))
+                    2))
+         (assert (= (:max-active (unwrap (:capacity blockage)))
+                    2))
+         (assert (= (len (unwrap-ok (all-events settings)))
+                    events-before)))
+        ((err _) (assert false))
+        ((ok _) (assert false))))
+    (reported (ref settings) (clone first))
+    (unwrap-ok (close-item (ref settings) first))
+    (assert (= (len (:ready (readiness-in (ref settings))))
+               1))))
+
+(deftest setting-a-cap-to-its-current-value-writes-nothing
+  (let (settings (scratch-ledger "max-active-same"))
+    (let (set (unwrap-ok (set-max-active (ref settings)
+                                         (str roadmap-name)
+                                         (some 2))))
+      (assert (some? (:changed-at set)))
+      (let (events-before (len (unwrap-ok (all-events settings)))
+            same (unwrap-ok (set-max-active (ref settings)
+                                            (str roadmap-name)
+                                            (some 2))))
+        (assert (none? (:changed-at same)))
+        (assert (= (len (unwrap-ok (all-events settings)))
+                   events-before))
+        (assert (= (stored-cap (ref settings)) (some 2)))))))
+
+(deftest clearing-an-uncapped-roadmap-writes-nothing
+  (let (settings (scratch-ledger "max-active-clear-same"))
+    (let (events-before (len (unwrap-ok (all-events settings)))
+          cleared (unwrap-ok
+                    (set-max-active (ref settings) (str roadmap-name) none)))
+      (assert (none? (:changed-at cleared)))
+      (assert (= (len (unwrap-ok (all-events settings)))
+                 events-before))
+      (assert (= (stored-cap (ref settings)) none)))))
