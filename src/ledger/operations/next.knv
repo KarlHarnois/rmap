@@ -9,6 +9,7 @@
 (use ledger/sqlite/reports reports-matching)
 (use ledger/sqlite/pull-requests all-pull-requests)
 (use ledger/sqlite/criterion-verdicts all-criterion-verdicts)
+(use ledger/sqlite/live-sessions live-review-sessions)
 
 (use ledger/sqlite/decisions ->decision-filter
                              decisions-matching)
@@ -46,6 +47,7 @@
                                           :reading report-reading/unread-only)))
             pull-requests (all-pull-requests connection)
             verdicts (all-criterion-verdicts connection)
+            live-reviews (live-review-sessions connection)
             decisions (decisions-matching connection
                                           (ref (->decision-filter
                                                  :roadmap-id none
@@ -55,5 +57,6 @@
                  (ref (selected-roadmaps (ref roadmaps) (ref scope) manager))
                  (ref (->deliveries :reports unread
                                     :pull-requests pull-requests
-                                    :criterion-verdicts verdicts))
+                                    :criterion-verdicts verdicts
+                                    :live-reviews live-reviews))
                  (ref decisions)))))

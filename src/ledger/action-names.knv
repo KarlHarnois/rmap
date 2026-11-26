@@ -15,6 +15,7 @@
        (pair action/accept-report "accept-report")
        (pair action/review "review")
        (pair action/verify "verify")
+       (pair action/send-fixes "send-fixes")
        (pair action/fix "fix")
        (pair action/merge "merge")
        (pair action/answer "answer")))

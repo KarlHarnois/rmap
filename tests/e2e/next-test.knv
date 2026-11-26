@@ -5,7 +5,8 @@
                   research-id run-rmap text-at)
 
 (use support/pr-commands build-id first-sha report-build
-                         verify-and-review-build)
+                         review-build review-start
+                         second-sha verify-and-review-build)
 
 (use support/scratch scratch-database)
 
@@ -114,6 +115,14 @@
 
 (defn added (database args)
   (text-at (ref (run-rmap database args)) "item" "id"))
+
+(defn listed-action (database id)
+  (copy-of (unwrap (first (actions-listed (clone database) id)))))
+
+(defn actions-listed (database id)
+  (let (reply (run-rmap (clone database) (vec "next"))
+        entry (entry-named (ref reply) "item" (clone id)))
+    (unwrap (json->items (unwrap (field entry "actions"))))))
 
 (type entry-named
   (fn ((ref reply) (ref str) string) json))
@@ -387,3 +396,80 @@
                (str "merge")))
     (assert (= (text-of (ref waiting) "action")
                (str "wait")))))
+
+(deftest a-live-review-session-is-listed-for-that-reviewer
+  (let (database (database-with-roadmap "e2e-next-live-review")
+        id (build-id (ref database)))
+    (report-build (ref database)
+                  id "done"
+                  (vec "--pr" "1" "--head" first-sha))
+    (assert (= (:exit-code (review-start (ref database) id "r1"))
+               0))
+    (let (action (listed-action (ref database) id))
+      (assert (= (text-of (ref action) "action")
+                 (str "review")))
+      (assert (= (text-of (ref action) "actor")
+                 (str "worker")))
+      (assert (= (text-of (ref action) "session")
+                 (str "r1"))))))
+
+(deftest a-changes-verdict-on-the-current-head-is-listed-for-send-fixes
+  (let (database (database-with-roadmap "e2e-next-send-fixes")
+        id (build-id (ref database)))
+    (report-build (ref database)
+                  id "done"
+                  (vec "--pr" "1" "--head" first-sha))
+    (assert (= (:exit-code
+                 (review-build (ref database) id "r1" "changes" first-sha))
+               0))
+    (let (action (listed-action (ref database) id))
+      (assert (= (text-of (ref action) "action")
+                 (str "send-fixes")))
+      (assert (= (text-of (ref action) "actor")
+                 (str "agent")))
+      (assert (= (text-of (ref action) "session")
+                 (str "s1"))))))
+
+(deftest a-new-head-after-a-changes-verdict-is-listed-for-review
+  (let (database (database-with-roadmap "e2e-next-new-head")
+        id (build-id (ref database)))
+    (report-build (ref database)
+                  id "done"
+                  (vec "--pr" "1" "--head" first-sha))
+    (assert (= (:exit-code
+                 (review-build (ref database) id "r1" "changes" first-sha))
+               0))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec "pr" "head" (as-str id) second-sha)))
+               0))
+    (let (action (listed-action (ref database) id))
+      (assert (= (text-of (ref action) "action")
+                 (str "review")))
+      (assert (= (text-of (ref action) "actor")
+                 (str "agent")))
+      (assert (= (text-of (ref action) "session")
+                 (str "s1"))))))
+
+(deftest a-build-waiting-for-verdicts-with-a-live-review-session-is-listed-for-that-reviewer
+  (let (database (database-with-roadmap "e2e-next-live-verify")
+        id (build-id (ref database)))
+    (report-build (ref database)
+                  id "done"
+                  (vec "--pr" "1" "--head" first-sha))
+    (assert (= (:exit-code
+                 (review-build (ref database) id "r1" "approve" first-sha))
+               0))
+    (assert (= (text-of (ref (listed-action (ref database) id))
+                        "action")
+               (str "verify")))
+    (assert (= (:exit-code (review-start (ref database) id "r2"))
+               0))
+    (let (actions (actions-listed (ref database) id)
+          action (copy-of (unwrap (first actions))))
+      (assert (= (len actions) 1))
+      (assert (= (text-of (ref action) "action")
+                 (str "review")))
+      (assert (= (text-of (ref action) "actor")
+                 (str "worker")))
+      (assert (= (text-of (ref action) "session")
+                 (str "r2"))))))
