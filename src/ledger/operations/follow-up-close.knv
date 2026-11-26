@@ -61,18 +61,30 @@
   (let (chosen (applicable follow-ups (ref decisions)))
     (if (empty? chosen)
       (ok none)
-      (allocate transaction source (ref chosen)))))
+      (allocate transaction source
+                (ref chosen)
+                (ref (proposal-ids follow-ups))))))
 
-(defn allocate (transaction source chosen)
+(type proposal-ids
+  (fn ((ref (vec follow-up)))
+    (vec string)))
+
+(defn proposal-ids (follow-ups)
+  (collect (map (iter follow-ups)
+             (fn (follow-up) (clone (:id follow-up))))))
+
+(defn allocate (transaction source chosen proposal-ids)
   (loop (index 0
          created (vec))
     (if (< index (len chosen))
       (let-try (entry (created-entry transaction source (at chosen index)))
         (recur (inc index) (appended created entry)))
-      (ok (some (->close-application
-                  :source (clone (:id source))
-                  :created (clone created)
-                  :deps (application-deps source (ref created))))))))
+      (ok (some
+            (->close-application
+              :source (clone (:id source))
+              :proposal-ids (clone proposal-ids)
+              :created (clone created)
+              :deps (application-deps source proposal-ids (ref created))))))))
 
 (type created-entry
   (fn ((ref transaction)

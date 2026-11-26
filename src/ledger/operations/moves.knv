@@ -89,10 +89,17 @@
                                   (ref move)
                                   (ref pull-request)
                                   (ref verdicts))
-            application (prepare-close transaction (ref item)))
+            application (close-application-for transaction
+                                               (ref item)
+                                               (clone move)))
     (store-move transaction
                 (applied (ref item) move (now transaction))
                 application)))
+
+(defn close-application-for (transaction item move)
+  (if (= move move/close)
+    (prepare-close transaction item)
+    (ok none)))
 
 (type store-move
   (fn ((ref transaction) applied-move (option close-application))

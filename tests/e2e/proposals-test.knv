@@ -7,6 +7,9 @@
 (def decision-document
   "{\"title\": \"Which store?\", \"context\": \"Sessions must survive.\", \"options\": [{\"title\": \"A\", \"skips\": []}, {\"title\": \"B\", \"skips\": [\"p4\"]}], \"recommendation\": {\"option\": 2, \"reason\": \"it runs\"}}")
 
+(def plain-decision-document
+  "{\"title\": \"Which store?\", \"context\": \"Sessions must survive.\", \"options\": [{\"title\": \"A\"}, {\"title\": \"B\"}], \"recommendation\": {\"option\": 2, \"reason\": \"it runs\"}}")
+
 (defn add-build (database title)
   (text-at (ref (run-rmap (clone database)
                           (vec (str "item")
@@ -157,6 +160,25 @@
        "{\"id\": \"p5\", \"title\": \"After\", \"kind\": \"build\", \"priority\": 3, \"description\": \"after it\", \"criteria\": [\"WHEN it runs, rmap SHALL follow\"], \"after\": [\"p1\", \""
        existing "\"]}" "]}"))
 
+(defn count-titled (database title)
+  (let (reply (run-rmap database
+                        (vec (str "item") (str "list"))))
+    (count-titled-items (unwrap (json->items (unwrap (field (ref (:json reply))
+                                                            "items"))))
+                        title)))
+
+(defn count-titled-items (items title)
+  (loop (index 0
+         found 0)
+    (if (< index (len items))
+      (let (item (at items index))
+        (if (= (unwrap (json->text (unwrap (field (ref (copy-of item))
+                                                  "title"))))
+               (str title))
+          (recur (inc index) (inc found))
+          (recur (inc index) found)))
+      found)))
+
 (deftest a-closed-research-item-creates-the-proposals-its-choices-select
   (let (database (database-with-roadmap "proposals-flow")
         existing (add-build database (str "Existing"))
@@ -270,3 +292,94 @@
                0))
     (assert (some? (item-titled database (str "A"))))
     (assert (none? (item-titled database (str "Ghost"))))))
+
+(deftest other-moves-neither-apply-proposals-nor-run-close-checks
+  (let (database (database-with-roadmap "proposals-other-moves")
+        research (research-id database)
+        _ (assert (= (:exit-code (add-proposals
+                                   database research "m1"
+                                   (str "{\"proposals\": [{\"id\": \"p1\", \"title\": \"Only close\", \"kind\": \"build\", \"priority\": 2, \"description\": \"d\", \"criteria\": [\"c\"]}]}")))
+                     0))
+        _ (assert (= (:exit-code (run-rmap (clone database)
+                                           (vec (str "item")
+                                                (str "claim")
+                                                (str (as-str research))
+                                                (str "--session")
+                                                (str "worker"))))
+                     0)))
+    (assert (none? (item-titled database (str "Only close"))))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec (str "report")
+                                          (str (as-str research))
+                                          (str "--session")
+                                          (str "worker")
+                                          (str "--kind")
+                                          (str "done")
+                                          (str "--text")
+                                          (str "found it"))))
+               0))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec (str "item")
+                                          (str "close")
+                                          (str (as-str research)))))
+               0))
+    (assert (= (count-titled database (str "Only close")) 1))))
+
+(deftest dropping-a-reported-item-applies-nothing
+  (let (database (database-with-roadmap "proposals-drop")
+        research (reported-research database)
+        decision (propose-decision database research (str decision-document))
+        _ (assert (= (:exit-code (add-proposals database
+                                                research
+                                                "worker"
+                                                (str "{\"proposals\": [{\"id\": \"p1\", \"title\": \"Dropped follow-up\", \"kind\": \"build\", \"priority\": 2, \"description\": \"d\", \"criteria\": [\"c\"]}]}")))
+                     0))
+        dropped (run-rmap (clone database)
+                          (vec (str "item")
+                               (str "drop")
+                               (str (as-str research))
+                               (str "--reason")
+                               (str "not now"))))
+    (assert (= (:exit-code dropped) 0))
+    (assert (none? (item-titled database (str "Dropped follow-up"))))
+    (assert (= (:exit-code (run-rmap (clone database)
+                                     (vec (str "decision")
+                                          (str "reject")
+                                          (str (as-str decision))
+                                          (str "--reason")
+                                          (str "stale"))))
+               0))))
+
+(deftest an-after-that-names-an-unapplied-proposal-is-dropped
+  (let (database (database-with-roadmap "proposals-unapplied-after")
+        research (reported-research database)
+        decision (propose-decision database research
+                                   (str plain-decision-document))
+        _ (assert (= (:exit-code (accept-decision database decision 2)) 0))
+        _ (assert (= (:exit-code (add-proposals database
+                                                research
+                                                "worker"
+                                                (str "{\"proposals\": [{\"id\": \"p1\", \"title\": \"After unapplied\", \"kind\": \"build\", \"priority\": 2, \"description\": \"d\", \"criteria\": [\"c\"], \"after\": [\"p2\"]}, {\"id\": \"p2\", \"title\": \"Unapplied\", \"kind\": \"build\", \"priority\": 2, \"description\": \"d\", \"criteria\": [\"c\"], \"decision\": {\"id\": \""
+                                                     decision
+                                                     "\", \"option\": 1}}]}")))
+                     0))
+        _ (assert (= (:exit-code (run-rmap (clone database)
+                                           (vec (str "item")
+                                                (str "close")
+                                                (str (as-str research)))))
+                     0))
+        after-id (unwrap (item-id-titled database (str "After unapplied")))
+        deps (deps-of database after-id))
+    (assert (none? (item-titled database (str "Unapplied"))))
+    (assert (= (len deps) 1))
+    (assert (dep-exists? deps
+                         (str (as-str research))
+                         (str "discovered_from")))))
+
+(deftest a-duplicate-after-id-is-refused-at-add
+  (let (database (database-with-roadmap "proposals-duplicate-after")
+        research (reported-research database)
+        refused (add-proposals database research "worker"
+                               (str "{\"proposals\": [{\"id\": \"p1\", \"title\": \"A\", \"kind\": \"build\", \"priority\": 2, \"description\": \"d\", \"criteria\": [\"c\"], \"after\": [\"p2\", \"p2\"]}, {\"id\": \"p2\", \"title\": \"B\", \"kind\": \"build\", \"priority\": 2, \"description\": \"d\", \"criteria\": [\"c\"]}]}")))
+    (assert (= (error-code refused) "proposal-incomplete"))
+    (assert (empty? (proposals-of database research)))))

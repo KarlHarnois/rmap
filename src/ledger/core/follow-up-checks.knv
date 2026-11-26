@@ -6,6 +6,7 @@
 (use ledger/model/follow-ups follow-up-draft)
 (use ledger/refusal refusal)
 (use ledger/core/criteria check-criteria)
+(use ledger/core/follow-up-after-checks check-after-each)
 (use ledger/core/priorities check-priority)
 (use ledger/core/phases finished?)
 
@@ -40,7 +41,8 @@
 
 (defn check-drafts (drafts parent)
   (let-try (_ (check-each drafts)
-            _ (check-ids drafts))
+            _ (check-ids drafts)
+            _ (check-after-each drafts))
     (check-epic-placement drafts (ref parent))))
 
 (type check-decision-raised-by

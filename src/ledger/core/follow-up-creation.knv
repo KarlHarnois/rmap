@@ -12,6 +12,7 @@
 
 (defstruct close-application
   :source item-id
+  :proposal-ids (vec string)
   :created (vec created-follow-up)
   :deps (vec dep))
 
@@ -39,15 +40,18 @@
           :created-at (clone created-at)
           :closed-at none))
 
-(defn application-deps (source created)
+(defn application-deps (source proposal-ids created)
   (loop (index 0
          deps (vec))
     (if (< index (len created))
       (recur (inc index)
-             (entry-deps source (at created index) created (ref deps)))
+             (entry-deps source proposal-ids
+                         (at created index)
+                         created
+                         (ref deps)))
       deps)))
 
-(defn entry-deps (source entry created deps)
+(defn entry-deps (source proposal-ids entry created deps)
   (loop (index 0
          own (vec (discovered-dep source
                                   (ref (:id (:item entry))))))
@@ -57,6 +61,7 @@
              (append-all (ref own)
                          (ref (after-deps (ref (:id (:item entry)))
                                           (at (:after (:follow-up entry)) index)
+                                          proposal-ids
                                           created))))
       (append-all deps (ref own)))))
 
@@ -68,11 +73,19 @@
          :on (clone (:id source))
          :type dep-type/discovered-from))
 
-(defn after-deps (owner after created)
+(defn after-deps (owner after proposal-ids created)
+  (if (contains? proposal-ids (clone after))
+    (created-after-deps owner after created)
+    (existing-after-deps owner after)))
+
+(defn existing-after-deps (owner after)
   (let (existing (->item-id :value (clone after)))
-    (match (created-item-of created after)
-      ((some on) (vec (blocks-dep owner on)))
-      (none (vec (blocks-dep owner (ref existing)))))))
+    (vec (blocks-dep owner (ref existing)))))
+
+(defn created-after-deps (owner id created)
+  (match (created-item-of created id)
+    ((some on) (vec (blocks-dep owner on)))
+    (none (vec))))
 
 (defn blocks-dep (owner on)
   (->dep :item (clone owner)

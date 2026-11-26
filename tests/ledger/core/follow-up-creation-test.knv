@@ -69,6 +69,7 @@
                      (created "p2" "rm-b"
                               (vec (str "p1") (str "rm-x"))))
         deps (application-deps (ref (source))
+                               (ref (vec (str "p1") (str "p2")))
                                (ref entries)))
     (assert (= (len deps) 5))
     (assert (= (len (dep-on deps (str "rm-s") dep-type/discovered-from))
@@ -85,3 +86,14 @@
                          (str "rm-b")
                          (str "rm-x")
                          dep-type/blocks))))
+
+(deftest an-after-proposal-that-is-not-applied-is-dropped
+  (let (entries (vec (created "p1" "rm-a" (vec (str "p2"))))
+        deps (application-deps (ref (source))
+                               (ref (vec (str "p1") (str "p2")))
+                               (ref entries)))
+    (assert (= (len deps) 1))
+    (assert (not (dep-exists? (ref deps)
+                              (str "rm-a")
+                              (str "p2")
+                              dep-type/blocks)))))

@@ -111,3 +111,12 @@
                                                          (ref elsewhere)))
               ((some (refusal/proposal-decision-not-raised _ _)) true)
               (_ false)))))
+
+(deftest a-draft-cannot-list-the-same-after-id-twice
+  (let (drafts (vec (assoc (draft "p1")
+                           :after (vec (str "p2") (str "p2")))))
+    (assert (match (refusal-of (check-drafts (ref drafts) none))
+              ((some (refusal/proposal-incomplete problem))
+               (= problem
+                  (str "the proposal p1 lists p2 twice in \"after\"")))
+              (_ false)))))

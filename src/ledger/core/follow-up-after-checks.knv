@@ -1,0 +1,40 @@
+(module
+  "Refuses a proposal draft that lists the same after id twice.")
+
+(use ledger/model/follow-ups follow-up-draft)
+(use ledger/refusal refusal)
+
+(export check-after-each)
+
+(defn check-after-each (drafts)
+  (loop (index 0)
+    (if (< index (len drafts))
+      (let-try (_ (check-after (at drafts index)))
+        (recur (inc index)))
+      (ok (do)))))
+
+(type check-after
+  (fn ((ref follow-up-draft))
+    (result unit refusal)))
+
+(defn check-after (draft)
+  (match (duplicate-after (ref (:after draft)))
+    ((some id)
+     (err (refusal/proposal-incomplete (str "the proposal "
+                                            (:id draft)
+                                            " lists " id
+                                            " twice in \"after\""))))
+    (none (ok (do)))))
+
+(defn duplicate-after (after)
+  (loop (index 0)
+    (cond
+      ((>= index (len after)) none)
+      ((repeated-after? after (at after index))
+       (some (clone (at after index))))
+      (else (recur (inc index))))))
+
+(defn repeated-after? (after id)
+  (> (count (filter (iter after)
+              (fn (other) (= (ref other) (ref id)))))
+     1))
