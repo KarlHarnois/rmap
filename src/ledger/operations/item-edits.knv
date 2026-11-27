@@ -13,7 +13,6 @@
 (use ledger/core/new-items description-input)
 (use ledger/sqlite/criteria replace-criteria)
 (use ledger/sqlite/criterion-verdicts delete-criterion-verdicts)
-(use ledger/sqlite/connection connection)
 (use ledger/sqlite/items update-item)
 (use ledger/sqlite/snapshot load-snapshot)
 (use ledger/operations/criteria resolve-criteria)
@@ -95,10 +94,6 @@
                               (ref after))
             _ (record-edit transaction before (ref after)))
     (ok after)))
-
-(type write-criteria
-  (fn ((ref connection) (ref item) (ref item))
-    (result unit failure)))
 
 (defn write-criteria (connection before after)
   (if (= (:criteria before) (:criteria after))

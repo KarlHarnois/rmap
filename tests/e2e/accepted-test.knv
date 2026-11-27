@@ -45,10 +45,6 @@
                (field which)
                unwrap)))
 
-(type ready-ids
-  (fn ((ref reported-ledger))
-    (vec string)))
-
 (defn ready-ids (ledger)
   (let (reply (run-rmap (clone (:database ledger))
                         (vec "ready")))

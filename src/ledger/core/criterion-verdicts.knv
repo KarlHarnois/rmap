@@ -44,12 +44,6 @@
             _ (check-not-manager reviewer manager))
     (check-live-reviewer reviewer live)))
 
-(type verdict-head
-  (fn ((ref item)
-       (ref (option pull-request))
-       (ref (option string)))
-    (result (option head) refusal)))
-
 (defn verdict-head (item pull-request requested)
   (match (:kind item)
     (build (build-verdict-head item pull-request requested))
@@ -73,9 +67,6 @@
                        :reviewer (clone reviewer)
                        :head head
                        :created-at (clone now)))
-
-(type within-criteria?
-  (fn ((ref item) int) bool))
 
 (defn within-criteria? (item position)
   (and (>= position 1)

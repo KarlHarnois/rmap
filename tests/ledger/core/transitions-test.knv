@@ -69,10 +69,6 @@
     (design status/accepted)
     (_ status/merged)))
 
-(type expected-refusal
-  (fn ((ref item) (ref attempt))
-    (option refusal)))
-
 (defn expected-refusal (item attempt)
   (cond
     ((= (:kind item) kind/epic)

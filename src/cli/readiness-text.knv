@@ -1,9 +1,7 @@
 (module
   "Describes in plain text which items are ready and what holds back the others.")
 
-(use ledger/api blocked-item decision-id item-id
-                roadmap-pause)
-
+(use ledger/api roadmap-pause)
 (use cli/tables indented)
 (use cli/item-text item-table)
 
@@ -63,9 +61,6 @@
     (str "Nothing is ready.")
     (str "Ready:\n" (indented (item-table items)))))
 
-(type blocked-text
-  (fn ((ref blocked-item)) string))
-
 (defn blocked-text (blocked)
   (let (item (ref (:item blocked)))
     (str (:value (:id item))
@@ -75,16 +70,10 @@
          (indented (join (blockage-lines (ref (:blockage blocked)))
                          "\n")))))
 
-(type decision-ids-text
-  (fn ((ref (vec decision-id))) string))
-
 (defn decision-ids-text (ids)
   (join (collect (map (iter ids)
                    (fn (id) (clone (:value id)))))
         ", "))
-
-(type ids-text
-  (fn ((ref (vec item-id))) string))
 
 (defn ids-text (ids)
   (join (collect (map (iter ids)

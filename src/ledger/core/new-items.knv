@@ -1,9 +1,7 @@
 (module
   "Checks a new item against the ledger and drops its repeated blockers.")
 
-(use ledger/model item item-id kind origin roadmap-id
-                  snapshot)
-
+(use ledger/model item item-id kind origin roadmap-id)
 (use ledger/refusal refusal)
 (use ledger/core/criteria criteria-input)
 (use ledger/core/priorities check-priority)
@@ -63,21 +61,11 @@
     (err refusal/description-required)
     (ok (do))))
 
-(type check-epic-has-no-parent
-  (fn ((ref new-item))
-    (result unit refusal)))
-
 (defn check-epic-has-no-parent (request)
   (if (and (= (:kind request) kind/epic)
            (some? (:parent request)))
     (err refusal/epic-has-parent)
     (ok (do))))
-
-(type check-parent
-  (fn ((ref snapshot)
-       (ref roadmap-id)
-       (ref new-item))
-    (result unit refusal)))
 
 (defn check-parent (snapshot roadmap-id request)
   (match (:parent request)

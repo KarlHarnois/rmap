@@ -4,7 +4,7 @@
 (use json/value array json object text->json)
 
 (use ledger/api case-name graph-format-names graph-source
-                init-outcome-names init-report)
+                init-outcome-names)
 
 (use cli/replies reply)
 
@@ -94,9 +94,6 @@
 (defn init-report-envelope (report)
   (envelope (vec (pair (str "ledger")
                        (init-report->json (ref report))))))
-
-(type init-report->json
-  (fn ((ref init-report)) json))
 
 (defn init-report->json (report)
   (let (outcome (case-name init-outcome-names (:outcome report)))

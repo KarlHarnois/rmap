@@ -1,16 +1,14 @@
 (use ledger/api criteria-input)
-
-(use ledger/model ->item-id ->session ->timestamp item-id
-                  kind)
+(use ledger/model ->item-id ->session ->timestamp kind)
 
 (use ledger/model/criteria ->criterion-verdict
                            ->criterion-verdict-id
                            criterion-result)
 
 (use ledger/model/pull-requests ->head)
-(use ledger/model/sessions ->session-id session-id)
+(use ledger/model/sessions ->session-id)
 (use ledger/operations/transaction connect)
-(use ledger/sqlite/connection connection execute query)
+(use ledger/sqlite/connection execute query)
 
 (use ledger/sqlite/criterion-verdicts all-criterion-verdicts
                                       criterion-verdicts-for
@@ -26,10 +24,6 @@
             (assoc (item-draft kind/research)
                    :criteria (criteria-input/values (vec (str "first")
                                                          (str "second"))))))
-
-(type review-session
-  (fn ((ref connection) (ref item-id))
-    session-id))
 
 (defn review-session (connection id)
   (unwrap-ok (execute connection

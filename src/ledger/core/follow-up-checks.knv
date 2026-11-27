@@ -13,9 +13,6 @@
 (export check-decision-raised-by check-drafts check-source
         check-writer)
 
-(type check-source
-  (fn ((ref item)) (result unit refusal)))
-
 (defn check-source (item)
   (cond
     ((= (:kind item) kind/research) (check-open item))
@@ -79,10 +76,6 @@
         (recur (inc index)))
       (ok (do)))))
 
-(type check-draft
-  (fn ((ref follow-up-draft))
-    (result unit refusal)))
-
 (defn check-draft (draft)
   (cond
     ((blank? (ref (:id draft)))
@@ -96,10 +89,6 @@
                                             " has an empty description"))))
     (else (check-content draft))))
 
-(type check-content
-  (fn ((ref follow-up-draft))
-    (result unit refusal)))
-
 (defn check-content (draft)
   (let-try (_ (check-criteria (ref (:criteria draft))))
     (check-priority (:priority draft))))
@@ -110,11 +99,6 @@
     ((some draft)
      (err (refusal/proposal-duplicate (clone (:id draft)))))
     (none (ok (do)))))
-
-(type repeated?
-  (fn ((ref (vec follow-up-draft))
-       (ref follow-up-draft))
-    bool))
 
 (defn repeated? (drafts draft)
   (> (count (filter (iter drafts)
@@ -135,9 +119,6 @@
                                             (:id draft)
                                             " cannot be an epic because the source item belongs to an epic"))))
     (none (ok (do)))))
-
-(type epic?
-  (fn ((ref follow-up-draft)) bool))
 
 (defn epic? (draft)
   (= (:kind draft) kind/epic))

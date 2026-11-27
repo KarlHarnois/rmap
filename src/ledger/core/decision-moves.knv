@@ -5,9 +5,7 @@
 (use ledger/model decision-status)
 
 (use ledger/model/decisions ->option-draft ->outcome
-                            ->proposal decision
-                            decision-option option-draft
-                            proposal)
+                            ->proposal decision)
 
 (use ledger/core/decisions check-revisable)
 (use ledger/core/proposals check-proposal)
@@ -40,9 +38,6 @@
           (= (:number option) number)))
     (ok (do))
     (err (refusal/option-not-found (clone (:id decision)) number))))
-
-(type decision-proposal
-  (fn ((ref decision)) proposal))
 
 (defn decision-proposal (decision)
   (->proposal :title (clone (:title decision))
@@ -113,9 +108,6 @@
     (for-each (:blocks target)
       (fn (id) (push! blocks (clone id))))
     (assoc (clone decision) :blocks (distinct blocks))))
-
-(type option-draft-of
-  (fn ((ref decision-option)) option-draft))
 
 (defn option-draft-of (option)
   (->option-draft :title (clone (:title option))

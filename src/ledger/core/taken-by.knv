@@ -1,11 +1,9 @@
 (module
   "Keeps the next actions one actor takes, and the items and decisions that still have one.")
 
-(use ledger/core/actions actor next-action)
-(use ledger/core/next ->next-item next-entry next-item)
-
-(use ledger/core/decision-next ->decision-next
-                               decision-next)
+(use ledger/core/actions actor)
+(use ledger/core/next ->next-item next-entry)
+(use ledger/core/decision-next ->decision-next)
 
 (export taken-by)
 
@@ -36,10 +34,6 @@
      (map-some (decision-entry-for decision wanted)
        (fn (filled) (next-entry/listed-decision filled))))))
 
-(type item-entry-for
-  (fn ((ref next-item) actor)
-    (option next-item)))
-
 (defn item-entry-for (item wanted)
   (let (actions (actions-for (ref (:actions item)) wanted))
     (if (empty? actions)
@@ -47,10 +41,6 @@
       (some (->next-item :item (clone (:item item))
                          :roadmap (clone (:roadmap item))
                          :actions actions)))))
-
-(type decision-entry-for
-  (fn ((ref decision-next) actor)
-    (option decision-next)))
 
 (defn decision-entry-for (decision wanted)
   (let (actions (actions-for (ref (:actions decision)) wanted))
@@ -61,10 +51,6 @@
                              :status (:status decision)
                              :title (clone (:title decision))
                              :actions actions)))))
-
-(type actions-for
-  (fn ((ref (vec next-action)) actor)
-    (vec next-action)))
 
 (defn actions-for (actions wanted)
   (collect (map (filter (iter actions)

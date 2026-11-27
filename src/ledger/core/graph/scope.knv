@@ -31,12 +31,6 @@
   (->external-node :node (node-of item ready)
                    :roadmap-name (roadmap-name-of roadmaps item)))
 
-(type id-in-scope?
-  (fn ((ref (vec item))
-       (ref item-id)
-       (ref scope))
-    bool))
-
 (defn id-in-scope? (shown id scope)
   (any? (iter shown)
     (fn (item)

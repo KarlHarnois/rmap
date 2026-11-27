@@ -60,10 +60,6 @@
                      :base (base-of settings request)
                      :session session)))
 
-(type base-of
-  (fn ((ref settings) (ref claim-request))
-    string))
-
 (defn base-of (settings request)
   (match (:base request)
     ((some base) (clone base))

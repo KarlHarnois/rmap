@@ -2,8 +2,7 @@
   "Describes in plain text the next actions: one line per action, with its actor, the session that holds the item, and the item or decision.")
 
 (use ledger/api action-names actor-names case-name
-                decision-next next-entry next-item report-id
-                session)
+                next-entry report-id)
 
 (use cli/tables table)
 
@@ -32,20 +31,12 @@
     ((next-entry/listed-decision decision)
      (decision-rows decision))))
 
-(type item-rows
-  (fn ((ref next-item))
-    (vec (vec string))))
-
 (defn item-rows (entry)
   (collect (map (iter (:actions entry))
              (fn (planned)
                (action-cells planned
                              (clone (:value (:id (:item entry))))
                              (clone (:title (:item entry))))))))
-
-(type decision-rows
-  (fn ((ref decision-next))
-    (vec (vec string))))
 
 (defn decision-rows (entry)
   (collect (map (iter (:actions entry))
@@ -71,9 +62,6 @@
   (match report
     ((some id) (str " (report " (:value id) ")"))
     (none (str ""))))
-
-(type session-text
-  (fn ((ref (option session))) string))
 
 (defn session-text (session)
   (match session

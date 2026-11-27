@@ -4,7 +4,7 @@
 (use json/value array bool->json int->json json object
                 text->json)
 
-(use ledger/api approval-of approved? case-name review
+(use ledger/api approval-of approved? case-name
                 review-kind-names verdict-names)
 
 (use cli/approval-json approval-fields sha->json)
@@ -62,9 +62,6 @@
            (pair (str "approval")
                  (object (approval-fields (ref (:request-approval record))))))
     (object fields)))
-
-(type review->json
-  (fn ((ref review)) json))
 
 (defn review->json (review)
   (object (vec (pair (str "id")

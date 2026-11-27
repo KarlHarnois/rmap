@@ -2,7 +2,7 @@
 (use ledger/model/graphs history)
 (use ledger/core/graph/graph ->graph-view diagram-of)
 (use ledger/core/snapshot scope)
-(use ledger/core/graph/diagram diagram roadmap-cluster)
+(use ledger/core/graph/diagram roadmap-cluster)
 (use support/items id-of)
 
 (use support/graph-fixture graph-roadmaps graph-snapshot
@@ -19,9 +19,6 @@
   (diagram-of (ref (graph-snapshot))
               (ref (graph-roadmaps))
               (ref (->graph-view :scope scope :history history))))
-
-(type drawn-ids
-  (fn ((ref diagram)) (vec string)))
 
 (defn drawn-ids (diagram)
   (let (ids (vec))
@@ -46,10 +43,6 @@
             (push! ids
                    (clone (:value (:id (:item child)))))))))
     ids))
-
-(type edge-pairs
-  (fn ((ref diagram))
-    (vec (pair string string))))
 
 (defn edge-pairs (diagram)
   (collect (map (iter (:edges diagram))

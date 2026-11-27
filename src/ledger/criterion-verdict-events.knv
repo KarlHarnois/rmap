@@ -10,9 +10,7 @@
 
 (use ledger/model/sessions session-id)
 (use ledger/names case-name criterion-result-names)
-
-(use ledger/changes column-change inserted
-                    payload-with-changes)
+(use ledger/changes inserted payload-with-changes)
 
 (use ledger/json-values head->json id->json
                         optional-text->json)
@@ -33,10 +31,6 @@
                  :payload (payload-with-changes (ref (verdict-columns verdict
                                                                       reviewer))
                                                 (vec))))
-
-(type verdict-columns
-  (fn ((ref criterion-verdict) (ref session-id))
-    (vec column-change)))
 
 (defn verdict-columns (verdict reviewer)
   (vec (inserted "item_id"

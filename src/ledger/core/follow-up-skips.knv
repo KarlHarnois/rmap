@@ -2,7 +2,7 @@
   "Refuses to apply proposals when a chosen decision option skips a proposal the item does not have.")
 
 (use ledger/model decision-id decision-status)
-(use ledger/model/decisions decision decision-option)
+(use ledger/model/decisions decision)
 (use ledger/model/follow-ups follow-up)
 (use ledger/refusal refusal)
 
@@ -39,10 +39,6 @@
   (collect (map (iter follow-ups)
              (fn (follow-up) (clone (:id follow-up))))))
 
-(type unknown-in-decision?
-  (fn ((ref decision) (ref (vec string)))
-    bool))
-
 (defn unknown-in-decision? (decision proposal-ids)
   (if (= (:status decision) decision-status/accepted)
     (unknown-at? decision (chosen-number decision) proposal-ids)
@@ -78,36 +74,21 @@
                      :skips (unknown-ids (ref (:skips option)) proposal-ids)))
     (none (empty-finding decision proposal-ids))))
 
-(type empty-finding
-  (fn ((ref decision) (ref (vec string)))
-    unknown-skip))
-
 (defn empty-finding (decision _proposal-ids)
   (->unknown-skip :decision (clone (:id decision))
                   :option 0
                   :skips (vec)))
-
-(type find-option
-  (fn ((ref decision) int)
-    (option (ref decision-option))))
 
 (defn find-option (decision number)
   (find (iter (:options decision))
     (fn (option)
       (= (:number option) number))))
 
-(type unknown-ids
-  (fn ((ref (vec string)) (ref (vec string)))
-    (vec string)))
-
 (defn unknown-ids (skips proposal-ids)
   (collect (map (filter (iter skips)
                   (fn (id)
                     (not (contains? proposal-ids (clone id)))))
                 clone)))
-
-(type chosen-number
-  (fn ((ref decision)) (option int)))
 
 (defn chosen-number (decision)
   (match (:outcome decision)

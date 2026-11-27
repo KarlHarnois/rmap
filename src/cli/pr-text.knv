@@ -1,10 +1,9 @@
 (module
   "Describes a build's pull request in plain text: a sentence about a review or a head recorded, and the pull request with its reviews and approval.")
 
-(use ledger/api approval-of approved? case-name item
-                pull-request recorded-head review
-                review-kind-names session status-names
-                verdict-names work-session)
+(use ledger/api approval-of approved? case-name pull-request
+                review review-kind-names status-names
+                verdict-names)
 
 (use cli/pr-replies pr-reply)
 (use cli/tables headed indented table)
@@ -37,10 +36,6 @@
        (approval-text (ref (approval-of pull-request)))
        (reviews-text (ref (:reviews pull-request)))))
 
-(type started-text
-  (fn ((ref item) (ref work-session))
-    string))
-
 (defn started-text (item session)
   (str "Started review session "
        (:name (:session session))
@@ -60,9 +55,6 @@
          (:value (:item review))
          ". "
          (approval-text (ref (approval-of (ref (:pull-request recorded))))))))
-
-(type head-recorded-text
-  (fn ((ref recorded-head)) string))
 
 (defn head-recorded-text (recorded)
   (let (pull-request (ref (:pull-request recorded)))
@@ -106,9 +98,6 @@
         (push! rows (review-cells review))))
     (table rows)))
 
-(type review-cells
-  (fn ((ref review)) (vec string)))
-
 (defn review-cells (review)
   (vec (str (:value (:id review)))
        (clone (:name (:reviewer review)))
@@ -116,9 +105,6 @@
        (str (case-name verdict-names (:verdict review)))
        (clone (:sha (:head review)))
        (clone (:value (:created-at review)))))
-
-(type names
-  (fn ((ref (vec session))) string))
 
 (defn names (sessions)
   (join (collect (map (iter sessions)

@@ -27,12 +27,6 @@
         (recur (inc index) (appended resolved follow-up)))
       (ok resolved))))
 
-(type resolve-draft
-  (fn ((ref follow-up-draft)
-       (ref (vec follow-up-draft))
-       (ref (vec item)))
-    (result follow-up refusal)))
-
 (defn resolve-draft (draft drafts items)
   (loop (index 0
          after (vec))
@@ -71,10 +65,6 @@
     (fn (item)
       (= (ref (:value (:id item))) text))))
 
-(type follow-up-from
-  (fn ((ref follow-up-draft) (vec string))
-    follow-up))
-
 (defn follow-up-from (draft after)
   (->follow-up :id (clone (:id draft))
                :title (clone (:title draft))
@@ -85,10 +75,6 @@
                :after after
                :decision (clone (:decision draft))
                :created-item none))
-
-(type cycle-outcome
-  (fn ((ref (vec follow-up)))
-    (result unit refusal)))
 
 (defn cycle-outcome (pending)
   (if (empty? pending)
@@ -102,12 +88,6 @@
       ((ready? (at pending index) done proposal-ids)
        (some (clone (:id (at pending index)))))
       (else (recur (inc index))))))
-
-(type ready?
-  (fn ((ref follow-up)
-       (ref (vec string))
-       (ref (vec string)))
-    bool))
 
 (defn ready? (follow-up done proposal-ids)
   (every? (iter (:after follow-up))
@@ -135,10 +115,6 @@
 
 (defn appended (items extra)
   (let (all items) (push! all extra) all))
-
-(type ids-of
-  (fn ((ref (vec follow-up)))
-    (vec string)))
 
 (defn ids-of (follow-ups)
   (collect (map (iter follow-ups)

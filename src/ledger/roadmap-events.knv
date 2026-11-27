@@ -42,16 +42,10 @@
                                                (max-active-json after))))
                             (vec))))
 
-(type max-active-json
-  (fn ((ref roadmap)) json))
-
 (defn max-active-json (roadmap)
   (match (:max-active roadmap)
     ((some count) (int->json count))
     (none json/null)))
-
-(type status-json
-  (fn ((ref roadmap)) json))
 
 (defn status-json (roadmap)
   (text->json (case-name roadmap-status-names (:status roadmap))))

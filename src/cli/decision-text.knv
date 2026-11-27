@@ -1,9 +1,7 @@
 (module
   "Describes decisions in plain text: a sentence about each change and a table of decisions.")
 
-(use ledger/api case-name decision decision-status-names
-                timestamp)
-
+(use ledger/api case-name decision decision-status-names)
 (use cli/tables headed table)
 (use cli/decision-detail-text decision-detail-text)
 
@@ -83,9 +81,6 @@
        (str (case-name decision-status-names (:status decision)))
        (optional-timestamp-text (ref (:asked-at decision)))
        (clone (:title decision))))
-
-(type optional-timestamp-text
-  (fn ((ref (option timestamp))) string))
 
 (defn optional-timestamp-text (at)
   (match at

@@ -6,7 +6,7 @@
 
 (use ledger/model ->external-blocker ->external-blocker-id
                   ->item-id ->timestamp external-blocker
-                  external-blocker-id timestamp)
+                  external-blocker-id)
 
 (use ledger/sqlite/connection connection database-error
                               execute query)
@@ -89,10 +89,6 @@
                                             (->timestamp :value value)))
                             :cleared-by cleared-by
                             :clear-note clear-note))))
-
-(type optional-timestamp->sql
-  (fn ((ref (option timestamp)))
-    sql-value))
 
 (defn optional-timestamp->sql (at)
   (match at

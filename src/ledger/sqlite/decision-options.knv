@@ -18,7 +18,7 @@
                                    points-of side)
 
 (use ledger/sqlite/decision-skips delete-skips insert-skips
-                                  option-skip skips-of)
+                                  skips-of)
 
 (export delete-options insert-options options-of)
 
@@ -80,10 +80,6 @@
                            :pros (point-texts points number side/pro)
                            :cons (point-texts points number side/con)
                            :skips (skip-proposals skips number)))))
-
-(type skip-proposals
-  (fn ((ref (vec option-skip)) int)
-    (vec string)))
 
 (defn skip-proposals (skips number)
   (collect (map (filter (iter skips)

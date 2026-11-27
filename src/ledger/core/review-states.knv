@@ -64,12 +64,6 @@
      approval-state/approved)
     (else approval-state/pending)))
 
-(type criteria-step
-  (fn ((ref pull-request)
-       (ref (vec criterion-verdict))
-       (ref item))
-    review-step))
-
 (defn criteria-step (pull-request verdicts item)
   (if (criteria-met? item verdicts
                      (ref (some (clone (:head pull-request)))))

@@ -1,16 +1,12 @@
 (module
   "Orders ready items: user bugs first, then a lower priority number, then older, then by id.")
 
-(use ledger/model item origin)
+(use ledger/model origin)
 
 (export ordered)
 
 (defn ordered (items)
   (let (sorted items) (sort-by! sorted order-key) sorted))
-
-(type order-key
-  (fn ((ref item))
-    (pair int (pair int (pair string string)))))
 
 (defn order-key (item)
   (pair (origin-rank (:origin item))

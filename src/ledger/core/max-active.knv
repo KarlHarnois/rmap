@@ -55,10 +55,6 @@
          none)))
     (none none)))
 
-(type active-count
-  (fn ((ref snapshot) (ref roadmap-id))
-    int))
-
 (defn active-count (snapshot id)
   (count (filter (iter (:items snapshot))
            (fn (item) (active-in? item id)))))

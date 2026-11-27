@@ -1,7 +1,7 @@
 (module
   "Decides whether a move is a legal transition for an item in the ledger.")
 
-(use ledger/model claim item kind session snapshot status)
+(use ledger/model claim item kind session status)
 (use ledger/refusal refusal)
 
 (use ledger/core/move move move-type move-type-of
@@ -25,10 +25,6 @@
 
 (defn reporting-kinds () (vec kind/research kind/design))
 
-(type check-table
-  (fn ((ref item) (ref move))
-    (result unit refusal)))
-
 (defn check-table (item move)
   (cond
     ((= (:kind item) kind/epic)
@@ -36,9 +32,6 @@
     ((allowed? item move) (ok (do)))
     (else (err (refusal/invalid-transition (:status item)
                                            (target-status item move))))))
-
-(type allowed?
-  (fn ((ref item) (ref move)) bool))
 
 (defn allowed? (item move)
   (let (type (move-type-of move)
@@ -115,9 +108,6 @@
        (check-session-free snapshot (ref (:session start)))))
     (_ (ok (do)))))
 
-(type check-has-criteria
-  (fn ((ref item)) (result unit refusal)))
-
 (defn check-has-criteria (item)
   (if (empty? (:criteria item))
     (err refusal/criteria-required)
@@ -128,10 +118,6 @@
     (if (unblocked? (ref blockage))
       (ok (do))
       (err (refusal/not-ready blockage)))))
-
-(type check-session-free
-  (fn ((ref snapshot) (ref session))
-    (result unit refusal)))
 
 (defn check-session-free (snapshot session)
   (if (any? (:items snapshot)

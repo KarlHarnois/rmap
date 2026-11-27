@@ -1,7 +1,7 @@
 (module
   "Groups the items a graph shows into one cluster per roadmap, with each epic's children nested in its own cluster.")
 
-(use ledger/model item item-id kind roadmap)
+(use ledger/model item item-id kind)
 
 (use ledger/core/graph/diagram ->epic-cluster
                                ->roadmap-cluster graph-node
@@ -20,18 +20,11 @@
       :nodes (nodes-of (loose-items (ref members) (ref epics))
                        ready))))
 
-(type members-of
-  (fn ((ref (vec item)) (ref roadmap))
-    (vec item)))
-
 (defn members-of (shown roadmap)
   (collect (map (filter (iter shown)
                   (fn (item)
                     (= (:roadmap-id item) (:id roadmap))))
                 clone)))
-
-(type epics-among
-  (fn ((ref (vec item))) (vec item)))
 
 (defn epics-among (members)
   (collect (map (filter (iter members)
@@ -42,10 +35,6 @@
   (->epic-cluster :epic (clone epic)
                   :children (nodes-of (children-of members epic) ready)))
 
-(type children-of
-  (fn ((ref (vec item)) (ref item))
-    (vec item)))
-
 (defn children-of (members epic)
   (collect (map (filter (iter members)
                   (fn (item)
@@ -53,19 +42,12 @@
                        (some (clone (:id epic))))))
                 clone)))
 
-(type loose-items
-  (fn ((ref (vec item)) (ref (vec item)))
-    (vec item)))
-
 (defn loose-items (members epics)
   (collect (map (filter (iter members)
                   (fn (item)
                     (and (not= (:kind item) kind/epic)
                          (not (child-of-any? item epics)))))
                 clone)))
-
-(type child-of-any?
-  (fn ((ref item) (ref (vec item))) bool))
 
 (defn child-of-any? (item epics)
   (any? (iter epics)

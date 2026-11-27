@@ -1,5 +1,4 @@
 (use ledger/model kind)
-(use ledger/model/criteria criterion)
 (use ledger/api criteria-input)
 (use ledger/operations/transaction connect)
 (use ledger/sqlite/criteria all-criteria replace-criteria)
@@ -12,9 +11,6 @@
 
 (defn texts (criteria)
   (collect (map (iter criteria) criterion-text)))
-
-(type criterion-text
-  (fn ((ref criterion)) string))
 
 (defn criterion-text (criterion)
   (clone (:text criterion)))

@@ -35,12 +35,6 @@
                                          :at (clone now)))
     session-change/kept))
 
-(type ends-session?
-  (fn ((ref report)
-       (ref item)
-       (ref (option session-id)))
-    bool))
-
 (defn ends-session? (report item live)
   (and (= (:kind report) report-kind/done)
        (contains? (reporting-kinds) (:kind item))

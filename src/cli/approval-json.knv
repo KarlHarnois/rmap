@@ -2,7 +2,7 @@
   "Turns a pull request's approval into the JSON fields the CLI prints.")
 
 (use json/value array int->json json text->json)
-(use ledger/api approval session)
+(use ledger/api approval)
 
 (export approval-fields sha->json)
 
@@ -26,9 +26,6 @@
 
 (defn sha->json (sha)
   (text->json (as-str sha)))
-
-(type sessions->json
-  (fn ((ref (vec session))) json))
 
 (defn sessions->json (sessions)
   (array (collect (map (iter sessions)

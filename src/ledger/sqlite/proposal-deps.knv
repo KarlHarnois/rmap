@@ -42,12 +42,6 @@
                     (= (ref (:proposal line)) id)))
                 (fn (line) (clone (:target line))))))
 
-(type insert-deps
-  (fn ((ref connection)
-       (ref item-id)
-       (ref follow-up))
-    (result unit database-error)))
-
 (defn insert-deps (connection source follow-up)
   (loop (index 0)
     (if (< index (len (:after follow-up)))

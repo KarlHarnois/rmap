@@ -1,16 +1,14 @@
 (module
   "Reads a source item's proposals with their criteria, what they come after and the item each became.")
 
-(use ledger/sqlite/values sql-value text->sql)
-(use ledger/model ->decision-id ->item-id item-id)
+(use ledger/sqlite/values text->sql)
+(use ledger/model ->decision-id ->item-id)
 
 (use ledger/model/follow-ups ->follow-up
                              ->follow-up-decision)
 
 (use ledger/names kind-names)
-
-(use ledger/sqlite/connection connection database-error
-                              query)
+(use ledger/sqlite/connection query)
 
 (use ledger/sqlite/rows int-cell named-cell
                         optional-int-cell optional-text-cell
@@ -33,10 +31,6 @@
     (rows->values (ref proposal-rows)
       (fn (row)
         (row->follow-up row (ref criteria) (ref deps))))))
-
-(type proposals-of
-  (fn ((ref connection) (ref item-id))
-    (result (vec (vec sql-value)) database-error)))
 
 (defn proposals-of (connection source)
   (query connection

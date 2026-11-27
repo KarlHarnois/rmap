@@ -1,5 +1,5 @@
 (use ledger/api ->item-id ->report-request ->session
-                body-source item-id record-report)
+                body-source record-report)
 
 (use support/ledger session-named)
 
@@ -11,9 +11,6 @@
                                                      (as-str (worker-of id))
                                                      kind
                                                      "the findings"))))))
-
-(type worker-of
-  (fn ((ref item-id)) string))
 
 (defn worker-of (id)
   (str "worker-" (:value id)))

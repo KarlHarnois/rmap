@@ -1,8 +1,8 @@
 (module
   "Replaces the next action a raised decision holds, once a decision is proposed or rejected.")
 
-(use ledger/model ->blockage blockage decision-id
-                  decision-status item snapshot)
+(use ledger/model ->blockage decision-id decision-status
+                  item snapshot)
 
 (use ledger/model/roadmap-pauses roadmap-pause)
 (use ledger/model/decisions decision)
@@ -94,10 +94,6 @@
 (defn raised-wait (readiness item proposed)
   (planned action/wait none
            (some (raised-reasons (blockage-for readiness item) proposed))))
-
-(type blockage-for
-  (fn ((ref readiness) (ref item))
-    blockage))
 
 (defn blockage-for (readiness item)
   (unwrap-or (blockage-in readiness (ref (:id item)))

@@ -84,9 +84,5 @@
       (err (failure/refused (refusal/decision-block-not-found (clone (:id decision))
                                                               (clone item)))))))
 
-(type updated-decision
-  (fn ((ref connection) (ref decision))
-    (result decision failure)))
-
 (defn updated-decision (connection decision)
   (existing-decision connection (ref (:id decision))))

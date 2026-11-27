@@ -41,8 +41,6 @@
                   (fn (dep) (= (ref (:item dep)) id)))
                 clone)))
 
-(type blocks? (fn ((ref dep)) bool))
-
 (defn blocks? (dep)
   (= (:type dep) dep-type/blocks))
 

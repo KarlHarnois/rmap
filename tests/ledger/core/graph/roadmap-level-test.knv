@@ -37,9 +37,6 @@
                  :to (->group-id :value (str to))
                  :count count))
 
-(type drawn-ids
-  (fn ((ref rollup)) (vec string)))
-
 (defn drawn-ids (rollup)
   (collect (map (iter (node-ids (ref (:nodes rollup))))
              (fn (id) (clone (:value id))))))

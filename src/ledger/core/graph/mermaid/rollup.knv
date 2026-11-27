@@ -5,11 +5,7 @@
                               rolled-node-id)
 
 (use ledger/core/graph/rolled-edges rolled-edge)
-
-(use ledger/core/graph/rollup external-group rolled-cluster
-                              rollup)
-
-(use ledger/core/graph/node-states node-class)
+(use ledger/core/graph/rollup rollup)
 (use ledger/core/graph/mermaid/classes classed-lines)
 
 (use ledger/core/graph/mermaid/lines indented labelled
@@ -43,9 +39,6 @@
         (push! lines (indented 1 line))))
     (join lines "\n")))
 
-(type cluster-lines
-  (fn ((ref rolled-cluster)) (vec string)))
-
 (defn cluster-lines (cluster)
   (let (roadmap (ref (:roadmap cluster))
         lines (vec (indented 1
@@ -64,9 +57,6 @@
      (labelled (as-str (:value (:id group)))
                (group-label group)))
     ((item item) (node-line item))))
-
-(type external-line
-  (fn ((ref external-group)) string))
 
 (defn external-line (external)
   (let (node (ref (:node external)))
@@ -95,10 +85,6 @@
     (str " -->|" count "| ")
     (str " --> ")))
 
-(type classed
-  (fn ((ref rollup))
-    (vec (pair string node-class))))
-
 (defn classed (rollup)
   (let (classed (vec))
     (for-each (:clusters rollup)
@@ -118,9 +104,6 @@
 (defn classed-node (node)
   (pair (mermaid-id (as-str (:value (rolled-node-id node))))
         (rolled-node-class node)))
-
-(type external-ids
-  (fn ((ref rollup)) (vec string)))
 
 (defn external-ids (rollup)
   (collect (map (iter (:externals rollup))

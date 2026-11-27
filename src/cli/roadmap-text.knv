@@ -9,9 +9,6 @@
 (export roadmap-created-text roadmap-max-active-changed-text
         roadmap-status-text roadmaps-text)
 
-(type roadmap-created-text
-  (fn ((ref roadmap)) string))
-
 (defn roadmap-created-text (roadmap)
   (str "Created roadmap "
        (:name roadmap)
@@ -38,9 +35,6 @@
     (str "No roadmaps.")
     (roadmap-table roadmaps)))
 
-(type max-active-changed-text
-  (fn ((ref roadmap)) string))
-
 (defn max-active-changed-text (roadmap)
   (match (:max-active roadmap)
     ((some count)
@@ -50,9 +44,6 @@
     (none (str "Cleared the max active of roadmap "
                (:name roadmap)
                "."))))
-
-(type max-active-unchanged-text
-  (fn ((ref roadmap)) string))
 
 (defn max-active-unchanged-text (roadmap)
   (match (:max-active roadmap)

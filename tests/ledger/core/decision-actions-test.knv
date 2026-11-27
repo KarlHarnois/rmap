@@ -1,8 +1,7 @@
 (use ledger/model ->blockage ->decision-id ->item-id
-                  decision-status item kind status)
+                  decision-status kind status)
 
 (use ledger/model/roadmap-pauses roadmap-pause)
-(use ledger/model/decisions decision)
 (use ledger/core/actions action actor planned)
 
 (use ledger/core/decision-actions blocked-only-by-rejected?
@@ -14,9 +13,6 @@
 
 (use support/items claimed decision-block-on snapshot-of
                    work-item)
-
-(type raised
-  (fn ((ref item) decision-status) decision))
 
 (defn raised (item status)
   (assoc (sample-decision status)

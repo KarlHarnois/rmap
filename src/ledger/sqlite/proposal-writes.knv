@@ -5,10 +5,7 @@
                           optional-text->sql text->sql)
 
 (use ledger/model ->decision-id item-id)
-
-(use ledger/model/follow-ups ->follow-up-decision follow-up
-                             follow-up-decision)
-
+(use ledger/model/follow-ups ->follow-up-decision)
 (use ledger/names case-name kind-names)
 
 (use ledger/sqlite/connection connection database-error
@@ -67,13 +64,6 @@
     (let-try (_ (insert-criteria connection source follow-up))
       (insert-deps connection source follow-up))))
 
-(type insert-proposal
-  (fn ((ref connection)
-       (ref item-id)
-       (ref follow-up)
-       int)
-    (result unit database-error)))
-
 (defn insert-proposal (connection source follow-up position)
   (let (decision (ref (:decision follow-up)))
     (map-ok (execute connection
@@ -90,18 +80,10 @@
                                (optional-int->sql (decision-number decision)))))
             (fn (_) (do)))))
 
-(type decision-id-text
-  (fn ((ref (option follow-up-decision)))
-    (option string)))
-
 (defn decision-id-text (decision)
   (map-some (clone decision)
     (fn (link)
       (clone (:value (:decision link))))))
-
-(type decision-number
-  (fn ((ref (option follow-up-decision)))
-    (option int)))
 
 (defn decision-number (decision)
   (map-some (clone decision)

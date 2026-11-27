@@ -4,7 +4,7 @@
 (use ledger/sqlite/values int->sql sql-value text->sql)
 
 (use ledger/model ->item ->item-id ->roadmap-id ->timestamp
-                  item item-id timestamp)
+                  item)
 
 (use ledger/names case-name kind-names origin-names
                   status-names)
@@ -81,17 +81,10 @@
       (fn (items)
         (with-criteria (ref items) (ref criteria))))))
 
-(type optional-id->sql
-  (fn ((ref (option item-id))) sql-value))
-
 (defn optional-id->sql (id)
   (match id
     ((some present) (text->sql (as-str (:value present))))
     (none sql-value/null)))
-
-(type closed-at->sql
-  (fn ((ref (option timestamp)))
-    sql-value))
 
 (defn closed-at->sql (closed-at)
   (match closed-at

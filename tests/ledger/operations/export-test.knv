@@ -3,9 +3,8 @@
 
 (use ledger/api ->follow-up-draft ->item-id ->session
                 add-dep add-external-blocker add-proposals
-                drop-item export-ledger item-id
-                propose-decision record-report
-                set-max-active settings)
+                drop-item export-ledger propose-decision
+                record-report set-max-active)
 
 (use ledger/model kind status)
 (use ledger/model/pull-requests verdict)
@@ -91,9 +90,6 @@
   (unwrap-ok (drop-item settings
                         (added-id settings (item-draft kind/design))
                         (str "not needed"))))
-
-(type insert-ruling
-  (fn ((ref settings) (ref item-id)) unit))
 
 (defn insert-ruling (settings item)
   (let (connection (unwrap-ok (open (as-str (:database-path settings)))))

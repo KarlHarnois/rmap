@@ -55,10 +55,6 @@
                                                   (pr-number-context
                                                     pull-request)))))
 
-(type pr-number-context
-  (fn ((ref pull-request))
-    (vec (pair string json))))
-
 (defn pr-number-context (pull-request)
   (vec (pair (str "pr_number")
              (pr-number->json (:pr-number pull-request)))))

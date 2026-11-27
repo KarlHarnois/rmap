@@ -1,7 +1,6 @@
 (module
   "Records a reviewer session's verdict on one acceptance criterion, in one transaction with its event. It never moves the item.")
 
-(use ledger/model item session snapshot)
 (use ledger/model/criteria criterion-verdict verify-request)
 
 (use ledger/core/criterion-verdicts approved-verdict
@@ -74,10 +73,6 @@
                                                 (ref verdict)
                                                 (ref reviewer))))
           (ok verdict))))))
-
-(type manager-of
-  (fn ((ref snapshot) (ref item))
-    (result session failure)))
 
 (defn manager-of (snapshot item)
   (match (find (iter (:roadmaps snapshot))

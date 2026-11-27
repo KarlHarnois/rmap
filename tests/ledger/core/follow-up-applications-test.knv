@@ -1,6 +1,5 @@
 (use ledger/model ->decision-id ->timestamp decision-status)
 (use ledger/model/decisions ->outcome decision)
-(use ledger/model/follow-ups follow-up)
 
 (use ledger/core/follow-up-applications applicable
                                         pending-decisions)
@@ -18,10 +17,6 @@
        (linked-follow-up (str "p2") (str "rm-d1") 2)
        (linked-follow-up (str "p3") (str "rm-d1") 1)
        (follow-up-for "p4")))
-
-(type all-ids
-  (fn ((ref (vec follow-up)))
-    (vec string)))
 
 (defn all-ids (follow-ups)
   (collect (map (iter follow-ups)

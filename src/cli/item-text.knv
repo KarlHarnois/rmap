@@ -62,9 +62,6 @@
     ((some present) (clone (:value present)))
     (none (str "-"))))
 
-(type item-cells
-  (fn ((ref item)) (vec string)))
-
 (defn item-cells (item)
   (vec (clone (:value (:id item)))
        (clone (:roadmap-name item))

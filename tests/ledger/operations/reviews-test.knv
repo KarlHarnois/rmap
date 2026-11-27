@@ -2,7 +2,7 @@
 
 (use ledger/api ->item-id ->review-start-request ->session
                 claim-item clock record-head record-review
-                settings show-item)
+                show-item)
 
 (use ledger/model ->timestamp claim kind status)
 (use ledger/model/pull-requests verdict)
@@ -30,10 +30,6 @@
 (defn with-clock (settings at)
   (assoc (clone settings)
          :clock (clock/fixed (->timestamp :value at))))
-
-(type review-sessions
-  (fn ((ref settings))
-    (vec (vec (option string)))))
 
 (defn review-sessions (settings)
   (let (connection (unwrap-ok (open (as-str (:database-path settings))))

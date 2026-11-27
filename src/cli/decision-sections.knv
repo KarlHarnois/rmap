@@ -23,9 +23,6 @@
            (join (collect (map (iter (:options decision)) option-text))
                  "\n")))
 
-(type recommendation-section
-  (fn ((ref decision)) string))
-
 (defn recommendation-section (decision)
   (let (recommendation (ref (:recommendation decision)))
     (section "Recommendation"
@@ -103,9 +100,6 @@
      (str "Chose option " number
           (option-title decision (deref number))))
     (none (str "Chose no option."))))
-
-(type option-title
-  (fn ((ref decision) int) string))
 
 (defn option-title (decision number)
   (match (find (iter (:options decision))

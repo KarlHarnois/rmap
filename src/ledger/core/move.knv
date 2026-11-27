@@ -3,7 +3,7 @@
 
 (use ledger/refusal refusal)
 (use ledger/core/phases finished?)
-(use ledger/model item kind status)
+(use ledger/model kind status)
 (use ledger/model/sessions session-start)
 (use ledger/model/reports report-kind)
 
@@ -71,9 +71,6 @@
         (assoc :kind (kind-after item move))
         (assoc :closed-at (closed-at-after item target now)))))
 
-(type target-status
-  (fn ((ref item) (ref move)) status))
-
 (defn target-status (item move)
   (match move
     ((move/claim _) status/dispatched)
@@ -83,10 +80,6 @@
     ((move/drop _) status/dropped)
     ((move/report kind) (reported-status item kind))
     (move/record-head status/in-review)))
-
-(type reported-status
-  (fn ((ref item) (ref report-kind))
-    status))
 
 (defn reported-status (item kind)
   (match kind
@@ -107,9 +100,6 @@
     (research status/accepted)
     (design status/accepted)
     (_ status/merged)))
-
-(type kind-after
-  (fn ((ref item) (ref move)) kind))
 
 (defn kind-after (item move)
   (match move

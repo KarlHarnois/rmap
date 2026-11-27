@@ -1,8 +1,8 @@
 (module
   "Describes reports in plain text: a sentence about a report recorded or read, a table of reports, and one report with its body.")
 
-(use ledger/api case-name recorded-report report
-                report-kind-names status-names timestamp)
+(use ledger/api case-name report report-kind-names
+                status-names)
 
 (use cli/report-replies report-reply)
 (use cli/tables headed indented table)
@@ -15,9 +15,6 @@
     ((listed reports) (reports-text (ref reports)))
     ((shown report) (report-detail-text (ref report)))
     ((read report) (read-text (ref report)))))
-
-(type recorded-text
-  (fn ((ref recorded-report)) string))
 
 (defn recorded-text (recorded)
   (let (report (ref (:report recorded))
@@ -37,9 +34,6 @@
     (str "No reports.")
     (report-table reports)))
 
-(type report-detail-text
-  (fn ((ref report)) string))
-
 (defn report-detail-text (report)
   (str "Report "
        (:value (:id report))
@@ -51,9 +45,6 @@
        (indented (table (detail-rows report)))
        "\n\n"
        (:body report)))
-
-(type read-text
-  (fn ((ref report)) string))
 
 (defn read-text (report)
   (str "Read report "
@@ -94,14 +85,8 @@
        (vec (str "read")
             (read-at-text (ref (:read-at report))))))
 
-(type kind-text
-  (fn ((ref report)) (ref str)))
-
 (defn kind-text (report)
   (case-name report-kind-names (:kind report)))
-
-(type read-at-text
-  (fn ((ref (option timestamp))) string))
 
 (defn read-at-text (at)
   (match at

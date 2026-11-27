@@ -16,15 +16,6 @@
 
 (export status-actions)
 
-(type status-actions
-  (fn ((ref readiness)
-       (ref snapshot)
-       (ref (vec pull-request))
-       (ref (vec criterion-verdict))
-       (ref (vec live-session))
-       (ref item))
-    (vec next-action)))
-
 (defn status-actions (readiness snapshot pull-requests
                                 verdicts live-reviews item)
   (match (:status item)
@@ -37,12 +28,6 @@
     (merged (vec))
     (accepted (vec))
     (dropped (vec))))
-
-(type open-actions
-  (fn ((ref readiness)
-       (ref snapshot)
-       (ref item))
-    (vec next-action)))
 
 (defn open-actions (readiness snapshot item)
   (if (ready-in? readiness (ref (:id item)))

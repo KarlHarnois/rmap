@@ -3,8 +3,7 @@
 
 (use ledger/model/criteria ->criterion-verdict
                            ->criterion-verdict-id
-                           criterion-result
-                           criterion-status)
+                           criterion-result)
 
 (use ledger/model/pull-requests ->head)
 (use ledger/core/criterion-statuses criterion-statuses)
@@ -31,10 +30,6 @@
                        :reviewer (->session :name (str "r1"))
                        :head (some (->head :sha (str sha)))
                        :created-at (->timestamp :value (str "2026-01-02T00:00:00Z"))))
-
-(type only-verdict
-  (fn ((ref (vec criterion-status)))
-    criterion-result))
 
 (defn only-verdict (statuses)
   (:verdict (unwrap (clone (:verdict (at statuses 0))))))

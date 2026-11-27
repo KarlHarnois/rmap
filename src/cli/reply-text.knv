@@ -2,10 +2,7 @@
   "Describes each ledger result in plain text.")
 
 (use json/value json->source)
-
-(use ledger/api case-name dep init-outcome-names
-                init-report)
-
+(use ledger/api case-name init-outcome-names)
 (use cli/session-ended-text session-ended-text)
 
 (use cli/follow-up-text proposals-list-text
@@ -96,17 +93,11 @@
     ((reply/session-ended ended)
      (session-ended-text (ref ended)))))
 
-(type init-report-text
-  (fn ((ref init-report)) string))
-
 (defn init-report-text (report)
   (let (path (:database-path report))
     (match (case-name init-outcome-names (:outcome report))
       ("created" (str "Created ledger " path "."))
       (_ (str "Ledger already exists at " path ".")))))
-
-(type dep-text
-  (fn ((ref dep) (ref str)) string))
 
 (defn dep-text (dep relation)
   (str (:value (:item dep))

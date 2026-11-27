@@ -60,10 +60,6 @@
   (check-criteria-met item verdicts
                       (current-head-of pull-request)))
 
-(type current-head-of
-  (fn ((ref (option pull-request)))
-    (option head)))
-
 (defn current-head-of (pull-request)
   (match pull-request
     ((some present) (some (clone (:head present))))
@@ -106,10 +102,6 @@
   (any? (iter reviews)
     (fn (review)
       (= (ref (:reviewer review)) reviewer))))
-
-(type reviewers-with
-  (fn ((ref (vec review)) verdict)
-    (vec session)))
 
 (defn reviewers-with (latest wanted)
   (collect (map (filter (iter latest)

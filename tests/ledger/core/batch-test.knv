@@ -1,4 +1,4 @@
-(use ledger/model claim item kind status)
+(use ledger/model claim kind status)
 (use ledger/core/batch batch-of batch-size-of)
 (use ledger/core/ready readiness-of)
 (use ledger/core/snapshot scope)
@@ -21,9 +21,6 @@
      (collect (map (filter (iter whole)
                      (fn (id) (contains? part (clone id))))
                    clone))))
-
-(type ids-of
-  (fn ((ref (vec item))) (vec string)))
 
 (defn ids-of (items)
   (collect (map (iter items)

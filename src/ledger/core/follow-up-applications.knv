@@ -58,16 +58,10 @@
           (fn (id) (push! all (clone id))))))
     (distinct (ref all))))
 
-(type chosen-option-skips
-  (fn ((ref decision)) (vec string)))
-
 (defn chosen-option-skips (decision)
   (if (= (:status decision) decision-status/accepted)
     (option-skips-at decision (chosen-number decision))
     (vec)))
-
-(type chosen-number
-  (fn ((ref decision)) (option int)))
 
 (defn chosen-number (decision)
   (match (:outcome decision)
@@ -79,19 +73,12 @@
     ((some chosen) (option-skips decision chosen))
     (none (vec))))
 
-(type option-skips
-  (fn ((ref decision) int) (vec string)))
-
 (defn option-skips (decision number)
   (match (find (iter (:options decision))
            (fn (option)
              (= (:number option) number)))
     ((some option) (clone (:skips option)))
     (none (vec))))
-
-(type linked-selected?
-  (fn ((ref follow-up) (ref (vec decision)))
-    bool))
 
 (defn linked-selected? (follow-up decisions)
   (match (:decision follow-up)

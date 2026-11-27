@@ -64,9 +64,6 @@
             lives (rows->values (ref rows) row->live-session))
     (ok (map-some (first lives) own-live-session))))
 
-(type own-live-session
-  (fn ((ref live-session)) live-session))
-
 (defn own-live-session (live)
   (->live-session :id (clone (:id live))
                   :session (clone (:session live))

@@ -3,7 +3,7 @@
 (use ledger/core/graph/graph ->graph-view diagram-of)
 (use ledger/core/graph/epic-level epic-rollup)
 
-(use ledger/core/graph/groups ->group-id ->progress progress
+(use ledger/core/graph/groups ->group-id ->progress
                               rolled-node)
 
 (use ledger/core/graph/rolled-edges ->rolled-edge)
@@ -48,9 +48,6 @@
   (any? (lines source)
     (fn (each) (= (trim each) line))))
 
-(type drawn-ids
-  (fn ((ref rollup)) (vec string)))
-
 (defn drawn-ids (rollup)
   (let (ids (vec))
     (for-each (:clusters rollup)
@@ -80,10 +77,6 @@
 
 (defn child (id epic status)
   (child-of (work-item id kind/build status) epic))
-
-(type epic-progress
-  (fn ((ref rollup))
-    (vec (pair string progress))))
 
 (defn epic-progress (rollup)
   (let (found (vec))

@@ -24,10 +24,6 @@
            :picked (picked-items (ref (:ready readiness)) size)
            :blocked (clone (:blocked readiness))))
 
-(type picked-items
-  (fn ((ref (vec item)) batch-size)
-    (vec item)))
-
 (defn picked-items (ready size)
   (collect (map (take (iter ready) (:count size))
                 clone)))

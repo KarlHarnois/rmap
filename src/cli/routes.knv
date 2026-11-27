@@ -70,13 +70,8 @@
 
 (defenum session-command end)
 
-(type word-count (fn ((ref route)) int))
-
 (defn word-count (route)
   (len (:words route)))
-
-(type route-name
-  (fn ((ref route)) string))
 
 (defn route-name (route)
   (join (:words route) " "))

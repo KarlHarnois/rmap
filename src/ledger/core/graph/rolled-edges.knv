@@ -52,11 +52,6 @@
           (none (do)))))
     pairs))
 
-(type group-pair
-  (fn ((ref graph-edge)
-       (ref (sorted-map string group-id)))
-    (option (pair group-id group-id))))
-
 (defn group-pair (edge groups)
   (if (= (:type edge) dep-type/blocks)
     (crossing-pair (group-at groups (ref (:from edge)))

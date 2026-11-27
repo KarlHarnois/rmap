@@ -1,7 +1,7 @@
 (module
   "Pauses a roadmap and resumes it.")
 
-(use ledger/model roadmap roadmap-status)
+(use ledger/model roadmap-status)
 (use ledger/model/events event-type)
 (use ledger/refusal refusal)
 (use ledger/roadmap-events roadmap-status-changed)
@@ -54,19 +54,11 @@
     (pause (check-pause roadmap))
     (resume (check-resume roadmap))))
 
-(type check-pause
-  (fn ((ref roadmap))
-    (result unit failure)))
-
 (defn check-pause (roadmap)
   (if (= (:status roadmap) roadmap-status/paused)
     (err (failure/refused (refusal/roadmap-already-paused (clone (:name
                                                                    roadmap)))))
     (ok (do))))
-
-(type check-resume
-  (fn ((ref roadmap))
-    (result unit failure)))
 
 (defn check-resume (roadmap)
   (if (= (:status roadmap) roadmap-status/paused)

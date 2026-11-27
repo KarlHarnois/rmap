@@ -12,8 +12,7 @@
 (use ledger/core/graph/mermaid/lines indented labelled
                                      node-line push-all!)
 
-(use ledger/core/graph/diagram diagram external-node
-                               roadmap-cluster)
+(use ledger/core/graph/diagram diagram roadmap-cluster)
 
 (export diagram->mermaid drawing->mermaid)
 
@@ -75,9 +74,6 @@
         (push! lines (indented 3 (node-line node)))))
     (push! lines (indented 2 "end"))
     lines))
-
-(type external-line
-  (fn ((ref external-node)) string))
 
 (defn external-line (external)
   (let (node (ref (:node external)))

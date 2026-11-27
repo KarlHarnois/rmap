@@ -91,17 +91,12 @@
   (if (paused-roadmap? snapshot item)
     roadmap-pause/paused roadmap-pause/not-paused))
 
-(type paused-roadmap?
-  (fn ((ref snapshot) (ref item)) bool))
-
 (defn paused-roadmap? (snapshot item)
   (any? (iter (:roadmaps snapshot))
     (fn (roadmap)
       (and (= (ref (:id roadmap))
               (:roadmap-id item))
            (= (:status roadmap) roadmap-status/paused)))))
-
-(type candidate? (fn ((ref item)) bool))
 
 (defn candidate? (item)
   (and (not= (:kind item) kind/epic)

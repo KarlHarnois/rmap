@@ -4,8 +4,7 @@
 (use json/value json object text->json)
 
 (use ledger/api case-name claim optional-text->json
-                runtime-names session-kind-names
-                work-session)
+                runtime-names session-kind-names)
 
 (export claim->json claim->session-json session->json)
 
@@ -19,9 +18,6 @@
   (match claim
     ((claimed-by session) (session->json session))
     (unclaimed json/null)))
-
-(type session->json
-  (fn ((ref work-session)) json))
 
 (defn session->json (session)
   (object (vec (pair (str "name")

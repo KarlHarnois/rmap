@@ -25,10 +25,6 @@
 
 (export prepare-close)
 
-(type prepare-close
-  (fn ((ref transaction) (ref item))
-    (result (option close-application) failure)))
-
 (defn prepare-close (transaction item)
   (cond
     ((= (:kind item) kind/research)
@@ -64,10 +60,6 @@
       (allocate transaction source
                 (ref chosen)
                 (ref (proposal-ids follow-ups))))))
-
-(type proposal-ids
-  (fn ((ref (vec follow-up)))
-    (vec string)))
 
 (defn proposal-ids (follow-ups)
   (collect (map (iter follow-ups)

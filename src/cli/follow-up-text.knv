@@ -1,9 +1,7 @@
 (module
   "Describes follow-up proposals in plain text.")
 
-(use ledger/api case-name follow-up follow-up-decision
-                item-id kind-names)
-
+(use ledger/api case-name follow-up item-id kind-names)
 (use cli/tables indented)
 
 (export proposals-list-text proposals-recorded-text
@@ -46,18 +44,12 @@
     (str " proposal")
     (str " proposals")))
 
-(type proposal-text
-  (fn ((ref follow-up)) string))
-
 (defn proposal-text (follow-up)
   (str (:id follow-up)
        "  "
        (:title follow-up)
        "\n"
        (indented (proposal-detail follow-up))))
-
-(type proposal-detail
-  (fn ((ref follow-up)) string))
 
 (defn proposal-detail (follow-up)
   (let (lines (vec (str "kind "
@@ -73,22 +65,13 @@
                   (item-line (ref (:created-item follow-up))))
     (join lines "\n")))
 
-(type description-line
-  (fn ((ref follow-up)) string))
-
 (defn description-line (follow-up)
   (str "description: " (:description follow-up)))
-
-(type criteria-line
-  (fn ((ref follow-up)) string))
 
 (defn criteria-line (follow-up)
   (str "criteria: "
        (join (collect (map (iter (:criteria follow-up)) as-str))
              "; ")))
-
-(type after-line
-  (fn ((ref follow-up)) (option string)))
 
 (defn after-line (follow-up)
   (if (empty? (:after follow-up))
@@ -96,10 +79,6 @@
     (some (str "after: "
                (join (collect (map (iter (:after follow-up)) as-str))
                      ", ")))))
-
-(type decision-line
-  (fn ((ref (option follow-up-decision)))
-    (option string)))
 
 (defn decision-line (decision)
   (match decision
@@ -109,10 +88,6 @@
                 " option "
                 (:option link))))
     (none none)))
-
-(type item-line
-  (fn ((ref (option item-id)))
-    (option string)))
 
 (defn item-line (created)
   (match created

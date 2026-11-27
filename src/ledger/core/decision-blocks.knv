@@ -1,9 +1,7 @@
 (module
   "Answers which decisions hold an item and whether a decision may start blocking one.")
 
-(use ledger/model decision-block decision-id decision-status
-                  item)
-
+(use ledger/model decision-block decision-status item)
 (use ledger/core/decisions check-revisable)
 (use ledger/core/decision-placement check-block)
 (use ledger/core/new-items distinct)
@@ -36,10 +34,6 @@
   (or (= (ref (:item block)) (ref (:id item)))
       (= (:parent item)
          (some (clone (:item block))))))
-
-(type sorted-ids
-  (fn ((vec decision-id))
-    (vec decision-id)))
 
 (defn sorted-ids (ids)
   (let (sorted ids)

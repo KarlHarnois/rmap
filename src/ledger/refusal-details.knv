@@ -1,8 +1,6 @@
 (module
   "Gives the detail sentences a refusal carries beyond its one-line message.")
 
-(use ledger/model decision-id external-blocker)
-
 (export not-ready-message)
 
 (defn not-ready-message (blockage)
@@ -21,17 +19,10 @@
       (str "the item is not ready; it waits on "
            (join reasons " and ")))))
 
-(type decision-ids-text
-  (fn ((ref (vec decision-id))) string))
-
 (defn decision-ids-text (ids)
   (join (collect (map (iter ids)
                    (fn (id) (clone (:value id)))))
         ", "))
-
-(type external-blocker-ids-text
-  (fn ((ref (vec external-blocker)))
-    string))
 
 (defn external-blocker-ids-text (blockers)
   (join (collect (map (iter blockers)

@@ -1,11 +1,9 @@
-(use json/value field json json->int)
+(use json/value field json->int)
 
-(use ledger/api claim-item close-item failure item-id
-                list-roadmaps readiness ready-items refusal
-                set-max-active)
+(use ledger/api claim-item close-item failure list-roadmaps
+                ready-items refusal set-max-active)
 
-(use ledger/model/capacity capacity)
-(use ledger/model/events event event-type)
+(use ledger/model/events event-type)
 
 (use support/ledger all-events claim-by claimed
                     refusal-code-of reported research
@@ -27,9 +25,6 @@
                   (pair (json->int (change-value event "old"))
                         (json->int (change-value event "new")))))))
 
-(type change-value
-  (fn ((ref event) (ref str)) json))
-
 (defn change-value (event which)
   (-> (field (:payload event) "changes")
       unwrap
@@ -41,17 +36,11 @@
 (defn readiness-in (settings)
   (unwrap-ok (ready-items settings (some (str roadmap-name)))))
 
-(type blocked-capacity
-  (fn ((ref readiness)) capacity))
-
 (defn blocked-capacity (readiness)
   (-> (unwrap (first (:blocked readiness)))
       (:blockage)
       (:capacity)
       unwrap))
-
-(type worker-of
-  (fn ((ref item-id)) string))
 
 (defn worker-of (id)
   (str "worker-" (:value id)))

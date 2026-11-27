@@ -4,9 +4,8 @@
 (use json/value array int->json json object text->json)
 
 (use ledger/api action-names actor-names case-name
-                decision-next decision-status-names
-                kind-names next-entry next-item report-id
-                session status-names)
+                decision-status-names kind-names next-entry
+                report-id status-names)
 
 (use cli/blockage-json blockage-fields)
 
@@ -17,9 +16,6 @@
     ((next-entry/listed-item item) (next-item->json item))
     ((next-entry/listed-decision decision)
      (decision-next->json decision))))
-
-(type next-item->json
-  (fn ((ref next-item)) json))
 
 (defn next-item->json (entry)
   (let (item (ref (:item entry)))
@@ -36,9 +32,6 @@
                  (pair (str "actions")
                        (array (collect (map (iter (:actions entry))
                                             next-action->json))))))))
-
-(type decision-next->json
-  (fn ((ref decision-next)) json))
 
 (defn decision-next->json (entry)
   (object (vec (pair (str "decision")
@@ -65,11 +58,6 @@
               (with-session (ref (:session planned)))
               (with-reasons (ref (:reasons planned)))
               (with-report (ref (:report planned))))))
-
-(type with-session
-  (fn ((vec (pair string json))
-       (ref (option session)))
-    (vec (pair string json))))
 
 (defn with-session (fields session)
   (match session

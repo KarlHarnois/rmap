@@ -36,10 +36,6 @@
               :capacity none
               :external-blockers (clone (:external-blockers blockage))))
 
-(type proposed-in
-  (fn ((ref roadmap) (ref (vec decision)))
-    (vec decision)))
-
 (defn proposed-in (roadmap decisions)
   (let (chosen (collect (map (filter (iter decisions)
                                (fn (decision)
@@ -51,9 +47,6 @@
       (fn (decision)
         (clone (:value (:created-at decision)))))
     chosen))
-
-(type proposed?
-  (fn ((ref decision)) bool))
 
 (defn proposed? (decision)
   (= (:status decision) decision-status/proposed))
@@ -100,10 +93,6 @@
     (for-each second
       (fn (id) (push! all (clone id))))
     (sorted-ids (distinct (ref all)))))
-
-(type sorted-ids
-  (fn ((vec decision-id))
-    (vec decision-id)))
 
 (defn sorted-ids (ids)
   (sort-by! ids

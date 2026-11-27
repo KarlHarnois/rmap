@@ -4,9 +4,7 @@
 (use ledger/sqlite/values int->sql optional-text->sql
                           sql-value text->sql)
 
-(use ledger/model decision-id decision-status item-id
-                  roadmap-id timestamp)
-
+(use ledger/model decision-status item-id roadmap-id)
 (use ledger/model/decisions decision)
 (use ledger/names case-name decision-status-names)
 
@@ -111,30 +109,16 @@
                                (str (case-name decision-status-names status)))))
        (optional-item->sql (ref (:item filter)))))
 
-(type decision-id->sql
-  (fn ((ref decision-id)) sql-value))
-
 (defn decision-id->sql (id)
   (text->sql (as-str (:value id))))
-
-(type optional-decision->sql
-  (fn ((ref (option decision-id)))
-    sql-value))
 
 (defn optional-decision->sql (id)
   (optional-text->sql (map-some (clone id)
                         (fn (present) (clone (:value present))))))
 
-(type optional-item->sql
-  (fn ((ref (option item-id))) sql-value))
-
 (defn optional-item->sql (id)
   (optional-text->sql (map-some (clone id)
                         (fn (present) (clone (:value present))))))
-
-(type optional-timestamp->sql
-  (fn ((ref (option timestamp)))
-    sql-value))
 
 (defn optional-timestamp->sql (at)
   (optional-text->sql (map-some (clone at)

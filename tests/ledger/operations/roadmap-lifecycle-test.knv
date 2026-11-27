@@ -2,7 +2,7 @@
 (use ledger/model/events event-type)
 (use json/value field json->text)
 
-(use ledger/api ->claim-request claim-item event failure
+(use ledger/api ->claim-request claim-item failure
                 list-roadmaps next-actions next-entry
                 pause-roadmap ready-items refusal
                 resume-roadmap roadmap-pause roadmap-status)
@@ -23,10 +23,6 @@
   (:status (unwrap (find (iter (unwrap-ok (list-roadmaps settings)))
                      (fn (roadmap)
                        (= (:name roadmap) (str name)))))))
-
-(type status-side
-  (fn ((ref (vec event)) event-type (ref str))
-    string))
 
 (defn status-side (events type which)
   (-> (unwrap (find (iter events)

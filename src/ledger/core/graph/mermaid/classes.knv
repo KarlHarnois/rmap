@@ -56,9 +56,6 @@
     (push-assignment! lines external-ids external-class)
     lines))
 
-(type class-definition
-  (fn ((ref class-style)) string))
-
 (defn class-definition (style)
   (str "classDef " (:name style) " " (:style style)))
 

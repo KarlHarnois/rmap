@@ -2,7 +2,6 @@
   "Describes the events of a report: the report a session records with the move it makes, and the manager reading it.")
 
 (use json/value int->json json text->json)
-(use ledger/model item)
 (use ledger/model/reports report)
 (use ledger/model/sessions session-end)
 
@@ -71,13 +70,6 @@
        (inserted "read_at"
                  (optional-timestamp->json (ref (:read-at report))))))
 
-(type report-event
-  (fn ((ref item)
-       (ref report)
-       event-type
-       (ref (vec column-change)))
-    event-draft))
-
 (defn report-event (item report type changes)
   (->event-draft :roadmap-id (some (clone (:roadmap-id item)))
                  :item-id (some (clone (:id item)))
@@ -85,10 +77,6 @@
                  :type type
                  :payload (payload-with-changes changes
                                                 (report-context report))))
-
-(type report-context
-  (fn ((ref report))
-    (vec (pair string json))))
 
 (defn report-context (report)
   (vec (pair (str "report_id")

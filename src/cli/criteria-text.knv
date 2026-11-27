@@ -2,7 +2,7 @@
   "Prints an item's acceptance criteria as a numbered section, each with its latest verdict.")
 
 (use ledger/api case-name criterion-result-names
-                criterion-status criterion-verdict)
+                criterion-status)
 
 (use cli/tables indented)
 
@@ -26,10 +26,6 @@
        ". "
        (:text status)
        (verdict-suffix (ref (:verdict status)))))
-
-(type verdict-suffix
-  (fn ((ref (option criterion-verdict)))
-    string))
 
 (defn verdict-suffix (verdict)
   (match verdict

@@ -1,10 +1,10 @@
 (module
   "Turns a blockage into the JSON fields the CLI prints.")
 
-(use json/value array bool->json int->json json object
+(use json/value array bool->json int->json object
                 text->json)
 
-(use ledger/api decision-id ids->json roadmap-pause)
+(use ledger/api ids->json roadmap-pause)
 (use cli/external-blocker-json blocking-external-blocker->json)
 
 (export blockage-fields)
@@ -38,9 +38,6 @@
 
 (defn appended (fields field)
   (let (all fields) (push! all field) all))
-
-(type decision-ids->json
-  (fn ((ref (vec decision-id))) json))
 
 (defn decision-ids->json (ids)
   (array (collect (map (iter ids)

@@ -3,7 +3,7 @@
 
 (use ledger/api ->item-id ->report-id ->report-request
                 body-source close-item read-report
-                record-report settings)
+                record-report)
 
 (use ledger/model kind status)
 (use ledger/sqlite/connection open query)
@@ -24,10 +24,6 @@
 (defn claimed-research (settings)
   (claimed settings (research settings)))
 
-(type end-reasons
-  (fn ((ref settings))
-    (vec (option string))))
-
 (defn end-reasons (settings)
   (let (connection (unwrap-ok (open (as-str (:database-path settings))))
         rows (unwrap-ok (query (ref connection)
@@ -35,10 +31,6 @@
                                (ref (vec)))))
     (unwrap-ok (rows->values (ref rows)
                  (fn (row) (optional-text-cell row 0))))))
-
-(type review-end-reasons
-  (fn ((ref settings))
-    (vec (option string))))
 
 (defn review-end-reasons (settings)
   (let (connection (unwrap-ok (open (as-str (:database-path settings))))

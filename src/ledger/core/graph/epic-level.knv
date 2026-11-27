@@ -112,11 +112,6 @@
         (clone (:value (rolled-node-id (ref (:node external)))))))
     externals))
 
-(type externals-in
-  (fn ((ref rolled-cluster)
-       (ref (vec group-id)))
-    (vec external-group)))
-
 (defn externals-in (cluster ends)
   (collect (map (filter (iter (:nodes cluster))
                   (fn (node)

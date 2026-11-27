@@ -2,16 +2,13 @@
   "Records how a move changes an item's session as columns of an event's `changes` object.")
 
 (use json/value json text->json)
-(use ledger/model claim work-session)
-(use ledger/model/sessions session-end)
+(use ledger/model claim)
 
 (use ledger/names case-name end-reason-names runtime-names
                   session-kind-names)
 
 (use ledger/core/session-changes session-change)
-
-(use ledger/changes column-change copy-change inserted
-                    updated)
+(use ledger/changes copy-change inserted updated)
 
 (use ledger/json-values optional-text->json
                         optional-timestamp->json)
@@ -24,10 +21,6 @@
     ((started session) (started-session-columns session))
     ((ended end) (ended-columns before end))
     (kept (vec))))
-
-(type started-session-columns
-  (fn ((ref work-session))
-    (vec column-change)))
 
 (defn started-session-columns (session)
   (vec (inserted "session"
@@ -48,10 +41,6 @@
   (match end
     ((some present) (ended-session-columns present))
     (none (vec))))
-
-(type ended-session-columns
-  (fn ((ref session-end))
-    (vec column-change)))
 
 (defn ended-session-columns (end)
   (vec (inserted "ended_at"

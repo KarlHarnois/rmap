@@ -3,8 +3,7 @@
 
 (use ledger/model session)
 
-(use ledger/model/pull-requests ->started-review head
-                                pull-request
+(use ledger/model/pull-requests ->started-review
                                 review-start-request
                                 started-review)
 
@@ -67,10 +66,6 @@
                   _ (record transaction
                             (review-started (ref item) (ref session))))
           (ok (->started-review :item item :session session)))))))
-
-(type pull-request-head
-  (fn ((ref (option pull-request)))
-    (option head)))
 
 (defn pull-request-head (pull-request)
   (match pull-request

@@ -6,8 +6,8 @@
                 ->settings add-item advance-item body-source
                 claim-item clock criteria-input
                 description-input failure-code init-ledger
-                item-id kind-change new-roadmap origin
-                read-log record-report)
+                kind-change new-roadmap origin read-log
+                record-report)
 
 (use support/scratch scratch-database scratch-directory)
 
@@ -124,9 +124,6 @@
 
 (defn added-id-in (settings roadmap draft)
   (clone (:id (unwrap-ok (add-item settings (str roadmap) draft)))))
-
-(type worker-name
-  (fn ((ref item-id)) string))
 
 (defn worker-name (id)
   (str "worker-" (:value id)))

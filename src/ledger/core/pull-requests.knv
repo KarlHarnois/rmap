@@ -70,12 +70,6 @@
        (fn (pull-request)
          (assoc pull-request :head (clone head)))))))
 
-(type build-change
-  (fn ((ref report-request)
-       (option pull-request)
-       (ref (vec pull-request)))
-    (result pr-change refusal)))
-
 (defn build-change (request existing pull-requests)
   (match (:kind request)
     (done (opening request existing pull-requests))
@@ -130,10 +124,6 @@
 
 (defn required (value missing)
   (ok-or (clone value) (pull-request-refused missing)))
-
-(type free-number
-  (fn ((ref (vec pull-request)) pr-number)
-    (result pr-number refusal)))
 
 (defn free-number (pull-requests number)
   (if (any? (iter pull-requests)

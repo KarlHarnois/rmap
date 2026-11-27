@@ -72,9 +72,6 @@
   (let-try (_ (check-worker worker-sessions reviewer))
     (check-fresh-review pull-request reviewer head)))
 
-(type check-unfinished
-  (fn ((ref item)) (result unit refusal)))
-
 (defn check-unfinished (item)
   (if (finished? (:status item))
     (err (refusal/item-closed (clone (:id item))))
@@ -118,10 +115,6 @@
                                           (not= (ref (:head review)) head))))
                                  clone)))
             clone))
-
-(type not-fresh
-  (fn ((ref session) (ref review) (ref head))
-    (result unit refusal)))
 
 (defn not-fresh (reviewer review head)
   (err (refusal/pull-request (pull-request-refusal/reviewer-not-fresh (clone reviewer)

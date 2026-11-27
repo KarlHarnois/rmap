@@ -4,7 +4,7 @@
 (use json/value copy-of field json->entries json->items
                 json->source json->text null?)
 
-(use ledger/api case-name event event-type-names roadmap-id)
+(use ledger/api case-name event event-type-names)
 (use cli/tables headed table)
 (use cli/item-text optional-id-text)
 
@@ -26,9 +26,6 @@
         (push! rows (event-cells event))))
     (table rows)))
 
-(type event-cells
-  (fn ((ref event)) (vec string)))
-
 (defn event-cells (event)
   (vec (str (:id event))
        (clone (:value (:at event)))
@@ -38,9 +35,6 @@
        (optional-id-text (ref (:item-id event)))
        (details-text event)))
 
-(type details-text
-  (fn ((ref event)) string))
-
 (defn details-text (event)
   (let (payload (payload-text (ref (:payload event))))
     (match (ref (:decision-id event))
@@ -48,9 +42,6 @@
        (join (vec (str "decision=" (:value id)) payload)
              " "))
       (none payload))))
-
-(type optional-roadmap-id-text
-  (fn ((ref (option roadmap-id))) string))
 
 (defn optional-roadmap-id-text (id)
   (match id

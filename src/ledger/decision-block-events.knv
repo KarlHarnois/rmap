@@ -1,8 +1,8 @@
 (module
   "Describes each change to the items a decision blocks as an event to record.")
 
-(use json/value json text->json)
-(use ledger/model decision-id item-id)
+(use json/value text->json)
+(use ledger/model item-id)
 (use ledger/model/decisions decision)
 
 (use ledger/model/events ->event-draft event-draft
@@ -39,10 +39,6 @@
                  :decision-id (some (clone (:id decision)))
                  :type type
                  :payload (payload-with-changes changes (vec))))
-
-(type block-columns
-  (fn ((ref decision-id) (ref item-id))
-    (vec (pair string json))))
 
 (defn block-columns (decision item)
   (vec (pair (str "decision_id")

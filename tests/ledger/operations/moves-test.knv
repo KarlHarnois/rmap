@@ -1,7 +1,7 @@
 (use ledger/api ->advancement ->claim-request ->session
                 advance-item claim claim-item close-item
                 drop-item failure kind-change record-head
-                record-review refusal settings)
+                record-review refusal)
 
 (use ledger/model ->timestamp ->work-session kind runtime
                   session-kind status)
@@ -37,10 +37,6 @@
                                     :base (some (str base))
                                     :started-at (->timestamp :value (str clock-time)))))
 
-(type end-reasons
-  (fn ((ref settings))
-    (vec (option string))))
-
 (defn end-reasons (settings)
   (let (connection (unwrap-ok (open (as-str (:database-path settings))))
         rows (unwrap-ok (query (ref connection)
@@ -48,10 +44,6 @@
                                (ref (vec)))))
     (unwrap-ok (rows->values (ref rows)
                  (fn (row) (optional-text-cell row 0))))))
-
-(type review-end-reasons
-  (fn ((ref settings))
-    (vec (option string))))
 
 (defn review-end-reasons (settings)
   (let (connection (unwrap-ok (open (as-str (:database-path settings))))

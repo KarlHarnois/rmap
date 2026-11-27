@@ -2,7 +2,6 @@
   "Gives each criterion verdict refusal its sentence for the user.")
 
 (use ledger/refusal refusal)
-(use ledger/model/criteria criterion-gap)
 
 (export criterion-refusal->message)
 
@@ -41,9 +40,6 @@
   (str "a build needs a met verdict on its current head for every acceptance criterion: "
        (join (collect (map (iter gaps) gap-sentence))
              "; ")))
-
-(type gap-sentence
-  (fn ((ref criterion-gap)) string))
 
 (defn gap-sentence (gap)
   (str "criterion "

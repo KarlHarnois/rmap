@@ -1,6 +1,6 @@
 (use ledger/model ->decision-id ->item-id ->roadmap-id
-                  ->session ->timestamp decision-status item
-                  kind session-kind status)
+                  ->session ->timestamp decision-status kind
+                  session-kind status)
 
 (use ledger/model/roadmap-pauses roadmap-pause)
 
@@ -154,10 +154,6 @@
             (fn (planned)
               (= (:action planned) action/dispatch)))))
     (none false)))
-
-(type ready-ids-in
-  (fn ((ref (vec item)) (ref str))
-    (vec string)))
 
 (defn ready-ids-in (ready roadmap-id)
   (collect (map (filter (iter ready)

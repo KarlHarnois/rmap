@@ -1,7 +1,7 @@
 (module
   "Describes the event of a named live session ending, with the session it names.")
 
-(use json/value json text->json)
+(use json/value text->json)
 (use ledger/model item)
 (use ledger/model/sessions live-session session-end)
 
@@ -28,10 +28,6 @@
                  :payload (payload-with-changes (ref (ended-session-columns
                                                        end))
                                                 (session-context session))))
-
-(type session-context
-  (fn ((ref live-session))
-    (vec (pair string json))))
 
 (defn session-context (session)
   (vec (pair (str "session")

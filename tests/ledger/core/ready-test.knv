@@ -34,9 +34,6 @@
                  (any? (iter ready)
                    (fn (other) (= (:id other) (:id item))))))))))
 
-(type startable?
-  (fn ((ref snapshot) (ref item)) bool))
-
 (defn startable? (snapshot item)
   (and (not= (:kind item) kind/epic)
        (= (:status item) status/open)
@@ -58,17 +55,11 @@
     ((some target) (target-done? snapshot (ref target)))
     (none false)))
 
-(type target-done?
-  (fn ((ref snapshot) (ref item)) bool))
-
 (defn target-done? (snapshot target)
   (match (:kind target)
     (epic (epic-done? snapshot (ref (:id target))))
     (build (= (:status target) status/merged))
     (_ (= (:status target) status/accepted))))
-
-(type epic-done?
-  (fn ((ref snapshot) (ref item-id)) bool))
 
 (defn epic-done? (snapshot epic)
   (let (children (collect (filter (iter (:items snapshot))

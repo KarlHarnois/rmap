@@ -1,7 +1,7 @@
 (module
   "Describes external blockers in plain text.")
 
-(use ledger/api external-blocker timestamp)
+(use ledger/api external-blocker)
 (use cli/tables headed table)
 
 (export external-blocker-changed-text
@@ -45,12 +45,6 @@
        (cleared-text (ref (:cleared-at blocker))
                      (ref (:cleared-by blocker))
                      (ref (:clear-note blocker)))))
-
-(type cleared-text
-  (fn ((ref (option timestamp))
-       (ref (option string))
-       (ref (option string)))
-    string))
 
 (defn cleared-text (at by note)
   (match at

@@ -62,10 +62,6 @@
                              (text->sql (as-str text)))))
           (fn (_) (do))))
 
-(type delete-criteria
-  (fn ((ref connection) (ref item-id))
-    (result unit database-error)))
-
 (defn delete-criteria (connection id)
   (map-ok (execute connection
                    "DELETE FROM item_criteria WHERE item_id = ?1"

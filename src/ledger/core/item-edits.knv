@@ -29,10 +29,6 @@
   keep
   (set (vec string)))
 
-(type check-edit
-  (fn ((ref item) (ref item-edit))
-    (result unit refusal)))
-
 (defn check-edit (item edit)
   (if (finished? (:status item))
     (check-finished-edit item edit)
@@ -68,16 +64,9 @@
     (err (refusal/item-closed (clone (:id item))))
     (ok (do))))
 
-(type changes-title-or-priority?
-  (fn ((ref item-edit)) bool))
-
 (defn changes-title-or-priority? (edit)
   (or (some? (:title edit))
       (some? (:priority edit))))
-
-(type check-priority-of
-  (fn ((ref item-edit))
-    (result unit refusal)))
 
 (defn check-priority-of (edit)
   (match (:priority edit)

@@ -30,7 +30,6 @@
                             decision-rejected)
 
 (use ledger/failure failure)
-(use ledger/sqlite/connection connection)
 
 (export accept-decision ask-decision deprecate-decision
         reject-decision)
@@ -108,10 +107,6 @@
                   _ (record transaction
                             (decision-deprecated (ref before) (ref after))))
           (ok after))))))
-
-(type superseded-target
-  (fn ((ref connection) (ref decision))
-    (result (option decision) failure)))
 
 (defn superseded-target (connection decision)
   (match (:supersedes decision)

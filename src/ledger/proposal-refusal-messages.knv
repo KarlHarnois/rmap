@@ -1,7 +1,6 @@
 (module
   "Gives each proposal refusal its sentence for the user.")
 
-(use ledger/model decision-id)
 (use ledger/names case-name kind-names)
 (use ledger/refusal refusal)
 
@@ -47,9 +46,6 @@
 (defn listed-texts (texts)
   (join (collect (map (iter texts) as-str))
         ", "))
-
-(type listed-ids
-  (fn ((ref (vec decision-id))) string))
 
 (defn listed-ids (ids)
   (join (collect (map (iter ids)

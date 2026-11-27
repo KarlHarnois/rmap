@@ -3,7 +3,7 @@
 
 (use ledger/api case-name claim dep dep-type-names
                 item-detail kind-names origin-names
-                status-names timestamp)
+                status-names)
 
 (use cli/criteria-text criteria-text)
 (use cli/follow-up-text proposals-section)
@@ -31,10 +31,6 @@
          (children-text (ref (:children detail)))
          (proposals-section (ref (:proposals detail)))
          (pull-request-section (ref (:pull-request detail))))))
-
-(type detail-rows
-  (fn ((ref item-detail))
-    (vec (vec string))))
 
 (defn detail-rows (detail)
   (let (item (ref (:item detail)))
@@ -85,9 +81,6 @@
   (if (empty? values)
     (str "-")
     (join values ", ")))
-
-(type optional-timestamp-text
-  (fn ((ref (option timestamp))) string))
 
 (defn optional-timestamp-text (at)
   (match at

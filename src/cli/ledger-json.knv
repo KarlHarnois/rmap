@@ -7,11 +7,10 @@
 (use cli/session-json claim->json claim->session-json)
 
 (use ledger/api case-name dep dep-type-names event
-                event-type-names item item-id kind-names
+                event-type-names item kind-names
                 optional-decision-id->json optional-id->json
                 optional-text->json origin-names roadmap
-                roadmap-id roadmap-status-names status-names
-                timestamp)
+                roadmap-status-names status-names)
 
 (use cli/blockage-json blockage-fields)
 
@@ -116,9 +115,6 @@
        (pair (str "closed_at")
              (optional-timestamp->json (ref (:closed-at item))))))
 
-(type item-id->json
-  (fn ((ref item-id)) json))
-
 (defn item-id->json (id)
   (text->json (as-str (:value id))))
 
@@ -127,9 +123,6 @@
     ((some present) (roadmap-id->json present))
     (none json/null)))
 
-(type roadmap-id->json
-  (fn ((ref roadmap-id)) json))
-
 (defn roadmap-id->json (id)
   (text->json (as-str (:value id))))
 
@@ -137,9 +130,6 @@
   (match at
     ((some present) (timestamp->json present))
     (none json/null)))
-
-(type timestamp->json
-  (fn ((ref timestamp)) json))
 
 (defn timestamp->json (at)
   (text->json (as-str (:value at))))

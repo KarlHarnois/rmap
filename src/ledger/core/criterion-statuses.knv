@@ -1,19 +1,10 @@
 (module
   "Shows each acceptance criterion with the latest verdict a reviewer session gave it.")
 
-(use ledger/model item)
-
 (use ledger/model/criteria ->criterion-status
-                           ->criterion-verdict
-                           criterion-status
-                           criterion-verdict)
+                           ->criterion-verdict)
 
 (export criterion-statuses latest-per-position)
-
-(type criterion-statuses
-  (fn ((ref item)
-       (ref (vec criterion-verdict)))
-    (vec criterion-status)))
 
 (defn criterion-statuses (item verdicts)
   (let (own (collect (map (filter (iter verdicts)
@@ -28,10 +19,6 @@
                                      :verdict (verdict-at (ref latest)
                                                           (inc index))))))))
 
-(type latest-per-position
-  (fn ((ref (vec criterion-verdict)))
-    (vec criterion-verdict)))
-
 (defn latest-per-position (verdicts)
   (let (latest (vec))
     (for-each (reverse verdicts)
@@ -41,18 +28,10 @@
     (sort-by! latest :position)
     latest))
 
-(type position-present?
-  (fn ((ref (vec criterion-verdict)) int)
-    bool))
-
 (defn position-present? (verdicts position)
   (any? (iter verdicts)
     (fn (verdict)
       (= (:position verdict) position))))
-
-(type verdict-at
-  (fn ((ref (vec criterion-verdict)) int)
-    (option criterion-verdict)))
 
 (defn verdict-at (verdicts position)
   (map-some (find (iter verdicts)

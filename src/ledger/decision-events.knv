@@ -3,10 +3,7 @@
 
 (use json/value array json object text->json)
 (use ledger/model/decisions decision)
-
-(use ledger/model/events ->event-draft event-draft
-                         event-type)
-
+(use ledger/model/events ->event-draft event-type)
 (use ledger/names case-name decision-status-names)
 (use ledger/json-values ids->json)
 
@@ -61,10 +58,6 @@
   (only-changed (updated-columns (ref (decision->columns before))
                                  (ref (decision->columns after)))))
 
-(type option-changes
-  (fn ((ref decision) (ref decision))
-    (vec (pair string json))))
-
 (defn option-changes (before after)
   (if (= (:options before) (:options after))
     (vec)
@@ -79,17 +72,10 @@
           (pair (str "superseded") (superseded-json target))))
     (none (vec))))
 
-(type blocks-change
-  (fn ((ref decision) (ref decision))
-    (pair string json)))
-
 (defn blocks-change (before after)
   (old-and-new "blocks"
                (ids->json (ref (:blocks before)))
                (ids->json (ref (:blocks after)))))
-
-(type decision-event
-  (fn ((ref decision) event-type json) event-draft))
 
 (defn decision-event (decision type payload)
   (->event-draft :roadmap-id (some (clone (:roadmap-id decision)))
@@ -113,9 +99,6 @@
                      (object (vec (pair (str "old")
                                         (ids->json (ref (:blocks before))))
                                   (pair (str "new") (array (vec)))))))))
-
-(type status-json
-  (fn ((ref decision)) json))
 
 (defn status-json (decision)
   (text->json (case-name decision-status-names (:status decision))))

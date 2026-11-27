@@ -91,9 +91,6 @@
           ")"))
     (else (str "no reviewer approved it"))))
 
-(type names
-  (fn ((ref (vec session))) string))
-
 (defn names (sessions)
   (join (collect (map (iter sessions)
                    (fn (session) (clone (:name session)))))

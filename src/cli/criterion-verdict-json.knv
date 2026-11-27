@@ -53,19 +53,11 @@
                (pair (str "created_at")
                      (text->json (as-str (:value (:created-at verdict))))))))
 
-(type result-json
-  (fn ((ref (option criterion-verdict)))
-    json))
-
 (defn result-json (verdict)
   (match verdict
     ((some present)
      (text->json (case-name criterion-result-names (:verdict present))))
     (none json/null)))
-
-(type reviewer-json
-  (fn ((ref (option criterion-verdict)))
-    json))
 
 (defn reviewer-json (verdict)
   (match verdict
@@ -73,27 +65,15 @@
      (text->json (as-str (:name (:reviewer present)))))
     (none json/null)))
 
-(type head-json
-  (fn ((ref (option criterion-verdict)))
-    json))
-
 (defn head-json (verdict)
   (match verdict
     ((some present) (head-text-json (ref (:head present))))
     (none json/null)))
 
-(type note-json
-  (fn ((ref (option criterion-verdict)))
-    json))
-
 (defn note-json (verdict)
   (match verdict
     ((some present) (note-value-json (ref (:note present))))
     (none json/null)))
-
-(type created-json
-  (fn ((ref (option criterion-verdict)))
-    json))
 
 (defn created-json (verdict)
   (match verdict

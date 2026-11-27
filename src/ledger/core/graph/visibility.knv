@@ -15,9 +15,6 @@
                   (fn (item) (visible? item history)))
                 clone)))
 
-(type visible?
-  (fn ((ref item) (ref history)) bool))
-
 (defn visible? (item history)
   (match (:status item)
     (dropped false)

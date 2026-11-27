@@ -1,11 +1,10 @@
 (module
   "Renders a response as the JSON object the CLI prints.")
 
-(use ledger/api case-name criterion-gap criterion-result
+(use ledger/api case-name criterion-result
                 criterion-result-names database-problem
-                decision-id failure failure-code
-                failure-message pull-request-refusal refusal
-                session)
+                failure failure-code failure-message
+                pull-request-refusal refusal)
 
 (use cli/responses response)
 (use cli/help command-help-document help-document)
@@ -95,16 +94,9 @@
                 (text->json (as-str (:sha named))))))
     (_ (vec))))
 
-(type verifier-fields
-  (fn ((ref session))
-    (vec (pair string json))))
-
 (defn verifier-fields (reviewer)
   (vec (pair (str "verifier")
              (text->json (as-str (:name reviewer))))))
-
-(type decision-ids->json
-  (fn ((ref (vec decision-id))) json))
 
 (defn decision-ids->json (ids)
   (array (collect (map (iter ids)
@@ -114,9 +106,6 @@
 (defn criterion-gap-fields (gaps)
   (vec (pair (str "criteria")
              (array (collect (map (iter gaps) criterion-gap->json))))))
-
-(type criterion-gap->json
-  (fn ((ref criterion-gap)) json))
 
 (defn criterion-gap->json (gap)
   (object (vec (pair (str "position")

@@ -45,9 +45,6 @@
        (some (str "the recommendation gives no reason")))
       (else none))))
 
-(type untitled?
-  (fn ((ref option-draft)) bool))
-
 (defn untitled? (draft)
   (blank? (:title draft)))
 

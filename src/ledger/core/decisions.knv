@@ -105,10 +105,6 @@
                 :asked-at none
                 :created-at created-at)))
 
-(type revised-supersedes
-  (fn ((ref decision) (ref supersedes-change))
-    (option decision-id)))
-
 (defn revised-supersedes (decision change)
   (match change
     (keep (clone (:supersedes decision)))

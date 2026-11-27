@@ -32,10 +32,6 @@
            :report (newest-unread report-kind/done reports item))
     (clone planned)))
 
-(type answer-actions
-  (fn ((ref (vec report)) (ref item))
-    (vec next-action)))
-
 (defn answer-actions (reports item)
   (if (finished? (:status item))
     (vec)

@@ -16,12 +16,6 @@
   :option int
   :proposal string)
 
-(type insert-skips
-  (fn ((ref connection)
-       (ref decision-id)
-       (ref decision-option))
-    (result unit database-error)))
-
 (defn insert-skips (connection decision option)
   (loop (position 0)
     (if (< position (len (:skips option)))

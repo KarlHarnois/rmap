@@ -6,7 +6,6 @@
 (use ledger/core/snapshot existing)
 
 (use ledger/sqlite/decisions ->decision-filter
-                             decision-filter
                              decisions-matching)
 
 (use ledger/sqlite/snapshot load-snapshot)
@@ -53,10 +52,6 @@
   (let-try (filter (filter-of connection query)
             decisions (decisions-matching connection (ref filter)))
     (ok decisions)))
-
-(type filter-of
-  (fn ((ref connection) (ref decision-query))
-    (result decision-filter failure)))
 
 (defn filter-of (connection query)
   (let-try (roadmap-id (roadmap-id-of connection (ref (:roadmap query)))

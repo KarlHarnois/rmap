@@ -5,8 +5,7 @@
 (use json/value json->source parse-json)
 
 (use ledger/model ->decision-id ->item-id ->roadmap-id
-                  ->timestamp decision-id item-id
-                  roadmap-id)
+                  ->timestamp decision-id item-id)
 
 (use ledger/model/events ->event event event-draft
                          event-stamp)
@@ -60,26 +59,15 @@
                                   (int->sql (:after-id filter))))))
     (rows->values (ref rows) row->event)))
 
-(type optional-roadmap->sql
-  (fn ((ref (option roadmap-id)))
-    sql-value))
-
 (defn optional-roadmap->sql (id)
   (match id
     ((some present) (text->sql (as-str (:value present))))
     (none sql-value/null)))
 
-(type optional-item->sql
-  (fn ((ref (option item-id))) sql-value))
-
 (defn optional-item->sql (id)
   (match id
     ((some present) (text->sql (as-str (:value present))))
     (none sql-value/null)))
-
-(type optional-decision->sql
-  (fn ((ref (option decision-id)))
-    sql-value))
 
 (defn optional-decision->sql (id)
   (match id

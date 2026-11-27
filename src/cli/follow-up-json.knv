@@ -3,9 +3,7 @@
 
 (use json/value array int->json json object text->json)
 (use cli/schema-envelope envelope)
-
-(use ledger/api case-name follow-up follow-up-decision
-                item-id kind-names)
+(use ledger/api case-name follow-up item-id kind-names)
 
 (export follow-up->json follow-ups->json proposals-envelope)
 
@@ -20,9 +18,6 @@
 
 (defn follow-ups->json (follow-ups)
   (array (collect (map (iter follow-ups) follow-up->json))))
-
-(type follow-up->json
-  (fn ((ref follow-up)) json))
 
 (defn follow-up->json (follow-up)
   (object
@@ -45,10 +40,6 @@
          (pair (str "created_item")
                (created->json (ref (:created-item follow-up)))))))
 
-(type decision->json
-  (fn ((ref (option follow-up-decision)))
-    json))
-
 (defn decision->json (decision)
   (match decision
     ((some link)
@@ -57,9 +48,6 @@
                   (pair (str "option")
                         (int->json (:option link))))))
     (none json/null)))
-
-(type created->json
-  (fn ((ref (option item-id))) json))
 
 (defn created->json (created)
   (match created

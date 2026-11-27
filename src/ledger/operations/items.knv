@@ -1,15 +1,10 @@
 (module
   "Lists items and shows one item with its dependencies and children.")
 
-(use ledger/model dep external-blocker item item-id
-                  snapshot)
-
+(use ledger/model dep external-blocker item item-id)
 (use ledger/model/criteria criterion-status)
 (use ledger/model/follow-ups follow-up)
-
-(use ledger/core/index index-of ledger-index
-                       with-shown-status)
-
+(use ledger/core/index index-of with-shown-status)
 (use ledger/core/external-blockers external-blockers-of)
 (use ledger/core/snapshot deps-of existing in-scope?)
 (use ledger/sqlite/events ->event-filter)
@@ -91,12 +86,6 @@
                          :external-blockers (external-blockers-of (ref snapshot)
                                                                   id))))))
 
-(type children-of
-  (fn ((ref snapshot)
-       (ref ledger-index)
-       (ref item-id))
-    (vec item)))
-
 (defn children-of (snapshot index id)
   (let (children (collect (map (filter (iter (:items snapshot))
                                  (fn (item) (child-of? item id)))
@@ -105,9 +94,6 @@
       (fn (child)
         (clone (:value (:id child)))))
     children))
-
-(type child-of?
-  (fn ((ref item) (ref item-id)) bool))
 
 (defn child-of? (item id)
   (match (:parent item)

@@ -4,7 +4,7 @@
 (use json/value array bool->json int->json json object
                 text->json)
 
-(use ledger/api refusal-catalog refusal-description)
+(use ledger/api refusal-catalog)
 (use cli/routes route-name)
 (use cli/commands routes)
 (use cli/route-documents route-document)
@@ -15,9 +15,7 @@
 (use cli/exit-codes exit-code->meaning exit-code->number
                     exit-codes)
 
-(use cli/environment-variables environment-variable
-                               environment-variables)
-
+(use cli/environment-variables environment-variables)
 (use cli/schema-envelope envelope)
 (use cli/usage usage-line)
 
@@ -77,9 +75,6 @@
      (text->json (as-str placeholder)))
     (flag-input/boolean (text->json ""))))
 
-(type environment-variable->json
-  (fn ((ref environment-variable)) json))
-
 (defn environment-variable->json (variable)
   (object (vec (pair (str "name")
                      (text->json (as-str (:name variable))))
@@ -91,9 +86,6 @@
                      (int->json (exit-code->number (deref code))))
                (pair (str "meaning")
                      (text->json (exit-code->meaning (deref code)))))))
-
-(type refusal->json
-  (fn ((ref refusal-description)) json))
 
 (defn refusal->json (description)
   (object (vec (pair (str "code")

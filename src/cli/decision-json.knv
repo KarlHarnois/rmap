@@ -8,7 +8,7 @@
                 decision-status-names ids->json
                 optional-decision-id->json optional-id->json
                 optional-text->json optional-timestamp->json
-                options->json outcome recommendation)
+                options->json outcome)
 
 (export decision->json decision-envelope decision-fields
         decisions-envelope option-record->json)
@@ -78,9 +78,6 @@
                         (text->json (as-str (:title option))))
                  (field "description"
                         (text->json (as-str (:description option))))))))
-
-(type recommendation->json
-  (fn ((ref recommendation)) json))
 
 (defn recommendation->json (recommendation)
   (object (vec (field "option" (int->json (:option recommendation)))

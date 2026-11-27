@@ -4,7 +4,7 @@
 (use ledger/sqlite/values int->sql optional-text->sql
                           sql-value text->sql)
 
-(use ledger/model ->item-id ->session ->timestamp timestamp)
+(use ledger/model ->item-id ->session ->timestamp)
 (use ledger/model/sessions ->session-id)
 
 (use ledger/model/reports ->report ->report-id report
@@ -49,10 +49,6 @@
                      (text->sql (as-str (:value (:created-at report))))
                      (optional-timestamp->sql (ref (:read-at report)))))))
 
-(type mark-read
-  (fn ((ref connection) (ref report))
-    (result int database-error)))
-
 (defn mark-read (connection report)
   (execute connection
            "UPDATE reports SET read_at = ?2 WHERE id = ?1"
@@ -90,10 +86,6 @@
 
 (defn unread-flag (reading)
   (match reading (every-report 0) (unread-only 1)))
-
-(type optional-timestamp->sql
-  (fn ((ref (option timestamp)))
-    sql-value))
 
 (defn optional-timestamp->sql (at)
   (optional-text->sql (map-some (clone at)

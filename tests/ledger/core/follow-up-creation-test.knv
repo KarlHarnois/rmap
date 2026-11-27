@@ -23,10 +23,6 @@
   (assoc (work-item "rm-s" kind/research status/reported)
          :roadmap-name (str "road")))
 
-(type dep-on
-  (fn ((ref (vec dep)) (ref string) dep-type)
-    (vec dep)))
-
 (defn dep-on (deps on type)
   (collect (map (filter (iter deps)
                   (fn (dep)

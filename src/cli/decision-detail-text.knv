@@ -1,9 +1,7 @@
 (module
   "Describes the detail of one decision: its fields, context, options, recommendation and outcome.")
 
-(use ledger/api case-name decision decision-id
-                decision-status-names item-id timestamp)
-
+(use ledger/api case-name decision decision-status-names)
 (use cli/tables indented table)
 (use cli/item-text optional-id-text)
 
@@ -12,9 +10,6 @@
                            recommendation-section)
 
 (export decision-detail-text)
-
-(type decision-detail-text
-  (fn ((ref decision)) string))
 
 (defn decision-detail-text (decision)
   (join (vec (str (:value (:id decision))
@@ -51,9 +46,6 @@
 (defn detail-row (label value)
   (vec (str label) value))
 
-(type listed-ids
-  (fn ((ref (vec item-id))) string))
-
 (defn listed-ids (ids)
   (if (empty? ids)
     (str "-")
@@ -61,16 +53,10 @@
                      (fn (id) (clone (:value id)))))
           ", ")))
 
-(type optional-decision-text
-  (fn ((ref (option decision-id))) string))
-
 (defn optional-decision-text (id)
   (match id
     ((some present) (clone (:value present)))
     (none (str "-"))))
-
-(type optional-timestamp-text
-  (fn ((ref (option timestamp))) string))
 
 (defn optional-timestamp-text (at)
   (match at

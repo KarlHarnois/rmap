@@ -1,8 +1,8 @@
 (module
   "Adds an item with its dependencies.")
 
-(use ledger/model ->dep ->item ->item-id claim dep dep-type
-                  item item-id roadmap-id status timestamp)
+(use ledger/model ->dep ->item ->item-id claim dep-type item
+                  item-id roadmap-id status timestamp)
 
 (use ledger/core/criteria check-criteria)
 
@@ -84,13 +84,6 @@
             _ (record transaction (item-added (ref item) request)))
     (ok item)))
 
-(type request->item
-  (fn ((ref new-item)
-       item-stamp
-       (option string)
-       (vec string))
-    item))
-
 (defn request->item (request stamp description criteria)
   (let-match ((item-stamp :id id
                           :roadmap-id roadmap-id
@@ -110,10 +103,6 @@
             :claim claim/unclaimed
             :created-at created-at
             :closed-at none)))
-
-(type draft-deps
-  (fn ((ref item) (ref new-item))
-    (vec dep)))
 
 (defn draft-deps (item request)
   (let (deps (collect (map (iter (:blocked-by request))
