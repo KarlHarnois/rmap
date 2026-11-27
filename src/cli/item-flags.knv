@@ -2,14 +2,15 @@
   "Reads the flags of `item add` and `item edit` into the new item or the edit each one makes.")
 
 (use ledger/api ->item-edit ->item-id ->new-item
-                criteria-input description-input kind-names
-                origin origin-names)
+                criteria-input description-input exclusivity
+                kind-names origin origin-names)
 
 (use cli/criteria-flags criteria-of)
 (use cli/description-flags description-of)
 
 (use cli/flags id-list optional-choice optional-number
-               optional-text required-choice required-text)
+               optional-text required-choice required-text
+               switch-on?)
 
 (export item-edit-of new-item-of)
 
@@ -28,6 +29,7 @@
                     :kind kind
                     :origin (unwrap-or origin origin/planned)
                     :priority (unwrap-or priority 2)
+                    :exclusive (exclusive-of arguments)
                     :blocked-by (id-list arguments "after")
                     :discovered-from (map-some (optional-text arguments "from")
                                                text->item-id)))))
@@ -35,17 +37,35 @@
 (defn item-edit-of (arguments)
   (let-try (priority (optional-number arguments "priority")
             description (description-of arguments)
-            criteria (criteria-of arguments))
+            criteria (criteria-of arguments)
+            exclusive (exclusive-edit-of arguments))
     (let (title (optional-text arguments "title")
           given? (or (some? title)
                      (some? priority)
                      (not= description description-input/unspecified)
-                     (not= criteria criteria-input/unspecified)))
+                     (not= criteria criteria-input/unspecified)
+                     (some? exclusive)))
       (if given?
         (ok (->item-edit :title title
                          :priority priority
                          :description description
-                         :criteria criteria))
-        (err (str "item edit needs at least one of --title, --priority, --description, --description-file, --criterion or --criteria-file"))))))
+                         :criteria criteria
+                         :exclusive exclusive))
+        (err (str "item edit needs at least one of --title, --priority, --description, --description-file, --criterion, --criteria-file, --exclusive or --not-exclusive"))))))
+
+(defn exclusive-of (arguments)
+  (if (switch-on? arguments "exclusive")
+    exclusivity/exclusive exclusivity/not-exclusive))
+
+(defn exclusive-edit-of (arguments)
+  (let (on? (switch-on? arguments "exclusive")
+        off? (switch-on? arguments "not-exclusive"))
+    (cond
+      ((and on? off?)
+       (err (str
+              "item edit takes only one of --exclusive and --not-exclusive")))
+      (on? (ok (some exclusivity/exclusive)))
+      (off? (ok (some exclusivity/not-exclusive)))
+      (else (ok none)))))
 
 (defn text->item-id (text) (->item-id :value text))

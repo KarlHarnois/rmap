@@ -28,7 +28,8 @@
                                                :dropped-blockers (vec)
                                                :decisions (vec)
                                                :capacity none
-                                               :external-blockers (vec)))))))
+                                               :external-blockers (vec)
+                                               :exclusive none))))))
     (assert (= (next-text (ref (vec (next-entry/listed-item entry))))
                (str "review  controller  s1  rm-0001  work\n"
                     "wait    controller  -   rm-0001  work")))))

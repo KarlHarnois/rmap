@@ -1,8 +1,8 @@
 (module
   "Describes in plain text which items are ready and what holds back the others.")
 
-(use ledger/api blocked-item decision-id item-id
-                roadmap-pause)
+(use ledger/api blocked-item decision-id exclusive-hold
+                item-id roadmap-pause)
 
 (use cli/tables indented)
 (use cli/item-text item-table)
@@ -37,6 +37,8 @@
       (push! lines
              (str "waits on decisions "
                   (decision-ids-text (ref (:decisions blockage))))))
+    (for-each (exclusive-lines (:exclusive blockage))
+      (fn (line) (push! lines (clone line))))
     (for-each (:external-blockers blockage)
       (fn (blocker)
         (push! lines
@@ -47,6 +49,24 @@
     (for-each (capacity-lines (:capacity blockage))
       (fn (line) (push! lines (clone line))))
     lines))
+
+(defn exclusive-lines (hold)
+  (match hold
+    ((some present) (vec (exclusive-line present)))
+    (none (vec))))
+
+(defn exclusive-line (hold)
+  (match hold
+    ((exclusive-hold/held-by item)
+     (str "waits for exclusive "
+          (:value (:id item))
+          " in "
+          (:roadmap-name item)))
+    ((exclusive-hold/waits-on item ids)
+     (str "exclusive "
+          (:value (:id item))
+          " waits for in-progress "
+          (ids-text (ref ids))))))
 
 (defn capacity-lines (capacity)
   (match capacity

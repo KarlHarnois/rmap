@@ -1,7 +1,7 @@
 (module
   "Checks an edit against the ledger and computes the item it changes.")
 
-(use ledger/model item)
+(use ledger/model exclusivity item)
 (use ledger/refusal refusal)
 (use ledger/core/criteria check-criteria criteria-input)
 
@@ -19,7 +19,8 @@
   :title (option string)
   :priority (option int)
   :description description-input
-  :criteria criteria-input)
+  :criteria criteria-input
+  :exclusive (option exclusivity))
 
 (defenum description-edit
   keep
@@ -56,24 +57,26 @@
   (let (titled (with-title (clone item)
                            (ref (:title edit)))
         prioritized (with-priority titled (:priority edit))
-        described (with-description prioritized description))
-    (with-criteria described criteria)))
+        described (with-description prioritized description)
+        exclusive (with-exclusive described (:exclusive edit)))
+    (with-criteria exclusive criteria)))
 
 (type check-finished-edit
   (fn ((ref item) (ref item-edit))
     (result unit refusal)))
 
 (defn check-finished-edit (item edit)
-  (if (changes-title-or-priority? edit)
+  (if (changes-locked-field? edit)
     (err (refusal/item-closed (clone (:id item))))
     (ok (do))))
 
-(type changes-title-or-priority?
+(type changes-locked-field?
   (fn ((ref item-edit)) bool))
 
-(defn changes-title-or-priority? (edit)
+(defn changes-locked-field? (edit)
   (or (some? (:title edit))
-      (some? (:priority edit))))
+      (some? (:priority edit))
+      (some? (:exclusive edit))))
 
 (type check-priority-of
   (fn ((ref item-edit))
@@ -98,6 +101,15 @@
 (defn with-priority (item priority)
   (match priority
     ((some value) (assoc item :priority value))
+    (none item)))
+
+(type with-exclusive
+  (fn (item (ref (option exclusivity)))
+    item))
+
+(defn with-exclusive (item exclusive)
+  (match exclusive
+    ((some value) (assoc item :exclusive (clone value)))
     (none item)))
 
 (type with-description (fn (item description-edit) item))

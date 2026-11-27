@@ -1,0 +1,84 @@
+(use ledger/model claim kind status)
+
+(use ledger/model/exclusive-items ->exclusive-item
+                                  exclusive-hold
+                                  exclusive-item
+                                  exclusivity)
+
+(use ledger/core/exclusivity exclusive-context-of
+                             exclusive-hold-for)
+
+(use ledger/core/index index-of)
+
+(use support/items claimed exclusive id-of snapshot-of
+                   work-item)
+
+(defn context-of (snapshot)
+  (exclusive-context-of (ref snapshot)
+                        (ref (index-of (ref snapshot)))))
+
+(defn hold-of (context id kind status)
+  (exclusive-hold-for context
+                      (ref (work-item id kind status))))
+
+(defn hold-of-exclusive (context id kind status)
+  (exclusive-hold-for context
+                      (ref (exclusive (work-item id kind status)))))
+
+(defn exclusive-of-id (id)
+  (->exclusive-item :id (id-of id) :roadmap-name (str "road")))
+
+(deftest no-exclusive-item-holds-anything
+  (let (context (context-of (snapshot-of
+                              (vec (work-item "rm-0001" kind/build status/open))
+                              (vec))))
+    (assert (= (hold-of (clone context) "rm-0001" kind/build status/open)
+               none))))
+
+(deftest a-running-exclusive-item-holds-an-open-item
+  (let (context (context-of
+                  (snapshot-of
+                    (vec (exclusive (claimed (work-item "rm-0001"
+                                                        kind/build
+                                                        status/dispatched)))
+                         (work-item "rm-0002" kind/design status/open))
+                    (vec))))
+    (assert (= (hold-of (clone context) "rm-0002" kind/design status/open)
+               (some (exclusive-hold/held-by (exclusive-of-id "rm-0001")))))))
+
+(deftest a-first-exclusive-item-waits-for-active-work-and-holds-the-rest
+  (let (context (context-of
+                  (snapshot-of
+                    (vec (claimed
+                           (work-item "rm-0001" kind/design status/dispatched))
+                         (exclusive
+                           (work-item "rm-0002" kind/build status/open))
+                         (work-item "rm-0003" kind/research status/open))
+                    (vec))))
+    (assert (= (hold-of (clone context) "rm-0002" kind/build status/open)
+               (some (exclusive-hold/waits-on (exclusive-of-id "rm-0002")
+                                              (vec (id-of "rm-0001"))))))
+    (assert (= (hold-of (clone context)
+                        "rm-0003" kind/research status/open)
+               (some (exclusive-hold/held-by (exclusive-of-id "rm-0002")))))))
+
+(deftest an-exclusive-item-behind-another-ready-item-holds-only-exclusives
+  (let (context (context-of
+                  (snapshot-of
+                    (vec (work-item "rm-0001" kind/research status/open)
+                         (exclusive
+                           (assoc (work-item "rm-0002" kind/build status/open)
+                                  :priority 2))
+                         (exclusive
+                           (assoc (work-item "rm-0003" kind/build status/open)
+                                  :priority 4)))
+                    (vec))))
+    (assert (= (hold-of (clone context)
+                        "rm-0001" kind/research status/open)
+               none))
+    (assert (= (hold-of (clone context) "rm-0002" kind/build status/open)
+               none))
+    (assert (= (hold-of-exclusive (clone context)
+                                  "rm-0003" kind/build
+                                  status/open)
+               (some (exclusive-hold/held-by (exclusive-of-id "rm-0002")))))))

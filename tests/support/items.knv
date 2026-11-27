@@ -5,16 +5,16 @@
                   ->external-blocker ->external-blocker-id
                   ->item ->item-id ->roadmap ->roadmap-id
                   ->session ->snapshot ->timestamp
-                  ->work-session claim dep-type item kind
-                  origin roadmap-status runtime session-kind
-                  status)
+                  ->work-session claim dep-type exclusivity
+                  item kind origin roadmap-status runtime
+                  session-kind status)
 
 (export blocks-dep child-of claimed decision-block-on
-        discovered-dep epic-item external-blocker-on id-of
-        in-roadmap kinds paused-roadmap-of
-        paused-snapshot-of roadmap-of session-start-named
-        snapshot-of statuses titled with-origin work-item
-        work-session-named)
+        discovered-dep epic-item exclusive
+        external-blocker-on id-of in-roadmap kinds
+        paused-roadmap-of paused-snapshot-of roadmap-of
+        session-start-named snapshot-of statuses titled
+        with-origin work-item work-session-named)
 
 (defn epic-item (id) (work-item id kind/epic status/open))
 
@@ -30,6 +30,7 @@
           :status status
           :origin origin/planned
           :priority 0
+          :exclusive exclusivity/not-exclusive
           :claim claim/unclaimed
           :created-at (->timestamp :value (str "2026-01-01T00:00:00Z"))
           :closed-at none))
@@ -39,6 +40,11 @@
 
 (defn child-of (item epic-id)
   (assoc item :parent (some (id-of epic-id))))
+
+(type exclusive (fn ((ref item)) item))
+
+(defn exclusive (item)
+  (assoc (clone item) :exclusive exclusivity/exclusive))
 
 (defn claimed (item)
   (assoc item

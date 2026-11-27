@@ -15,7 +15,8 @@
                                         :dropped-blockers (vec)
                                         :decisions (vec)
                                         :capacity none
-                                        :external-blockers (vec))))
+                                        :external-blockers (vec)
+                                        :exclusive none)))
 
 (defn research (id)
   (work-item id kind/research status/open))

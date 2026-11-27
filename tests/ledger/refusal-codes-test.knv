@@ -36,7 +36,8 @@
                                       :dropped-blockers (vec)
                                       :decisions (vec)
                                       :capacity none
-                                      :external-blockers (vec)))
+                                      :external-blockers (vec)
+                                      :exclusive none))
        (refusal/cycle (sample-id) (sample-id))
        (refusal/dep-exists (sample-id) (sample-id))
        (refusal/dep-not-found (sample-id) (sample-id))

@@ -107,6 +107,7 @@
             :status status/open
             :origin (:origin request)
             :priority (:priority request)
+            :exclusive (:exclusive request)
             :claim claim/unclaimed
             :created-at created-at
             :closed-at none)))

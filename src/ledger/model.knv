@@ -2,17 +2,30 @@
   "Holds the ledger's values: roadmaps, items, their sessions, dependencies, decisions and blockages.")
 
 (use ledger/model/capacity capacity)
+
+(use ledger/model/decision-refs ->decision-block
+                                ->decision-id decision-block
+                                decision-id decision-status)
+
+(use ledger/model/exclusive-items ->exclusive-item
+                                  exclusive-hold
+                                  exclusive-item
+                                  exclusivity)
+
+(use ledger/model/ids ->item-id item-id)
 (use ledger/model/roadmap-pauses roadmap-pause)
 
 (export ->blockage ->decision-block ->decision-id ->dep
-        ->external-blocker ->external-blocker-id ->item
-        ->item-id ->roadmap ->roadmap-id ->session
-        ->snapshot ->timestamp ->work-session blockage claim
-        decision-block decision-id decision-status dep
-        dep-type external-blocker external-blocker-id item
-        item-id kind origin roadmap roadmap-id
-        roadmap-status runtime session session-kind snapshot
-        status timestamp work-session)
+        ->exclusive-item ->external-blocker
+        ->external-blocker-id ->item ->item-id ->roadmap
+        ->roadmap-id ->session ->snapshot ->timestamp
+        ->work-session blockage claim decision-block
+        decision-id decision-status dep dep-type
+        exclusive-hold exclusive-item exclusivity
+        external-blocker external-blocker-id item item-id
+        kind origin roadmap roadmap-id roadmap-status
+        runtime session session-kind snapshot status
+        timestamp work-session)
 
 (defstruct snapshot
   :roadmaps (vec roadmap)
@@ -20,14 +33,6 @@
   :deps (vec dep)
   :decision-blocks (vec decision-block)
   :external-blockers (vec external-blocker))
-
-(defstruct decision-block
-  :decision decision-id
-  :item item-id
-  :status decision-status)
-
-(defstruct decision-id
-  :value string)
 
 (defstruct external-blocker
   :id external-blocker-id
@@ -42,12 +47,14 @@
 (defstruct external-blocker-id
   :value string)
 
-(defenum decision-status
-  proposed
-  accepted
-  rejected
-  deprecated
-  superseded)
+(defstruct blockage
+  :pause roadmap-pause
+  :blockers (vec item-id)
+  :dropped-blockers (vec item-id)
+  :decisions (vec decision-id)
+  :capacity (option capacity)
+  :external-blockers (vec external-blocker)
+  :exclusive (option exclusive-hold))
 
 (defstruct roadmap
   :id roadmap-id
@@ -74,6 +81,7 @@
   :status status
   :origin origin
   :priority int
+  :exclusive exclusivity
   :claim claim
   :created-at timestamp
   :closed-at (option timestamp))
@@ -136,14 +144,3 @@
 (defenum dep-type
   blocks
   discovered-from)
-
-(defstruct blockage
-  :pause roadmap-pause
-  :blockers (vec item-id)
-  :dropped-blockers (vec item-id)
-  :decisions (vec decision-id)
-  :capacity (option capacity)
-  :external-blockers (vec external-blocker))
-
-(defstruct item-id
-  :value string)

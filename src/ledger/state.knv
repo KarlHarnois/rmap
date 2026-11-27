@@ -1,14 +1,14 @@
 (module
-  "Holds the ledger's state surface: values, JSON helpers, items, dependencies, readiness, next actions and the graph.")
+  "Holds the ledger's state surface: values, items, dependencies, readiness, next actions and the graph.")
 
-(use ledger/model ->item-id ->session blockage claim dep
-                  dep-type external-blocker item item-id
-                  kind origin roadmap roadmap-id
-                  roadmap-status session status timestamp
-                  work-session)
+(use ledger/model ->item-id ->session claim dep
+                  exclusive-hold exclusive-item exclusivity
+                  external-blocker item item-id origin
+                  roadmap roadmap-id roadmap-status session
+                  timestamp work-session)
 
 (use ledger/action-names action-names actor-names)
-(use ledger/core/actions action actor next-action)
+(use ledger/core/actions actor)
 (use ledger/core/batch batch batch-size batch-size-of)
 (use ledger/core/criteria criteria-input)
 (use ledger/core/decision-next decision-next)
@@ -37,10 +37,6 @@
                         pull-request-refusal refusal
                         refusal-catalog refusal-description)
 
-(use ledger/json-values ids->json optional-id->json
-                        optional-text->json
-                        optional-timestamp->json)
-
 (use ledger/ledger-api ->settings clock init-ledger
                        init-outcome-names init-report
                        list-roadmaps new-roadmap
@@ -57,11 +53,9 @@
 (use ledger/model/events event)
 
 (use ledger/model/follow-ups ->follow-up-decision
-                             ->follow-up-draft
-                             ->proposal-submission follow-up
+                             ->follow-up-draft follow-up
                              follow-up-decision
-                             follow-up-draft
-                             proposal-submission)
+                             follow-up-draft)
 
 (use ledger/model/graphs graph-format graph-format-names
                          history)
@@ -106,37 +100,34 @@
 (use ledger/session-api abandoned end-reason end-session
                         ended-session session-record->json)
 
-(export ->advancement ->claim-request ->criterion-gap
-        ->criterion-status ->criterion-verdict
-        ->follow-up-decision ->follow-up-draft
-        ->graph-request ->graph-source ->item-edit ->item-id
-        ->log-query ->new-item ->report-id ->report-query
-        ->report-request ->session ->settings
-        ->verify-request abandoned action action-names actor
-        actor-names add-dep add-external-blocker add-item
-        add-proposals advance-item advancement batch
-        batch-size batch-size-of blockage blocked-item
-        body-source cap-result case-name case-named claim
-        claim-item claim-request clear-external-blocker
-        clock close-item criteria-input criterion-gap
-        criterion-result criterion-result-names
-        criterion-status criterion-verdict database-problem
-        decision-next decision-option-record dep dep-type
-        dep-type-names description-input draw-graph
-        drop-item edit-item end-reason end-session
-        ended-session event event-type-names export-ledger
-        external-blocker failure failure-code
-        failure-message follow-up follow-up-decision
-        follow-up-draft graph-format graph-format-names
-        graph-level graph-level-names graph-request
-        graph-source history ids->json init-ledger
+(export ->advancement ->claim-request ->follow-up-decision
+        ->follow-up-draft ->graph-request ->graph-source
+        ->item-edit ->item-id ->log-query ->new-item
+        ->report-id ->report-query ->report-request
+        ->session ->settings ->verify-request abandoned
+        action-names actor actor-names add-dep
+        add-external-blocker add-item add-proposals
+        advance-item advancement batch batch-size
+        batch-size-of blocked-item body-source cap-result
+        case-name case-named claim claim-item claim-request
+        clear-external-blocker clock close-item
+        criteria-input criterion-gap criterion-result
+        criterion-result-names criterion-status
+        criterion-verdict database-problem decision-next
+        decision-option-record dep dep-type-names
+        description-input draw-graph drop-item edit-item
+        end-reason end-session ended-session event
+        event-type-names exclusive-hold exclusive-item
+        exclusivity export-ledger external-blocker failure
+        failure-code failure-message follow-up
+        follow-up-decision follow-up-draft graph-format
+        graph-format-names graph-level graph-level-names
+        graph-request graph-source history init-ledger
         init-outcome-names init-report item item-detail
-        item-edit item-id kind kind-change kind-names
-        list-items list-proposals list-reports list-roadmaps
-        log-query new-item new-roadmap next-action
-        next-actions next-entry next-item optional-id->json
-        optional-text->json optional-timestamp->json origin
-        origin-names pause-roadmap proposal-submission
+        item-edit item-id kind-change kind-names list-items
+        list-proposals list-reports list-roadmaps log-query
+        new-item new-roadmap next-actions next-entry
+        next-item origin origin-names pause-roadmap
         pull-request-refusal read-log read-report readiness
         ready-batch ready-items record-report
         recorded-report refusal refusal-catalog
@@ -146,5 +137,5 @@
         roadmap-pause roadmap-status roadmap-status-names
         runtime-names session session-kind-names
         session-record->json set-max-active settings
-        show-item show-report status status-names timestamp
+        show-item show-report status-names timestamp
         verify-criterion verify-request work-session)

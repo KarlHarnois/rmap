@@ -2,8 +2,8 @@
   "Describes one item in detail: its rows, its description and its children.")
 
 (use ledger/api case-name claim dep dep-type-names
-                item-detail kind-names origin-names
-                status-names timestamp)
+                exclusivity item-detail kind-names
+                origin-names status-names timestamp)
 
 (use cli/criteria-text criteria-text)
 (use cli/follow-up-text proposals-section)
@@ -49,6 +49,7 @@
          (detail-row "origin"
                      (str (case-name origin-names (:origin item))))
          (detail-row "priority" (str (:priority item)))
+         (detail-row "exclusive" (exclusive-text (:exclusive item)))
          (detail-row "parent"
                      (optional-id-text (ref (:parent item))))
          (detail-row "created"
@@ -64,6 +65,11 @@
 
 (defn detail-row (label value)
   (vec (str label) value))
+
+(defn exclusive-text (exclusive)
+  (match exclusive
+    (exclusivity/exclusive (str "yes"))
+    (exclusivity/not-exclusive (str "no"))))
 
 (defn claim-text (claim)
   (match claim

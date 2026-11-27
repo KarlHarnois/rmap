@@ -6,6 +6,8 @@
 (use ledger/model ->item ->item-id ->roadmap-id ->timestamp
                   item item-id timestamp)
 
+(use ledger/model/exclusive-items exclusivity-names)
+
 (use ledger/names case-name kind-names origin-names
                   status-names)
 
@@ -24,12 +26,12 @@
 (export all-items insert-item update-item)
 
 (def columns
-  "id, roadmap_id, parent_id, title, kind, status, origin, priority, created_at, closed_at, description")
+  "id, roadmap_id, parent_id, title, kind, status, origin, priority, created_at, closed_at, description, exclusive")
 
 (def joined-columns
-  "items.id, items.roadmap_id, items.parent_id, items.title, items.kind, items.status, items.origin, items.priority, items.created_at, items.closed_at, items.description, roadmaps.name")
+  "items.id, items.roadmap_id, items.parent_id, items.title, items.kind, items.status, items.origin, items.priority, items.created_at, items.closed_at, items.description, items.exclusive, roadmaps.name")
 
-(def live-session-first-column 12)
+(def live-session-first-column 13)
 
 (type insert-item
   (fn ((ref connection) (ref item))
@@ -37,9 +39,8 @@
 
 (defn insert-item (connection item)
   (execute connection
-           (as-str (str
-                     "INSERT INTO items (" columns
-                     ") VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"))
+           (as-str (str "INSERT INTO items (" columns
+                        ") VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"))
            (ref (vec (text->sql (as-str (:value (:id item))))
                      (text->sql (as-str (:value (:roadmap-id item))))
                      (optional-id->sql (ref (:parent item)))
@@ -50,7 +51,9 @@
                      (int->sql (:priority item))
                      (text->sql (as-str (:value (:created-at item))))
                      (closed-at->sql (ref (:closed-at item)))
-                     (optional-text->sql (ref (:description item)))))))
+                     (optional-text->sql (ref (:description item)))
+                     (text->sql (case-name exclusivity-names
+                                           (:exclusive item)))))))
 
 (type update-item
   (fn ((ref connection) (ref item))
@@ -58,14 +61,16 @@
 
 (defn update-item (connection item)
   (execute connection
-           "UPDATE items SET title = ?2, description = ?3, kind = ?4, status = ?5, priority = ?6, closed_at = ?7 WHERE id = ?1"
+           "UPDATE items SET title = ?2, description = ?3, kind = ?4, status = ?5, priority = ?6, closed_at = ?7, exclusive = ?8 WHERE id = ?1"
            (ref (vec (text->sql (as-str (:value (:id item))))
                      (text->sql (as-str (:title item)))
                      (optional-text->sql (ref (:description item)))
                      (text->sql (case-name kind-names (:kind item)))
                      (text->sql (case-name status-names (:status item)))
                      (int->sql (:priority item))
-                     (closed-at->sql (ref (:closed-at item)))))))
+                     (closed-at->sql (ref (:closed-at item)))
+                     (text->sql (case-name exclusivity-names
+                                           (:exclusive item)))))))
 
 (defn all-items (connection)
   (let-try (rows (query connection
@@ -115,7 +120,8 @@
             created-at (text-cell row 8)
             closed-at (optional-text-cell row 9)
             description (optional-text-cell row 10)
-            roadmap-name (text-cell row 11)
+            exclusive (named-cell row 11 exclusivity-names)
+            roadmap-name (text-cell row 12)
             claim (row->claim row live-session-first-column))
     (ok (->item :id (->item-id :value id)
                 :roadmap-id (->roadmap-id :value roadmap-id)
@@ -129,6 +135,7 @@
                 :status status
                 :origin origin
                 :priority priority
+                :exclusive exclusive
                 :claim claim
                 :created-at (->timestamp :value created-at)
                 :closed-at (map-some closed-at

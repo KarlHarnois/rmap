@@ -2,7 +2,8 @@
   "Turns the proposals an item applies into the items and dependencies they create.")
 
 (use ledger/model ->dep ->item ->item-id claim dep dep-type
-                  item item-id origin status timestamp)
+                  exclusivity item item-id origin status
+                  timestamp)
 
 (use ledger/model/follow-ups follow-up)
 
@@ -36,6 +37,7 @@
           :status status/open
           :origin origin/follow-up
           :priority (:priority follow-up)
+          :exclusive exclusivity/not-exclusive
           :claim claim/unclaimed
           :created-at (clone created-at)
           :closed-at none))

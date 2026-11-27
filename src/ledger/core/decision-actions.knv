@@ -113,7 +113,8 @@
               :dropped-blockers (vec)
               :decisions (vec)
               :capacity none
-              :external-blockers (vec)))
+              :external-blockers (vec)
+              :exclusive none))
 
 (defn rejected-in? (snapshot id)
   (= (decision-status-in snapshot id)

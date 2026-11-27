@@ -1,0 +1,255 @@
+(use json/value copy-of field json->bool json->items
+                json->text)
+
+(use support/rmap database-with-roadmap error-code run-rmap
+                  run-rmap-text text-at)
+
+(defn added-id (database extra)
+  (added-in (clone database) "road" extra))
+
+(defn added-in (database roadmap extra)
+  (let (reply (add-item (clone database)
+                        (str roadmap)
+                        (str "research")
+                        extra))
+    (assert (= (:exit-code reply) 0))
+    (text-at (ref reply) "item" "id")))
+
+(defn add-item (database roadmap kind extra)
+  (let (args (vec (str "item")
+                  (str "add")
+                  (str "--roadmap")
+                  (str (as-str roadmap))
+                  (str "--title")
+                  (str "x")
+                  (str "--kind")
+                  kind
+                  (str "--description")
+                  (str "a spec")
+                  (str "--criterion")
+                  (str "a criterion")))
+    (for-each extra
+      (fn (arg) (push! args (str arg))))
+    (run-rmap database args)))
+
+(defn exclusive-field (database id)
+  (json->bool (unwrap (field (shown-item database id) "exclusive"))))
+
+(defn shown-item (database id)
+  (let (reply (run-rmap (clone database)
+                        (vec "item" "show" (as-str id))))
+    (assert (= (:exit-code reply) 0))
+    (copy-of (unwrap (field (:json reply) "item")))))
+
+(defn item-record (records id)
+  (copy-of (unwrap (map-some (find (iter records)
+                               (fn (record)
+                                 (= (text-value (unwrap (field (copy-of record)
+                                                               "id")))
+                                    (as-str id))))
+                             copy-of))))
+
+(defn blocked-entry (reply id)
+  (let (blocked (listed reply "blocked"))
+    (copy-of (unwrap (map-some (find (iter blocked)
+                                 (fn (entry)
+                                   (= (entry-id entry) (as-str id))))
+                               copy-of)))))
+
+(defn entry-id (entry)
+  (text-value (unwrap (field (unwrap (field (copy-of entry) "item"))
+                             "id"))))
+
+(defn next-entry (reply id)
+  (copy-of (unwrap (map-some (find (iter (listed reply "next"))
+                               (fn (entry)
+                                 (= (text-value (unwrap (field (copy-of entry)
+                                                               "item")))
+                                    (as-str id))))
+                             copy-of))))
+
+(defn first-action-field (entry key)
+  (let (actions (unwrap (json->items (unwrap (field (copy-of entry)
+                                                    "actions")))))
+    (unwrap (field (unwrap (first actions)) key))))
+
+(defn first-action-reasons (entry)
+  (let (actions (unwrap (json->items (unwrap (field (copy-of entry)
+                                                    "actions")))))
+    (copy-of (unwrap (field (unwrap (first actions)) "reasons")))))
+
+(defn first-ready-id (reply)
+  (text-value (unwrap (field (unwrap (first (listed reply "ready")))
+                             "id"))))
+
+(defn hold-field (entry key)
+  (unwrap (field (copy-of (hold entry)) key)))
+
+(defn hold (entry)
+  (unwrap (field (copy-of entry) "exclusive_hold")))
+
+(defn claim (database id session)
+  (run-rmap (clone database)
+            (vec "item" "claim" (as-str id) "--session" session)))
+
+(defn report-done (database id session)
+  (run-rmap (clone database)
+            (vec "report"
+                 (as-str id)
+                 "--session" session "--kind" "done"
+                 "--text" "found it")))
+
+(defn close (database id)
+  (run-rmap (clone database)
+            (vec "item" "close" (as-str id))))
+
+(defn listed (reply key)
+  (unwrap (json->items (unwrap (field (:json reply) key)))))
+
+(defn text-value (value)
+  (unwrap (json->text (ref value))))
+
+(deftest an-item-can-be-added-exclusive-and-shows-it
+  (let (database (database-with-roadmap "e2e-exclusive-add")
+        id (added-id (clone database)
+                     (vec (str "--exclusive")))
+        text (:stdout
+               (run-rmap-text
+                 (vec "--db" (as-str database) "item" "show" (as-str id)))))
+    (assert (= (exclusive-field (clone database) id)
+               (some true)))
+    (assert (contains? (as-str text) "exclusive        yes"))))
+
+(deftest an-edit-toggles-exclusivity
+  (let (database (database-with-roadmap "e2e-exclusive-edit")
+        id (added-id (clone database)
+                     (the (vec string) (vec))))
+    (assert (= (exclusive-field (clone database) id)
+               (some false)))
+    (assert (= (:exit-code (run-rmap
+                             (clone database)
+                             (vec "item" "edit" (as-str id) "--exclusive")))
+               0))
+    (assert (= (exclusive-field (clone database) id)
+               (some true)))
+    (assert (= (:exit-code (run-rmap
+                             (clone database)
+                             (vec "item" "edit" (as-str id) "--not-exclusive")))
+               0))
+    (assert (= (exclusive-field (clone database) id)
+               (some false)))))
+
+(deftest both-exclusive-flags-on-an-edit-are-refused
+  (let (database (database-with-roadmap "e2e-exclusive-both")
+        id (added-id (clone database)
+                     (the (vec string) (vec)))
+        reply (run-rmap (clone database)
+                        (vec "item" "edit"
+                             (as-str id)
+                             "--exclusive"
+                             "--not-exclusive")))
+    (assert (= (:exit-code reply) 2))
+    (assert (= (error-code (ref reply))
+               (str "usage")))
+    (assert (= (exclusive-field (clone database) id)
+               (some false)))))
+
+(deftest an-exclusive-item-in-progress-holds-every-other-open-item
+  (let (database (database-with-roadmap "e2e-exclusive-running")
+        _second-roadmap (run-rmap (clone database)
+                                  (vec "new" "second" "--manager" "m2"))
+        exclusive (added-id (clone database)
+                            (vec (str "--exclusive")))
+        first (added-id (clone database)
+                        (the (vec string) (vec)))
+        elsewhere (added-in (clone database)
+                            "second"
+                            (the (vec string) (vec)))
+        _claim (claim (clone database) exclusive "s1")
+        ready (run-rmap (clone database) (vec "ready"))
+        first-entry (blocked-entry (ref ready) first)
+        elsewhere-entry (blocked-entry (ref ready) elsewhere)
+        refused (claim (clone database) first "s2")
+        error (unwrap (field (:json refused) "error"))
+        next (run-rmap (clone database) (vec "next"))
+        reasons (first-action-reasons (next-entry (ref next) first))
+        text (:stdout (run-rmap-text
+                        (vec "--db" (as-str (clone database)) "ready"))))
+    (assert (empty? (listed (ref ready) "ready")))
+    (assert (= (text-value (hold-field first-entry "item"))
+               (as-str exclusive)))
+    (assert (= (text-value (hold-field first-entry "roadmap"))
+               (str "road")))
+    (assert (= (text-value (hold-field elsewhere-entry "item"))
+               (as-str exclusive)))
+    (assert (= (:exit-code refused) 1))
+    (assert (= (error-code (ref refused))
+               (str "not-ready")))
+    (assert (= (text-value (unwrap (field (unwrap (field error
+                                                         "exclusive_hold"))
+                                          "item")))
+               (as-str exclusive)))
+    (assert (contains? (as-str text)
+                       (as-str
+                         (str "waits for exclusive " exclusive " in road"))))))
+
+(deftest a-first-exclusive-item-waits-for-work-in-progress
+  (let (database (database-with-roadmap "e2e-exclusive-writer")
+        active (added-id (clone database)
+                         (the (vec string) (vec)))
+        waiting (added-id (clone database)
+                          (vec (str "--exclusive")))
+        _claim (claim (clone database) active "s1")
+        ready (run-rmap (clone database) (vec "ready"))
+        entry (blocked-entry (ref ready) waiting)
+        text (:stdout (run-rmap-text
+                        (vec "--db" (as-str (clone database)) "ready")))
+        _report (report-done (clone database) active "s1")
+        _closed (close (clone database) active)
+        freed (run-rmap (clone database) (vec "ready")))
+    (assert (empty? (listed (ref ready) "ready")))
+    (assert (= (len (unwrap (json->items (unwrap (field (copy-of (hold entry))
+                                                        "waiting_for")))))
+               1))
+    (assert (contains? (as-str text)
+                       (as-str (str "exclusive " waiting
+                                    " waits for in-progress "
+                                    active))))
+    (assert (= (len (listed (ref freed) "ready")) 1))))
+
+(deftest two-exclusive-items-let-the-first-in-ready-order-go-first
+  (let (database (database-with-roadmap "e2e-exclusive-two")
+        first (added-id (clone database)
+                        (vec (str "--exclusive")
+                             (str "--priority")
+                             (str "0")))
+        second (added-id (clone database)
+                         (vec (str "--exclusive")
+                              (str "--priority")
+                              (str "4")))
+        ready (run-rmap (clone database) (vec "ready"))
+        entry (blocked-entry (ref ready) second)
+        refused (claim (clone database) second "s2")
+        accepted (claim (clone database) first "s1"))
+    (assert (= (first-ready-id (ref ready))
+               (as-str first)))
+    (assert (= (text-value (hold-field entry "item"))
+               (as-str first)))
+    (assert (= (error-code (ref refused))
+               (str "not-ready")))
+    (assert (= (:exit-code accepted) 0))))
+
+(deftest export-lists-the-exclusive-column
+  (let (database (database-with-roadmap "e2e-exclusive-export")
+        exclusive (added-id (clone database)
+                            (vec (str "--exclusive")))
+        normal (added-id (clone database)
+                         (the (vec string) (vec)))
+        reply (run-rmap (clone database) (vec "export"))
+        records (listed reply "items")
+        exclusive-record (item-record records exclusive)
+        normal-record (item-record records normal))
+    (assert (= (json->bool (unwrap (field exclusive-record "exclusive")))
+               (some true)))
+    (assert (= (json->bool (unwrap (field normal-record "exclusive")))
+               (some false)))))

@@ -15,7 +15,8 @@
                                               :dropped-blockers (vec (id-of "rm-0002"))
                                               :decisions (vec)
                                               :capacity none
-                                              :external-blockers (vec))))
+                                              :external-blockers (vec)
+                                              :exclusive none)))
              (vec (str "waits on rm-0001")
                   (str "waits on dropped rm-0002")))))
 
@@ -25,7 +26,8 @@
                                               :dropped-blockers (vec)
                                               :decisions (vec)
                                               :capacity none
-                                              :external-blockers (vec))))
+                                              :external-blockers (vec)
+                                              :exclusive none)))
              (vec (str "paused")))))
 
 (deftest a-full-roadmap-gets-a-capacity-line
@@ -36,7 +38,8 @@
                                               :capacity (some (->capacity
                                                                 :active 3
                                                                 :max-active 3))
-                                              :external-blockers (vec))))
+                                              :external-blockers (vec)
+                                              :exclusive none)))
              (vec (str "at capacity: 3 of 3 active")))))
 
 (deftest a-blockage-without-reasons-has-no-lines
@@ -46,7 +49,8 @@
                                          :dropped-blockers (vec)
                                          :decisions (vec)
                                          :capacity none
-                                         :external-blockers (vec)))))))
+                                         :external-blockers (vec)
+                                         :exclusive none))))))
 
 (deftest with-nothing-ready-the-blocked-section-follows-the-notice
   (assert
@@ -61,7 +65,8 @@
                                                  :dropped-blockers (vec)
                                                  :decisions (vec)
                                                  :capacity none
-                                                 :external-blockers (vec))))))
+                                                 :external-blockers (vec)
+                                                 :exclusive none)))))
        (str "Nothing is ready.\n\nBlocked:\n  rm-0002  work\n    waits on rm-0001"))))
 
 (deftest an-external-blocker-gets-a-line-with-its-id-and-text
@@ -74,5 +79,6 @@
                                                                         "rm-x1"
                                                                         "rm-0001"
                                                                         (str "the release")
-                                                                        none)))))
+                                                                        none))
+                                              :exclusive none)))
              (vec (str "waits on external rm-x1: the release")))))

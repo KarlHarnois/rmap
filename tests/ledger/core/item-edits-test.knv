@@ -14,7 +14,8 @@
   (->item-edit :title title
                :priority priority
                :description description-input/unspecified
-               :criteria criteria-input/unspecified))
+               :criteria criteria-input/unspecified
+               :exclusive none))
 
 (defn refusal-of (item edit)
   (match (check-edit (ref item) (ref edit))

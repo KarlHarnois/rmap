@@ -1,18 +1,16 @@
 (module
   "Computes which items can start and what blocks the others.")
 
-(use ledger/model ->blockage blockage claim item item-id
-                  kind roadmap-status snapshot status)
+(use ledger/model blockage item item-id snapshot)
+(use ledger/core/index index-of ledger-index)
+(use ledger/core/snapshot in-scope?)
 
-(use ledger/model/roadmap-pauses roadmap-pause)
+(use ledger/core/blockages base-blockage-of candidate?
+                           unblocked? with-exclusive)
 
-(use ledger/core/index delivered-id? index-of indexed-status
-                       ledger-index)
+(use ledger/core/exclusivity exclusive-context-of
+                             exclusive-hold-for)
 
-(use ledger/core/snapshot blocked-by in-scope?)
-(use ledger/core/decision-blocks blocking-decisions)
-(use ledger/core/external-blockers blocking-external-blockers)
-(use ledger/core/max-active capacity-of)
 (use ledger/core/order ordered)
 
 (export ->blocked-item ->readiness blockage-in blockage-of
@@ -29,17 +27,30 @@
 
 (defn readiness-of (snapshot scope)
   (let (index (index-of snapshot)
-        assessed (collect (map
-                            (filter (iter (:items snapshot))
-                              (fn (item)
-                                (and (candidate? item) (in-scope? item scope))))
-                            (fn (item)
-                              (->blocked-item :item (clone item)
-                                              :blockage (blockage-of snapshot
-                                                                     (ref index)
-                                                                     item))))))
+        context (exclusive-context-of snapshot (ref index))
+        assessed (collect (map (filter (iter (:items snapshot))
+                                 (fn (item)
+                                   (and (candidate? item)
+                                        (in-scope? item scope))))
+                               (fn (item)
+                                 (->blocked-item :item (clone item)
+                                                 :blockage (blockage-under
+                                                             (clone context)
+                                                             snapshot
+                                                             (ref index)
+                                                             item))))))
     (->readiness :ready (ordered (startable-items (ref assessed)))
                  :blocked (waiting-items assessed))))
+
+(type blockage-of
+  (fn ((ref snapshot)
+       (ref ledger-index)
+       (ref item))
+    blockage))
+
+(defn blockage-of (snapshot index item)
+  (blockage-under (exclusive-context-of snapshot index)
+                  snapshot index item))
 
 (type ready-in?
   (fn ((ref readiness) (ref item-id))
@@ -60,53 +71,9 @@
               (= (ref (:id (:item held))) id)))
       (map-some (fn (held) (clone (:blockage held))))))
 
-(defn unblocked? (blockage)
-  (and (= (:pause blockage) roadmap-pause/not-paused)
-       (empty? (:blockers blockage))
-       (empty? (:dropped-blockers blockage))
-       (empty? (:decisions blockage))
-       (empty? (:external-blockers blockage))
-       (none? (:capacity blockage))))
-
-(type blockage-of
-  (fn ((ref snapshot)
-       (ref ledger-index)
-       (ref item))
-    blockage))
-
-(defn blockage-of (snapshot index item)
-  (let (blocking (blocked-by snapshot (ref (:id item))))
-    (->blockage :pause (pause-of snapshot item)
-                :blockers (collect (map (filter (iter blocking)
-                                          (fn (id) (waiting-on? index id)))
-                                        clone))
-                :dropped-blockers (collect (map (filter (iter blocking)
-                                                  (fn (id) (dropped? index id)))
-                                                clone))
-                :decisions (blocking-decisions snapshot item)
-                :capacity (capacity-of snapshot item)
-                :external-blockers (blocking-external-blockers snapshot item))))
-
-(defn pause-of (snapshot item)
-  (if (paused-roadmap? snapshot item)
-    roadmap-pause/paused roadmap-pause/not-paused))
-
-(type paused-roadmap?
-  (fn ((ref snapshot) (ref item)) bool))
-
-(defn paused-roadmap? (snapshot item)
-  (any? (iter (:roadmaps snapshot))
-    (fn (roadmap)
-      (and (= (ref (:id roadmap))
-              (:roadmap-id item))
-           (= (:status roadmap) roadmap-status/paused)))))
-
-(type candidate? (fn ((ref item)) bool))
-
-(defn candidate? (item)
-  (and (not= (:kind item) kind/epic)
-       (= (:status item) status/open)
-       (= (:claim item) claim/unclaimed)))
+(defn blockage-under (context snapshot index item)
+  (with-exclusive (base-blockage-of snapshot index item)
+                  (exclusive-hold-for context item)))
 
 (defn startable-items (assessed)
   (collect (map (filter (iter assessed)
@@ -124,9 +91,3 @@
 
 (defn startable? (entry)
   (unblocked? (ref (:blockage entry))))
-
-(defn waiting-on? (index id)
-  (not (or (delivered-id? index id) (dropped? index id))))
-
-(defn dropped? (index id)
-  (= (indexed-status index id) (some status/dropped)))

@@ -1,7 +1,9 @@
 (module
   "Builds the JSON document `rmap export` prints: every ledger record in one snapshot.")
 
-(use json/value array bool->json copy-of object text->json)
+(use json/value array bool->json copy-of json object
+                text->json)
+
 (use ledger/api session-record->json)
 (use cli/blockage-json blockage-fields)
 (use cli/criterion-verdict-json criterion-verdict->json)
@@ -108,7 +110,8 @@
                          (array (vec))))
             (push! fields
                    (pair (str "external_blockers")
-                         (array (vec))))))
+                         (array (vec))))
+            (push! fields (pair (str "exclusive_hold") json/null))))
     (object fields)))
 
 (defn decision-record->json (decision)

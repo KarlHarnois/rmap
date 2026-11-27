@@ -13,7 +13,8 @@
   (->item-edit :title title
                :priority priority
                :description description
-               :criteria criteria-input/unspecified))
+               :criteria criteria-input/unspecified
+               :exclusive none))
 
 (defn shown (settings id)
   (clone (:item (unwrap-ok (show-item (ref settings) id)))))
@@ -25,7 +26,8 @@
   (->item-edit :title none
                :priority none
                :description description-input/unspecified
-               :criteria criteria))
+               :criteria criteria
+               :exclusive none))
 
 (deftest an-edit-changes-title-priority-and-description
   (let (settings (scratch-ledger "edit-fields")

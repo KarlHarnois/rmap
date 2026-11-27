@@ -1,4 +1,4 @@
-(use ledger/model kind)
+(use ledger/model exclusivity kind)
 (use ledger/api add-item description-input)
 (use ledger/sqlite/items all-items)
 (use ledger/operations/transaction connect)
@@ -14,6 +14,16 @@
         items (unwrap-ok (all-items (ref connection))))
     (assert (= (:roadmap-name (unwrap (first items)))
                (str other-roadmap-name)))))
+
+(deftest a-read-item-carries-its-exclusivity
+  (let (settings (scratch-ledger "read-exclusive")
+        draft (assoc (item-draft kind/research)
+                     :exclusive exclusivity/exclusive)
+        _ (unwrap-ok (add-item (ref settings) (str roadmap-name) draft))
+        connection (unwrap-ok (connect (ref settings)))
+        items (unwrap-ok (all-items (ref connection))))
+    (assert (= (:exclusive (unwrap (first items)))
+               exclusivity/exclusive))))
 
 (deftest a-read-item-carries-its-description
   (let (settings (scratch-ledger "read-description")

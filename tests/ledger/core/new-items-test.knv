@@ -1,4 +1,6 @@
-(use ledger/model ->roadmap-id ->snapshot kind origin)
+(use ledger/model ->roadmap-id ->snapshot exclusivity kind
+                  origin)
+
 (use ledger/refusal refusal)
 (use ledger/core/criteria criteria-input)
 
@@ -30,6 +32,7 @@
               :kind kind/research
               :origin origin/planned
               :priority priority
+              :exclusive exclusivity/not-exclusive
               :blocked-by (vec)
               :discovered-from none))
 

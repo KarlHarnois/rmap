@@ -90,7 +90,8 @@
                                              :decisions (vec (->decision-id
                                                                :value (str "rm-d1")))
                                              :capacity none
-                                             :external-blockers (vec))))
+                                             :external-blockers (vec)
+                                             :exclusive none)))
              (str "the item is not ready; it waits on decisions rm-d1"))))
 
 (deftest a-block-exists-message-names-both-ids

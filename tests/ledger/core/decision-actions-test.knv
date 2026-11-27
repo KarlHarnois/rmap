@@ -60,7 +60,8 @@
               :dropped-blockers (vec)
               :decisions (vec (->decision-id :value (str "rm-d1")))
               :capacity none
-              :external-blockers (vec)))
+              :external-blockers (vec)
+              :exclusive none))
 
 (deftest a-reported-design-waits-on-a-proposed-decision-it-raised
   (let (item (reported-design)
