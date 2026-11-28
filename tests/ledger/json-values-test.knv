@@ -38,6 +38,7 @@
                   (str "status")
                   (str "origin")
                   (str "priority")
+                  (str "exclusive")
                   (str "parent_id")
                   (str "closed_at")
                   (str "description")

@@ -20,6 +20,8 @@
      refusal-code/max-active-out-of-range)
     ((refusal/item-not-found _) refusal-code/item-not-found)
     ((refusal/item-closed _) refusal-code/item-closed)
+    ((refusal/exclusive-not-open _)
+     refusal-code/exclusive-not-open)
     (refusal/description-required refusal-code/description-required)
     (refusal/criteria-required refusal-code/criteria-required)
     (refusal/blank-criterion refusal-code/blank-criterion)

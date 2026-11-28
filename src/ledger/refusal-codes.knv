@@ -13,6 +13,7 @@
   max-active-out-of-range
   item-not-found
   item-closed
+  exclusive-not-open
   description-required
   criteria-required
   blank-criterion

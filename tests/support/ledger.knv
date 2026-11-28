@@ -1,5 +1,5 @@
 (use ledger/model/reports report-kind)
-(use ledger/model ->timestamp kind)
+(use ledger/model ->timestamp exclusivity kind)
 
 (use ledger/api ->advancement ->claim-request ->log-query
                 ->new-item ->report-request ->session
@@ -85,6 +85,7 @@
               :kind kind
               :origin origin/planned
               :priority 0
+              :exclusive exclusivity/not-exclusive
               :blocked-by (vec)
               :discovered-from none))
 

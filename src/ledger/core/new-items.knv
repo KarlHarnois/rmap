@@ -1,8 +1,8 @@
 (module
   "Checks a new item against the ledger and drops its repeated blockers.")
 
-(use ledger/model item item-id kind origin roadmap-id
-                  snapshot)
+(use ledger/model exclusivity item item-id kind origin
+                  roadmap-id snapshot)
 
 (use ledger/refusal refusal)
 (use ledger/core/criteria criteria-input)
@@ -20,6 +20,7 @@
   :kind kind
   :origin origin
   :priority int
+  :exclusive exclusivity
   :blocked-by (vec item-id)
   :discovered-from (option item-id))
 

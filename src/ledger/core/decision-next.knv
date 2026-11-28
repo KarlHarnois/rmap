@@ -34,7 +34,8 @@
               :dropped-blockers (clone (:dropped-blockers blockage))
               :decisions (merged-ids (ref (:decisions blockage)) raised)
               :capacity none
-              :external-blockers (clone (:external-blockers blockage))))
+              :external-blockers (clone (:external-blockers blockage))
+              :exclusive (clone (:exclusive blockage))))
 
 (type proposed-in
   (fn ((ref roadmap) (ref (vec decision)))

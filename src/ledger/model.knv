@@ -2,17 +2,35 @@
   "Holds the ledger's values: roadmaps, items, their sessions, dependencies, decisions and blockages.")
 
 (use ledger/model/capacity capacity)
+
+(use ledger/model/decision-refs ->decision-block
+                                ->decision-id decision-block
+                                decision-id decision-status)
+
+(use ledger/model/exclusive-items ->exclusive-item
+                                  exclusive-hold
+                                  exclusive-item)
+
+(use ledger/model/items ->item ->item-id ->roadmap-id
+                        ->session ->timestamp ->work-session
+                        claim exclusivity item item-id kind
+                        origin roadmap-id runtime session
+                        session-kind status timestamp
+                        work-session)
+
 (use ledger/model/roadmap-pauses roadmap-pause)
 
 (export ->blockage ->decision-block ->decision-id ->dep
-        ->external-blocker ->external-blocker-id ->item
-        ->item-id ->roadmap ->roadmap-id ->session
-        ->snapshot ->timestamp ->work-session blockage claim
-        decision-block decision-id decision-status dep
-        dep-type external-blocker external-blocker-id item
-        item-id kind origin roadmap roadmap-id
-        roadmap-status runtime session session-kind snapshot
-        status timestamp work-session)
+        ->exclusive-item ->external-blocker
+        ->external-blocker-id ->item ->item-id ->roadmap
+        ->roadmap-id ->session ->snapshot ->timestamp
+        ->work-session blockage claim decision-block
+        decision-id decision-status dep dep-type
+        exclusive-hold exclusive-item exclusivity
+        external-blocker external-blocker-id item item-id
+        kind origin roadmap roadmap-id roadmap-status
+        runtime session session-kind snapshot status
+        timestamp work-session)
 
 (defstruct snapshot
   :roadmaps (vec roadmap)
@@ -20,14 +38,6 @@
   :deps (vec dep)
   :decision-blocks (vec decision-block)
   :external-blockers (vec external-blocker))
-
-(defstruct decision-block
-  :decision decision-id
-  :item item-id
-  :status decision-status)
-
-(defstruct decision-id
-  :value string)
 
 (defstruct external-blocker
   :id external-blocker-id
@@ -42,12 +52,14 @@
 (defstruct external-blocker-id
   :value string)
 
-(defenum decision-status
-  proposed
-  accepted
-  rejected
-  deprecated
-  superseded)
+(defstruct blockage
+  :pause roadmap-pause
+  :blockers (vec item-id)
+  :dropped-blockers (vec item-id)
+  :decisions (vec decision-id)
+  :capacity (option capacity)
+  :external-blockers (vec external-blocker)
+  :exclusive (option exclusive-hold))
 
 (defstruct roadmap
   :id roadmap-id
@@ -62,72 +74,6 @@
   paused
   done)
 
-(defstruct item
-  :id item-id
-  :roadmap-id roadmap-id
-  :roadmap-name string
-  :parent (option item-id)
-  :title string
-  :description (option string)
-  :criteria (vec string)
-  :kind kind
-  :status status
-  :origin origin
-  :priority int
-  :claim claim
-  :created-at timestamp
-  :closed-at (option timestamp))
-
-(defstruct roadmap-id
-  :value string)
-
-(defstruct timestamp
-  :value string)
-
-(defenum kind
-  epic
-  research
-  design
-  build)
-
-(defenum status
-  open
-  dispatched
-  reported
-  in-review
-  fixing
-  merging
-  merged
-  accepted
-  dropped)
-
-(defenum origin
-  planned
-  user-bug
-  follow-up)
-
-(defenum claim
-  unclaimed
-  (claimed-by work-session))
-
-(defstruct work-session
-  :session session
-  :kind session-kind
-  :runtime runtime
-  :branch (option string)
-  :base (option string)
-  :started-at timestamp)
-
-(defenum session-kind
-  work
-  fix
-  review)
-
-(defenum runtime ringleader)
-
-(defstruct session
-  :name string)
-
 (defstruct dep
   :item item-id
   :on item-id
@@ -136,14 +82,3 @@
 (defenum dep-type
   blocks
   discovered-from)
-
-(defstruct blockage
-  :pause roadmap-pause
-  :blockers (vec item-id)
-  :dropped-blockers (vec item-id)
-  :decisions (vec decision-id)
-  :capacity (option capacity)
-  :external-blockers (vec external-blocker))
-
-(defstruct item-id
-  :value string)

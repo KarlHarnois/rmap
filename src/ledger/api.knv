@@ -37,10 +37,8 @@
                          supersedes-change)
 
 (use ledger/state ->advancement ->claim-request
-                  ->criterion-gap ->criterion-status
-                  ->criterion-verdict ->follow-up-decision
-                  ->follow-up-draft ->graph-request
-                  ->graph-source ->item-edit ->item-id
+                  ->follow-up-decision ->follow-up-draft
+                  ->graph-request ->item-edit ->item-id
                   ->log-query ->new-item ->session
                   ->settings ->verify-request abandoned
                   action-names actor actor-names add-dep
@@ -58,6 +56,7 @@
                   description-input draw-graph drop-item
                   edit-item end-reason end-session
                   ended-session event event-type-names
+                  exclusive-hold exclusive-item exclusivity
                   export-ledger external-blocker failure
                   failure-code failure-message follow-up
                   follow-up-decision follow-up-draft
@@ -115,7 +114,8 @@
         default-database-path dep dep-type-names
         deprecate-decision description-input draw-graph
         drop-item edit-item end-reason end-session
-        ended-session event event-type-names export-ledger
+        ended-session event event-type-names exclusive-hold
+        exclusive-item exclusivity export-ledger
         external-blocker failure failure-code
         failure-message follow-up follow-up-decision
         follow-up-draft graph-format graph-format-names

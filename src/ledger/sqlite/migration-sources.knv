@@ -51,4 +51,7 @@
                     :sql (str "ALTER TABLE roadmaps ADD COLUMN max_active INTEGER\n  CHECK (max_active IS NULL OR max_active >= 1);\n"))
        (->migration :version 15
                     :file (str "0015-external-blockers.sql")
-                    :sql (str "CREATE TABLE external_blockers (\n  id TEXT PRIMARY KEY,\n  item_id TEXT NOT NULL REFERENCES items (id),\n  text TEXT NOT NULL CHECK (length(trim(text)) > 0),\n  created_at TEXT NOT NULL,\n  created_by TEXT NOT NULL,\n  cleared_at TEXT,\n  cleared_by TEXT,\n  clear_note TEXT\n);\n\nCREATE INDEX external_blockers_item ON external_blockers (item_id);\n"))))
+                    :sql (str "CREATE TABLE external_blockers (\n  id TEXT PRIMARY KEY,\n  item_id TEXT NOT NULL REFERENCES items (id),\n  text TEXT NOT NULL CHECK (length(trim(text)) > 0),\n  created_at TEXT NOT NULL,\n  created_by TEXT NOT NULL,\n  cleared_at TEXT,\n  cleared_by TEXT,\n  clear_note TEXT\n);\n\nCREATE INDEX external_blockers_item ON external_blockers (item_id);\n"))
+       (->migration :version 16
+                    :file (str "0016-item-exclusive.sql")
+                    :sql (str "ALTER TABLE items ADD COLUMN exclusive TEXT NOT NULL DEFAULT 'not-exclusive'\n  CHECK (exclusive IN ('not-exclusive', 'exclusive'));\n"))))

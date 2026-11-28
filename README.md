@@ -45,14 +45,14 @@ Commands:
     Lists the next action for each open item and proposed decision, and who takes it. Each actor names a role. The controller takes the mechanical steps, which a person, the manager session or a program may take. The manager takes the judgment steps. The worker does the work, the fixes and the live review. The user is the owner. Until a controller runs, the manager takes controller actions. The manager asks an unanswered decision, the user answers an asked one, and a rejected decision that holds an item sends it back for a replan. A build's review step follows its pull request's current head: review when a reviewer must start, review with the live review session's name when one is live, send-fixes for the manager when a reviewer asked for changes on that head, and verify when the head is approved but acceptance criteria still need verdicts. With --taken-by, it keeps only the lines that actor takes. A manager with no roadmaps gives an empty list, not an error.
   log [--item <id>] [--decision <id>] [--since <event id>]
     Prints the events, for one item, for one decision or after one event id when given.
-  item add --roadmap <name> --title <text> [--description <text>] [--description-file <path|->] [--criterion <text>] [--criteria-file <path|->] --kind epic|research|design|build [--parent <epic id>] [--after <ids, comma-separated>] [--from <id>] [--origin planned|user-bug|follow-up] [--priority <0 (highest) to 4 (lowest), default 2>]
-    Adds an item to a roadmap. Every item needs a description and at least one acceptance criterion, for example "WHEN I run item show, rmap SHALL print the acceptance criteria." Repeat --criterion for each one, or read one per non-blank line from --criteria-file.
+  item add --roadmap <name> --title <text> [--description <text>] [--description-file <path|->] [--criterion <text>] [--criteria-file <path|->] --kind epic|research|design|build [--parent <epic id>] [--after <ids, comma-separated>] [--from <id>] [--origin planned|user-bug|follow-up] [--priority <0 (highest) to 4 (lowest), default 2>] [--exclusive]
+    Adds an item to a roadmap. Every item needs a description and at least one acceptance criterion, for example "WHEN I run item show, rmap SHALL print the acceptance criteria." Repeat --criterion for each one, or read one per non-blank line from --criteria-file. An exclusive item runs alone across every roadmap.
   item list [--roadmap <name>]
     Lists the items.
   item show <id>
     Shows one item with its dependencies.
-  item edit <id> [--title <text>] [--priority <0 (highest) to 4 (lowest)>] [--description <text>] [--description-file <path|->] [--criterion <text>] [--criteria-file <path|->]
-    Changes an item's title, priority, description or acceptance criteria. Give at least one of the flags. --criterion and --criteria-file replace the whole list. A finished item takes only a description or criteria change.
+  item edit <id> [--title <text>] [--priority <0 (highest) to 4 (lowest)>] [--description <text>] [--description-file <path|->] [--criterion <text>] [--criteria-file <path|->] [--exclusive] [--not-exclusive]
+    Changes an item's title, priority, description, acceptance criteria or exclusivity. Give at least one of the flags. --criterion and --criteria-file replace the whole list. Give only one of --exclusive or --not-exclusive. A finished item takes only a description or criteria change.
   item verify <id> <position> [--met] [--failed] --reviewer <session> [--head <commit sha>] [--note <text>]
     Records a reviewer session's verdict on one acceptance criterion: --met or --failed, by a live review session of the item that is not the item's work or fix session and not the roadmap's manager. A build needs --head, the pull request's current head. The latest verdict on each criterion counts, and a verdict on an older head stops counting when the head moves.
   item claim <id> --session <name> [--branch <name>] [--base <branch>]
@@ -221,6 +221,7 @@ Refusal codes:
   max-active-out-of-range         A max active must be at least 1.
   item-not-found                  No item has that id.
   item-closed                     A merged, accepted or dropped item is closed.
+  exclusive-not-open              Only an open item can become exclusive. The error names the item's status.
   description-required            An item needs a description.
   criteria-required               An item needs at least one acceptance criterion.
   blank-criterion                 An acceptance criterion cannot be blank.
@@ -231,7 +232,7 @@ Refusal codes:
   epic-status-computed            An epic's status comes from its children, so no command moves it.
   invalid-kind-change             Only an advance to dispatched can turn an item into a build.
   invalid-transition              The transition table has no such move for this item.
-  not-ready                       The item is blocked. The error lists whether the roadmap is paused, its capacity, its blockers, its dropped_blockers, its blocking_decisions and its external_blockers.
+  not-ready                       The item is blocked. The error lists whether the roadmap is paused, its capacity, its blockers, its dropped_blockers, its blocking_decisions, its external_blockers and its exclusive_hold.
   cycle                           The dependency would close a cycle of blocks dependencies.
   dep-exists                      The blocks dependency already exists.
   dep-not-found                   No such blocks dependency exists.

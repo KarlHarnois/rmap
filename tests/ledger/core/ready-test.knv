@@ -1,14 +1,15 @@
-(use ledger/model ->decision-id ->timestamp claim
-                  decision-status dep-type external-blocker
-                  item item-id kind snapshot status)
+(use ledger/model ->decision-id ->exclusive-item ->timestamp
+                  blockage claim decision-status dep-type
+                  exclusive-hold external-blocker item
+                  item-id kind snapshot status)
 
 (use ledger/model/roadmap-pauses roadmap-pause)
-(use ledger/core/ready readiness-of)
+(use ledger/core/ready readiness readiness-of)
 (use ledger/core/snapshot scope)
 
 (use support/items blocks-dep child-of claimed
-                   decision-block-on epic-item
-                   external-blocker-on id-of
+                   decision-block-on epic-item exclusive
+                   external-blocker-on id-of in-roadmap
                    paused-snapshot-of snapshot-of work-item)
 
 (use support/generated-snapshots generated-snapshot)
@@ -116,6 +117,19 @@
   (clone (:blockage (unwrap (first (:blocked (readiness-of (ref snapshot)
                                                            (ref scope/every-roadmap))))))))
 
+(type blockage-of-id
+  (fn ((ref readiness) (ref str))
+    blockage))
+
+(defn blockage-of-id (readiness id)
+  (unwrap (map-some (find (iter (:blocked readiness))
+                      (fn (held)
+                        (= (ref (:id (:item held))) (id-of id))))
+                    (fn (held) (clone (:blockage held))))))
+
+(defn exclusive-of-id (id)
+  (->exclusive-item :id (id-of id) :roadmap-name (str "road")))
+
 (deftest an-open-unclaimed-item-is-ready
   (assert (= (ready-ids (snapshot-of
                           (vec (work-item "rm-0001" kind/research status/open))
@@ -220,6 +234,68 @@
                (vec (id-of "rm-0002"))))
     (assert (= (:blockers blockage)
                (vec (id-of "rm-0003"))))))
+
+(deftest an-in-progress-exclusive-item-holds-every-other-open-item
+  (let (running (exclusive
+                  (claimed (work-item "rm-0001" kind/build status/dispatched)))
+        other (in-roadmap (work-item "rm-0002" kind/design status/open)
+                          "rm-other")
+        readiness (readiness-of (ref (snapshot-of (vec running other) (vec)))
+                                (ref scope/every-roadmap)))
+    (assert (empty? (:ready readiness)))
+    (assert (= (len (:blocked readiness)) 1))
+    (assert (= (:exclusive (blockage-of-id readiness "rm-0002"))
+               (some (exclusive-hold/held-by (exclusive-of-id "rm-0001")))))))
+
+(deftest a-first-exclusive-item-waits-for-work-in-progress
+  (let (active (claimed (work-item "rm-0001" kind/design status/dispatched))
+        waiting (exclusive (work-item "rm-0002" kind/build status/open))
+        other (work-item "rm-0003" kind/research status/open)
+        readiness (readiness-of (ref (snapshot-of (vec active waiting other)
+                                                  (vec)))
+                                (ref scope/every-roadmap)))
+    (assert (empty? (:ready readiness)))
+    (assert (= (:exclusive (blockage-of-id readiness "rm-0002"))
+               (some (exclusive-hold/waits-on (exclusive-of-id "rm-0002")
+                                              (vec (id-of "rm-0001"))))))
+    (assert (= (:exclusive (blockage-of-id readiness "rm-0003"))
+               (some (exclusive-hold/held-by (exclusive-of-id "rm-0002")))))))
+
+(deftest a-first-exclusive-item-is-ready-once-nothing-else-is-in-progress
+  (let (done (claimed (work-item "rm-0001" kind/build status/merged))
+        waiting (exclusive (work-item "rm-0002" kind/build status/open))
+        other (work-item "rm-0003" kind/research status/open)
+        snapshot (snapshot-of (vec done waiting other) (vec))
+        readiness (readiness-of (ref snapshot) (ref scope/every-roadmap)))
+    (assert (= (ready-ids snapshot)
+               (vec (str "rm-0002"))))
+    (assert (= (:exclusive (blockage-of-id readiness "rm-0003"))
+               (some (exclusive-hold/held-by (exclusive-of-id "rm-0002")))))))
+
+(deftest two-exclusive-items-let-the-first-in-ready-order-go-first
+  (let (first (exclusive (work-item "rm-0001" kind/build status/open))
+        second (exclusive (assoc (work-item "rm-0002" kind/build status/open)
+                                 :priority 4))
+        snapshot (snapshot-of (vec first second) (vec))
+        readiness (readiness-of (ref snapshot) (ref scope/every-roadmap)))
+    (assert (= (ready-ids snapshot)
+               (vec (str "rm-0001"))))
+    (assert (= (:exclusive (blockage-of-id readiness "rm-0002"))
+               (some (exclusive-hold/held-by (exclusive-of-id "rm-0001")))))))
+
+(deftest an-exclusive-item-behind-other-work-leaves-that-work-ready
+  (let (ahead (work-item "rm-0001" kind/research status/open)
+        exclusive-item (exclusive (assoc
+                                    (work-item "rm-0002" kind/build status/open)
+                                    :priority 2))
+        later (exclusive (assoc (work-item "rm-0003" kind/build status/open)
+                                :priority 4))
+        snapshot (snapshot-of (vec ahead exclusive-item later) (vec))
+        readiness (readiness-of (ref snapshot) (ref scope/every-roadmap)))
+    (assert (= (ready-ids snapshot)
+               (vec (str "rm-0001") (str "rm-0002"))))
+    (assert (= (:exclusive (blockage-of-id readiness "rm-0003"))
+               (some (exclusive-hold/held-by (exclusive-of-id "rm-0002")))))))
 
 (deftest ready-matches-an-independent-oracle-over-generated-graphs
   (for-each (range 0 seed-count)

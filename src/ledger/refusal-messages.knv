@@ -9,6 +9,7 @@
 
 (use ledger/criterion-refusal-messages criterion-refusal->message)
 (use ledger/proposal-refusal-messages proposal-refusal->message)
+(use ledger/session-refusal-messages session-refusal->message)
 (use ledger/refusal-details not-ready-message)
 
 (export refusal->message)
@@ -28,6 +29,10 @@
      (str "no item has the id " (:value id)))
     ((item-closed id)
      (str "the item " (:value id) " is closed"))
+    ((exclusive-not-open status)
+     (str "the item is "
+          (case-name status-names status)
+          ", and only an open item can become exclusive"))
     (description-required (str "an item needs a description"))
     (criteria-required (str "an item needs at least one acceptance criterion"))
     (blank-criterion (str "an acceptance criterion cannot be blank"))
@@ -117,15 +122,10 @@
      (str "no ruling has the id " (:value id)))
     ((ruling-superseded id)
      (str "the ruling " (:value id) " is already superseded"))
-    ((session-busy session)
-     (str "a live session is already named " (:name session)))
-    ((session-not-live session)
-     (str "the session " (:name session) " is not live"))
-    ((session-not-claimant session item)
-     (str "the session "
-          (:name session)
-          " is not the live session of "
-          (:value item)))
+    ((session-busy _) (session-refusal->message failure))
+    ((session-not-live _) (session-refusal->message failure))
+    ((session-not-claimant _ _)
+     (session-refusal->message failure))
     (report-empty (str "a report needs a body"))
     ((report-not-found id)
      (str "no report has the id " (:value id)))

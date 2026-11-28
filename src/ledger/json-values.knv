@@ -1,8 +1,8 @@
 (module
   "Turns ledger ids, claims, timestamps and the columns of an item into JSON values.")
 
-(use json/value array int->json json text->json)
-(use ledger/model claim item item-id timestamp)
+(use json/value array bool->json int->json json text->json)
+(use ledger/model claim exclusivity item item-id timestamp)
 (use ledger/model/pull-requests pr-number)
 
 (use ledger/names case-name kind-names origin-names
@@ -45,6 +45,8 @@
              (text->json (case-name origin-names (:origin item))))
        (pair (str "priority")
              (int->json (:priority item)))
+       (pair (str "exclusive")
+             (bool->json (exclusive? item)))
        (pair (str "parent_id")
              (optional-id->json (ref (:parent item))))
        (pair (str "closed_at")
@@ -86,3 +88,8 @@
   (match at
     ((some present) (text->json (as-str (:value present))))
     (none json/null)))
+
+(type exclusive? (fn ((ref item)) bool))
+
+(defn exclusive? (item)
+  (= (:exclusive item) exclusivity/exclusive))

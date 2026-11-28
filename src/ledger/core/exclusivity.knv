@@ -1,0 +1,143 @@
+(module
+  "Decides which exclusive item runs next and which items it holds back.")
+
+(use ledger/model exclusivity item item-id snapshot)
+
+(use ledger/model/exclusive-items ->exclusive-item
+                                  exclusive-hold
+                                  exclusive-item)
+
+(use ledger/core/blockages base-ready-items)
+(use ledger/core/order ordered)
+(use ledger/core/phases active?)
+
+(export exclusive-context-of exclusive-hold-for)
+
+(defenum exclusive-context
+  quiet
+  (running exclusive-item)
+  (writer exclusive-item (vec item-id))
+  (up-next exclusive-item (vec item-id)))
+
+(defn exclusive-context-of (snapshot index)
+  (match (running-exclusive snapshot)
+    ((some running) (exclusive-context/running running))
+    (none (ready-context snapshot index))))
+
+(type exclusive-hold-for
+  (fn (exclusive-context (ref item))
+    (option exclusive-hold)))
+
+(defn exclusive-hold-for (context item)
+  (match context
+    (quiet none)
+    ((running exclusive) (running-hold exclusive item))
+    ((writer exclusive active)
+     (writer-hold exclusive active item))
+    ((up-next exclusive active)
+     (up-next-hold exclusive active item))))
+
+(type running-exclusive
+  (fn ((ref snapshot))
+    (option exclusive-item)))
+
+(defn running-exclusive (snapshot)
+  (-> (collect (map (filter (iter (:items snapshot))
+                      (fn (item)
+                        (and (active? (:status item))
+                             (= (:exclusive item) exclusivity/exclusive))))
+                    clone))
+      ordered first
+      (map-some exclusive-of)))
+
+(defn ready-context (snapshot index)
+  (let (base-ready (base-ready-items snapshot index))
+    (match (first-exclusive (ref base-ready))
+      ((some control)
+       (control-context (ref snapshot)
+                        (ref base-ready)
+                        (ref control)))
+      (none exclusive-context/quiet))))
+
+(type first-exclusive
+  (fn ((ref (vec item))) (option item)))
+
+(defn first-exclusive (items)
+  (-> items iter
+      (find (fn (item)
+              (= (:exclusive item) exclusivity/exclusive)))
+      (map-some clone)))
+
+(defn control-context (snapshot base-ready control)
+  (let (active (active-ids (ref (active-items (ref snapshot)))))
+    (if (first-in-order? (ref base-ready) (ref control))
+      (exclusive-context/writer (exclusive-of control) active)
+      (exclusive-context/up-next (exclusive-of control) active))))
+
+(type first-in-order?
+  (fn ((ref (vec item)) (ref item)) bool))
+
+(defn first-in-order? (base-ready control)
+  (match (first base-ready)
+    ((some item) (= (ref (:id item)) (ref (:id control))))
+    (none false)))
+
+(type active-items
+  (fn ((ref snapshot)) (vec item)))
+
+(defn active-items (snapshot)
+  (-> (collect (map (filter (iter (:items snapshot))
+                      (fn (item) (active? (:status item))))
+                    clone))
+      ordered))
+
+(type exclusive-of
+  (fn ((ref item)) exclusive-item))
+
+(defn exclusive-of (item)
+  (->exclusive-item :id (clone (:id item))
+                    :roadmap-name (clone (:roadmap-name item))))
+
+(defn running-hold (exclusive item)
+  (if (same-exclusive? exclusive item)
+    none
+    (some (exclusive-hold/held-by (clone exclusive)))))
+
+(defn writer-hold (exclusive active item)
+  (if (same-exclusive? exclusive item)
+    (waiting-hold exclusive active)
+    (some (exclusive-hold/held-by (clone exclusive)))))
+
+(defn up-next-hold (exclusive active item)
+  (if (same-exclusive? exclusive item)
+    (waiting-hold exclusive active)
+    (later-hold exclusive item)))
+
+(type later-hold
+  (fn ((ref exclusive-item) (ref item))
+    (option exclusive-hold)))
+
+(defn later-hold (exclusive item)
+  (if (= (:exclusive item) exclusivity/exclusive)
+    (some (exclusive-hold/held-by (clone exclusive)))
+    none))
+
+(defn waiting-hold (exclusive active)
+  (if (empty? active)
+    none
+    (some (exclusive-hold/waits-on (clone exclusive) (clone active)))))
+
+(type active-ids
+  (fn ((ref (vec item))) (vec item-id)))
+
+(defn active-ids (items)
+  (collect (map (iter items)
+             (fn (item) (clone (:id item))))))
+
+(type same-exclusive?
+  (fn ((ref exclusive-item) (ref item))
+    bool))
+
+(defn same-exclusive? (exclusive item)
+  (= (ref (:id exclusive))
+     (ref (:id item))))

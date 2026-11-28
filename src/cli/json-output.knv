@@ -5,7 +5,7 @@
                 criterion-result-names database-problem
                 decision-id failure failure-code
                 failure-message pull-request-refusal refusal
-                session)
+                session status-names)
 
 (use cli/responses response)
 (use cli/help command-help-document help-document)
@@ -56,6 +56,9 @@
 (defn refusal-fields (refusal)
   (match refusal
     ((refusal/not-ready blockage) (blockage-fields blockage))
+    ((refusal/exclusive-not-open status)
+     (vec (pair (str "status")
+                (text->json (case-name status-names status)))))
     ((refusal/decisions-pending ids)
      (vec (pair (str "decisions") (decision-ids->json ids))))
     ((refusal/unknown-skip decision option skips)

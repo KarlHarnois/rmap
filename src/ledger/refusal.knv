@@ -21,6 +21,7 @@
   (max-active-out-of-range int)
   (item-not-found item-id)
   (item-closed item-id)
+  (exclusive-not-open status)
   description-required
   criteria-required
   blank-criterion

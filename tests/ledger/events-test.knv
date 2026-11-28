@@ -1,7 +1,7 @@
 (use json/value copy-of json->items json->text null?)
 
 (use ledger/model ->dep ->roadmap ->roadmap-id ->session
-                  ->timestamp dep-type item kind
+                  ->timestamp dep-type exclusivity item kind
                   roadmap-status status)
 
 (use ledger/core/criteria criteria-input)
@@ -22,6 +22,7 @@
               :kind kind/research
               :origin (work-origin)
               :priority 0
+              :exclusive exclusivity/not-exclusive
               :blocked-by (vec (id-of "rm-0002"))
               :discovered-from none))
 
@@ -60,6 +61,7 @@
                     (str "criteria")
                     (str "description")
                     (str "discovered_from")
+                    (str "exclusive")
                     (str "kind")
                     (str "origin")
                     (str "parent_id")

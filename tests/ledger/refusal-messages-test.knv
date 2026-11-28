@@ -3,7 +3,7 @@
 
 (use ledger/model ->blockage ->decision-id
                   ->external-blocker-id ->item-id ->session
-                  decision-status)
+                  decision-status status)
 
 (use ledger/model/roadmap-pauses roadmap-pause)
 (use ledger/model/criteria ->criterion-gap criterion-result)
@@ -16,6 +16,10 @@
 (deftest a-priority-above-four-message-names-the-range-and-the-value
   (assert (= (refusal->message (refusal/priority-out-of-range 5))
              (str "a priority must be from 0 (highest) to 4 (lowest), got 5"))))
+
+(deftest an-exclusive-not-open-message-names-the-status
+  (assert (= (refusal->message (refusal/exclusive-not-open status/in-review))
+             (str "the item is in_review, and only an open item can become exclusive"))))
 
 (deftest a-missing-description-message-says-an-item-needs-one
   (assert (= (refusal->message refusal/description-required)
@@ -90,7 +94,8 @@
                                              :decisions (vec (->decision-id
                                                                :value (str "rm-d1")))
                                              :capacity none
-                                             :external-blockers (vec))))
+                                             :external-blockers (vec)
+                                             :exclusive none)))
              (str "the item is not ready; it waits on decisions rm-d1"))))
 
 (deftest a-block-exists-message-names-both-ids

@@ -4,7 +4,9 @@
 (use json/value array bool->json int->json json object
                 text->json)
 
-(use ledger/api decision-id roadmap-pause)
+(use ledger/api decision-id exclusive-hold exclusive-item
+                item-id roadmap-pause)
+
 (use cli/external-blocker-json blocking-external-blocker->json)
 (use cli/json-values ids->json)
 
@@ -21,7 +23,9 @@
                             (decision-ids->json (ref (:decisions blockage))))
                       (pair (str "external_blockers")
                             (blocking-external-blockers->json (ref (:external-blockers
-                                                                     blockage)))))
+                                                                     blockage))))
+                      (pair (str "exclusive_hold")
+                            (exclusive-hold->json (ref (:exclusive blockage)))))
                  (:capacity blockage)))
 
 (defn with-capacity (fields capacity)
@@ -53,3 +57,26 @@
 
 (defn paused? (blockage)
   (= (:pause blockage) roadmap-pause/paused))
+
+(defn exclusive-hold->json (hold)
+  (match hold
+    ((some present) (object (exclusive-fields present)))
+    (none json/null)))
+
+(defn exclusive-fields (hold)
+  (match hold
+    ((exclusive-hold/held-by item) (exclusive-json item (vec)))
+    ((exclusive-hold/waits-on item ids)
+     (exclusive-json item ids))))
+
+(type exclusive-json
+  (fn ((ref exclusive-item)
+       (ref (vec item-id)))
+    (vec (pair string json))))
+
+(defn exclusive-json (item ids)
+  (vec (pair (str "item")
+             (text->json (as-str (:value (:id item)))))
+       (pair (str "roadmap")
+             (text->json (as-str (:roadmap-name item))))
+       (pair (str "waiting_for") (ids->json ids))))

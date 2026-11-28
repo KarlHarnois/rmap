@@ -53,7 +53,7 @@
                             (optional "since" "<event id>")))
        (->route :subcommand subcommand/item-add
                 :words (words "item add")
-                :summary (str "Adds an item to a roadmap. Every item needs a description and at least one acceptance criterion, for example \"WHEN I run item show, rmap SHALL print the acceptance criteria.\" Repeat --criterion for each one, or read one per non-blank line from --criteria-file.")
+                :summary (str "Adds an item to a roadmap. Every item needs a description and at least one acceptance criterion, for example \"WHEN I run item show, rmap SHALL print the acceptance criteria.\" Repeat --criterion for each one, or read one per non-blank line from --criteria-file. An exclusive item runs alone across every roadmap.")
                 :operands (vec)
                 :flags (vec (required "roadmap" "<name>")
                             (required "title" "<text>")
@@ -66,9 +66,9 @@
                             (optional "after" "<ids, comma-separated>")
                             (optional "from" "<id>")
                             (optional "origin" (choices origin-names))
-                            (optional
-                              "priority"
-                              "<0 (highest) to 4 (lowest), default 2>")))
+                            (optional "priority"
+                                      "<0 (highest) to 4 (lowest), default 2>")
+                            (boolean-flag "exclusive")))
        (->route :subcommand subcommand/item-list
                 :words (words "item list")
                 :summary (str "Lists the items.")
@@ -81,14 +81,16 @@
                 :flags (vec))
        (->route :subcommand subcommand/item-edit
                 :words (words "item edit")
-                :summary (str "Changes an item's title, priority, description or acceptance criteria. Give at least one of the flags. --criterion and --criteria-file replace the whole list. A finished item takes only a description or criteria change.")
+                :summary (str "Changes an item's title, priority, description, acceptance criteria or exclusivity. Give at least one of the flags. --criterion and --criteria-file replace the whole list. Give only one of --exclusive or --not-exclusive. A finished item takes only a description or criteria change.")
                 :operands (operands (vec "id"))
                 :flags (vec (optional "title" "<text>")
                             (optional "priority" "<0 (highest) to 4 (lowest)>")
                             (optional "description" "<text>")
                             (optional "description-file" "<path|->")
                             (optional "criterion" "<text>")
-                            (optional "criteria-file" "<path|->")))
+                            (optional "criteria-file" "<path|->")
+                            (boolean-flag "exclusive")
+                            (boolean-flag "not-exclusive")))
        (->route :subcommand subcommand/item-verify
                 :words (words "item verify")
                 :summary (str "Records a reviewer session's verdict on one acceptance criterion: --met or --failed, by a live review session of the item that is not the item's work or fix session and not the roadmap's manager. A build needs --head, the pull request's current head. The latest verdict on each criterion counts, and a verdict on an older head stops counting when the head moves.")

@@ -1,0 +1,96 @@
+(module
+  "Builds the reasons an item cannot start before the exclusive rule, and lists the items that would start.")
+
+(use ledger/model ->blockage blockage claim exclusive-hold
+                  item kind roadmap-status snapshot status)
+
+(use ledger/model/roadmap-pauses roadmap-pause)
+
+(use ledger/core/index delivered-id? indexed-status
+                       ledger-index)
+
+(use ledger/core/snapshot blocked-by)
+(use ledger/core/decision-blocks blocking-decisions)
+(use ledger/core/external-blockers blocking-external-blockers)
+(use ledger/core/max-active capacity-of)
+(use ledger/core/order ordered)
+
+(export base-blockage-of base-ready-items candidate?
+        unblocked? with-exclusive)
+
+(type base-blockage-of
+  (fn ((ref snapshot)
+       (ref ledger-index)
+       (ref item))
+    blockage))
+
+(defn base-blockage-of (snapshot index item)
+  (let (blocking (blocked-by snapshot (ref (:id item))))
+    (->blockage :pause (pause-of snapshot item)
+                :blockers (collect (map (filter (iter blocking)
+                                          (fn (id) (waiting-on? index id)))
+                                        clone))
+                :dropped-blockers (collect (map (filter (iter blocking)
+                                                  (fn (id) (dropped? index id)))
+                                                clone))
+                :decisions (blocking-decisions snapshot item)
+                :capacity (capacity-of snapshot item)
+                :external-blockers (blocking-external-blockers snapshot item)
+                :exclusive none)))
+
+(defn unblocked? (blockage)
+  (and (= (:pause blockage) roadmap-pause/not-paused)
+       (empty? (:blockers blockage))
+       (empty? (:dropped-blockers blockage))
+       (empty? (:decisions blockage))
+       (empty? (:external-blockers blockage))
+       (none? (:capacity blockage))
+       (none? (:exclusive blockage))))
+
+(type with-exclusive
+  (fn ((ref blockage) (option exclusive-hold))
+    blockage))
+
+(defn with-exclusive (blockage hold)
+  (assoc (clone blockage) :exclusive hold))
+
+(type base-ready-items
+  (fn ((ref snapshot) (ref ledger-index))
+    (vec item)))
+
+(defn base-ready-items (snapshot index)
+  (-> (collect (map (filter (iter (:items snapshot))
+                      (fn (item) (base-ready? snapshot index item)))
+                    clone))
+      ordered))
+
+(type candidate? (fn ((ref item)) bool))
+
+(defn candidate? (item)
+  (and (not= (:kind item) kind/epic)
+       (= (:status item) status/open)
+       (= (:claim item) claim/unclaimed)))
+
+(defn base-ready? (snapshot index item)
+  (and (candidate? item)
+       (unblocked? (ref (base-blockage-of snapshot index item)))))
+
+(defn pause-of (snapshot item)
+  (if (paused-roadmap? snapshot item)
+    roadmap-pause/paused roadmap-pause/not-paused))
+
+(type paused-roadmap?
+  (fn ((ref snapshot) (ref item)) bool))
+
+(defn paused-roadmap? (snapshot item)
+  (any? (iter (:roadmaps snapshot))
+    (fn (roadmap)
+      (and (= (ref (:id roadmap))
+              (:roadmap-id item))
+           (= (:status roadmap) roadmap-status/paused)))))
+
+(defn waiting-on? (index id)
+  (not (or (delivered-id? index id) (dropped? index id))))
+
+(defn dropped? (index id)
+  (= (indexed-status index id) (some status/dropped)))

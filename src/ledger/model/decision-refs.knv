@@ -1,0 +1,22 @@
+(module
+  "Holds a decision's id and status, and which item a decision blocks.")
+
+(use ledger/model/items item-id)
+
+(export ->decision-block ->decision-id decision-block
+        decision-id decision-status)
+
+(defstruct decision-block
+  :decision decision-id
+  :item item-id
+  :status decision-status)
+
+(defstruct decision-id
+  :value string)
+
+(defenum decision-status
+  proposed
+  accepted
+  rejected
+  deprecated
+  superseded)
