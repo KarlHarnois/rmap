@@ -52,7 +52,7 @@ Commands:
   item show <id>
     Shows one item with its dependencies.
   item edit <id> [--title <text>] [--priority <0 (highest) to 4 (lowest)>] [--description <text>] [--description-file <path|->] [--criterion <text>] [--criteria-file <path|->] [--exclusive] [--not-exclusive]
-    Changes an item's title, priority, description, acceptance criteria or exclusivity. Give at least one of the flags. --criterion and --criteria-file replace the whole list, Give only one of --exclusive or --not-exclusive. A finished item takes only a description or criteria change.
+    Changes an item's title, priority, description, acceptance criteria or exclusivity. Give at least one of the flags. --criterion and --criteria-file replace the whole list. Give only one of --exclusive or --not-exclusive. A finished item takes only a description or criteria change.
   item verify <id> <position> [--met] [--failed] --reviewer <session> [--head <commit sha>] [--note <text>]
     Records a reviewer session's verdict on one acceptance criterion: --met or --failed, by a live review session of the item that is not the item's work or fix session and not the roadmap's manager. A build needs --head, the pull request's current head. The latest verdict on each criterion counts, and a verdict on an older head stops counting when the head moves.
   item claim <id> --session <name> [--branch <name>] [--base <branch>]
@@ -221,6 +221,7 @@ Refusal codes:
   max-active-out-of-range         A max active must be at least 1.
   item-not-found                  No item has that id.
   item-closed                     A merged, accepted or dropped item is closed.
+  exclusive-not-open              Only an open item can become exclusive. The error names the item's status.
   description-required            An item needs a description.
   criteria-required               An item needs at least one acceptance criterion.
   blank-criterion                 An acceptance criterion cannot be blank.
@@ -231,7 +232,7 @@ Refusal codes:
   epic-status-computed            An epic's status comes from its children, so no command moves it.
   invalid-kind-change             Only an advance to dispatched can turn an item into a build.
   invalid-transition              The transition table has no such move for this item.
-  not-ready                       The item is blocked. The error lists whether the roadmap is paused, its capacity, its blockers, its dropped_blockers, its blocking_decisions and its external_blockers.
+  not-ready                       The item is blocked. The error lists whether the roadmap is paused, its capacity, its blockers, its dropped_blockers, its blocking_decisions, its external_blockers and its exclusive_hold.
   cycle                           The dependency would close a cycle of blocks dependencies.
   dep-exists                      The blocks dependency already exists.
   dep-not-found                   No such blocks dependency exists.

@@ -9,10 +9,15 @@
 
 (use ledger/model/exclusive-items ->exclusive-item
                                   exclusive-hold
-                                  exclusive-item
-                                  exclusivity)
+                                  exclusive-item)
 
-(use ledger/model/ids ->item-id item-id)
+(use ledger/model/items ->item ->item-id ->roadmap-id
+                        ->session ->timestamp ->work-session
+                        claim exclusivity item item-id kind
+                        origin roadmap-id runtime session
+                        session-kind status timestamp
+                        work-session)
+
 (use ledger/model/roadmap-pauses roadmap-pause)
 
 (export ->blockage ->decision-block ->decision-id ->dep
@@ -68,73 +73,6 @@
   active
   paused
   done)
-
-(defstruct item
-  :id item-id
-  :roadmap-id roadmap-id
-  :roadmap-name string
-  :parent (option item-id)
-  :title string
-  :description (option string)
-  :criteria (vec string)
-  :kind kind
-  :status status
-  :origin origin
-  :priority int
-  :exclusive exclusivity
-  :claim claim
-  :created-at timestamp
-  :closed-at (option timestamp))
-
-(defstruct roadmap-id
-  :value string)
-
-(defstruct timestamp
-  :value string)
-
-(defenum kind
-  epic
-  research
-  design
-  build)
-
-(defenum status
-  open
-  dispatched
-  reported
-  in-review
-  fixing
-  merging
-  merged
-  accepted
-  dropped)
-
-(defenum origin
-  planned
-  user-bug
-  follow-up)
-
-(defenum claim
-  unclaimed
-  (claimed-by work-session))
-
-(defstruct work-session
-  :session session
-  :kind session-kind
-  :runtime runtime
-  :branch (option string)
-  :base (option string)
-  :started-at timestamp)
-
-(defenum session-kind
-  work
-  fix
-  review)
-
-(defenum runtime ringleader)
-
-(defstruct session
-  :name string)
 
 (defstruct dep
   :item item-id

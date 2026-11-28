@@ -1,9 +1,7 @@
-(use ledger/model claim kind status)
+(use ledger/model kind status)
 
 (use ledger/model/exclusive-items ->exclusive-item
-                                  exclusive-hold
-                                  exclusive-item
-                                  exclusivity)
+                                  exclusive-hold)
 
 (use ledger/core/exclusivity exclusive-context-of
                              exclusive-hold-for)

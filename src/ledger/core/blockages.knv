@@ -2,12 +2,11 @@
   "Builds the reasons an item cannot start before the exclusive rule, and lists the items that would start.")
 
 (use ledger/model ->blockage blockage claim exclusive-hold
-                  item item-id kind roadmap-status snapshot
-                  status)
+                  item kind roadmap-status snapshot status)
 
 (use ledger/model/roadmap-pauses roadmap-pause)
 
-(use ledger/core/index delivered-id? index-of indexed-status
+(use ledger/core/index delivered-id? indexed-status
                        ledger-index)
 
 (use ledger/core/snapshot blocked-by)
@@ -71,12 +70,6 @@
   (and (not= (:kind item) kind/epic)
        (= (:status item) status/open)
        (= (:claim item) claim/unclaimed)))
-
-(type base-ready?
-  (fn ((ref snapshot)
-       (ref ledger-index)
-       (ref item))
-    bool))
 
 (defn base-ready? (snapshot index item)
   (and (candidate? item)

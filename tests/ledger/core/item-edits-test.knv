@@ -1,4 +1,4 @@
-(use ledger/model kind status)
+(use ledger/model exclusivity kind status)
 (use ledger/refusal refusal)
 (use ledger/core/criteria criteria-input)
 
@@ -21,6 +21,13 @@
   (match (check-edit (ref item) (ref edit))
     ((err refused) (some refused))
     ((ok _) none)))
+
+(defn exclusive-edit (value)
+  (->item-edit :title none
+               :priority none
+               :description description-input/unspecified
+               :criteria criteria-input/unspecified
+               :exclusive value))
 
 (defn description-refusal-of (description)
   (match (check-description-edit (ref description))
@@ -47,6 +54,41 @@
     (fn (status)
       (let (item (work-item "rm-0003" kind/research status))
         (assert (= (refusal-of item (edit none none)) none))))))
+
+(deftest an-in-progress-item-cannot-become-exclusive
+  (for-each (vec status/dispatched status/reported
+                 status/in-review status/fixing
+                 status/merging)
+            (fn (status)
+              (let (item (work-item "rm-0007" kind/build status))
+                (assert (= (refusal-of item
+                                       (exclusive-edit (some exclusivity/exclusive)))
+                           (some (refusal/exclusive-not-open status))))))))
+
+(deftest an-in-progress-item-can-drop-exclusivity
+  (for-each (vec status/dispatched status/reported
+                 status/in-review status/fixing
+                 status/merging)
+            (fn (status)
+              (let (item (assoc (work-item "rm-0008" kind/build status)
+                                :exclusive exclusivity/exclusive))
+                (assert (= (refusal-of item
+                                       (exclusive-edit (some exclusivity/not-exclusive)))
+                           none))))))
+
+(deftest an-open-item-can-become-exclusive
+  (assert (= (refusal-of (work-item "rm-0009" kind/build status/open)
+                         (exclusive-edit (some exclusivity/exclusive)))
+             none)))
+
+(deftest a-finished-item-cannot-change-its-exclusivity
+  (for-each (vec status/merged status/accepted status/dropped)
+    (fn (status)
+      (let (item (work-item "rm-0010" kind/build status))
+        (assert (= (refusal-of item
+                               (exclusive-edit (some
+                                                 exclusivity/not-exclusive)))
+                   (some (refusal/item-closed (clone (:id item))))))))))
 
 (deftest an-open-item-can-be-edited
   (assert (= (refusal-of (work-item "rm-0004" kind/research status/open)

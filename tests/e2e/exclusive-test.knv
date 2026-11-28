@@ -68,19 +68,21 @@
                                     (as-str id))))
                              copy-of))))
 
-(defn first-action-field (entry key)
-  (let (actions (unwrap (json->items (unwrap (field (copy-of entry)
-                                                    "actions")))))
-    (unwrap (field (unwrap (first actions)) key))))
-
 (defn first-action-reasons (entry)
+  (unwrap (field (first-action entry) "reasons")))
+
+(defn first-action (entry)
   (let (actions (unwrap (json->items (unwrap (field (copy-of entry)
                                                     "actions")))))
-    (copy-of (unwrap (field (unwrap (first actions)) "reasons")))))
+    (copy-of (unwrap (first actions)))))
 
 (defn first-ready-id (reply)
   (text-value (unwrap (field (unwrap (first (listed reply "ready")))
                              "id"))))
+
+(defn event-count (database)
+  (len (listed (run-rmap (clone database) (vec "log"))
+               "events")))
 
 (defn hold-field (entry key)
   (unwrap (field (copy-of (hold entry)) key)))
@@ -172,7 +174,8 @@
         refused (claim (clone database) first "s2")
         error (unwrap (field (:json refused) "error"))
         next (run-rmap (clone database) (vec "next"))
-        reasons (first-action-reasons (next-entry (ref next) first))
+        next-item (next-entry (ref next) first)
+        reasons (first-action-reasons next-item)
         text (:stdout (run-rmap-text
                         (vec "--db" (as-str (clone database)) "ready"))))
     (assert (empty? (listed (ref ready) "ready")))
@@ -189,6 +192,12 @@
                                                          "exclusive_hold"))
                                           "item")))
                (as-str exclusive)))
+    (assert (= (text-value (unwrap (field (first-action next-item) "action")))
+               (str "wait")))
+    (assert (= (text-value (unwrap (field (unwrap (field reasons
+                                                         "exclusive_hold"))
+                                          "item")))
+               (as-str exclusive)))
     (assert (contains? (as-str text)
                        (as-str
                          (str "waits for exclusive " exclusive " in road"))))))
@@ -202,6 +211,8 @@
         _claim (claim (clone database) active "s1")
         ready (run-rmap (clone database) (vec "ready"))
         entry (blocked-entry (ref ready) waiting)
+        next (run-rmap (clone database) (vec "next"))
+        active-action (first-action (next-entry (ref next) active))
         text (:stdout (run-rmap-text
                         (vec "--db" (as-str (clone database)) "ready")))
         _report (report-done (clone database) active "s1")
@@ -211,6 +222,8 @@
     (assert (= (len (unwrap (json->items (unwrap (field (copy-of (hold entry))
                                                         "waiting_for")))))
                1))
+    (assert (= (text-value (unwrap (field active-action "action")))
+               (str "work")))
     (assert (contains? (as-str text)
                        (as-str (str "exclusive " waiting
                                     " waits for in-progress "
@@ -238,6 +251,28 @@
     (assert (= (error-code (ref refused))
                (str "not-ready")))
     (assert (= (:exit-code accepted) 0))))
+
+(deftest an-in-progress-item-cannot-become-exclusive
+  (let (database (database-with-roadmap "e2e-exclusive-in-progress")
+        id (added-id (clone database)
+                     (the (vec string) (vec)))
+        _claim (claim (clone database) id "s1")
+        before (event-count (clone database))
+        refused (run-rmap (clone database)
+                          (vec "item" "edit" (as-str id) "--exclusive"))
+        error (unwrap (field (:json refused) "error"))
+        allowed (run-rmap (clone database)
+                          (vec "item" "edit" (as-str id) "--not-exclusive"))
+        after (event-count (clone database)))
+    (assert (= (:exit-code refused) 1))
+    (assert (= (error-code (ref refused))
+               (str "exclusive-not-open")))
+    (assert (= (text-value (unwrap (field error "status")))
+               (str "dispatched")))
+    (assert (= (:exit-code allowed) 0))
+    (assert (= after before))
+    (assert (= (exclusive-field (clone database) id)
+               (some false)))))
 
 (deftest export-lists-the-exclusive-column
   (let (database (database-with-roadmap "e2e-exclusive-export")

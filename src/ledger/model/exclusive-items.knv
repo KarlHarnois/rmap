@@ -1,10 +1,10 @@
 (module
   "Holds whether an item runs alone across the repository, and the exclusive item another item waits for.")
 
-(use ledger/model/ids ->item-id item-id)
+(use ledger/model/items ->item-id exclusivity item-id)
 
 (export ->exclusive-item exclusive-hold exclusive-item
-        exclusivity exclusivity-names)
+        exclusivity-names)
 
 (def exclusivity-names
   (vec (pair exclusivity/not-exclusive "not-exclusive")
@@ -17,7 +17,3 @@
 (defstruct exclusive-item
   :id item-id
   :roadmap-name string)
-
-(defenum exclusivity
-  not-exclusive
-  exclusive)

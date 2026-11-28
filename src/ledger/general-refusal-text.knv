@@ -16,6 +16,7 @@
                            refusal-code/max-active-out-of-range
                            refusal-code/item-not-found
                            refusal-code/item-closed
+                           refusal-code/exclusive-not-open
                            refusal-code/description-required
                            refusal-code/criteria-required
                            refusal-code/blank-criterion
@@ -67,6 +68,8 @@
     (item-not-found (described "item-not-found" "No item has that id."))
     (item-closed (described "item-closed"
                             "A merged, accepted or dropped item is closed."))
+    (exclusive-not-open (described "exclusive-not-open"
+                                   "Only an open item can become exclusive. The error names the item's status."))
     (description-required (described "description-required"
                                      "An item needs a description."))
     (criteria-required (described
@@ -89,7 +92,7 @@
     (invalid-transition (described "invalid-transition"
                                    "The transition table has no such move for this item."))
     (not-ready (described "not-ready"
-                          "The item is blocked. The error lists whether the roadmap is paused, its capacity, its blockers, its dropped_blockers, its blocking_decisions and its external_blockers."))
+                          "The item is blocked. The error lists whether the roadmap is paused, its capacity, its blockers, its dropped_blockers, its blocking_decisions, its external_blockers and its exclusive_hold."))
     (cycle (described
              "cycle"
              "The dependency would close a cycle of blocks dependencies."))

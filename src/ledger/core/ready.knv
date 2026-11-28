@@ -1,8 +1,8 @@
 (module
   "Computes which items can start and what blocks the others.")
 
-(use ledger/model blockage item item-id snapshot)
-(use ledger/core/index index-of ledger-index)
+(use ledger/model blockage item item-id)
+(use ledger/core/index index-of)
 (use ledger/core/snapshot in-scope?)
 
 (use ledger/core/blockages base-blockage-of candidate?
@@ -41,12 +41,6 @@
                                                              item))))))
     (->readiness :ready (ordered (startable-items (ref assessed)))
                  :blocked (waiting-items assessed))))
-
-(type blockage-of
-  (fn ((ref snapshot)
-       (ref ledger-index)
-       (ref item))
-    blockage))
 
 (defn blockage-of (snapshot index item)
   (blockage-under (exclusive-context-of snapshot index)

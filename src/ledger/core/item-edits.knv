@@ -1,34 +1,21 @@
 (module
   "Checks an edit against the ledger and computes the item it changes.")
 
-(use ledger/model exclusivity item)
+(use ledger/model exclusivity item status)
 (use ledger/refusal refusal)
-(use ledger/core/criteria check-criteria criteria-input)
+(use ledger/core/criteria check-criteria)
 
-(use ledger/core/new-items check-description
-                           description-input)
+(use ledger/core/item-changes ->item-edit apply-edit
+                              criteria-edit description-edit
+                              item-edit)
 
+(use ledger/core/new-items check-description)
 (use ledger/core/phases finished?)
 (use ledger/core/priorities check-priority)
 
 (export ->item-edit apply-edit check-criteria-edit
         check-description-edit check-edit criteria-edit
         description-edit item-edit)
-
-(defstruct item-edit
-  :title (option string)
-  :priority (option int)
-  :description description-input
-  :criteria criteria-input
-  :exclusive (option exclusivity))
-
-(defenum description-edit
-  keep
-  (set (option string)))
-
-(defenum criteria-edit
-  keep
-  (set (vec string)))
 
 (type check-edit
   (fn ((ref item) (ref item-edit))
@@ -37,7 +24,7 @@
 (defn check-edit (item edit)
   (if (finished? (:status item))
     (check-finished-edit item edit)
-    (check-priority-of edit)))
+    (check-open-edit item edit)))
 
 (defn check-description-edit (description)
   (match description
@@ -49,17 +36,28 @@
     (criteria-edit/keep (ok (do)))
     ((criteria-edit/set values) (check-criteria values))))
 
-(type apply-edit
-  (fn ((ref item) (ref item-edit) description-edit criteria-edit)
-    item))
+(defn check-open-edit (item edit)
+  (let-try (_ (check-exclusive-open item edit))
+    (check-priority-of edit)))
 
-(defn apply-edit (item edit description criteria)
-  (let (titled (with-title (clone item)
-                           (ref (:title edit)))
-        prioritized (with-priority titled (:priority edit))
-        described (with-description prioritized description)
-        exclusive (with-exclusive described (:exclusive edit)))
-    (with-criteria exclusive criteria)))
+(type check-exclusive-open
+  (fn ((ref item) (ref item-edit))
+    (result unit refusal)))
+
+(defn check-exclusive-open (item edit)
+  (match (:exclusive edit)
+    ((some value) (check-exclusive-status value (:status item)))
+    (none (ok (do)))))
+
+(defn check-exclusive-status (value status)
+  (match value
+    (exclusivity/exclusive (check-status-open status))
+    (exclusivity/not-exclusive (ok (do)))))
+
+(defn check-status-open (status)
+  (if (= status status/open)
+    (ok (do))
+    (err (refusal/exclusive-not-open status))))
 
 (type check-finished-edit
   (fn ((ref item) (ref item-edit))
@@ -86,44 +84,3 @@
   (match (:priority edit)
     ((some priority) (check-priority priority))
     (none (ok (do)))))
-
-(type with-title
-  (fn (item (ref (option string))) item))
-
-(defn with-title (item title)
-  (match title
-    ((some value) (assoc item :title (clone value)))
-    (none item)))
-
-(type with-priority
-  (fn (item (option int)) item))
-
-(defn with-priority (item priority)
-  (match priority
-    ((some value) (assoc item :priority value))
-    (none item)))
-
-(type with-exclusive
-  (fn (item (ref (option exclusivity)))
-    item))
-
-(defn with-exclusive (item exclusive)
-  (match exclusive
-    ((some value) (assoc item :exclusive (clone value)))
-    (none item)))
-
-(type with-description (fn (item description-edit) item))
-
-(defn with-description (item description)
-  (match description
-    (description-edit/keep item)
-    ((description-edit/set value)
-     (assoc item :description (clone value)))))
-
-(type with-criteria (fn (item criteria-edit) item))
-
-(defn with-criteria (item criteria)
-  (match criteria
-    (criteria-edit/keep item)
-    ((criteria-edit/set values)
-     (assoc item :criteria (clone values)))))

@@ -1,7 +1,7 @@
 (module
   "Holds a decision's id and status, and which item a decision blocks.")
 
-(use ledger/model/ids item-id)
+(use ledger/model/items item-id)
 
 (export ->decision-block ->decision-id decision-block
         decision-id decision-status)

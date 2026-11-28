@@ -81,7 +81,7 @@
                 :flags (vec))
        (->route :subcommand subcommand/item-edit
                 :words (words "item edit")
-                :summary (str "Changes an item's title, priority, description, acceptance criteria or exclusivity. Give at least one of the flags. --criterion and --criteria-file replace the whole list, Give only one of --exclusive or --not-exclusive. A finished item takes only a description or criteria change.")
+                :summary (str "Changes an item's title, priority, description, acceptance criteria or exclusivity. Give at least one of the flags. --criterion and --criteria-file replace the whole list. Give only one of --exclusive or --not-exclusive. A finished item takes only a description or criteria change.")
                 :operands (operands (vec "id"))
                 :flags (vec (optional "title" "<text>")
                             (optional "priority" "<0 (highest) to 4 (lowest)>")

@@ -1,7 +1,0 @@
-(module
-  "Holds the identifier of an item.")
-
-(export ->item-id item-id)
-
-(defstruct item-id
-  :value string)

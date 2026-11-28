@@ -8,7 +8,6 @@
                                   exclusive-item)
 
 (use ledger/core/blockages base-ready-items)
-(use ledger/core/index ledger-index)
 (use ledger/core/order ordered)
 (use ledger/core/phases active?)
 
