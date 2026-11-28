@@ -1,5 +1,6 @@
-(use ledger/model ->blockage ->decision-id ->item-id
-                  decision-status item kind status)
+(use ledger/model ->blockage ->decision-id ->exclusive-item
+                  ->item-id decision-status exclusive-hold
+                  item kind status)
 
 (use ledger/model/roadmap-pauses roadmap-pause)
 (use ledger/model/decisions decision)
@@ -62,6 +63,10 @@
               :capacity none
               :external-blockers (vec)
               :exclusive none))
+
+(defn held-by-exclusive (id)
+  (exclusive-hold/held-by (->exclusive-item :id (->item-id (str id))
+                                            :roadmap-name (str "road"))))
 
 (deftest a-reported-design-waits-on-a-proposed-decision-it-raised
   (let (item (reported-design)
@@ -180,6 +185,17 @@
                                                 decision-status/rejected)))
         blockage (assoc (blocked-report)
                         :blockers (vec (->item-id (str "rm-other")))))
+    (assert (not (blocked-only-by-rejected? (ref snapshot) (ref blockage))))))
+
+(deftest an-exclusive-hold-keeps-the-wait
+  (let (item (work-item "rm-0001" kind/build status/open)
+        snapshot (assoc (snapshot-of (vec item) (vec))
+                        :decision-blocks (vec (decision-block-on
+                                                "rm-d1"
+                                                "rm-0001"
+                                                decision-status/rejected)))
+        blockage (assoc (blocked-report)
+                        :exclusive (some (held-by-exclusive "rm-other"))))
     (assert (not (blocked-only-by-rejected? (ref snapshot) (ref blockage))))))
 
 (deftest a-paused-roadmap-keeps-the-wait

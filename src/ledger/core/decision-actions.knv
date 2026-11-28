@@ -42,6 +42,7 @@
        (empty? (:dropped-blockers blockage))
        (empty? (:external-blockers blockage))
        (none? (:capacity blockage))
+       (none? (:exclusive blockage))
        (= (:pause blockage) roadmap-pause/not-paused)
        (every? (iter (:decisions blockage))
          (fn (id) (rejected-in? snapshot id)))))
